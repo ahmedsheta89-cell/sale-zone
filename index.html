@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0A1128">
+    <meta name="msapplication-TileColor" content="#0A1128">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#0A1128">
     <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="icon" href="./icon-192.png">
+    <link rel="stylesheet" href="styles.css">
     <title>Sale Zone Store | التسوق الفاخر الذكي</title>
     
     <!-- Firebase SDK -->
@@ -17,6 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="firebase-api.js"></script>
+    <script src="firebase-data.js"></script>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,7 +38,7 @@
         });
     </script>
     
-    <meta http-equiv="refresh" content="0; url=متجر_2.HTML">
+    <meta http-equiv="refresh" content="5; url=متجر_2.HTML">
     
     <style>
         body {
@@ -85,8 +89,8 @@
         <h1>🛍️ Sale Zone Store</h1>
         <div class="spinner"></div>
         <p>جاري التحويل إلى المتجر...</p>
-        <p style="font-size: 14px; margin-top: 20px;">
-            <a href="متجر_2.HTML" style="color: #D4AF37; text-decoration: none;">
+        <p class="manual-link">
+            <a href="متجر_2.HTML">
                 اضغط هنا إذا لم يتم التحويل تلقائياً
             </a>
         </p>

@@ -107,8 +107,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('push', event => {
     const options = {
         body: event.data ? event.data.text() : 'إشعار جديد من Sale Zone',
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
+        icon: './icon-192.png',
+        badge: './icon-192.png',
         vibrate: [200, 100, 200],
         tag: 'salezone-notification'
     };
@@ -122,6 +122,6 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
     event.notification.close();
     event.waitUntil(
-        clients.openWindow('/متجر_2.HTML')
+        clients.openWindow('./متجر_2.HTML')
     );
 });

@@ -9,7 +9,7 @@ Disallow: /admin/
 Disallow: /private/
 
 # Sitemap
-Sitemap: https://yourdomain.com/sitemap.xml
+Sitemap: https://ahmedsheta89-cell.github.io/sale-zone/sitemap.xml
 
 # Popular bots
 User-agent: Googlebot
