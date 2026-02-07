@@ -465,11 +465,11 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ Enhanced utilities loaded successfully');
 });
 
-// Export for use in other modules
-export {
-    EnhancedUI,
-    EnhancedData,
-    EnhancedSearch,
-    EnhancedMobile,
-    EnhancedPerformance
-};
+// Make utilities available globally
+window.EnhancedUI = EnhancedUI;
+window.EnhancedData = EnhancedData;
+window.EnhancedSearch = EnhancedSearch;
+window.EnhancedMobile = EnhancedMobile;
+window.EnhancedPerformance = EnhancedPerformance;
+
+console.log('✅ Enhanced utilities loaded successfully');

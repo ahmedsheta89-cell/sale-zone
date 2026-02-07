@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ Smart features initialized successfully');
 });
 
-// Export for use in other modules
+// Make smart features available globally
 window.smartFeatures = {
     SmartRecommendations,
     SmartCart,
@@ -502,9 +502,4 @@ window.smartFeatures = {
     smartNotifications
 };
 
-export {
-    SmartRecommendations,
-    SmartCart,
-    SmartSearch,
-    SmartNotifications
-};
+console.log('✅ Smart features initialized successfully');

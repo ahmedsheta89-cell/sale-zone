@@ -45,7 +45,7 @@ const ENV_VARS = {
 };
 
 // Firebase Configuration (Secure)
-export const firebaseConfig = {
+const firebaseConfig = {
     apiKey: ENV_VARS.FIREBASE_API_KEY,
     authDomain: ENV_VARS.FIREBASE_AUTH_DOMAIN,
     projectId: ENV_VARS.FIREBASE_PROJECT_ID,
@@ -56,7 +56,7 @@ export const firebaseConfig = {
 };
 
 // Cloudinary Configuration (Secure)
-export const cloudinaryConfig = {
+const cloudinaryConfig = {
     cloudName: ENV_VARS.CLOUDINARY_CLOUD_NAME,
     apiKey: ENV_VARS.CLOUDINARY_API_KEY,
     uploadPreset: ENV_VARS.CLOUDINARY_UPLOAD_PRESET,
@@ -64,12 +64,12 @@ export const cloudinaryConfig = {
 };
 
 // Google Analytics Configuration
-export const gaConfig = {
+const gaConfig = {
     measurementId: ENV_VARS.GA_MEASUREMENT_ID
 };
 
 // Admin Security (Enhanced)
-export const adminConfig = {
+const adminConfig = {
     passwordHash: ENV_VARS.ADMIN_PASSWORD_HASH,
     sessionTimeout: 30 * 60 * 1000, // 30 minutes
     sessionSecret: ENV_VARS.SESSION_SECRET,
@@ -79,7 +79,7 @@ export const adminConfig = {
 };
 
 // Security Settings
-export const securityConfig = {
+const securityConfig = {
     enableRateLimit: true,
     maxRequestsPerMinute: 100,
     enableCSRFProtection: true,
@@ -94,6 +94,13 @@ if (ENV_VARS.NODE_ENV === 'production' &&
     console.error('🚨 SECURITY WARNING: Using default credentials in production!');
     console.error('Please set proper environment variables before deploying to production!');
 }
+
+// Make configurations available globally
+window.firebaseConfig = firebaseConfig;
+window.cloudinaryConfig = cloudinaryConfig;
+window.gaConfig = gaConfig;
+window.adminConfig = adminConfig;
+window.securityConfig = securityConfig;
 
 console.log('✅ Configuration loaded securely');
 console.log(`🔧 Environment: ${ENV_VARS.NODE_ENV}`);

@@ -188,12 +188,10 @@ class RateLimiter {
 const sessionManager = new SessionManager();
 const rateLimiter = new RateLimiter();
 
-// Export utilities
-export {
-    simpleHash,
-    validatePasswordStrength,
-    SessionManager,
-    RateLimiter,
-    sessionManager,
-    rateLimiter
-};
+// Make utilities available globally
+window.simpleHash = simpleHash;
+window.validatePasswordStrength = validatePasswordStrength;
+window.SessionManager = SessionManager;
+window.RateLimiter = RateLimiter;
+window.sessionManager = sessionManager;
+window.rateLimiter = rateLimiter;
