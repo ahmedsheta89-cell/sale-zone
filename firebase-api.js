@@ -1,428 +1,201 @@
-// ====================================================
-// Firebase API Functions
-// ====================================================
+// firebase-api.js - Firebase Firestore API
+// ==========================================
+// Note: db is already declared in firebase-config.js
 
-// ============================================
-// 📦 Products API
-// ============================================
-
-// جلب جميع المنتجات
+// ==========================================
+// PRODUCTS
+// ==========================================
 async function getAllProducts() {
     try {
-        const snapshot = await productsRef.orderBy('createdAt', 'desc').get();
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: timestampToDate(doc.data().createdAt)
-        }));
-    } catch (error) {
-        console.error('Error getting products:', error);
+        const snapshot = await db.collection('products').get();
+        const products = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                id: doc.id, 
+                name: data.name || '',
+                desc: data.desc || '',
+                category: data.category || '',
+                price: data.price || 0,
+                oldPrice: data.oldPrice || null,
+                image: data.image || '',
+                rating: data.rating || 4.5,
+                ratingCount: data.ratingCount || 0
+            };
+        });
+        return products;
+    } catch (e) {
+        console.error('getAllProducts error:', e);
         return [];
     }
 }
 
-// إضافة منتج جديد
 async function addProduct(product) {
     try {
-        const docRef = await productsRef.add({
-            ...product,
-            createdAt: dateToTimestamp(),
-            updatedAt: dateToTimestamp()
-        });
-        return { id: docRef.id, ...product };
-    } catch (error) {
-        console.error('Error adding product:', error);
-        throw error;
+        const docRef = await db.collection('products').add(product);
+        console.log('✅ Product added to Firebase:', docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('addProduct error:', e);
+        throw e;
     }
 }
 
-// تحديث منتج
-async function updateProduct(id, updates) {
+async function updateProduct(id, data) {
     try {
-        await productsRef.doc(id).update({
-            ...updates,
-            updatedAt: dateToTimestamp()
-        });
-        return true;
-    } catch (error) {
-        console.error('Error updating product:', error);
-        throw error;
+        await db.collection('products').doc(id).set(data, { merge: true });
+        console.log('✅ Product updated in Firebase:', id);
+    } catch (e) {
+        console.error('updateProduct error:', e);
+        throw e;
     }
 }
 
-// حذف منتج
-async function deleteProduct(id) {
+async function deleteProductFromFirebase(id) {
     try {
-        await productsRef.doc(id).delete();
-        return true;
-    } catch (error) {
-        console.error('Error deleting product:', error);
-        throw error;
+        await db.collection('products').doc(id).delete();
+        console.log('✅ Product deleted from Firebase:', id);
+    } catch (e) {
+        console.error('deleteProduct error:', e);
+        throw e;
     }
 }
 
-// البحث في المنتجات
-async function searchProducts(searchTerm) {
-    try {
-        const snapshot = await productsRef.get();
-        const products = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        
-        const term = searchTerm.toLowerCase();
-        return products.filter(p => 
-            p.name?.toLowerCase().includes(term) ||
-            p.description?.toLowerCase().includes(term)
-        );
-    } catch (error) {
-        console.error('Error searching products:', error);
-        return [];
-    }
-}
-
-// ============================================
-// 🛍️ Orders API
-// ============================================
-
-// جلب جميع الطلبات
+// ==========================================
+// ORDERS
+// ==========================================
 async function getAllOrders() {
     try {
-        const snapshot = await ordersRef.orderBy('createdAt', 'desc').get();
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: timestampToDate(doc.data().createdAt)
-        }));
-    } catch (error) {
-        console.error('Error getting orders:', error);
+        const snapshot = await db.collection('orders').get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.error('getAllOrders error:', e);
         return [];
     }
 }
 
-// إضافة طلب جديد
 async function addOrder(order) {
     try {
-        const docRef = await ordersRef.add({
-            ...order,
-            createdAt: dateToTimestamp(),
-            updatedAt: dateToTimestamp()
-        });
-        return { id: docRef.id, ...order };
-    } catch (error) {
-        console.error('Error adding order:', error);
-        throw error;
+        const docRef = await db.collection('orders').add(order);
+        console.log('✅ Order added to Firebase:', docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('addOrder error:', e);
+        throw e;
     }
 }
 
-// تحديث حالة الطلب
-async function updateOrderStatus(orderId, status, note = '') {
+async function updateOrderStatus(id, status) {
     try {
-        const orderDoc = await ordersRef.doc(orderId).get();
-        const order = orderDoc.data();
-        
-        const statusHistory = order.statusHistory || [];
-        statusHistory.push({
-            status,
-            date: new Date().toISOString(),
-            note
-        });
-        
-        await ordersRef.doc(orderId).update({
-            status,
-            statusHistory,
-            updatedAt: dateToTimestamp()
-        });
-        return true;
-    } catch (error) {
-        console.error('Error updating order status:', error);
-        throw error;
+        await db.collection('orders').doc(id).update({ status: status });
+        console.log('✅ Order status updated:', id);
+    } catch (e) {
+        console.error('updateOrderStatus error:', e);
+        throw e;
     }
 }
 
-// حذف طلب
-async function deleteOrder(id) {
-    try {
-        await ordersRef.doc(id).delete();
-        return true;
-    } catch (error) {
-        console.error('Error deleting order:', error);
-        throw error;
-    }
-}
-
-// جلب طلبات مستخدم محدد
-async function getUserOrders(userId) {
-    try {
-        const snapshot = await ordersRef
-            .where('userId', '==', userId)
-            .orderBy('createdAt', 'desc')
-            .get();
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: timestampToDate(doc.data().createdAt)
-        }));
-    } catch (error) {
-        console.error('Error getting user orders:', error);
-        return [];
-    }
-}
-
-// ============================================
-// 👥 Users API
-// ============================================
-
-// جلب جميع المستخدمين
+// ==========================================
+// USERS
+// ==========================================
 async function getAllUsers() {
     try {
-        const snapshot = await usersRef.orderBy('createdAt', 'desc').get();
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: timestampToDate(doc.data().createdAt)
-        }));
-    } catch (error) {
-        console.error('Error getting users:', error);
+        const snapshot = await db.collection('users').get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.error('getAllUsers error:', e);
         return [];
     }
 }
 
-// إضافة/تحديث مستخدم
-async function saveUser(user) {
-    try {
-        const userId = user.id || generateId();
-        await usersRef.doc(userId).set({
-            ...user,
-            updatedAt: dateToTimestamp(),
-            createdAt: user.createdAt || dateToTimestamp()
-        }, { merge: true });
-        return { id: userId, ...user };
-    } catch (error) {
-        console.error('Error saving user:', error);
-        throw error;
-    }
-}
-
-// جلب مستخدم بالـ ID
-async function getUserById(userId) {
-    try {
-        const doc = await usersRef.doc(userId).get();
-        if (doc.exists) {
-            return { id: doc.id, ...doc.data() };
-        }
-        return null;
-    } catch (error) {
-        console.error('Error getting user:', error);
-        return null;
-    }
-}
-
-// تحديث نقاط الولاء
-async function updateUserLoyaltyPoints(userId, points) {
-    try {
-        await usersRef.doc(userId).update({
-            loyaltyPoints: points,
-            updatedAt: dateToTimestamp()
-        });
-        return true;
-    } catch (error) {
-        console.error('Error updating loyalty points:', error);
-        throw error;
-    }
-}
-
-// ============================================
-// 🎫 Coupons API
-// ============================================
-
-// جلب جميع الكوبونات
+// ==========================================
+// COUPONS
+// ==========================================
 async function getAllCoupons() {
     try {
-        const snapshot = await couponsRef.get();
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-    } catch (error) {
-        console.error('Error getting coupons:', error);
+        const snapshot = await db.collection('coupons').get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.error('getAllCoupons error:', e);
         return [];
     }
 }
 
-// إضافة كوبون
 async function addCoupon(coupon) {
     try {
-        const docRef = await couponsRef.add({
-            ...coupon,
-            createdAt: dateToTimestamp()
-        });
-        return { id: docRef.id, ...coupon };
-    } catch (error) {
-        console.error('Error adding coupon:', error);
-        throw error;
+        const docRef = await db.collection('coupons').add(coupon);
+        console.log('✅ Coupon added to Firebase:', docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('addCoupon error:', e);
+        throw e;
     }
 }
 
-// تحديث كوبون
-async function updateCoupon(id, updates) {
+async function deleteCouponFromFirebase(id) {
     try {
-        await couponsRef.doc(id).update(updates);
-        return true;
-    } catch (error) {
-        console.error('Error updating coupon:', error);
-        throw error;
+        await db.collection('coupons').doc(id).delete();
+        console.log('✅ Coupon deleted from Firebase:', id);
+    } catch (e) {
+        console.error('deleteCoupon error:', e);
+        throw e;
     }
 }
 
-// حذف كوبون
-async function deleteCoupon(id) {
+// ==========================================
+// BANNERS
+// ==========================================
+async function getAllBanners() {
     try {
-        await couponsRef.doc(id).delete();
-        return true;
-    } catch (error) {
-        console.error('Error deleting coupon:', error);
-        throw error;
+        const snapshot = await db.collection('banners').get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.error('getAllBanners error:', e);
+        return [];
     }
 }
 
-// التحقق من كوبون
-async function validateCoupon(code) {
+async function addBanner(banner) {
     try {
-        const snapshot = await couponsRef.where('code', '==', code).get();
-        if (snapshot.empty) return null;
-        
-        const coupon = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-        
-        // التحقق من الصلاحية
-        if (!coupon.active) return null;
-        if (coupon.expiresAt && timestampToDate(coupon.expiresAt) < new Date()) return null;
-        if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) return null;
-        
-        return coupon;
-    } catch (error) {
-        console.error('Error validating coupon:', error);
+        const docRef = await db.collection('banners').add(banner);
+        console.log('✅ Banner added to Firebase:', docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('addBanner error:', e);
+        throw e;
+    }
+}
+
+async function deleteBannerFromFirebase(id) {
+    try {
+        await db.collection('banners').doc(id).delete();
+        console.log('✅ Banner deleted from Firebase:', id);
+    } catch (e) {
+        console.error('deleteBanner error:', e);
+        throw e;
+    }
+}
+
+// ==========================================
+// SETTINGS
+// ==========================================
+async function getSettings() {
+    try {
+        const doc = await db.collection('settings').doc('store').get();
+        return doc.exists ? doc.data() : null;
+    } catch (e) {
+        console.error('getSettings error:', e);
         return null;
     }
 }
 
-// ============================================
-// 🎠 Banners API
-// ============================================
-
-// جلب جميع البانرات
-async function getAllBanners() {
-    try {
-        const snapshot = await bannersRef.orderBy('order', 'asc').get();
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-    } catch (error) {
-        console.error('Error getting banners:', error);
-        return [];
-    }
-}
-
-// إضافة بانر
-async function addBanner(banner) {
-    try {
-        const docRef = await bannersRef.add({
-            ...banner,
-            createdAt: dateToTimestamp()
-        });
-        return { id: docRef.id, ...banner };
-    } catch (error) {
-        console.error('Error adding banner:', error);
-        throw error;
-    }
-}
-
-// تحديث بانر
-async function updateBanner(id, updates) {
-    try {
-        await bannersRef.doc(id).update(updates);
-        return true;
-    } catch (error) {
-        console.error('Error updating banner:', error);
-        throw error;
-    }
-}
-
-// حذف بانر
-async function deleteBanner(id) {
-    try {
-        await bannersRef.doc(id).delete();
-        return true;
-    } catch (error) {
-        console.error('Error deleting banner:', error);
-        throw error;
-    }
-}
-
-// ============================================
-// ⚙️ Settings API
-// ============================================
-
-// جلب الإعدادات
-async function getSettings() {
-    try {
-        const doc = await settingsRef.doc('store').get();
-        if (doc.exists) {
-            return doc.data();
-        }
-        return {};
-    } catch (error) {
-        console.error('Error getting settings:', error);
-        return {};
-    }
-}
-
-// حفظ الإعدادات
 async function saveSettings(settings) {
     try {
-        await settingsRef.doc('store').set(settings, { merge: true });
-        return true;
-    } catch (error) {
-        console.error('Error saving settings:', error);
-        throw error;
+        await db.collection('settings').doc('store').set(settings, { merge: true });
+        console.log('✅ Settings saved to Firebase');
+    } catch (e) {
+        console.error('saveSettings error:', e);
+        throw e;
     }
 }
 
-// ============================================
-// 🔄 Real-time Listeners (المستمعين المباشرين)
-// ============================================
-
-// الاستماع للتغييرات في المنتجات
-function listenToProducts(callback) {
-    return productsRef.onSnapshot(snapshot => {
-        const products = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        callback(products);
-    });
-}
-
-// الاستماع للتغييرات في الطلبات
-function listenToOrders(callback) {
-    return ordersRef.orderBy('createdAt', 'desc').onSnapshot(snapshot => {
-        const orders = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: timestampToDate(doc.data().createdAt)
-        }));
-        callback(orders);
-    });
-}
-
-// الاستماع لطلب محدد
-function listenToOrder(orderId, callback) {
-    return ordersRef.doc(orderId).onSnapshot(doc => {
-        if (doc.exists) {
-            callback({ id: doc.id, ...doc.data() });
-        }
-    });
-}
-
-console.log('✅ Firebase API functions loaded');
+console.log('✅ Firebase API loaded');

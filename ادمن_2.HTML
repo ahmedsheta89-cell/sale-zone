@@ -7,6 +7,7 @@
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="firebase-api.js"></script>
@@ -413,7 +414,12 @@
             transition: var(--transition);
         }
         .close-modal:hover { background: #ddd; transform: rotate(90deg); }
-        .modal-body { padding: 18px; }
+        .modal-body{
+          padding: 18px;
+          max-height: 80vh;      /* أقصى ارتفاع 80% من الشاشة */
+          overflow-y: auto;      /* فعل التمرير داخل المودال */
+          padding-bottom: 30px;  /* مساحة تحت للزر */
+}
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px; font-size: 13px; }
         .form-group input, .form-group select, .form-group textarea {
@@ -1144,53 +1150,84 @@
 
     <!-- Modals -->
     <!-- Product Modal -->
-    <div class="modal-overlay" id="productModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 id="productModalTitle">➕ منتج جديد</h2>
-                <button class="close-modal" onclick="closeModal('productModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <form onsubmit="saveProduct(event)">
-                    <input type="hidden" id="productId">
-                    <div class="form-group">
-                        <label>اسم المنتج *</label>
-                        <input type="text" id="productName" required>
-                    </div>
-                    <div class="form-group">
-                        <label>الوصف *</label>
-                        <textarea id="productDesc" required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>القسم *</label>
-                        <select id="productCategory" required>
-                            <option value="">اختر</option>
-                            <option value="hair-care">💇‍♀️ شعر</option>
-                            <option value="skin-care">🧴 بشرة</option>
-                            <option value="baby-care">👶 طفل</option>
-                            <option value="supplements">💊 مكملات</option>
-                            <option value="medical">🏥 طبي</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>السعر *</label>
-                            <input type="number" id="productPrice" required min="0">
-                        </div>
-                        <div class="form-group">
-                            <label>السعر القديم</label>
-                            <input type="number" id="productOldPrice" min="0">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>رابط الصورة *</label>
-                        <input type="url" id="productImage" required>
-                    </div>
-                    <button type="submit" class="submit-btn">💾 حفظ</button>
-                </form>
-            </div>
-        </div>
+<div class="modal-overlay" id="productModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="productModalTitle">➕ منتج جديد</h2>
+      <button class="close-modal" onclick="closeModal('productModal')">✕</button>
     </div>
+
+    <div class="modal-body">
+      <form onsubmit="saveProduct(event)">
+        <input type="hidden" id="productId">
+
+        <div class="form-group">
+          <label>اسم المنتج *</label>
+          <input type="text" id="productName" required>
+        </div>
+
+        <div class="form-group">
+          <label>الوصف *</label>
+          <textarea id="productDesc" required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>القسم *</label>
+          <select id="productCategory" required>
+            <option value="">اختر</option>
+            <option value="hair-care">💇‍♀️ شعر</option>
+            <option value="skin-care">🧴 بشرة</option>
+            <option value="baby-care">👶 طفل</option>
+            <option value="supplements">💊 مكملات</option>
+            <option value="medical">🏥 طبي</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>السعر *</label>
+            <input type="number" id="productPrice" required min="0">
+          </div>
+          <div class="form-group">
+            <label>السعر القديم</label>
+            <input type="number" id="productOldPrice" min="0">
+          </div>
+        </div>
+
+        <!-- ============ صورة المنتج (رفع أو رابط) ============ -->
+        <div class="form-group">
+          <label>🖼️ صورة المنتج</label>
+
+          <!-- رفع من الجهاز -->
+          <input type="file" id="imgFile" accept="image/*" style="display:none" onchange="uploadAndPreview(this)">
+          <button type="button"
+                  onclick="document.getElementById('imgFile').click()"
+                  style="background:#D4AF37;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;">
+            📁 رفع من الجهاز
+          </button>
+
+          <div id="imgPreview" style="margin-top:10px;"></div>
+
+          <!-- أو رابط -->
+          <div style="margin:10px 0;color:#999;text-align:center;">— أو أدخل رابط —</div>
+          <input type="url" id="manualImg" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;direction:ltr;">
+
+          <!-- رابط نهائي (يتم تعبئته تلقائياً بعد الرفع) -->
+          <input type="hidden" id="finalImg" required>
+        </div>
+        <!-- =================================================== -->
+
+        <!-- زر حفظ المنتج (اللي كان ناقص) -->
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #eee; text-align: center;">
+          <button type="submit" class="submit-btn" style="min-width: 220px; font-size: 16px; font-weight: bold;">
+            💾 حفظ المنتج
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
 
     <!-- Banner Modal -->
     <div class="modal-overlay" id="bannerModal">
@@ -1344,9 +1381,8 @@
         // ============================================
         // Initialize
         // ============================================
-        document.addEventListener('DOMContentLoaded', function() {
-            loadAllData();
-            checkAdminSession();
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAdminSession();
         });
 
         // ============================================
@@ -1369,7 +1405,9 @@
                     if (settings) storeSettings = { ...storeSettings, ...settings };
                     
                     console.log('✅ Admin data loaded from Firebase');
-                    console.log('Products:', products.length, 'Orders:', orders.length);
+                    console.log('📦 Products:', products.length);
+                    console.log('📦 Product IDs:', products.map(p => p.id));
+                    console.log('🛍️ Orders:', orders.length);
                 } else {
                     throw new Error('Firebase not available');
                 }
@@ -1388,6 +1426,8 @@
             
             const saved = localStorage.getItem('storeSettings');
             if (saved) storeSettings = { ...storeSettings, ...JSON.parse(saved) };
+            
+            // Data loaded, rendering will be done by initDashboard()
         }
 
         function saveProducts() { localStorage.setItem('products', JSON.stringify(products)); }
@@ -1401,31 +1441,60 @@
         // ============================================
         // Auth
         // ============================================
-        function handleLogin(e) {
-            e.preventDefault();
-            if (document.getElementById('adminPassword').value === adminPassword) {
-                sessionStorage.setItem('adminLoggedIn', 'true');
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('dashboard').classList.add('active');
-                initDashboard();
-            } else {
-                document.getElementById('loginError').style.display = 'block';
-                setTimeout(() => document.getElementById('loginError').style.display = 'none', 3000);
-            }
-        }
+           const ADMIN_UID = "sI5NuzbQVIZOtggdoEMUzNRINl73";
+         const ADMIN_EMAIL = "ahmed.sheta89@gmail.com";
+        
+        async function handleLogin(e){
+  e.preventDefault();
+  const pass = document.getElementById('adminPassword').value;
 
-        function checkAdminSession() {
-            if (sessionStorage.getItem('adminLoggedIn') === 'true') {
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('dashboard').classList.add('active');
-                initDashboard();
-            }
-        }
+  try{
+    await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+const cred = await firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL, pass);
 
-        function adminLogout() {
-            sessionStorage.removeItem('adminLoggedIn');
-            location.reload();
-        }
+    if(cred.user.uid !== ADMIN_UID){
+      await firebase.auth().signOut();
+      document.getElementById('loginError').style.display = 'block';
+      document.getElementById('loginError').textContent = 'هذا الحساب ليس أدمن';
+      return;
+    }
+
+    sessionStorage.setItem('adminLoggedIn','true');
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('dashboard').classList.add('active');
+
+    await loadAllData();
+    initDashboard();
+
+  }catch(err){
+    document.getElementById('loginError').style.display='block';
+    document.getElementById('loginError').textContent='كلمة المرور غير صحيحة';
+  }
+}
+
+       function checkAdminSession() {
+  firebase.auth().onAuthStateChanged(async (user) => {
+    // لازم يكون داخل Firebase + هو نفس UID الأدمن
+    if (user && user.uid === ADMIN_UID) {
+      sessionStorage.setItem('adminLoggedIn', 'true');
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('dashboard').classList.add('active');
+
+      await loadAllData();
+      initDashboard();
+    } else {
+      // لو مش مسجل دخول فعلي
+      sessionStorage.removeItem('adminLoggedIn');
+      document.getElementById('dashboard').classList.remove('active');
+      document.getElementById('loginScreen').style.display = 'flex';
+    }
+  });
+}
+
+        function adminLogout(){
+  sessionStorage.removeItem('adminLoggedIn');
+  firebase.auth().signOut().then(()=>location.reload());
+}
 
         // ============================================
         // Dashboard
@@ -1472,7 +1541,7 @@
                     <td>${getCategoryName(p.category)}</td>
                     <td><strong>${p.price} ج.م</strong></td>
                     <td>⭐ ${(p.rating || 0).toFixed(1)}</td>
-                    <td><div class="action-btns"><button class="action-btn edit" onclick="editProduct(${p.id})">✏️</button><button class="action-btn delete" onclick="deleteProduct(${p.id})">🗑️</button></div></td>
+                    <td><div class="action-btns"><button class="action-btn edit" onclick="editProduct('${p.id}')">✏️</button><button class="action-btn delete" onclick="deleteProduct('${p.id}')">🗑️</button></div></td>
                 </tr>
             `).join('');
         }
@@ -1482,27 +1551,57 @@
             return names[cat] || cat;
         }
 
-        function saveProduct(e) {
+        async function saveProduct(e) {
             e.preventDefault();
-            const id = document.getElementById('productId').value;
-            const data = {
-                name: document.getElementById('productName').value.trim(),
-                desc: document.getElementById('productDesc').value.trim(),
-                category: document.getElementById('productCategory').value,
-                price: parseFloat(document.getElementById('productPrice').value),
-                oldPrice: parseFloat(document.getElementById('productOldPrice').value) || null,
-                image: document.getElementById('productImage').value.trim(),
-                rating: 4.5,
-                ratingCount: 0
-            };
-            if (id) {
-                const idx = products.findIndex(p => p.id === parseInt(id));
-                if (idx !== -1) products[idx] = { ...products[idx], ...data };
-                showNotification('success', 'تم التحديث');
-            } else {
-                data.id = Date.now();
-                products.push(data);
-                showNotification('success', 'تمت الإضافة');
+            const id = document.getElementById('productId').value.trim();
+            const imageUrl = document.getElementById('finalImg').value || document.getElementById('manualImg').value;
+            if (!imageUrl) {
+        showNotification('error', '❌ الصورة مطلوبة', 'يرجى رفع صورة أو إدخال رابط');
+        return;
+    }
+    
+    const data = {
+        name: document.getElementById('productName').value.trim(),
+        desc: document.getElementById('productDesc').value.trim(),
+        category: document.getElementById('productCategory').value,
+        price: parseFloat(document.getElementById('productPrice').value),
+        oldPrice: parseFloat(document.getElementById('productOldPrice').value) || null,
+        image: imageUrl, // ← هنا استخدمنا المتغير الجديد
+        rating: 4.5,
+        ratingCount: 0
+    };
+            try {
+                if (id) {
+                    // تحديث منتج موجود
+                    const idx = products.findIndex(p => String(p.id) === String(id));
+                    if (idx !== -1) {
+                        products[idx] = { ...products[idx], ...data };
+                        if (typeof updateProduct === 'function') {
+                            await updateProduct(id, { ...products[idx] });
+                        }
+                    }
+                    showNotification('success', 'تم التحديث ✅');
+                } else {
+                    // إضافة منتج جديد
+                    if (typeof addProduct === 'function') {
+                        const firebaseId = await addProduct(data);
+                        data.id = firebaseId;
+                    } else {
+                        data.id = Date.now().toString();
+                    }
+                    products.push(data);
+                    showNotification('success', 'تمت الإضافة ✅');
+                }
+            } catch (error) {
+                console.error('Firebase save error:', error);
+                if (!id) data.id = Date.now().toString();
+                if (id) {
+                    const idx = products.findIndex(p => String(p.id) === String(id));
+                    if (idx !== -1) products[idx] = { ...products[idx], ...data };
+                } else {
+                    products.push(data);
+                }
+                showNotification('success', 'تمت الإضافة (محلياً) ✅');
             }
             saveProducts();
             renderProductsTable();
@@ -1512,38 +1611,94 @@
         }
 
         function editProduct(id) {
-            const p = products.find(x => x.id === id);
-            if (!p) return;
-            document.getElementById('productId').value = p.id;
-            document.getElementById('productName').value = p.name;
-            document.getElementById('productDesc').value = p.desc;
-            document.getElementById('productCategory').value = p.category;
-            document.getElementById('productPrice').value = p.price;
-            document.getElementById('productOldPrice').value = p.oldPrice || '';
-            document.getElementById('productImage').value = p.image;
-            document.getElementById('productModalTitle').textContent = '✏️ تعديل';
-            openModal('productModal');
-        }
+  const p = products.find(x => String(x.id) === String(id));
+  if (!p) return;
 
-        function deleteProduct(id) {
+  document.getElementById('productId').value = p.id || '';
+  document.getElementById('productName').value = p.name || '';
+  document.getElementById('productDesc').value = p.desc || '';
+  document.getElementById('productCategory').value = p.category || '';
+  document.getElementById('productPrice').value = p.price ?? '';
+  document.getElementById('productOldPrice').value = p.oldPrice ?? '';
+
+  // ✅ الصورة
+  const img = p.image || '';
+  document.getElementById('finalImg').value = img;
+  document.getElementById('manualImg').value = img;
+
+  // ✅ معاينة الصورة (اختياري)
+  const preview = document.getElementById('imgPreview');
+  if (preview) {
+    preview.innerHTML = img
+      ? `<img src="${img}" style="max-width:150px;border-radius:8px;border:2px solid #D4AF37;margin-top:10px;" onerror="this.style.display='none'">`
+      : '';
+  }
+
+  // (اختياري) تصفير اختيار الملف عشان لو هيرفع صورة جديدة
+  const fileInput = document.getElementById('imgFile');
+  if (fileInput) fileInput.value = '';
+
+  document.getElementById('productModalTitle').textContent = '✏️ تعديل';
+  openModal('productModal');
+}
+
+        async function deleteProduct(id) {
             if (!confirm('حذف المنتج؟')) return;
-            products = products.filter(p => p.id !== id);
+            try {
+                if (typeof deleteProductFromFirebase === 'function') {
+                    await deleteProductFromFirebase(id);
+                }
+            } catch (error) {
+                console.error('Firebase delete error:', error);
+            }
+            products = products.filter(p => p.id != id && String(p.id) != String(id));
             saveProducts();
             renderProductsTable();
             updateStats();
-            showNotification('success', 'تم الحذف');
+            showNotification('success', 'تم الحذف ✅');
         }
 
         function resetProductForm() {
-            document.getElementById('productId').value = '';
-            document.getElementById('productName').value = '';
-            document.getElementById('productDesc').value = '';
-            document.getElementById('productCategory').value = '';
-            document.getElementById('productPrice').value = '';
-            document.getElementById('productOldPrice').value = '';
-            document.getElementById('productImage').value = '';
-            document.getElementById('productModalTitle').textContent = '➕ منتج جديد';
-        }
+  // IDs الجديدة + الأساسية
+  const idsToClear = [
+    'productId',
+    'productName',
+    'productDesc',
+    'productCategory',
+    'productPrice',
+    'productOldPrice',
+
+    // نظام الصورة الجديد
+    'manualImg',
+    'finalImg',
+    'imgFile'
+  ];
+
+  idsToClear.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return; // ✅ لو العنصر مش موجود ما نعملش خطأ
+
+    if (el.type === 'file') el.value = '';
+    else el.value = '';
+  });
+
+  // مسح المعاينة
+  const preview = document.getElementById('imgPreview');
+  if (preview) preview.innerHTML = '';
+
+  // (توافق مع IDs قديمة لو موجودة عندك في أي جزء)
+  const legacy = ['productImage', 'productImageUrl', 'imagePreviewContainer', 'uploadStatus'];
+  legacy.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'DIV') el.innerHTML = '';
+    else el.value = '';
+  });
+
+  // عنوان المودال يرجع افتراضي
+  const title = document.getElementById('productModalTitle');
+  if (title) title.textContent = '➕ منتج جديد';
+}
 
         // ============================================
         // Orders
@@ -1565,7 +1720,7 @@
                     <td>
                         <div class="action-btns">
                             <button class="action-btn view" onclick="viewOrder(${o.id})">👁️</button>
-                            <button class="action-btn delete" onclick="deleteOrder(${o.id})">🗑️</button>
+                            <button class="action-btn delete" onclick="deleteOrder('${o.id}')">🗑️</button>
                         </div>
                     </td>
                 </tr>
@@ -1601,7 +1756,7 @@
         }
 
         function viewOrder(id) {
-            const o = orders.find(x => x.id === id);
+            const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
 
             let itemsHtml = o.items?.map(i => `
@@ -1659,7 +1814,7 @@
         }
 
         function updateOrderStatus(id, status) {
-            const o = orders.find(x => x.id === id);
+            const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
             o.status = status;
             if (!o.statusHistory) o.statusHistory = [];
@@ -1672,7 +1827,7 @@
         }
 
         function sendWhatsAppUpdate(id) {
-            const o = orders.find(x => x.id === id);
+            const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
             const phone = o.customer?.phone || '';
             const msg = `مرحباً ${o.customer?.name}!\n\n📦 طلبك رقم: ${o.orderNumber}\n📍 الحالة: ${getStatusName(o.status)}\n\nشكراً لتسوقك معنا! 🛍️`;
@@ -1680,7 +1835,7 @@
         }
 
         function printOrder(id) {
-            const o = orders.find(x => x.id === id);
+            const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
             const w = window.open('', '_blank');
             w.document.write(`
@@ -1707,7 +1862,7 @@
 
         function deleteOrder(id) {
             if (!confirm('حذف الطلب؟')) return;
-            orders = orders.filter(o => o.id !== id);
+            orders = orders.filter(o => String(o.id) !== String(id));
             saveOrders();
             renderOrdersTable();
             renderRecentOrders();
@@ -1730,12 +1885,12 @@
                     <td><strong>${b.title}</strong></td>
                     <td>${b.text || '-'}</td>
                     <td>${getCategoryName(b.category) || 'الكل'}</td>
-                    <td><button class="action-btn delete" onclick="deleteBanner(${b.id})">🗑️</button></td>
+                    <td><button class="action-btn delete" onclick="deleteBanner('${b.id}')">🗑️</button></td>
                 </tr>
             `).join('');
         }
 
-        function saveBanner(e) {
+        async function saveBanner(e) {
             e.preventDefault();
             const data = {
                 id: Date.now(),
@@ -1745,23 +1900,34 @@
                 btn: document.getElementById('bannerBtn').value.trim() || 'تسوق الآن',
                 category: document.getElementById('bannerCategory').value
             };
+            try {
+                if (typeof addBanner === 'function') {
+                    const firebaseId = await addBanner(data);
+                    data.id = firebaseId;
+                }
+            } catch (error) { console.error('Firebase error:', error); if (!data.id) data.id = Date.now(); }
             banners.push(data);
             saveBanners();
             renderBannersTable();
             closeModal('bannerModal');
-            showNotification('success', 'تمت الإضافة');
+            showNotification('success', 'تمت الإضافة ✅');
             document.getElementById('bannerIcon').value = '';
             document.getElementById('bannerTitle').value = '';
             document.getElementById('bannerText').value = '';
             document.getElementById('bannerBtn').value = '';
         }
 
-        function deleteBanner(id) {
+        async function deleteBanner(id) {
             if (!confirm('حذف البانر؟')) return;
-            banners = banners.filter(b => b.id !== id);
+            try {
+                if (typeof deleteBannerFromFirebase === 'function') {
+                    await deleteBannerFromFirebase(id);
+                }
+            } catch (error) { console.error('Firebase delete error:', error); }
+            banners = banners.filter(b => String(b.id) !== String(id));
             saveBanners();
             renderBannersTable();
-            showNotification('success', 'تم الحذف');
+            showNotification('success', 'تم الحذف ✅');
         }
 
         // ============================================
@@ -1779,12 +1945,12 @@
                     <td>${c.desc}</td>
                     <td>${c.type === 'percentage' ? 'نسبة' : 'ثابت'}</td>
                     <td><strong>${c.value}${c.type === 'percentage' ? '%' : ' ج.م'}</strong></td>
-                    <td><button class="action-btn delete" onclick="deleteCoupon(${c.id})">🗑️</button></td>
+                    <td><button class="action-btn delete" onclick="deleteCoupon('${c.id}')">🗑️</button></td>
                 </tr>
             `).join('');
         }
 
-        function saveCoupon(e) {
+        async function saveCoupon(e) {
             e.preventDefault();
             const code = document.getElementById('couponCode').value.trim().toUpperCase();
             if (coupons.find(c => c.code === code)) {
@@ -1807,12 +1973,17 @@
             document.getElementById('couponValue').value = '';
         }
 
-        function deleteCoupon(id) {
+        async function deleteCoupon(id) {
             if (!confirm('حذف الكوبون؟')) return;
-            coupons = coupons.filter(c => c.id !== id);
+            try {
+                if (typeof deleteCouponFromFirebase === 'function') {
+                    await deleteCouponFromFirebase(id);
+                }
+            } catch (error) { console.error('Firebase delete error:', error); }
+            coupons = coupons.filter(c => String(c.id) !== String(id));
             saveCoupons();
             renderCouponsTable();
-            showNotification('success', 'تم الحذف');
+            showNotification('success', 'تم الحذف ✅');
         }
 
         // ============================================
@@ -2180,7 +2351,10 @@
         }
 
         function openModal(id) { document.getElementById(id).classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); if (id === 'productModal') resetProductForm(); }
+        function closeModal(modalId) {
+  document.getElementById(modalId)?.classList.remove('active');
+  if (modalId === 'productModal') resetProductForm();
+}
 
         document.querySelectorAll('.modal-overlay').forEach(o => {
             o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
@@ -2199,5 +2373,27 @@
             setTimeout(() => n.remove(), 4000);
         }
     </script>
+    <script src="./cloudinary-service.js"></script>
+<script>
+async function uploadAndPreview(input) {
+    if(!input.files[0]) return;
+    // معاينة
+    const reader = new FileReader();
+    reader.onload = (e) => document.getElementById('imgPreview').innerHTML = `<img src="${e.target.result}" style="max-width:150px;border-radius:5px;margin:5px 0;">`;
+    reader.readAsDataURL(input.files[0]);
+    
+    // رفع
+    try {
+        const res = await uploadToCloudinary(input.files[0]);
+        if(res) {
+            document.getElementById('finalImg').value = res.url;
+            document.getElementById('manualImg').value = res.url;
+            alert('✅ تم رفع الصورة');
+        }
+    } catch(err) {
+        alert('❌ فشل الرفع: ' + err.message);
+    }
+}
+</script>
 </body>
 </html>

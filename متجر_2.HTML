@@ -7,10 +7,12 @@
     <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" href="./icon-192.png">
     <title>Sale Zone Store | التسوق الفاخر الذكي</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="firebase-config.js"></script>
@@ -995,7 +997,7 @@
 
             // 📱 Register Service Worker for PWA
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('./sw.js', { scope: './' })
                     .then(registration => {
                         console.log('✅ Service Worker registered:', registration.scope);
                         
@@ -1175,8 +1177,8 @@
                     <div class="product-image">
                         <img src="${p.image}" alt="${p.name}" onerror="this.src='https://via.placeholder.com/300?text=📦'" loading="lazy">
                         <div class="product-actions">
-                            <button class="action-btn" onclick="showProductDetails(${p.id})">👁️</button>
-                            <button class="action-btn" onclick="addToCart(${p.id})">🛒</button>
+                            <button class="action-btn" onclick="showProductDetails('${p.id}')">👁️</button>
+                            <button class="action-btn" onclick="addToCart('${p.id}')">🛒</button>
                         </div>
                     </div>
                     <div class="product-info">
@@ -1190,7 +1192,7 @@
                             <span class="current-price">${p.price} ج.م</span>
                             ${p.oldPrice ? `<span class="old-price">${p.oldPrice} ج.م</span>` : ''}
                         </div>
-                        <button class="add-to-cart-btn" onclick="addToCart(${p.id})">🛒 أضف للسلة</button>
+                        <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">🛒 أضف للسلة</button>
                     </div>
                 </div>
             `).join('');
@@ -1252,7 +1254,7 @@
         }
 
         function showProductDetails(id) {
-            const p = products.find(x => x.id === id);
+            const p = products.find(x => String(x.id) === String(id));
             if (!p) return;
             document.getElementById('productModalBody').innerHTML = `
                 <div style="text-align: center;">
@@ -1298,7 +1300,7 @@
         // ⭐ Rating System
         // ============================================
         function showRatingModal(productId) {
-            const p = products.find(x => x.id === productId);
+            const p = products.find(x => String(x.id) === String(productId));
             if (!p) return;
             
             document.getElementById('ratingModalBody').innerHTML = `
@@ -1321,7 +1323,7 @@
                 return;
             }
 
-            const p = products.find(x => x.id === productId);
+            const p = products.find(x => String(x.id) === String(productId));
             if (!p) return;
 
             if (!p.ratings) p.ratings = [];
@@ -1374,7 +1376,7 @@
             }
 
             container.innerHTML = favorites.map(id => {
-                const p = products.find(x => x.id === id);
+                const p = products.find(x => String(x.id) === String(id));
                 if (!p) return '';
                 return `
                     <div class="fav-item">
@@ -1384,7 +1386,7 @@
                             <div class="fav-item-price">${p.price} ج.م</div>
                         </div>
                         <div class="fav-item-actions">
-                            <button class="fav-add-btn" onclick="addToCart(${p.id})">🛒</button>
+                            <button class="fav-add-btn" onclick="addToCart('${p.id}')">🛒</button>
                             <button class="fav-remove-btn" onclick="toggleFav(${p.id})">🗑️</button>
                         </div>
                     </div>
@@ -1402,9 +1404,9 @@
         }
 
         function addToCart(id) {
-            const p = products.find(x => x.id === id);
+            const p = products.find(x => x.id == id || String(x.id) === String(id));
             if (!p) return;
-            const existing = cart.find(item => item.id === id);
+            const existing = cart.find(item => item.id == id || String(item.id) === String(id));
             if (existing) existing.quantity++;
             else cart.push({ id: p.id, name: p.name, price: p.price, image: p.image, quantity: 1 });
             saveCart();
@@ -1413,7 +1415,7 @@
         }
 
         function removeFromCart(id) {
-            cart = cart.filter(item => item.id !== id);
+            cart = cart.filter(item => String(item.id) !== String(id));
             saveCart();
             updateCartUI();
         }
@@ -1444,12 +1446,12 @@
                         <div class="cart-item-name">${item.name}</div>
                         <div class="cart-item-price">${item.price} ج.م</div>
                         <div class="cart-item-controls">
-                            <button class="qty-btn" onclick="updateQuantity(${item.id}, -1)">-</button>
+                            <button class="qty-btn" onclick="updateQuantity('${item.id}', -1)">-</button>
                             <span class="qty-value">${item.quantity}</span>
-                            <button class="qty-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
+                            <button class="qty-btn" onclick="updateQuantity('${item.id}', 1)">+</button>
                         </div>
                     </div>
-                    <button class="remove-item" onclick="removeFromCart(${item.id})">🗑️</button>
+                    <button class="remove-item" onclick="removeFromCart('${item.id}')">🗑️</button>
                 </div>
             `).join('');
 
@@ -1678,13 +1680,32 @@
         // 📦 Checkout
         // ============================================
         function showCheckout() {
-            if (cart.length === 0) { showNotification('error', 'خطأ', 'السلة فارغة'); return; }
-            if (currentUser) {
-                document.getElementById('checkoutName').value = currentUser.name || '';
-                document.getElementById('checkoutPhone').value = currentUser.phone || '';
-                document.getElementById('checkoutAddress').value = currentUser.address || '';
+            if (cart.length === 0) { 
+                showNotification('error', 'خطأ', 'السلة فارغة'); 
+                return; 
             }
+            
+            // ✅ Require login before checkout
+            if (!currentUser) {
+                showNotification('error', '🔒 تسجيل الدخول مطلوب', 'يجب تسجيل الدخول أولاً لإتمام الطلب');
+                showLoginModal();
+                return;
+            }
+            
+            // Fill form with user data
+            document.getElementById('checkoutName').value = currentUser.name || '';
+            document.getElementById('checkoutPhone').value = currentUser.phone || '';
+            document.getElementById('checkoutAddress').value = currentUser.address || '';
             openModal('checkoutModal');
+        }
+        
+        function showLoginModal() {
+            openModal('authModal');
+            // Switch to login tab
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            document.querySelector('.auth-tab[onclick*="login"]').classList.add('active');
+            document.getElementById('loginForm').classList.add('active');
         }
 
         function handleCheckout(e) {

@@ -23,6 +23,20 @@ self.addEventListener('install', event => {
 
 // 2. Fetch (جلب البيانات والعمل بدون نت)
 self.addEventListener('fetch', event => {
+    const url = new URL(event.request.url);
+    
+    // ❌ تجاهل أي حاجة تخص Firebase / Google
+    if (
+        url.origin.includes('googleapis.com') ||
+        url.origin.includes('firebaseio.com') ||
+        url.origin.includes('gstatic.com') ||
+        url.href.includes('firestore.googleapis.com')
+    ) {
+        return;
+    }
+    
+    if (event.request.method !== 'GET') return;
+    
     event.respondWith(
         caches.match(event.request)
             .then(response => {
