@@ -1466,7 +1466,7 @@
   try{
     // Verify password hash
     const hashedInput = simpleHash(pass);
-    const storedHash = adminConfig.passwordHash;
+    const storedHash = window.adminConfig.passwordHash;
     
     if (hashedInput !== storedHash) {
       rateLimiter.recordAttempt(clientIP);
