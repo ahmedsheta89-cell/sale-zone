@@ -1,12 +1,39 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="0; url=متجر_2.HTML">
+    <meta name="theme-color" content="#0A1128">
+    <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="icon" href="./icon-192.png">
-    <title>Sale Zone Store - متجر إلكتروني فاخر</title>
+    <title>Sale Zone Store | التسوق الفاخر الذكي</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="firebase-api.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-V3JC43VQBC"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-V3JC43VQBC');
+    </script>
+    
+    <meta http-equiv="refresh" content="0; url=متجر_2.HTML">
+    
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -35,13 +62,8 @@
         }
 
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         h1 {
@@ -62,18 +84,36 @@
         <div class="spinner"></div>
         <p>جاري التحويل إلى المتجر...</p>
         <p style="font-size: 14px; margin-top: 20px;">
-            <a href="متجر_2.HTML" style="color: #D4AF37; text-decoration: underline;">
+            <a href="متجر_2.HTML" style="color: #D4AF37; text-decoration: none;">
                 اضغط هنا إذا لم يتم التحويل تلقائياً
             </a>
         </p>
     </div>
 
     <script>
+        // 📱 Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js', { scope: './' })
+                .then(registration => {
+                    console.log('✅ Service Worker registered:', registration.scope);
+                    
+                    // التحقق من التحديثات
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'activated') {
+                                console.log('🔄 New version available!');
+                            }
+                        });
+                    });
+                })
+                .catch(err => console.error('❌ SW Error:', err));
+        }
+
         // Redirect after 1 second
         setTimeout(function () {
             window.location.href = "متجر_2.HTML";
         }, 1000);
     </script>
 </body>
-
 </html>

@@ -1,10 +1,17 @@
-const CACHE_NAME = 'salezone-v2';
+const CACHE_NAME = 'salezone-v4';
+
+// حساب المسار الأساسي (للعمل مع GitHub Pages subdirectories)
+const BASE_PATH = self.location.pathname.replace(/\/[^\/]*$/, '');
+console.log(' Base path:', BASE_PATH);
+
 const urlsToCache = [
-    '/متجر_2.HTML',
-    '/ادمن_2.HTML',
-    '/manifest.json',
-    '/icon-192.png',
-    '/icon-512.png'
+  BASE_PATH + '/',
+  BASE_PATH + '/index.html',
+  BASE_PATH + '/متجر_2.HTML',
+  BASE_PATH + '/ادمن_2.HTML',
+  BASE_PATH + '/manifest.json',
+  BASE_PATH + '/icon-192.png',
+  BASE_PATH + '/icon-512.png'
 ];
 
 // 1. Install (التثبيت)
