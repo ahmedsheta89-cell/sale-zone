@@ -1464,11 +1464,8 @@
   }
 
   try{
-    // Verify password hash with fallback
-    const hashedInput = simpleHash(pass);
-    const storedHash = window.adminConfig?.passwordHash || 'SaleZone@2024!Admin';
-    
-    if (hashedInput !== storedHash) {
+    // Direct password comparison for admin login
+    if (pass !== 'SaleZone@2024!Admin') {
       rateLimiter.recordAttempt(clientIP);
       const remaining = rateLimiter.getRemainingAttempts(clientIP);
       loginError.style.display = 'block';
