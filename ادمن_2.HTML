@@ -12,6 +12,8 @@
     <script src="firebase-config.js"></script>
     <script src="firebase-api.js"></script>
     <script src="firebase-data.js"></script>
+    <script src="auth-utils.js"></script>
+    <script src="enhancement-utils.js"></script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1450,53 +1452,97 @@
         async function handleLogin(e){
   e.preventDefault();
   const pass = document.getElementById('adminPassword').value;
+  const loginError = document.getElementById('loginError');
+  
+  // Rate limiting check
+  const clientIP = 'client_' + Math.random().toString(36).substr(2, 9);
+  if (rateLimiter.isBlocked(clientIP)) {
+    const blockTime = Math.ceil(rateLimiter.getBlockTimeRemaining(clientIP) / 60000);
+    loginError.style.display = 'block';
+    loginError.textContent = `تم حظر المحاولات. حاول مرة أخرى بعد ${blockTime} دقيقة`;
+    return;
+  }
 
   try{
-    await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-const cred = await firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL, pass);
-
-    if(cred.user.uid !== ADMIN_UID){
-      await firebase.auth().signOut();
-      document.getElementById('loginError').style.display = 'block';
-      document.getElementById('loginError').textContent = 'هذا الحساب ليس أدمن';
+    // Verify password hash
+    const hashedInput = simpleHash(pass);
+    const storedHash = adminConfig.passwordHash;
+    
+    if (hashedInput !== storedHash) {
+      rateLimiter.recordAttempt(clientIP);
+      const remaining = rateLimiter.getRemainingAttempts(clientIP);
+      loginError.style.display = 'block';
+      loginError.textContent = `كلمة المرور غير صحيحة. محاولات متبقية: ${remaining}`;
       return;
     }
 
-    sessionStorage.setItem('adminLoggedIn','true');
+    // Reset rate limiting on successful login
+    rateLimiter.attempts.delete(clientIP);
+    
+    // Create secure session
+    const sessionId = sessionManager.createSession('admin', { 
+      role: 'admin', 
+      loginTime: new Date().toISOString() 
+    });
+    
+    sessionStorage.setItem('adminLoggedIn', 'true');
+    sessionStorage.setItem('adminSessionId', sessionId);
+    
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('dashboard').classList.add('active');
 
     await loadAllData();
     initDashboard();
+    
+    showNotification('success', 'تم تسجيل الدخول بنجاح');
 
   }catch(err){
-    document.getElementById('loginError').style.display='block';
-    document.getElementById('loginError').textContent='كلمة المرور غير صحيحة';
+    console.error('Login error:', err);
+    loginError.style.display='block';
+    loginError.textContent='حدث خطأ أثناء تسجيل الدخول';
   }
 }
 
        function checkAdminSession() {
-  firebase.auth().onAuthStateChanged(async (user) => {
-    // لازم يكون داخل Firebase + هو نفس UID الأدمن
-    if (user && user.uid === ADMIN_UID) {
-      sessionStorage.setItem('adminLoggedIn', 'true');
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('dashboard').classList.add('active');
-
-      await loadAllData();
-      initDashboard();
-    } else {
-      // لو مش مسجل دخول فعلي
-      sessionStorage.removeItem('adminLoggedIn');
-      document.getElementById('dashboard').classList.remove('active');
-      document.getElementById('loginScreen').style.display = 'flex';
+  const sessionId = sessionStorage.getItem('adminSessionId');
+  const isLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
+  
+  if (isLoggedIn && sessionId && sessionManager.validateSession(sessionId)) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').classList.add('active');
+    
+    // Auto-load data if needed
+    if (!products.length) {
+      loadAllData().then(initDashboard);
     }
-  });
+  } else {
+    // Clear invalid session
+    sessionStorage.removeItem('adminLoggedIn');
+    sessionStorage.removeItem('adminSessionId');
+    sessionStorage.removeItem('adminSession');
+    
+    document.getElementById('dashboard').classList.remove('active');
+    document.getElementById('loginScreen').style.display = 'flex';
+  }
 }
 
-        function adminLogout(){
+function adminLogout(){
+  const sessionId = sessionStorage.getItem('adminSessionId');
+  if (sessionId) {
+    sessionManager.destroySession(sessionId);
+  }
+  
   sessionStorage.removeItem('adminLoggedIn');
-  firebase.auth().signOut().then(()=>location.reload());
+  sessionStorage.removeItem('adminSessionId');
+  sessionStorage.removeItem('adminSession');
+  
+  // Clear Firebase auth if used
+  if (typeof firebase !== 'undefined' && firebase.auth()) {
+    firebase.auth().signOut();
+  }
+  
+  showNotification('info', 'تم تسجيل الخروج بنجاح');
+  location.reload();
 }
 
         // ============================================

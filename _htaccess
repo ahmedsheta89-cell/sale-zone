@@ -35,8 +35,8 @@
     # Permissions Policy
     Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
     
-    # Content Security Policy (تخصيص حسب احتياجك)
-    Header set Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' https:; img-src 'self' https: data:; font-src 'self' https://fonts.gstatic.com;"
+    # Content Security Policy (محسّنة ومقيدة أكثر)
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data: blob:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://api.cloudinary.com; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;"
 </IfModule>
 
 # ==========================================
@@ -119,3 +119,37 @@ Options -Indexes
 <FilesMatch "(^#.*#|\.(bak|conf|dist|fla|in[ci]|log|psd|sh|sql|sw[op])|~)$">
     Require all denied
 </FilesMatch>
+
+# ==========================================
+# Enhanced File Protection (حماية موسعة للملفات)
+# ==========================================
+
+# Protect configuration files
+<FilesMatch "^(config|firebase-config|auth-utils)\.js$">
+    Require all denied
+</FilesMatch>
+
+# Protect admin files from direct access
+<FilesMatch "^ادمن.*">
+    Require ip 127.0.0.1 ::1
+    Require all denied
+</FilesMatch>
+
+# Protect environment and secret files
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
+
+# Block access to sensitive directories
+<DirectoryMatch "^(\.git|\.svn|node_modules|\.windsurf)">
+    Require all denied
+</DirectoryMatch>
+
+# Prevent access to backup files
+<FilesMatch "\.(bak|backup|old|tmp|temp|orig)$">
+    Require all denied
+</FilesMatch>
+
+# Hide server signatures
+ServerSignature Off
+ServerTokens Prod

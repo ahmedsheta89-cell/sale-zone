@@ -100,16 +100,34 @@ function previewImage(file, previewId) {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-        preview.innerHTML = `
-            <div style="position: relative; display: inline-block; margin-top: 10px;">
-                <img src="${e.target.result}" 
-                     style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #D4AF37;">
-                <span style="position: absolute; top: 5px; right: 5px; background: #D4AF37; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
-                    معاينة
-                </span>
-                <p style="font-size: 12px; color: #666; margin-top: 5px;">${(file.size / 1024).toFixed(1)} KB</p>
-            </div>
-        `;
+        // Clear previous content
+        preview.innerHTML = '';
+        
+        // Create container div
+        const container = document.createElement('div');
+        container.style.cssText = 'position: relative; display: inline-block; margin-top: 10px;';
+        
+        // Create image element
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.style.cssText = 'max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #D4AF37;';
+        img.alt = 'Image preview';
+        
+        // Create preview badge
+        const badge = document.createElement('span');
+        badge.textContent = 'معاينة';
+        badge.style.cssText = 'position: absolute; top: 5px; right: 5px; background: #D4AF37; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;';
+        
+        // Create file size info
+        const sizeInfo = document.createElement('p');
+        sizeInfo.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+        sizeInfo.style.cssText = 'font-size: 12px; color: #666; margin-top: 5px;';
+        
+        // Assemble elements safely
+        container.appendChild(img);
+        container.appendChild(badge);
+        container.appendChild(sizeInfo);
+        preview.appendChild(container);
     };
     reader.readAsDataURL(file);
 }
