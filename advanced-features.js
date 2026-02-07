@@ -14,7 +14,7 @@ class AdvancedAnalytics {
     }
     
     loadUserJourney() {
-        return EnhancedData.getItem('userJourney', {
+        return window.EnhancedData.getItem('userJourney', {
             sessions: [],
             pageViews: [],
             interactions: [],
@@ -23,11 +23,11 @@ class AdvancedAnalytics {
     }
     
     loadProductAnalytics() {
-        return EnhancedData.getItem('productAnalytics', {});
+        return window.EnhancedData.getItem('productAnalytics', {});
     }
     
     loadConversionData() {
-        return EnhancedData.getItem('conversionData', {
+        return window.EnhancedData.getItem('conversionData', {
             cartAbandonment: [],
             checkoutSteps: [],
             completedOrders: []
@@ -94,11 +94,11 @@ class AdvancedAnalytics {
     }
     
     saveUserJourney() {
-        EnhancedData.setItem('userJourney', this.userJourney);
+        window.EnhancedData.setItem('userJourney', this.userJourney);
     }
     
     saveProductAnalytics() {
-        EnhancedData.setItem('productAnalytics', this.productAnalytics);
+        window.EnhancedData.setItem('productAnalytics', this.productAnalytics);
     }
     
     getInsights() {
@@ -255,7 +255,7 @@ class GamificationSystem {
     }
     
     loadUserProfile() {
-        return EnhancedData.getItem('gamificationProfile', {
+        return window.EnhancedData.getItem('gamificationProfile', {
             level: 1,
             experience: 0,
             points: 0,
@@ -415,7 +415,7 @@ class GamificationSystem {
     }
     
     saveUserProfile() {
-        EnhancedData.setItem('gamificationProfile', this.userProfile);
+        window.EnhancedData.setItem('gamificationProfile', this.userProfile);
     }
     
     getProfileStats() {
@@ -442,15 +442,15 @@ class SocialCommunity {
     }
     
     loadSharedProducts() {
-        return EnhancedData.getItem('sharedProducts', []);
+        return window.EnhancedData.getItem('sharedProducts', []);
     }
     
     loadUserReviews() {
-        return EnhancedData.getItem('userReviews', []);
+        return window.EnhancedData.getItem('userReviews', []);
     }
     
     loadCommunityPosts() {
-        return EnhancedData.getItem('communityPosts', []);
+        return window.EnhancedData.getItem('communityPosts', []);
     }
     
     shareProduct(productId, platform = 'general') {
@@ -596,15 +596,15 @@ class SocialCommunity {
     }
     
     saveSharedProducts() {
-        EnhancedData.setItem('sharedProducts', this.sharedProducts);
+        window.EnhancedData.setItem('sharedProducts', this.sharedProducts);
     }
     
     saveUserReviews() {
-        EnhancedData.setItem('userReviews', this.userReviews);
+        window.EnhancedData.setItem('userReviews', this.userReviews);
     }
     
     saveCommunityPosts() {
-        EnhancedData.setItem('communityPosts', this.communityPosts);
+        window.EnhancedData.setItem('communityPosts', this.communityPosts);
     }
     
     getTrendingProducts(limit = 5) {
