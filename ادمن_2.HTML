@@ -1371,14 +1371,14 @@
         let users = [];
         // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
         // ⚠️ يُنصح بتغييرها فوراً بعد أول تسجيل دخول
-        let adminPassword = 'SaleZone@2024!Admin';
+        let adminPassword = 'SaleZone@2026!Admin';
         let storeSettings = {
             name: 'Sale Zone Store',
             tagline: 'التسوق الفاخر الذكي',
             description: '',
             topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
             contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
-            footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2024 Sale Zone Store ❤️' },
+            footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
             loyalty: { rate: 5, pointValue: 0.1 }
         };
         let salesChart, categoriesChart;
@@ -1427,7 +1427,7 @@
             }
             
             // كلمة المرور دائماً من localStorage
-            adminPassword = localStorage.getItem('adminPassword') || 'SaleZone@2024!Admin';
+            adminPassword = localStorage.getItem('adminPassword') || 'SaleZone@2026!Admin';
             
             const saved = localStorage.getItem('storeSettings');
             if (saved) storeSettings = { ...storeSettings, ...JSON.parse(saved) };
@@ -1465,7 +1465,7 @@
 
   try{
     // Direct password comparison for admin login
-    if (pass !== 'SaleZone@2024!Admin') {
+    if (pass !== 'SaleZone@2026!Admin') {
       rateLimiter.recordAttempt(clientIP);
       const remaining = rateLimiter.getRemainingAttempts(clientIP);
       loginError.style.display = 'block';
