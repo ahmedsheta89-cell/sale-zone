@@ -28,6 +28,7 @@ class ErrorDetectionSystem {
         this.setupSystemHealthChecks();
         this.setupFirebaseMonitoring();
         this.setupLocalStorageMonitoring();
+        this.setupMobileSpecificMonitoring(); // إضافة مراقبة التليفون
         
         console.log('🔍 Error Detection System initialized');
         this.startHealthCheck();
@@ -152,7 +153,61 @@ class ErrorDetectionSystem {
         };
     }
 
-    // 💾 مراقبة LocalStorage
+    // � مراقبة خاصة بالتليفون
+    setupMobileSpecificMonitoring() {
+        // كشف مشاكل iOS/Safari
+        if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            console.log('📱 iOS device detected - enabling mobile monitoring');
+            
+            // مراقبة مشاكل الشبكة
+            window.addEventListener('offline', () => {
+                this.logError({
+                    type: 'MOBILE_NETWORK_OFFLINE',
+                    message: 'iOS device went offline',
+                    device: 'iOS',
+                    timestamp: new Date().toISOString()
+                });
+            });
+            
+            // مراقبة مشاكل localStorage
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+            } catch (error) {
+                this.logError({
+                    type: 'MOBILE_STORAGE_ERROR',
+                    message: 'iOS localStorage error: ' + error.message,
+                    device: 'iOS',
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
+            // مراقبة مشاكل Safari
+            if (navigator.userAgent.includes('Safari')) {
+                console.log('🦁 Safari detected - monitoring for Safari-specific issues');
+                
+                // مراقبة مشاكل fetch في Safari
+                const originalFetch = window.fetch;
+                window.fetch = async (...args) => {
+                    try {
+                        const response = await originalFetch.apply(this, args);
+                        return response;
+                    } catch (error) {
+                        if (error.message.includes('Network request failed')) {
+                            this.logError({
+                                type: 'SAFARI_NETWORK_ERROR',
+                                message: 'Safari network error: ' + error.message,
+                                device: 'iOS/Safari',
+                                url: args[0],
+                                timestamp: new Date().toISOString()
+                            });
+                        }
+                        throw error;
+                    }
+                };
+            }
+        }
+    }
     setupLocalStorageMonitoring() {
         const originalSetItem = localStorage.setItem;
         const originalGetItem = localStorage.getItem;
