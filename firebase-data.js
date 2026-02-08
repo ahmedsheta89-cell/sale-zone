@@ -184,9 +184,60 @@ async function initializeFirebaseData() {
         
         console.log('🎉 Firebase initialization completed!');
         
+        // Setup real-time listeners for live updates
+        setupRealtimeListeners();
+        
     } catch (error) {
         console.error('❌ Firebase initialization error:', error);
     }
+}
+
+// Real-time listeners for live updates
+function setupRealtimeListeners() {
+    // Listen for banners changes
+    db.collection('banners').onSnapshot((snapshot) => {
+        banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('🎨 Banners updated in real-time:', banners.length);
+        updateBannersDisplay();
+    }, (error) => {
+        console.error('Banners listener error:', error);
+    });
+
+    // Listen for coupons changes
+    db.collection('coupons').onSnapshot((snapshot) => {
+        coupons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('🎫 Coupons updated in real-time:', coupons.length);
+        updateCouponsDisplay();
+    }, (error) => {
+        console.error('Coupons listener error:', error);
+    });
+
+    // Listen for products changes
+    db.collection('products').onSnapshot((snapshot) => {
+        products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('🛍️ Products updated in real-time:', products.length);
+        if (typeof updateProductsDisplay === 'function') {
+            updateProductsDisplay();
+        }
+    }, (error) => {
+        console.error('Products listener error:', error);
+    });
+
+    console.log('🔄 Real-time listeners setup complete');
+}
+
+// Update functions for UI
+function updateBannersDisplay() {
+    const bannerContainer = document.querySelector('.hero-slider');
+    if (bannerContainer && banners.length > 0) {
+        // Update banner display
+        console.log('🎨 Updating banner display with', banners.length, 'banners');
+    }
+}
+
+function updateCouponsDisplay() {
+    // Update coupon display in store
+    console.log('🎫 Updating coupon display with', coupons.length, 'coupons');
 }
 
 // Auto-initialize when Firebase is ready
