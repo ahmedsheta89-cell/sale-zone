@@ -69,24 +69,15 @@ async function getAllOrders() {
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
         console.error('getAllOrders error:', e);
-        // Fallback to localStorage
-        return JSON.parse(localStorage.getItem('orders') || '[]');
+        return [];
     }
 }
 
 async function addOrder(order) {
     try {
-        // Fallback to localStorage if Firebase fails
-        const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-        const newOrder = {
-            ...order,
-            id: 'order_' + Date.now(),
-            createdAt: new Date().toISOString()
-        };
-        orders.push(newOrder);
-        localStorage.setItem('orders', JSON.stringify(orders));
-        console.log('✅ Order saved locally:', newOrder.id);
-        return newOrder.id;
+        const docRef = await db.collection('orders').add(order);
+        console.log('✅ Order added to Firebase:', docRef.id);
+        return docRef.id;
     } catch (e) {
         console.error('addOrder error:', e);
         throw e;
@@ -99,14 +90,7 @@ async function updateOrderStatus(id, status) {
         console.log('✅ Order status updated:', id);
     } catch (e) {
         console.error('updateOrderStatus error:', e);
-        // Fallback to localStorage
-        const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-        const orderIndex = orders.findIndex(order => order.id === id);
-        if (orderIndex !== -1) {
-            orders[orderIndex].status = status;
-            localStorage.setItem('orders', JSON.stringify(orders));
-            console.log('✅ Order status updated locally:', id);
-        }
+        throw e;
     }
 }
 
