@@ -3,6 +3,115 @@
 // Note: db is already declared in firebase-config.js
 
 // ==========================================
+// COUPONS
+// ==========================================
+async function getCoupons() {
+    try {
+        const snapshot = await db.collection('coupons').get();
+        const coupons = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                id: doc.id, 
+                code: data.code || '',
+                desc: data.desc || '',
+                type: data.type || 'percentage',
+                value: data.value || 0
+            };
+        });
+        return coupons;
+    } catch (e) {
+        console.error('getCoupons error:', e);
+        return [];
+    }
+}
+
+async function addCoupon(coupon) {
+    try {
+        const docRef = await db.collection('coupons').add(coupon);
+        console.log('✅ Coupon added to Firebase:', docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('addCoupon error:', e);
+        throw e;
+    }
+}
+
+async function updateCoupon(id, data) {
+    try {
+        await db.collection('coupons').doc(id).set(data, { merge: true });
+        console.log('✅ Coupon updated in Firebase:', id);
+    } catch (e) {
+        console.error('updateCoupon error:', e);
+        throw e;
+    }
+}
+
+async function deleteCoupon(id) {
+    try {
+        await db.collection('coupons').doc(id).delete();
+        console.log('✅ Coupon deleted from Firebase:', id);
+    } catch (e) {
+        console.error('deleteCoupon error:', e);
+        throw e;
+    }
+}
+
+// ==========================================
+// BANNERS
+// ==========================================
+async function getBanners() {
+    try {
+        const snapshot = await db.collection('banners').get();
+        const banners = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                id: doc.id, 
+                icon: data.icon || '🎉',
+                title: data.title || '',
+                text: data.text || '',
+                btn: data.btn || 'تسوق الآن',
+                category: data.category || 'all'
+            };
+        });
+        return banners;
+    } catch (e) {
+        console.error('getBanners error:', e);
+        return [];
+    }
+}
+
+async function addBanner(banner) {
+    try {
+        const docRef = await db.collection('banners').add(banner);
+        console.log('✅ Banner added to Firebase:', docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('addBanner error:', e);
+        throw e;
+    }
+}
+
+async function updateBanner(id, data) {
+    try {
+        await db.collection('banners').doc(id).set(data, { merge: true });
+        console.log('✅ Banner updated in Firebase:', id);
+    } catch (e) {
+        console.error('updateBanner error:', e);
+        throw e;
+    }
+}
+
+async function deleteBanner(id) {
+    try {
+        await db.collection('banners').doc(id).delete();
+        console.log('✅ Banner deleted from Firebase:', id);
+    } catch (e) {
+        console.error('deleteBanner error:', e);
+        throw e;
+    }
+}
+
+// ==========================================
 // PRODUCTS
 // ==========================================
 async function getAllProducts() {

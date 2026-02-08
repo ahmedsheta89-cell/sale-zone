@@ -119,11 +119,26 @@ function checkForUpdates() {
     if (diff < 5000) {
         console.log('🔄 Recent update detected, refreshing data...');
         refreshAllData();
+        
+        // منع التحديثات المتكررة
+        if (window.refreshTimeout) {
+            clearTimeout(window.refreshTimeout);
+        }
+        window.refreshTimeout = setTimeout(() => {
+            window.refreshTimeout = null;
+        }, 10000); // 10 ثواني حماية
     }
 }
 
 // 🔄 تحديث جميع البيانات
 function refreshAllData() {
+    // منع التحديثات المتكررة
+    if (window.isRefreshing) {
+        console.log('⏸️ Already refreshing, skipping...');
+        return;
+    }
+    
+    window.isRefreshing = true;
     console.log('🔄 Refreshing all data...');
     
     // تحديث من localStorage
@@ -141,6 +156,11 @@ function refreshAllData() {
     if (typeof updateCategoryCounts === 'function') updateCategoryCounts();
     
     console.log('✅ All data refreshed');
+    
+    // فتح القفل بعد ثانية واحدة
+    setTimeout(() => {
+        window.isRefreshing = false;
+    }, 1000);
 }
 
 // 🎯 دالة مساعدة للتحديث الفوري
