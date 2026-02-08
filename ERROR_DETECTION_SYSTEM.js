@@ -110,17 +110,23 @@ class ErrorDetectionSystem {
 
     // 🔥 مراقبة Firebase
     setupFirebaseMonitoring() {
-        // اعتراض استدعاءات Firebase
+        // تخطي مراقبة Google Analytics و Firebase في GitHub Pages
+        if (window.location.hostname === 'ahmedsheta89-cell.github.io') {
+            console.log('🔥 GitHub Pages detected - skipping Firebase monitoring to avoid errors');
+            return;
+        }
+        
+        // اعتراض استدعاءات Firebase فقط في بيئة التطوير
         const originalFetch = window.fetch;
         window.fetch = async (...args) => {
             const startTime = performance.now();
             
             try {
                 const response = await originalFetch.apply(this, args);
-                const endTime = performance.now();
                 
-                // مراقبة استدعاءات Firebase
-                if (args[0]?.includes('firebaseio')) {
+                // مراقبة استدعاءات Firebase فقط
+                if (args[0]?.includes('firebaseio') || args[0]?.includes('googleapis')) {
+                    const endTime = performance.now();
                     this.logFirebaseCall({
                         url: args[0],
                         method: args[1]?.method || 'GET',
@@ -132,12 +138,15 @@ class ErrorDetectionSystem {
                 
                 return response;
             } catch (error) {
-                this.logError({
-                    type: 'FIREBASE_ERROR',
-                    message: error.message,
-                    url: args[0],
-                    timestamp: new Date().toISOString()
-                });
+                // تسجيل أخطاء Firebase فقط
+                if (args[0]?.includes('firebaseio') || args[0]?.includes('googleapis')) {
+                    this.logError({
+                        type: 'FIREBASE_ERROR',
+                        message: error.message,
+                        url: args[0],
+                        timestamp: new Date().toISOString()
+                    });
+                }
                 throw error;
             }
         };
