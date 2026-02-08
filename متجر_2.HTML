@@ -20,6 +20,8 @@
     <script src="firebase-data.js"></script>
     <script src="auth-utils.js"></script>
     <script src="enhancement-utils.js"></script>
+    <script src="storage-keys.js"></script>
+    <script src="REAL_TIME_SYNC.js"></script>
     <script src="smart-features.js"></script>
     <script src="advanced-features.js"></script>
     <script src="UI_COMPONENTS.js"></script>
@@ -1051,24 +1053,24 @@
                         console.log('✅ Products loaded from Firebase:', products.length);
                     } else {
                         // Fallback to localStorage
-                        products = JSON.parse(localStorage.getItem('products')) || [...defaultProducts];
+                        products = getStorageData('PRODUCTS') || [...defaultProducts];
                         console.log('📦 Products loaded from localStorage');
                     }
                     
                     // تحميل الكوبونات
-                    const fbCoupons = await getAllCoupons();
+                    const fbCoupons = await getCoupons();
                     if (fbCoupons && fbCoupons.length > 0) {
                         coupons = fbCoupons;
                     } else {
-                        coupons = JSON.parse(localStorage.getItem('coupons')) || [...defaultCoupons];
+                        coupons = getStorageData('COUPONS') || [...defaultCoupons];
                     }
                     
                     // تحميل البانرات
-                    const fbBanners = await getAllBanners();
+                    const fbBanners = await getBanners();
                     if (fbBanners && fbBanners.length > 0) {
                         banners = fbBanners;
                     } else {
-                        banners = JSON.parse(localStorage.getItem('banners')) || [...defaultBanners];
+                        banners = getStorageData('BANNERS') || [...defaultBanners];
                     }
                     
                 } else {
@@ -1077,31 +1079,31 @@
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
                 // Fallback to localStorage
-                products = JSON.parse(localStorage.getItem('products')) || [...defaultProducts];
-                coupons = JSON.parse(localStorage.getItem('coupons')) || [...defaultCoupons];
-                banners = JSON.parse(localStorage.getItem('banners')) || [...defaultBanners];
+                products = getStorageData('PRODUCTS') || [...defaultProducts];
+                coupons = getStorageData('COUPONS') || [...defaultCoupons];
+                banners = getStorageData('BANNERS') || [...defaultBanners];
             }
             
             // هذه البيانات دائماً من localStorage (السلة، المفضلات، إلخ)
-            cart = JSON.parse(localStorage.getItem('cart')) || [];
-            favorites = JSON.parse(localStorage.getItem('favorites')) || [];
-            orders = JSON.parse(localStorage.getItem('orders')) || [];
-            users = JSON.parse(localStorage.getItem('users')) || [];
+            cart = getStorageData('CART') || [];
+            favorites = getStorageData('WISHLIST') || [];
+            orders = getStorageData('ORDERS') || [];
+            users = getStorageData('CUSTOMERS') || [];
             
-            const savedSettings = localStorage.getItem('storeSettings');
-            if (savedSettings) storeSettings = { ...storeSettings, ...JSON.parse(savedSettings) };
+            const savedSettings = getStorageData('SETTINGS');
+            if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
             
             // حفظ في localStorage للـ fallback
-            if (!localStorage.getItem('products')) localStorage.setItem('products', JSON.stringify(products));
-            if (!localStorage.getItem('coupons')) localStorage.setItem('coupons', JSON.stringify(coupons));
-            if (!localStorage.getItem('banners')) localStorage.setItem('banners', JSON.stringify(banners));
+            if (!getStorageData('PRODUCTS')) setStorageData('PRODUCTS', products);
+            if (!getStorageData('COUPONS')) setStorageData('COUPONS', coupons);
+            if (!getStorageData('BANNERS')) setStorageData('BANNERS', banners);
         }
 
-        function saveCart() { localStorage.setItem('cart', JSON.stringify(cart)); }
-        function saveFavorites() { localStorage.setItem('favorites', JSON.stringify(favorites)); }
-        function saveOrders() { localStorage.setItem('orders', JSON.stringify(orders)); }
-        function saveUsers() { localStorage.setItem('users', JSON.stringify(users)); }
-        function saveProducts() { localStorage.setItem('products', JSON.stringify(products)); }
+        function saveCart() { setStorageData('CART', cart); }
+        function saveFavorites() { setStorageData('WISHLIST', favorites); }
+        function saveOrders() { setStorageData('ORDERS', orders); }
+        function saveUsers() { setStorageData('CUSTOMERS', users); }
+        function saveProducts() { setStorageData('PRODUCTS', products); }
 
         // ============================================
         // 🎨 Apply Store Settings

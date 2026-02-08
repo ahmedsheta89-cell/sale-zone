@@ -14,6 +14,7 @@
     <script src="firebase-data.js"></script>
     <script src="auth-utils.js"></script>
     <script src="enhancement-utils.js"></script>
+    <script src="storage-keys.js"></script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1419,29 +1420,29 @@
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
                 // Fallback to localStorage
-                products = JSON.parse(localStorage.getItem('products')) || [];
-                orders = JSON.parse(localStorage.getItem('orders')) || [];
-                coupons = JSON.parse(localStorage.getItem('coupons')) || [];
-                banners = JSON.parse(localStorage.getItem('banners')) || [];
-                users = JSON.parse(localStorage.getItem('users')) || [];
+                products = getStorageData('PRODUCTS') || [];
+                orders = getStorageData('ORDERS') || [];
+                coupons = getStorageData('COUPONS') || [];
+                banners = getStorageData('BANNERS') || [];
+                users = getStorageData('CUSTOMERS') || [];
             }
             
             // كلمة المرور دائماً من localStorage
             adminPassword = localStorage.getItem('adminPassword') || 'SaleZone@2026!Admin';
             
-            const saved = localStorage.getItem('storeSettings');
-            if (saved) storeSettings = { ...storeSettings, ...JSON.parse(saved) };
+            const saved = getStorageData('SETTINGS');
+            if (saved) storeSettings = { ...storeSettings, ...saved };
             
             // Data loaded, rendering will be done by initDashboard()
         }
 
-        function saveProducts() { localStorage.setItem('products', JSON.stringify(products)); }
-        function saveOrders() { localStorage.setItem('orders', JSON.stringify(orders)); }
-        function saveCoupons() { localStorage.setItem('coupons', JSON.stringify(coupons)); }
-        function saveBanners() { localStorage.setItem('banners', JSON.stringify(banners)); }
-        function saveUsers() { localStorage.setItem('users', JSON.stringify(users)); }
+        function saveProducts() { setStorageData('PRODUCTS', products); }
+        function saveOrders() { setStorageData('ORDERS', orders); }
+        function saveCoupons() { setStorageData('COUPONS', coupons); }
+        function saveBanners() { setStorageData('BANNERS', banners); }
+        function saveUsers() { setStorageData('CUSTOMERS', users); }
         function saveAdminPassword() { localStorage.setItem('adminPassword', adminPassword); }
-        function saveStoreSettings() { localStorage.setItem('storeSettings', JSON.stringify(storeSettings)); }
+        function saveStoreSettings() { setStorageData('SETTINGS', storeSettings); }
 
         // ============================================
         // Auth
