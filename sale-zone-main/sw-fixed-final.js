@@ -1,10 +1,10 @@
 // ============================================
-// 🚀 Service Worker Fixed Version
+// 🚀 Service Worker Fixed Version - Final
 // ============================================
-// إصلاح مشاكل الشاشة البيضاء والتحميل
+// إصلاح مشاكل الصور والتحميل
 // ============================================
 
-const CACHE_NAME = 'sale-zone-v1';
+const CACHE_NAME = 'sale-zone-v2';
 const urlsToCache = [
     '/',
     '/متجر_2.HTML',
@@ -13,7 +13,9 @@ const urlsToCache = [
     '/MOBILE_EMERGENCY_FIX.js',
     '/firebase-config.js',
     '/firebase-api.js',
-    '/storage-keys.js'
+    '/storage-keys.js',
+    '/icon-192.png',
+    '/icon-512.png'
 ];
 
 // 🚀 تثبيت Service Worker
@@ -55,7 +57,8 @@ self.addEventListener('fetch', event => {
 
                 // التعامل مع الصور المعطلة
                 if (event.request.url.includes('via.placeholder.com') || 
-                    event.request.url.includes('unsplash.com')) {
+                    event.request.url.includes('unsplash.com') ||
+                    event.request.url.includes('favicon.ico')) {
                     
                     // إرجاع صورة بديلة أو فارغة
                     return new Response('', {
@@ -92,76 +95,5 @@ self.addEventListener('fetch', event => {
             })
     );
 });
-                // 🎯 إذا كان في الكاش، استخدمه
-                if (response) {
-                    return response;
-                }
 
-                // 🚨 إذا لم يكن في الكاش، جلب من الشبكة
-                return fetch(event.request)
-                    .then(response => {
-                        // 📝 التحقق من الاستجابة الصالحة
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
-                        }
-
-                        // 💾 تخزين الاستجابة في الكاش
-                        const responseToCache = response.clone();
-                        caches.open(CACHE_NAME)
-                            .then(cache => {
-                                cache.put(event.request, responseToCache);
-                            });
-
-                        return response;
-                    })
-                    .catch(() => {
-                        // 🚨 في حالة فشل الشبكة، إرجاع صفحة offline
-                        if (event.request.destination === 'document') {
-                            return caches.match('/offline.html');
-                        }
-                        
-                        // 📱 للملفات الأخرى، إرجاع placeholder
-                        return new Response('Offline - No Internet Connection', {
-                            status: 503,
-                            statusText: 'Service Unavailable'
-                        });
-                    });
-            })
-    );
-});
-
-// 🔄 مزامنة في الخلفية
-self.addEventListener('sync', event => {
-    if (event.tag === 'sync-data') {
-        event.waitUntil(syncData());
-    }
-});
-
-// 📊 مزامنة البيانات
-async function syncData() {
-    try {
-        // مزامنة البيانات مع Firebase
-        console.log('🔄 Syncing data with Firebase');
-        // ... منطق المزامنة
-    } catch (error) {
-        console.error('❌ Sync failed:', error);
-    }
-}
-
-// 📱 إشعارات الدفع
-self.addEventListener('push', event => {
-    const options = {
-        body: event.data ? event.data.text() : 'New notification',
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
-        vibrate: [100, 50, 100],
-        data: {
-            dateOfArrival: Date.now(),
-            primaryKey: 1
-        }
-    };
-
-    event.waitUntil(
-        self.registration.showNotification('Sale Zone Store', options)
-    );
-});
+console.log('Service Worker: Fixed version loaded successfully');
