@@ -1166,6 +1166,12 @@
             const slider = document.getElementById('bannerSlider');
             const dots = document.getElementById('bannerDots');
             
+            // التحقق من وجود العناصر قبل استخدامها
+            if (!slider || !dots) {
+                console.warn('⚠️ Banner elements not found, skipping render');
+                return;
+            }
+            
             if (banners.length === 0) {
                 slider.innerHTML = '<div class="banner-slide"><div class="banner-content"><div class="banner-icon">🛍️</div><div class="banner-title">مرحباً بك</div></div></div>';
                 return;
