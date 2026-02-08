@@ -1052,27 +1052,37 @@
                     const fbProducts = await getAllProducts();
                     if (fbProducts && fbProducts.length > 0) {
                         products = fbProducts;
+                        setStorageData('PRODUCTS', products); // حفظ في localStorage
                         console.log('✅ Products loaded from Firebase:', products.length);
                     } else {
                         // Fallback to localStorage
                         products = getStorageData('PRODUCTS') || [...defaultProducts];
-                        console.log('📦 Products loaded from localStorage');
+                        setStorageData('PRODUCTS', products); // حفظ في localStorage
+                        console.log('📦 Products loaded from localStorage:', products.length);
                     }
                     
                     // تحميل الكوبونات
                     const fbCoupons = await getCoupons();
                     if (fbCoupons && fbCoupons.length > 0) {
                         coupons = fbCoupons;
+                        setStorageData('COUPONS', coupons); // حفظ في localStorage
+                        console.log('✅ Coupons loaded from Firebase:', coupons.length);
                     } else {
                         coupons = getStorageData('COUPONS') || [...defaultCoupons];
+                        setStorageData('COUPONS', coupons); // حفظ في localStorage
+                        console.log('📦 Coupons loaded from localStorage:', coupons.length);
                     }
                     
                     // تحميل البانرات
                     const fbBanners = await getBanners();
                     if (fbBanners && fbBanners.length > 0) {
                         banners = fbBanners;
+                        setStorageData('BANNERS', banners); // حفظ في localStorage
+                        console.log('✅ Banners loaded from Firebase:', banners.length);
                     } else {
                         banners = getStorageData('BANNERS') || [...defaultBanners];
+                        setStorageData('BANNERS', banners); // حفظ في localStorage
+                        console.log('📦 Banners loaded from localStorage:', banners.length);
                     }
                     
                 } else {
