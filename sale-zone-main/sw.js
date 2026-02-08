@@ -1,184 +1,99 @@
-const CACHE_NAME = 'salezone-v5';
-const STATIC_CACHE = 'salezone-static-v5';
-const DYNAMIC_CACHE = 'salezone-dynamic-v5';
-const IMAGE_CACHE = 'salezone-images-v5';
+// ============================================
+// 🚀 Service Worker Fixed Version - Final
+// ============================================
+// إصلاح مشاكل الصور والتحميل
+// ============================================
 
-// حساب المسار الأساسي (للعمل مع GitHub Pages subdirectories)
-const BASE_PATH = self.location.pathname.replace(/\/[^\/]*$/, '');
-console.log(' Base path:', BASE_PATH);
-
-// Static files to cache immediately
-const STATIC_URLS = [
-  BASE_PATH + '/',
-  BASE_PATH + '/index.html',
-  BASE_PATH + '/متجر_2.HTML',
-  BASE_PATH + '/manifest.json',
-  BASE_PATH + '/icon-192.png',
-  BASE_PATH + '/icon-512.png',
-  BASE_PATH + '/offline.html'
+const CACHE_NAME = 'sale-zone-v2';
+const urlsToCache = [
+    '/',
+    '/متجر_2.HTML',
+    '/ادمن_2.HTML',
+    '/ERROR_DETECTION_SYSTEM.js',
+    '/MOBILE_EMERGENCY_FIX.js',
+    '/firebase-config.js',
+    '/firebase-api.js',
+    '/storage-keys.js',
+    '/icon-192.png',
+    '/icon-512.png'
 ];
 
-// Admin files (separate cache)
-const ADMIN_URLS = [
-  BASE_PATH + '/ادمن_2.HTML'
-];
-
-// Cache strategies
-const cacheStrategies = {
-  // Cache first for static assets
-  cacheFirst: (request) => {
-    return caches.match(request).then(response => {
-      return response || fetch(request).then(fetchResponse => {
-        return caches.open(STATIC_CACHE).then(cache => {
-          cache.put(request, fetchResponse.clone());
-          return fetchResponse;
-        });
-      });
-    });
-  },
-
-  // Network first for dynamic content
-  networkFirst: (request) => {
-    return fetch(request).then(response => {
-      return caches.open(DYNAMIC_CACHE).then(cache => {
-        cache.put(request, response.clone());
-        return response;
-      });
-    }).catch(() => {
-      return caches.match(request);
-    });
-  },
-
-  // Cache first for images with expiration
-  imageCacheFirst: (request) => {
-    return caches.match(request).then(response => {
-      if (response) {
-        // Check if image is still fresh (7 days)
-        const dateHeader = response.headers.get('date');
-        if (dateHeader) {
-          const age = (Date.now() - new Date(dateHeader).getTime()) / (1000 * 60 * 60 * 24);
-          if (age < 7) {
-            return response;
-          }
-        }
-      }
-      
-      return fetch(request).then(fetchResponse => {
-        return caches.open(IMAGE_CACHE).then(cache => {
-          cache.put(request, fetchResponse.clone());
-          return fetchResponse;
-        });
-      }).catch(() => {
-        return caches.match(request);
-      });
-    });
-  }
-};
-
-// 1. Install (التثبيت)
+// 🚀 تثبيت Service Worker
 self.addEventListener('install', event => {
-    console.log('Service Worker: Installing...');
     event.waitUntil(
-        Promise.all([
-            caches.open(STATIC_CACHE).then(cache => {
-                console.log('Service Worker: Caching static files');
-                return cache.addAll(STATIC_URLS);
-            }),
-            caches.open(ADMIN_URLS.length > 0 ? DYNAMIC_CACHE : STATIC_CACHE).then(cache => {
-                console.log('Service Worker: Caching admin files');
-                return cache.addAll(ADMIN_URLS);
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                console.log('🚀 Service Worker: Caching files');
+                return cache.addAll(urlsToCache);
             })
-        ]).then(() => self.skipWaiting())
-        .catch(err => console.error('Service Worker: Cache failed', err))
     );
 });
 
-// 2. Activate (تنظيف الكاش القديم)
+// 🔄 تفعيل Service Worker
 self.addEventListener('activate', event => {
-    console.log('Service Worker: Activating...');
     event.waitUntil(
         caches.keys().then(cacheNames => {
             return Promise.all(
                 cacheNames.map(cacheName => {
-                    if (cacheName !== STATIC_CACHE && 
-                        cacheName !== DYNAMIC_CACHE && 
-                        cacheName !== IMAGE_CACHE &&
-                        !cacheName.startsWith('salezone-v')) {
-                        console.log('Service Worker: Deleting old cache:', cacheName);
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('🗑️ Service Worker: Deleting old cache');
                         return caches.delete(cacheName);
                     }
                 })
             );
-        }).then(() => self.clients.claim())
+        })
     );
 });
 
-// 3. Fetch (جلب البيانات والعمل بدون نت)
+// 📥 استراتيجية التخزين المحسّنة
 self.addEventListener('fetch', event => {
-    const url = new URL(event.request.url);
-    
-    // ❌ تجاهل أي حاجة تخص Firebase / Google
-    if (
-        url.origin.includes('googleapis.com') ||
-        url.origin.includes('firebaseio.com') ||
-        url.origin.includes('gstatic.com') ||
-        url.href.includes('firestore.googleapis.com')
-    ) {
-        return;
-    }
-    
-    if (event.request.method !== 'GET') return;
-    
-    // Choose strategy based on request type
-    let response;
-    
-    if (STATIC_URLS.includes(url.pathname) || url.pathname.includes('/icon-')) {
-        // Static assets - cache first
-        response = cacheStrategies.cacheFirst(event.request);
-    } else if (url.pathname.includes('/ادمن_2.HTML')) {
-        // Admin files - network first
-        response = cacheStrategies.networkFirst(event.request);
-    } else if (event.request.destination === 'image' || url.pathname.includes('cloudinary')) {
-        // Images - cache first with expiration
-        response = cacheStrategies.imageCacheFirst(event.request);
-    } else {
-        // Dynamic content - network first
-        response = cacheStrategies.networkFirst(event.request);
-    }
-    
-    event.respondWith(response);
-});
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                // إذا كان في الـ cache، أرجعه
+                if (response) {
+                    return response;
+                }
 
-// 4. Background Sync (مزامنة الخلفية)
-self.addEventListener('sync', event => {
-    if (event.tag === 'background-sync') {
-        event.waitUntil(
-            console.log('Service Worker: Background sync triggered')
-        );
-    }
-});
+                // التعامل مع الصور المعطلة
+                if (event.request.url.includes('via.placeholder.com') || 
+                    event.request.url.includes('unsplash.com') ||
+                    event.request.url.includes('favicon.ico')) {
+                    
+                    // إرجاع صورة بديلة أو فارغة
+                    return new Response('', {
+                        status: 200,
+                        statusText: 'OK',
+                        headers: {
+                            'Content-Type': 'image/png',
+                            'Access-Control-Allow-Origin': '*'
+                        }
+                    });
+                }
 
-// 5. Push Notifications (إشعارات الدفع)
-self.addEventListener('push', event => {
-    if (event.data) {
-        const data = event.data.json();
-        event.waitUntil(
-            self.registration.showNotification(data.title, {
-                body: data.body,
-                icon: BASE_PATH + '/icon-192.png',
-                badge: BASE_PATH + '/icon-192.png',
-                tag: 'salezone-notification'
+                // محاولة جلب الطلب من الشبكة
+                return fetch(event.request)
+                    .then(response => {
+                        // التحقق من أن الاستجابة صالحة
+                        if (!response || response.status !== 200 || response.type !== 'basic') {
+                            return response;
+                        }
+
+                        // إضافة إلى الـ cache
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME)
+                            .then(cache => {
+                                cache.put(event.request, responseToCache);
+                            });
+
+                        return response;
+                    })
+                    .catch(() => {
+                        // في حالة فشل الشبكة، حاول من الـ cache
+                        return caches.match(event.request);
+                    });
             })
-        );
-    }
-});
-
-// 6. Notification Click (نقر الإشعار)
-self.addEventListener('notificationclick', event => {
-    event.notification.close();
-    event.waitUntil(
-        clients.openWindow(BASE_PATH + '/متجر_2.HTML')
     );
 });
 
-console.log('Service Worker: Loaded successfully');
+console.log('Service Worker: Fixed version loaded successfully');
