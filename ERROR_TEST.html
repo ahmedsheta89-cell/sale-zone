@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار نظام اكتشاف الأخطاء</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            direction: rtl;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-btn:hover {
+            background: #0056b3;
+        }
+        .test-btn.danger {
+            background: #dc3545;
+        }
+        .test-btn.danger:hover {
+            background: #c82333;
+        }
+        .test-btn.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .test-btn.warning:hover {
+            background: #e0a800;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .iframe-container {
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        .iframe-container iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 اختبار نظام اكتشاف الأخطاء</h1>
+        <p>هذه الصفحة لاختبار نظام اكتشاف الأخطاء الاحترافي في المتجر.</p>
+        
+        <div class="test-section">
+            <h2>🔴 اختبار الأخطاء</h2>
+            <button class="test-btn danger" onclick="testJavaScriptError()">خطأ JavaScript</button>
+            <button class="test-btn danger" onclick="testPromiseRejection()">رفض Promise</button>
+            <button class="test-btn danger" onclick="testMissingElement()">عنصر مفقود</button>
+            <button class="test-btn danger" onclick="testNullReference()">مرجع null</button>
+            <button class="test-btn danger" onclick="testTypeError()">خطأ نوع</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🟡 اختبار التحذيرات</h2>
+            <button class="test-btn warning" onclick="testSlowLoad()">تحميل بطيء</button>
+            <button class="test-btn warning" onclick="testLocalStorageFull()">LocalStorage ممتلئ</button>
+            <button class="test-btn warning" onclick="testNetworkOffline()">شبكة غير متصلة</button>
+            <button class="test-btn warning" onclick="testSlowFirebase()">Firebase بطيء</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 اختبار الأداء</h2>
+            <button class="test-btn" onclick="testPerformance()">اختبار الأداء</button>
+            <button class="test-btn" onclick="testMemoryUsage()">استخدام الذاكرة</button>
+            <button class="test-btn" onclick="testUserActions()">إجراءات المستخدم</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 اختبار التعافي</h2>
+            <button class="test-btn" onclick="testAutoRecovery()">التعافي التلقائي</button>
+            <button class="test-btn" onclick="testElementRecreation()">إعادة إنشاء العناصر</button>
+            <button class="test-btn" onclick="testFallbackMode()">وضع الاحتياط</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 عرض التقارير</h2>
+            <button class="test-btn" onclick="showSystemReport()">عرض تقرير النظام</button>
+            <button class="test-btn" onclick="clearErrors()">مسح الأخطاء</button>
+            <button class="test-btn" onclick="exportReport()">تصدير التقرير</button>
+        </div>
+        
+        <div id="status" class="status info" style="display: none;"></div>
+        
+        <div class="iframe-container">
+            <h3>🛍️ المتجر المختبر</h3>
+            <iframe src="https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // 🔴 اختبارات الأخطاء
+        function testJavaScriptError() {
+            showStatus('اختبار خطأ JavaScript...', 'info');
+            setTimeout(() => {
+                // هذا سيولد خطأ JavaScript
+                const obj = null;
+                obj.someProperty = 'test'; // TypeError
+            }, 100);
+        }
+        
+        function testPromiseRejection() {
+            showStatus('اختبار رفض Promise...', 'info');
+            setTimeout(() => {
+                // هذا سيولد خطأ Promise rejection
+                Promise.reject('Test promise rejection').catch(() => {});
+            }, 100);
+        }
+        
+        function testMissingElement() {
+            showStatus('اختبار عنصر مفقود...', 'info');
+            setTimeout(() => {
+                // هذا سيولد خطأ عنصر مفقود
+                const element = document.getElementById('nonExistentElement');
+                element.innerHTML = 'test'; // TypeError
+            }, 100);
+        }
+        
+        function testNullReference() {
+            showStatus('اختبار مرجع null...', 'info');
+            setTimeout(() => {
+                // هذا سيولد خطأ مرجع null
+                const data = null;
+                console.log(data.property); // TypeError
+            }, 100);
+        }
+        
+        function testTypeError() {
+            showStatus('اختبار خطأ نوع...', 'info');
+            setTimeout(() => {
+                // هذا سيولد خطأ نوع
+                const num = '123';
+                num.toFixed(2); // TypeError
+            }, 100);
+        }
+        
+        // 🟡 اختبارات التحذيرات
+        function testSlowLoad() {
+            showStatus('اختبار تحميل بطيء...', 'info');
+            // محاكاة تحميل بطيء
+            const start = performance.now();
+            setTimeout(() => {
+                const end = performance.now();
+                const duration = end - start;
+                if (duration > 2000) {
+                    showStatus(`تم اكتشاف تحميل بطيء: ${duration.toFixed(2)}ms`, 'error');
+                } else {
+                    showStatus(`التحميل طبيعي: ${duration.toFixed(2)}ms`, 'success');
+                }
+            }, 2500);
+        }
+        
+        function testLocalStorageFull() {
+            showStatus('اختبار LocalStorage ممتلئ...', 'info');
+            try {
+                // محاولة ملء LocalStorage
+                const data = 'x'.repeat(10 * 1024 * 1024); // 10MB
+                localStorage.setItem('testData', data);
+                showStatus('تم ملء LocalStorage بنجاح', 'success');
+            } catch (error) {
+                showStatus(`تم اكتشاف خطأ LocalStorage: ${error.message}`, 'error');
+            }
+        }
+        
+        function testNetworkOffline() {
+            showStatus('اختبار حالة الشبكة...', 'info');
+            const isOnline = navigator.onLine;
+            if (isOnline) {
+                showStatus('الشبكة متصلة', 'success');
+            } else {
+                showStatus('الشبكة غير متصلة', 'error');
+            }
+        }
+        
+        function testSlowFirebase() {
+            showStatus('اختبار Firebase بطيء...', 'info');
+            // محاكاة استدعاء Firebase بطيء
+            const start = performance.now();
+            setTimeout(() => {
+                const end = performance.now();
+                const duration = end - start;
+                if (duration > 3000) {
+                    showStatus(`تم اكتشاف Firebase بطيء: ${duration.toFixed(2)}ms`, 'error');
+                } else {
+                    showStatus(`Firebase طبيعي: ${duration.toFixed(2)}ms`, 'success');
+                }
+            }, 3500);
+        }
+        
+        // 📊 اختبارات الأداء
+        function testPerformance() {
+            showStatus('اختبار الأداء...', 'info');
+            const report = window.getSystemReport?.();
+            if (report) {
+                showStatus('تقرير الأداء متاح', 'success');
+                console.log('Performance Report:', report);
+            } else {
+                showStatus('تقرير الأداء غير متاح', 'error');
+            }
+        }
+        
+        function testMemoryUsage() {
+            showStatus('اختبار استخدام الذاكرة...', 'info');
+            if (performance.memory) {
+                const memory = performance.memory;
+                const used = (memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+                const total = (memory.totalJSHeapSize / 1024 / 1024).toFixed(2);
+                showStatus(`استخدام الذاكرة: ${used}MB / ${total}MB`, 'success');
+            } else {
+                showStatus('معلومات الذاكرة غير متاحة', 'error');
+            }
+        }
+        
+        function testUserActions() {
+            showStatus('اختبار إجراءات المستخدم...', 'info');
+            const report = window.getSystemReport?.();
+            if (report && report.recentActions) {
+                showStatus(`آخر ${report.recentActions.length} إجراء للمستخدم`, 'success');
+                console.log('User Actions:', report.recentActions);
+            } else {
+                showStatus('إجراءات المستخدم غير متاحة', 'error');
+            }
+        }
+        
+        // 🔧 اختبارات التعافي
+        function testAutoRecovery() {
+            showStatus('اختبار التعافي التلقائي...', 'info');
+            // محاكاة خطأ ثم التعافي
+            setTimeout(() => {
+                try {
+                    const obj = null;
+                    obj.property = 'test';
+                } catch (error) {
+                    showStatus(`تم اكتشاف الخطأ: ${error.message}`, 'error');
+                    // محاكاة التعافي
+                    setTimeout(() => {
+                        showStatus('تم التعافي التلقائي من الخطأ', 'success');
+                    }, 1000);
+                }
+            }, 100);
+        }
+        
+        function testElementRecreation() {
+            showStatus('اختبار إعادة إنشاء العناصر...', 'info');
+            // إزالة عنصر ثم محاولة إعادة إنشائه
+            const slider = document.getElementById('bannerSlider');
+            if (slider) {
+                slider.remove();
+                showStatus('تم إزالة عنصر bannerSlider', 'info');
+                setTimeout(() => {
+                    // محاولة إعادة الإنشاء
+                    if (window.errorDetectionSystem) {
+                        window.errorDetectionSystem.recreateElement('bannerSlider');
+                        showStatus('تم إعادة إنشاء العنصر', 'success');
+                    }
+                }, 1000);
+            } else {
+                showStatus('عنصر bannerSlider غير موجود', 'error');
+            }
+        }
+        
+        function testFallbackMode() {
+            showStatus('اختبار وضع الاحتياط...', 'info');
+            // محاكاة فشل Firebase
+            if (window.errorDetectionSystem) {
+                const mockError = {
+                    type: 'FIREBASE_ERROR',
+                    message: 'Simulated Firebase connection failure',
+                    timestamp: new Date().toISOString()
+                };
+                window.errorDetectionSystem.logError(mockError);
+                showStatus('تم محاكاة خطأ Firebase', 'success');
+            } else {
+                showStatus('نظام اكتشاف الأخطاء غير متاح', 'error');
+            }
+        }
+        
+        // 📊 عرض التقارير
+        function showSystemReport() {
+            showStatus('جاري تحميل تقرير النظام...', 'info');
+            const report = window.getSystemReport?.();
+            if (report) {
+                showStatus('تم تحميل تقرير النظام بنجاح', 'success');
+                console.log('=== تقرير النظام ===');
+                console.log(JSON.stringify(report, null, 2));
+                console.log('=== نهاية التقرير ===');
+            } else {
+                showStatus('تقرير النظام غير متاح', 'error');
+            }
+        }
+        
+        function clearErrors() {
+            showStatus('جاري مسح الأخطاء...', 'info');
+            if (window.clearSystemErrors) {
+                window.clearSystemErrors();
+                showStatus('تم مسح الأخطاء بنجاح', 'success');
+            } else {
+                showStatus('وظيفة مسح الأخطاء غير متاحة', 'error');
+            }
+        }
+        
+        function exportReport() {
+            showStatus('جاري تصدير التقرير...', 'info');
+            const report = window.getSystemReport?.();
+            if (report) {
+                const reportText = JSON.stringify(report, null, 2);
+                const blob = new Blob([reportText], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `error-report-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showStatus('تم تصدير التقرير بنجاح', 'success');
+            } else {
+                showStatus('التقرير غير متاح للتصدير', 'error');
+            }
+        }
+        
+        // 📝 عرض الحالة
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            // إخفاء الرسالة بعد 5 ثواني
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+        
+        // 🚀 تهيئة الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            showStatus('صفحة الاختبار جاهزة', 'success');
+            console.log('🧪 Error Detection Test Page Loaded');
+            console.log('💡 اضغط على الأزرار لاختبار النظام');
+        });
+    </script>
+</body>
+</html>
