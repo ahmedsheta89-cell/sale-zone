@@ -22,8 +22,8 @@ function setupRealtimeSync() {
         }
     });
     
-    // فحص دوري للتحديثات
-    setInterval(checkForUpdates, 2000);
+    // فحص دوري للتحديثات - معطل لحل مشكلة التحديث المستمر
+    // setInterval(checkForUpdates, 2000);
     
     console.log('✅ Real-time sync setup complete');
 }
