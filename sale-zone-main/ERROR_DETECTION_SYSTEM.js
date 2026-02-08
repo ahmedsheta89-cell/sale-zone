@@ -28,6 +28,14 @@ class ErrorDetectionSystem {
         this.setupSystemHealthChecks();
         this.setupFirebaseMonitoring();
         this.setupLocalStorageMonitoring();
+        
+        // 📱 مراقبة خاصة بالجوال
+        this.setupMobileSpecificMonitoring();
+        
+        console.log('🔍 Error Detection System initialized');
+        this.startHealthCheck();
+    }
+
     // 📱 مراقبة خاصة بالجوال
     setupMobileSpecificMonitoring() {
         // التحقق من أن الجهاز جوال

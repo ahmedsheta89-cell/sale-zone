@@ -7,7 +7,7 @@
 class MobileEmergencyFix {
     constructor() {
         this.isMobile = /iPhone|iPad|iPod|Android|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        this.isSafari = /^((?!chrome|android).)*safari)/i.test(navigator.userAgent);
+        this.isSafari = /^((?!chrome|android).*safari)/i.test(navigator.userAgent);
         this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         
         this.initialize();
