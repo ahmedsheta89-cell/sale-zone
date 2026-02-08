@@ -1094,6 +1094,12 @@
                 products = getStorageData('PRODUCTS') || [...defaultProducts];
                 coupons = getStorageData('COUPONS') || [...defaultCoupons];
                 banners = getStorageData('BANNERS') || [...defaultBanners];
+                
+                // حفظ في localStorage دائماً
+                setStorageData('PRODUCTS', products);
+                setStorageData('COUPONS', coupons);
+                setStorageData('BANNERS', banners);
+                console.log('📦 Data saved to localStorage from fallback');
             }
             
             // هذه البيانات دائماً من localStorage (السلة، المفضلات، إلخ)
@@ -1105,10 +1111,11 @@
             const savedSettings = getStorageData('SETTINGS');
             if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
             
-            // حفظ في localStorage للـ fallback
-            if (!getStorageData('PRODUCTS')) setStorageData('PRODUCTS', products);
-            if (!getStorageData('COUPONS')) setStorageData('COUPONS', coupons);
-            if (!getStorageData('BANNERS')) setStorageData('BANNERS', banners);
+            // حفظ في localStorage دائماً لضمان الاستمرارية
+            setStorageData('PRODUCTS', products);
+            setStorageData('COUPONS', coupons);
+            setStorageData('BANNERS', banners);
+            console.log('💾 Data saved to localStorage for persistence');
         }
 
         function saveCart() { setStorageData('CART', cart); }
