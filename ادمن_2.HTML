@@ -16,7 +16,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <!-- Error Detection System -->
     <script src="ERROR_DETECTION_SYSTEM.js"></script>
-    <script src="ADMIN_ERROR_DASHBOARD.js"></script>
     
     <!-- Firebase Configuration -->
     <script src="firebase-config.js"></script>
@@ -1843,9 +1842,9 @@ function adminLogout(){
 
                 <div class="order-detail-section">
                     <h4>👤 العميل</h4>
-                    <p><strong>الاسم:</strong> ${o.customer?.name || '-'}</p>
-                    <p><strong>الهاتف:</strong> ${o.customer?.phone || '-'}</p>
-                    <p><strong>العنوان:</strong> ${o.customer?.address || '-'}</p>
+                    <p><strong>الاسم:</strong> ${o.customer?.name}</p>
+                    <p><strong>الهاتف:</strong> ${o.customer?.phone}</p>
+                    <p><strong>العنوان:</strong> ${o.customer?.address}</p>
                     ${o.customer?.notes ? `<p><strong>ملاحظات:</strong> ${o.customer.notes}</p>` : ''}
                 </div>
 
@@ -1853,7 +1852,7 @@ function adminLogout(){
                     <h4>📦 المنتجات</h4>
                     ${itemsHtml || '<p>لا توجد</p>'}
                     
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd;">
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #ddd;">
                         <div class="order-item"><span>المجموع:</span><span>${o.subtotal || 0} ج.م</span></div>
                         ${o.couponCode ? `<div class="order-item" style="color: var(--success);"><span>🎫 ${o.couponCode}</span><span>- ${o.discount || 0} ج.م</span></div>` : ''}
                         ${o.usedPoints > 0 ? `<div class="order-item" style="color: var(--info);"><span>💎 نقاط (${o.usedPoints})</span><span>- ${o.pointsDiscount || 0} ج.م</span></div>` : ''}
@@ -1898,7 +1897,7 @@ function adminLogout(){
             w.document.write(`
                 <!DOCTYPE html>
                 <html dir="rtl"><head><title>فاتورة ${o.orderNumber}</title>
-                <style>body{font-family:Arial;padding:20px}h1{color:#D4AF37;text-align:center}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#f5f5f5}.total{font-size:20px;font-weight:bold}</style></head>
+                <style>body{font-family:Arial;padding:20px}h1{color:#D4AF37;text-align:center}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#f5f5f5;font-weight:700;color:#0A1128}.total{font-size:20px;font-weight:bold}</style></head>
                 <body>
                 <h1>Sale Zone Store</h1>
                 <h2>فاتورة: ${o.orderNumber}</h2>
@@ -2430,8 +2429,7 @@ function adminLogout(){
             setTimeout(() => n.remove(), 4000);
         }
     </script>
-    <script src="./cloudinary-service.js"></script>
-<script>
+    <script>
 async function uploadAndPreview(input) {
     if(!input.files[0]) return;
     // معاينة
