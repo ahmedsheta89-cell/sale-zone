@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" data-page="store">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,9 +7,7 @@
     <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="icon" href="/icon-192.png">
-    <link rel="shortcut icon" href="/icon-192.png">
-    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="icon" href="./icon-192.png">
     <title>Sale Zone Store | التسوق الفاخر الذكي</title>
     
     <!-- Firebase SDK -->
@@ -31,6 +29,9 @@
     <script src="smart-features.js"></script>
     <script src="advanced-features.js"></script>
     <script src="UI_COMPONENTS.js"></script>
+    
+    <!-- Mobile Emergency Fix -->
+    <script src="MOBILE_EMERGENCY_FIX.js"></script>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -974,20 +975,21 @@
         };
 
         const defaultProducts = [
-            { id: 1, name: 'شامبو كيراتين فاخر', desc: 'شامبو احترافي بالكيراتين لتنعيم الشعر', price: 189, oldPrice: 249, image: 'https://images.unsplash.com/photo-1522337360788-8b13dee73837?w=400', category: 'hair-care', rating: 4.8, ratingCount: 124, ratings: [] },
-            { id: 2, name: 'سيروم فيتامين C', desc: 'سيروم مضاد للأكسدة للبشرة المشرقة', price: 220, oldPrice: 280, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400', category: 'skin-care', rating: 4.8, ratingCount: 198, ratings: [] },
+            { id: 1, name: 'شامبو الأرغان الفاخر', desc: 'شامبو طبيعي بزيت الأرغان المغربي', price: 250, oldPrice: 350, image: 'https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400', category: 'hair-care', rating: 4.8, ratingCount: 124, ratings: [] },
+            { id: 2, name: 'سيروم إصلاح الشعر', desc: 'سيروم مكثف لإصلاح الشعر التالف', price: 180, oldPrice: 220, image: 'https://images.unsplash.com/photo-1526947425960-945c6e72858f?w=400', category: 'hair-care', rating: 4.6, ratingCount: 89, ratings: [] },
             { id: 3, name: 'زيت جوز الهند', desc: 'زيت طبيعي 100% للشعر', price: 120, oldPrice: 150, image: 'https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?w=400', category: 'hair-care', rating: 4.9, ratingCount: 203, ratings: [] },
             { id: 4, name: 'كريم الترطيب المكثف', desc: 'كريم مرطب بحمض الهيالورونيك', price: 320, oldPrice: 400, image: 'https://images.unsplash.com/photo-1570194065650-d99fb4b38b17?w=400', category: 'skin-care', rating: 4.7, ratingCount: 156, ratings: [] },
-            { id: 5, name: 'غسول الوجه اللطيف', desc: 'غسول رغوي للتنظيف العميق', price: 150, oldPrice: 180, image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400', category: 'skin-care', rating: 4.5, ratingCount: 87, ratings: [] },
-            { id: 6, name: 'شامبو أطفال', desc: 'شامبو لطيف بدون دموع', price: 85, oldPrice: 110, image: 'https://images.unsplash.com/photo-1596870230751-ebdfce98ec42?w=400', category: 'baby-care', rating: 4.9, ratingCount: 245, ratings: [] },
-            { id: 7, name: 'كريم حفاضات', desc: 'كريم واقي ومهدئ', price: 95, oldPrice: 120, image: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400', category: 'baby-care', rating: 4.7, ratingCount: 167, ratings: [] },
-            { id: 8, name: 'لوشن ترطيب الأطفال', desc: 'لوشن مرطب يومي', price: 75, oldPrice: 95, image: 'https://images.unsplash.com/photo-1544006659-f0b21884ce1d?w=400', category: 'baby-care', rating: 4.8, ratingCount: 132, ratings: [] },
-            { id: 9, name: 'فيتامين د3', desc: 'مكمل فيتامين د3 - 60 كبسولة', price: 220, oldPrice: 280, image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400', category: 'supplements', rating: 4.8, ratingCount: 312, ratings: [] },
-            { id: 10, name: 'أوميغا 3', desc: 'زيت السمك - 90 كبسولة', price: 350, oldPrice: 420, image: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=400', category: 'supplements', rating: 4.7, ratingCount: 189, ratings: [] },
-            { id: 11, name: 'مالتي فيتامين', desc: 'فيتامينات شاملة - 30 قرص', price: 180, oldPrice: 230, image: 'https://images.unsplash.com/photo-1556227702-d1e4e7b5c232?w=400', category: 'supplements', rating: 4.6, ratingCount: 256, ratings: [] },
-            { id: 12, name: 'جهاز قياس الضغط', desc: 'جهاز رقمي دقيق', price: 450, oldPrice: 600, image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400', category: 'medical', rating: 4.9, ratingCount: 178, ratings: [] },
-            { id: 13, name: 'جهاز قياس السكر', desc: 'جهاز + 50 شريط', price: 380, oldPrice: 480, image: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=400', category: 'medical', rating: 4.8, ratingCount: 234, ratings: [] },
-            { id: 14, name: 'ترمومتر رقمي', desc: 'قياس الحرارة عن بُعد', price: 280, oldPrice: 350, image: 'https://images.unsplash.com/photo-1584483766114-2cea6facdf57?w=400', category: 'medical', rating: 4.7, ratingCount: 145, ratings: [] }
+            { id: 5, name: 'سيروم فيتامين سي', desc: 'سيروم مضاد للأكسدة', price: 280, oldPrice: 350, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400', category: 'skin-care', rating: 4.8, ratingCount: 198, ratings: [] },
+            { id: 6, name: 'غسول الوجه اللطيف', desc: 'غسول رغوي للتنظيف العميق', price: 150, oldPrice: 180, image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400', category: 'skin-care', rating: 4.5, ratingCount: 87, ratings: [] },
+            { id: 7, name: 'شامبو أطفال', desc: 'شامبو لطيف بدون دموع', price: 85, oldPrice: 110, image: 'https://images.unsplash.com/photo-1596870230751-ebdfce98ec42?w=400', category: 'baby-care', rating: 4.9, ratingCount: 245, ratings: [] },
+            { id: 8, name: 'كريم حفاضات', desc: 'كريم واقي ومهدئ', price: 95, oldPrice: 120, image: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400', category: 'baby-care', rating: 4.7, ratingCount: 167, ratings: [] },
+            { id: 9, name: 'لوشن ترطيب الأطفال', desc: 'لوشن مرطب يومي', price: 75, oldPrice: 95, image: 'https://images.unsplash.com/photo-1544006659-f0b21884ce1d?w=400', category: 'baby-care', rating: 4.8, ratingCount: 132, ratings: [] },
+            { id: 10, name: 'فيتامين د3', desc: 'مكمل فيتامين د3 - 60 كبسولة', price: 220, oldPrice: 280, image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400', category: 'supplements', rating: 4.8, ratingCount: 312, ratings: [] },
+            { id: 11, name: 'أوميغا 3', desc: 'زيت السمك - 90 كبسولة', price: 350, oldPrice: 420, image: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=400', category: 'supplements', rating: 4.7, ratingCount: 189, ratings: [] },
+            { id: 12, name: 'مالتي فيتامين', desc: 'فيتامينات شاملة - 30 قرص', price: 180, oldPrice: 230, image: 'https://images.unsplash.com/photo-1556227702-d1e4e7b5c232?w=400', category: 'supplements', rating: 4.6, ratingCount: 256, ratings: [] },
+            { id: 13, name: 'جهاز قياس الضغط', desc: 'جهاز رقمي دقيق', price: 450, oldPrice: 600, image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400', category: 'medical', rating: 4.9, ratingCount: 178, ratings: [] },
+            { id: 14, name: 'جهاز قياس السكر', desc: 'جهاز + 50 شريط', price: 380, oldPrice: 480, image: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=400', category: 'medical', rating: 4.8, ratingCount: 234, ratings: [] },
+            { id: 15, name: 'ترمومتر رقمي', desc: 'قياس الحرارة عن بُعد', price: 280, oldPrice: 350, image: 'https://images.unsplash.com/photo-1584483766114-2cea6facdf57?w=400', category: 'medical', rating: 4.7, ratingCount: 145, ratings: [] }
         ];
 
         const defaultCoupons = [
@@ -1006,15 +1008,6 @@
         // 🚀 Initialize
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
-            // 🔧 DOM Element Safety Checks
-            const criticalElements = ['bannerSlider', 'bannerDots', 'productsGrid', 'cartCount', 'loadingScreen'];
-            criticalElements.forEach(id => {
-                const element = document.getElementById(id);
-                if (!element) {
-                    console.warn(`⚠️ Missing element: ${id}`);
-                }
-            });
-
             loadData();
             applyStoreSettings();
             renderBanners();
@@ -1027,44 +1020,27 @@
             checkLoggedInUser();
             startBannerSlider();
 
-            // 🛡️ Safe loading screen hide
-            const loadingScreen = document.getElementById('loadingScreen');
-            if (loadingScreen) {
-                setTimeout(() => {
-                    loadingScreen.classList.add('hidden');
-                }, 1000);
-            }
+            setTimeout(() => {
+                document.getElementById('loadingScreen').classList.add('hidden');
+            }, 1000);
 
-            // 📱 Register Professional ServiceWorker for PWA
+            // 📱 Register Service Worker for PWA
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('./sw.js', { scope: './' })
                     .then(registration => {
-                        console.log('✅ Professional ServiceWorker registered:', registration.scope);
-                        console.log('🚀 PWA Features Enabled');
+                        console.log('✅ Service Worker registered:', registration.scope);
                         
-                        // 🔄 Check for updates
+                        // التحقق من التحديثات
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;
                             newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('🔄 New version available! Refreshing...');
-                                    window.location.reload();
+                                if (newWorker.state === 'activated') {
+                                    console.log('🔄 New version available!');
                                 }
                             });
                         });
-                        
-                        // 📨 Get ServiceWorker version
-                        if (registration.active) {
-                            registration.active.postMessage({ type: 'GET_VERSION' }, [new MessageChannel().port1]);
-                        }
                     })
-                    .catch(err => {
-                        console.error('❌ ServiceWorker registration failed:', err);
-                        // Fallback to basic functionality
-                        console.log('🔄 Fallback: Running without ServiceWorker');
-                    });
-            } else {
-                console.log('📱 ServiceWorker not supported - PWA features disabled');
+                    .catch(err => console.error('❌ SW Error:', err));
             }
         });
 
