@@ -1,0 +1,38 @@
+<!-- =====================================================
+     FAVICON FIX - أضف في <head> في جميع ملفات HTML
+     ===================================================== -->
+
+<!-- في متجر_2.HTML و ادمن_2.HTML و index.html -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- ✅ Favicon - أضف هذه الأسطر -->
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+    <link rel="shortcut icon" href="./icon-192.png">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    
+    <!-- iOS Safari -->
+    <link rel="apple-touch-icon" sizes="180x180" href="./icon-192.png">
+    
+    <!-- Android Chrome -->
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+    
+    <!-- ✅ إذا لم يكن عندك icon-192.png، أضف SVG placeholder -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛍️</text></svg>">
+    
+    <!-- باقي الـ head -->
+    <title>Sale Zone Store</title>
+    ...
+</head>
+
+<!-- =====================================================
+     أو إذا أردت إنشاء favicon.ico حقيقي:
+     
+     1. اذهب إلى: https://favicon.io/favicon-converter/
+     2. ارفع icon-192.png
+     3. حمّل favicon.ico
+     4. ضعه في root المشروع
+     5. لا حاجة لإضافة <link> - المتصفح سيجده تلقائياً
+     ===================================================== -->
