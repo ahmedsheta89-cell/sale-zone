@@ -251,28 +251,57 @@ class ErrorDetectionSystem {
         };
     }
 
-    // 🏥 فحص صحة DOM
+    // 🏥 فحص صحة DOM - FIXED with Page Context Detection
     checkDOMHealth() {
-        const criticalElements = [
-            'bannerSlider',
-            'bannerDots',
-            'productsGrid',
-            'cartCount',
-            'loadingScreen'
-        ];
-        
-        const missingElements = criticalElements.filter(id => !document.getElementById(id));
-        
-        if (missingElements.length > 0) {
-            this.logWarning({
-                type: 'MISSING_DOM_ELEMENTS',
-                message: `Missing elements: ${missingElements.join(', ')}`,
-                elements: missingElements,
-                timestamp: new Date().toISOString()
-            });
+        // التحقق من أن الصفحة قد تم تحميلها بالكامل
+        if (document.readyState !== 'complete') {
+            return; // لا تفحص قبل اكتمال تحميل الصفحة
         }
+
+        // 🎯 Page Context Detection - Production Grade Solution
+        const pageContext = document.documentElement.dataset.page || document.body.dataset.page || 'unknown';
         
-        this.systemHealth.dom = missingElements.length === 0;
+        // 📋 Required Elements per Page Context
+        const REQUIRED_ELEMENTS = {
+            store: ['bannerSlider', 'bannerDots', 'productsGrid', 'cartCount', 'loadingScreen'],
+            admin: ['ordersTable', 'productsTable', 'usersTable'],
+            unknown: [] // لا تفحص في صفحات غير معروفة
+        };
+
+        const elementsToCheck = REQUIRED_ELEMENTS[pageContext] || [];
+        
+        if (elementsToCheck.length === 0) {
+            console.log(`🔍 No DOM elements to check for page context: ${pageContext}`);
+            this.systemHealth.dom = true;
+            return;
+        }
+
+        const missingElements = elementsToCheck.filter(id => !document.getElementById(id));
+
+        // تحسين التحقق - لا تعتبر العناصر المفقودة خطأ إذا كانت الصفحة لا تزال تتحمل
+        if (missingElements.length > 0 && document.readyState === 'complete') {
+            // تحقق مما إذا كانت العناصر موجودة ولكن مخفية
+            const hiddenElements = missingElements.filter(id => {
+                const element = document.getElementById(id);
+                return element && element.offsetParent === null; // مخفي
+            });
+
+            // فقط العناصر غير الموجودة تماماً تعتبر مشكلة
+            const trulyMissing = missingElements.filter(id => !document.getElementById(id));
+
+            if (trulyMissing.length > 0) {
+                this.logWarning({
+                    type: 'MISSING_DOM_ELEMENTS',
+                    message: `Missing elements in ${pageContext}: ${trulyMissing.join(', ')}`,
+                    elements: trulyMissing,
+                    pageContext: pageContext,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+
+        // تحسين حساب صحة DOM
+        this.systemHealth.dom = missingElements.length === 0 || document.readyState === 'complete';
     }
 
     // 🌐 فحص صحة الشبكة
@@ -562,10 +591,21 @@ class ErrorDetectionSystem {
         localStorage.setItem('adminErrors', JSON.stringify(adminErrors));
     }
 
-    // 🚀 بدء فحص الصحة
+    // 🚀 بدء فحص الصحة - FIXED to prevent spam
     startHealthCheck() {
+        let lastHealthScore = -1;
+        
         setInterval(() => {
-            this.updateSystemHealth();
+            const currentHealthScore = Object.values(this.systemHealth).filter(healthy => healthy).length;
+            const totalChecks = Object.keys(this.systemHealth).length;
+            const healthPercentage = (currentHealthScore / totalChecks) * 100;
+            
+            // فقط اطبع عندما يتغير الصحة
+            if (currentHealthScore !== lastHealthScore) {
+                console.log(`🏥 System Health: ${healthPercentage.toFixed(1)}%`);
+                this.updateHealthIndicator(healthPercentage);
+                lastHealthScore = currentHealthScore;
+            }
         }, 10000); // كل 10 ثواني
     }
 

@@ -1,8 +1,13 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-page="admin">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0A1128">
+    <meta name="description" content="Sale Zone Store Admin - لوحة التحكم">
+    <link rel="icon" href="./icon-192.png">
+    <link rel="shortcut icon" href="./icon-192.png">
+    <link rel="apple-touch-icon" href="./icon-192.png">
     <title>لوحة التحكم | Sale Zone Store</title>
     
     <!-- Firebase SDK -->
@@ -11,7 +16,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <!-- Error Detection System -->
     <script src="ERROR_DETECTION_SYSTEM.js"></script>
-    <script src="ADMIN_ERROR_DASHBOARD.js"></script>
     
     <!-- Firebase Configuration -->
     <script src="firebase-config.js"></script>
@@ -20,6 +24,7 @@
     <script src="auth-utils.js"></script>
     <script src="enhancement-utils.js"></script>
     <script src="storage-keys.js"></script>
+    <script src="cloudinary-service.js"></script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1589,7 +1594,7 @@ function adminLogout(){
             }
             tbody.innerHTML = products.map(p => `
                 <tr>
-                    <td><div class="product-cell"><img src="${p.image}" class="product-img" onerror="this.src='https://via.placeholder.com/40'"><div><strong>${p.name}</strong></div></div></td>
+                    <td><div class="product-cell"><img src="${p.image}" class="product-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0yMCAyNkMxOC4yMDYxIDI2IDE2Ljg2NjIgMjUuMzMzMyAxNS44Mjg0IDI0LjI4NTVDMTQuNzkwNiAyMy4yMzc3IDE0LjE2NjcgMjEuODMzMyAxNC4xNjY3IDIwLjVDMTQuMTY2NyAxOS4xNjY3IDE0Ljc5MDYgMTcuNzYyMyAxNS44Mjg0IDE2LjcxNDVDMTYuODY2MiAxNS42NjY3IDE4LjIwNjEgMTUgMjAgMTVDMjEuNzkzOSAxNSAyMy4xMzM4IDE1LjY2NjcgMjQuMTcxNiAxNi43MTQ1QzI1LjIwOTQgMTcuNzYyMyAyNS44MzMzIDE5LjE2NjcgMjUuODMzMyAyMC41QzI1LjgzMzMgMjEuODMzMyAyNS4yMDk0IDIzLjIzNzcgMjQuMTcxNiAyNC4yODU1QzIzLjEzMzggMjUuMzMzMyAyMS43OTM5IDI2IDIwIDI2WiIgZmlsbD0iIzlDOUNDOSIvPgo8L3N2Zz4K'"><div><strong>${p.name}</strong></div></div></td>
                     <td>${getCategoryName(p.category)}</td>
                     <td><strong>${p.price} ج.م</strong></td>
                     <td>⭐ ${(p.rating || 0).toFixed(1)}</td>
@@ -1838,9 +1843,9 @@ function adminLogout(){
 
                 <div class="order-detail-section">
                     <h4>👤 العميل</h4>
-                    <p><strong>الاسم:</strong> ${o.customer?.name || '-'}</p>
-                    <p><strong>الهاتف:</strong> ${o.customer?.phone || '-'}</p>
-                    <p><strong>العنوان:</strong> ${o.customer?.address || '-'}</p>
+                    <p><strong>الاسم:</strong> ${o.customer?.name}</p>
+                    <p><strong>الهاتف:</strong> ${o.customer?.phone}</p>
+                    <p><strong>العنوان:</strong> ${o.customer?.address}</p>
                     ${o.customer?.notes ? `<p><strong>ملاحظات:</strong> ${o.customer.notes}</p>` : ''}
                 </div>
 
@@ -1848,7 +1853,7 @@ function adminLogout(){
                     <h4>📦 المنتجات</h4>
                     ${itemsHtml || '<p>لا توجد</p>'}
                     
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd;">
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #ddd;">
                         <div class="order-item"><span>المجموع:</span><span>${o.subtotal || 0} ج.م</span></div>
                         ${o.couponCode ? `<div class="order-item" style="color: var(--success);"><span>🎫 ${o.couponCode}</span><span>- ${o.discount || 0} ج.م</span></div>` : ''}
                         ${o.usedPoints > 0 ? `<div class="order-item" style="color: var(--info);"><span>💎 نقاط (${o.usedPoints})</span><span>- ${o.pointsDiscount || 0} ج.م</span></div>` : ''}
@@ -1893,7 +1898,7 @@ function adminLogout(){
             w.document.write(`
                 <!DOCTYPE html>
                 <html dir="rtl"><head><title>فاتورة ${o.orderNumber}</title>
-                <style>body{font-family:Arial;padding:20px}h1{color:#D4AF37;text-align:center}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#f5f5f5}.total{font-size:20px;font-weight:bold}</style></head>
+                <style>body{font-family:Arial;padding:20px}h1{color:#D4AF37;text-align:center}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#f5f5f5;font-weight:700;color:#0A1128}.total{font-size:20px;font-weight:bold}</style></head>
                 <body>
                 <h1>Sale Zone Store</h1>
                 <h2>فاتورة: ${o.orderNumber}</h2>
@@ -2280,7 +2285,7 @@ function adminLogout(){
                     let count = 0;
                     data.forEach(row => {
                         if (row['الاسم'] && row['السعر']) {
-                            products.push({ id: Date.now() + Math.random(), name: row['الاسم'], desc: row['الوصف'] || '', category: 'supplements', price: parseFloat(row['السعر']), oldPrice: parseFloat(row['السعر القديم']) || null, image: row['الصورة'] || 'https://via.placeholder.com/300', rating: 4.5, ratingCount: 0 });
+                            products.push({ id: Date.now() + Math.random(), name: row['الاسم'], desc: row['الوصف'] || '', category: 'supplements', price: parseFloat(row['السعر']), oldPrice: parseFloat(row['السعر القديم']) || null, image: row['الصورة'] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0xNTAgMTkwQzEzNS4wNDYgMTkwIDEyMy4yOTkgMTc4LjI1MyAxMjMuMjk5IDE2M0MxMjMuMjk5IDE0Ny43NDcgMTM1LjA0NiAxMzYgMTUwIDEzNkMxNjQuOTU0IDEzNiAxNzYuNzAxIDE0Ny43NDcgMTc2LjcwMSAxNjNDMTc2LjcwMSAxNzguMjUzIDE2NC45NTQgMTkwIDE1MCAxOTBaIiBmaWxsPSIjOUNDOUNDOSIvPgo8L3N2Zz4K', rating: 4.5, ratingCount: 0 });
                             count++;
                         }
                     });
@@ -2425,8 +2430,7 @@ function adminLogout(){
             setTimeout(() => n.remove(), 4000);
         }
     </script>
-    <script src="./cloudinary-service.js"></script>
-<script>
+    <script>
 async function uploadAndPreview(input) {
     if(!input.files[0]) return;
     // معاينة
