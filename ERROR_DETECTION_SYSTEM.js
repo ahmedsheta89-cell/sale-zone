@@ -591,10 +591,21 @@ class ErrorDetectionSystem {
         localStorage.setItem('adminErrors', JSON.stringify(adminErrors));
     }
 
-    // 🚀 بدء فحص الصحة
+    // 🚀 بدء فحص الصحة - FIXED to prevent spam
     startHealthCheck() {
+        let lastHealthScore = -1;
+        
         setInterval(() => {
-            this.updateSystemHealth();
+            const currentHealthScore = Object.values(this.systemHealth).filter(healthy => healthy).length;
+            const totalChecks = Object.keys(this.systemHealth).length;
+            const healthPercentage = (currentHealthScore / totalChecks) * 100;
+            
+            // فقط اطبع عندما يتغير الصحة
+            if (currentHealthScore !== lastHealthScore) {
+                console.log(`🏥 System Health: ${healthPercentage.toFixed(1)}%`);
+                this.updateHealthIndicator(healthPercentage);
+                lastHealthScore = currentHealthScore;
+            }
         }, 10000); // كل 10 ثواني
     }
 
