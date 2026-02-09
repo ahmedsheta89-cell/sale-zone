@@ -264,7 +264,7 @@ class ErrorDetectionSystem {
         // 📋 Required Elements per Page Context
         const REQUIRED_ELEMENTS = {
             store: ['bannerSlider', 'bannerDots', 'productsGrid', 'cartCount', 'loadingScreen'],
-            admin: ['adminPanel', 'ordersTable', 'productsTable', 'customersTable'],
+            admin: ['adminPanel', 'ordersTable', 'productsTable', 'customersTable', 'usersTable'],
             unknown: [] // لا تفحص في صفحات غير معروفة
         };
 

@@ -2,11 +2,31 @@
 // ==========================================
 // Note: db is already declared in firebase-config.js
 
+// 🔥 Global Firebase DB Check
+function getFirebaseDB() {
+    if (typeof db !== 'undefined') {
+        return db;
+    }
+    
+    // Fallback: try to get db from window
+    if (typeof window.db !== 'undefined') {
+        return window.db;
+    }
+    
+    // Last resort: initialize Firebase again
+    if (typeof firebase !== 'undefined' && firebase.firestore) {
+        return firebase.firestore();
+    }
+    
+    throw new Error('Firebase Firestore not available');
+}
+
 // ==========================================
 // COUPONS
 // ==========================================
 async function getCoupons() {
     try {
+        const db = getFirebaseDB();
         const snapshot = await db.collection('coupons').get();
         const coupons = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -116,6 +136,7 @@ async function deleteBanner(id) {
 // ==========================================
 async function getAllProducts() {
     try {
+        const db = getFirebaseDB();
         const snapshot = await db.collection('products').get();
         const products = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -174,6 +195,7 @@ async function deleteProductFromFirebase(id) {
 // ==========================================
 async function getAllOrders() {
     try {
+        const db = getFirebaseDB();
         const snapshot = await db.collection('orders').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
@@ -208,7 +230,8 @@ async function updateOrderStatus(id, status) {
 // ==========================================
 async function getAllUsers() {
     try {
-        const snapshot = await db.collection('users').get();
+        const db = getFirebaseDB();
+        const snapshot = await db.collection('customers').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
         console.error('getAllUsers error:', e);
@@ -221,6 +244,7 @@ async function getAllUsers() {
 // ==========================================
 async function getAllCoupons() {
     try {
+        const db = getFirebaseDB();
         const snapshot = await db.collection('coupons').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
@@ -255,6 +279,7 @@ async function deleteCouponFromFirebase(id) {
 // ==========================================
 async function getAllBanners() {
     try {
+        const db = getFirebaseDB();
         const snapshot = await db.collection('banners').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
@@ -289,6 +314,7 @@ async function deleteBannerFromFirebase(id) {
 // ==========================================
 async function getSettings() {
     try {
+        const db = getFirebaseDB();
         const doc = await db.collection('settings').doc('store').get();
         return doc.exists ? doc.data() : null;
     } catch (e) {
@@ -299,6 +325,7 @@ async function getSettings() {
 
 async function saveSettings(settings) {
     try {
+        const db = getFirebaseDB();
         await db.collection('settings').doc('store').set(settings, { merge: true });
         console.log('✅ Settings saved to Firebase');
     } catch (e) {
