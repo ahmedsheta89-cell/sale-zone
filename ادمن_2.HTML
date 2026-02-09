@@ -1589,7 +1589,7 @@ function adminLogout(){
             }
             tbody.innerHTML = products.map(p => `
                 <tr>
-                    <td><div class="product-cell"><img src="${p.image}" class="product-img" onerror="this.src='https://via.placeholder.com/40'"><div><strong>${p.name}</strong></div></div></td>
+                    <td><div class="product-cell"><img src="${p.image}" class="product-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0yMCAyNkMxOC4yMDYxIDI2IDE2Ljg2NjIgMjUuMzMzMyAxNS44Mjg0IDI0LjI4NTVDMTQuNzkwNiAyMy4yMzc3IDE0LjE2NjcgMjEuODMzMyAxNC4xNjY3IDIwLjVDMTQuMTY2NyAxOS4xNjY3IDE0Ljc5MDYgMTcuNzYyMyAxNS44Mjg0IDE2LjcxNDVDMTYuODY2MiAxNS42NjY3IDE4LjIwNjEgMTUgMjAgMTVDMjEuNzkzOSAxNSAyMy4xMzM4IDE1LjY2NjcgMjQuMTcxNiAxNi43MTQ1QzI1LjIwOTQgMTcuNzYyMyAyNS44MzMzIDE5LjE2NjcgMjUuODMzMyAyMC41QzI1LjgzMzMgMjEuODMzMyAyNS4yMDk0IDIzLjIzNzcgMjQuMTcxNiAyNC4yODU1QzIzLjEzMzggMjUuMzMzMyAyMS43OTM5IDI2IDIwIDI2WiIgZmlsbD0iIzlDOUNDOSIvPgo8L3N2Zz4K'"><div><strong>${p.name}</strong></div></div></td>
                     <td>${getCategoryName(p.category)}</td>
                     <td><strong>${p.price} ج.م</strong></td>
                     <td>⭐ ${(p.rating || 0).toFixed(1)}</td>
@@ -2280,7 +2280,7 @@ function adminLogout(){
                     let count = 0;
                     data.forEach(row => {
                         if (row['الاسم'] && row['السعر']) {
-                            products.push({ id: Date.now() + Math.random(), name: row['الاسم'], desc: row['الوصف'] || '', category: 'supplements', price: parseFloat(row['السعر']), oldPrice: parseFloat(row['السعر القديم']) || null, image: row['الصورة'] || 'https://via.placeholder.com/300', rating: 4.5, ratingCount: 0 });
+                            products.push({ id: Date.now() + Math.random(), name: row['الاسم'], desc: row['الوصف'] || '', category: 'supplements', price: parseFloat(row['السعر']), oldPrice: parseFloat(row['السعر القديم']) || null, image: row['الصورة'] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0xNTAgMTkwQzEzNS4wNDYgMTkwIDEyMy4yOTkgMTc4LjI1MyAxMjMuMjk5IDE2M0MxMjMuMjk5IDE0Ny43NDcgMTM1LjA0NiAxMzYgMTUwIDEzNkMxNjQuOTU0IDEzNiAxNzYuNzAxIDE0Ny43NDcgMTc2LjcwMSAxNjNDMTc2LjcwMSAxNzguMjUzIDE2NC45NTQgMTkwIDE1MCAxOTBaIiBmaWxsPSIjOUNDOUNDOSIvPgo8L3N2Zz4K', rating: 4.5, ratingCount: 0 });
                             count++;
                         }
                     });

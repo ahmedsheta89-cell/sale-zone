@@ -1,18 +1,18 @@
-// 🚫 SERVICEWORKER DISABLED - causing errors
-// This ServiceWorker has been disabled to prevent errors
-// Use serviceworker-ultimate-killer.js to completely remove ServiceWorkers
+// 🚫 SERVICEWORKER COMPLETELY REMOVED - FIXED
+// This ServiceWorker has been completely disabled to prevent all errors
+// No fetch handling, no caching, no interference with browser
 
-console.log('🚫 ServiceWorker disabled - causing fetch errors');
+console.log('🚫 ServiceWorker completely disabled - FIXED');
 
-// 1. Install (التثبيت) - DISABLED
+// 1. Install (التثبيت) - COMPLETELY DISABLED
 self.addEventListener('install', event => {
-    console.log('🚫 ServiceWorker install event - DISABLED');
+    console.log('🚫 ServiceWorker install event - COMPLETELY DISABLED');
     event.waitUntil(self.skipWaiting());
 });
 
-// 2. Activate (تنظيف الكاش القديم) - DISABLED
+// 2. Activate (تنظيف الكاش القديم) - COMPLETELY DISABLED
 self.addEventListener('activate', event => {
-    console.log('🚫 ServiceWorker activate event - DISABLED');
+    console.log('🚫 ServiceWorker activate event - COMPLETELY DISABLED');
     event.waitUntil(
         caches.keys().then(cacheNames => {
             return Promise.all(
@@ -25,10 +25,12 @@ self.addEventListener('activate', event => {
     );
 });
 
-// 3. Fetch (جلب البيانات) - DISABLED
+// 3. Fetch (جلب البيانات) - COMPLETELY DISABLED - NO INTERFERENCE
 self.addEventListener('fetch', event => {
-    // 🚫 DO NOT HANDLE ANY REQUESTS - let browser handle them
-    console.log('🚫 ServiceWorker fetch event - DISABLED for:', event.request.url);
+    // 🚫 DO NOT HANDLE ANY REQUESTS - let browser handle everything
+    // 🚫 NO CACHING - NO FETCHING - NO INTERFERENCE
+    console.log('🚫 ServiceWorker fetch event - COMPLETELY DISABLED for:', event.request.url);
+    // 🚫 DO NOT CALL respondWith() - THIS WAS CAUSING THE ERROR
     return;
 });
 

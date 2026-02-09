@@ -1008,6 +1008,15 @@
         // 🚀 Initialize
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
+            // 🔧 DOM Element Safety Checks
+            const criticalElements = ['bannerSlider', 'bannerDots', 'productsGrid', 'cartCount', 'loadingScreen'];
+            criticalElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (!element) {
+                    console.warn(`⚠️ Missing element: ${id}`);
+                }
+            });
+
             loadData();
             applyStoreSettings();
             renderBanners();
@@ -1020,9 +1029,13 @@
             checkLoggedInUser();
             startBannerSlider();
 
-            setTimeout(() => {
-                document.getElementById('loadingScreen').classList.add('hidden');
-            }, 1000);
+            // 🛡️ Safe loading screen hide
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (loadingScreen) {
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                }, 1000);
+            }
 
             // 📱 Register Service Worker for PWA
             if ('serviceWorker' in navigator) {
