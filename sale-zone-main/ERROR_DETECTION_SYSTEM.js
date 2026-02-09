@@ -84,6 +84,16 @@ class ErrorDetectionSystem {
                window.innerWidth <= 768;
     }
         
+    // 🚀 تهيئة النظام
+    initialize() {
+        this.setupGlobalErrorHandler();
+        this.setupPerformanceMonitoring();
+        this.setupUserActionTracking();
+        this.setupSystemHealthChecks();
+        this.setupFirebaseMonitoring();
+        this.setupLocalStorageMonitoring();
+        this.setupMobileSpecificMonitoring();
+        
         console.log('🔍 Error Detection System initialized');
         this.startHealthCheck();
     }
@@ -236,13 +246,8 @@ class ErrorDetectionSystem {
                url.includes('firebase') ||
                url.includes('google.com');
     }
-                }
-                throw error;
-            }
-        };
-    }
 
-    // � مراقبة خاصة بالتليفون
+    // 📱 مراقبة خاصة بالجوال
     setupMobileSpecificMonitoring() {
         // كشف مشاكل iOS/Safari
         if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
@@ -342,6 +347,11 @@ class ErrorDetectionSystem {
 
     // 🏥 فحص صحة DOM
     checkDOMHealth() {
+        // التحقق من أن الصفحة قد تم تحميلها بالكامل
+        if (document.readyState !== 'complete') {
+            return; // لا تفحص قبل اكتمال تحميل الصفحة
+        }
+        
         const criticalElements = [
             'bannerSlider',
             'bannerDots',
