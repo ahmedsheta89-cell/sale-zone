@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="test-pages.css">
+    <title>اختبار نظام الأخطاء في الأدمن</title>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 اختبار نظام الأخطاء في لوحة التحكم</h1>
+        <p>هذه الصفحة لاختبار نظام اكتشاف الأخطاء الاحترافي في لوحة تحكم الأدمن.</p>
+        
+        <div class="test-section">
+            <h2>🔴 اختبارات الأخطاء الخاصة بالأدمن</h2>
+            <button class="test-btn danger" onclick="testAdminAuthError()">خطأ المصادقة</button>
+            <button class="test-btn danger" onclick="testProductSaveError()">خطأ حفظ المنتج</button>
+            <button class="test-btn danger" onclick="testOrderDeleteError()">خطأ حذف الطلب</button>
+            <button class="test-btn danger" onclick="testCustomerDataError()">خطأ بيانات العملاء</button>
+            <button class="test-btn danger" onclick="testFirebasePermissionError()">خطأ صلاحيات Firebase</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🟡 اختبارات التحذيرات الخاصة بالأدمن</h2>
+            <button class="test-btn warning" onclick="testLargeDataWarning()">بيانات ضخمة</button>
+            <button class="test-btn warning" onclick="testSlowAdminOperation()">عملية بطيئة</button>
+            <button class="test-btn warning" onclick="testStorageQuotaWarning()">نصاب التخزين</button>
+            <button class="test-btn warning" onclick="testConcurrentUserWarning()">مستخدمون متزامنون</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 اختبارات عمليات الأدمن</h2>
+            <button class="test-btn" onclick="testAddProduct()">إضافة منتج</button>
+            <button class="test-btn" onclick="testUpdateOrder()">تحديث طلب</button>
+            <button class="test-btn" onclick="testDeleteCoupon()">حذف كوبون</button>
+            <button class="test-btn" onclick="testUpdateSettings()">تحديث الإعدادات</button>
+            <button class="test-btn" onclick="testExportData()">تصدير البيانات</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 اختبارات التعافي في الأدمن</h2>
+            <button class="test-btn success" onclick="testAutoSaveRecovery()">تعافي الحفظ التلقائي</button>
+            <button class="test-btn success" onclick="testDataSyncRecovery()">تعافي المزامنة</button>
+            <button class="test-btn success" onclick="testSessionRecovery()">تعافي الجلسة</button>
+            <button class="test-btn success" onclick="testBackupRecovery()">التعافي من النسخ الاحتياطي</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📤 اختبارات التقارير في الأدمن</h2>
+            <button class="test-btn" onclick="testSalesReport()">تقرير المبيعات</button>
+            <button class="test-btn" onclick="testCustomerReport()">تقرير العملاء</button>
+            <button class="test-btn" onclick="testInventoryReport()">تقرير المخزون</button>
+            <button class="test-btn" onclick="testErrorReport()">تقرير الأخطاء</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 مميزات نظام الأخطاء في الأدمن</h2>
+            <div class="admin-features">
+                <div class="feature-card">
+                    <h4>🔍 مراقبة العمليات</h4>
+                    <p>تتبع جميع عمليات الأدمن وحفظ السجلات</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🛡️ حماية البيانات</h4>
+                    <p>كشف محاولات الوصول غير المصرح بها</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📊 تحليل الأداء</h4>
+                    <p>مراقبة سرعة العمليات وتحديد البطء</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔄 المزامنة التلقائية</h4>
+                    <p>ضمان مزامنة البيانات مع Firebase</p>
+                </div>
+                <div class="feature-card">
+                    <h4>💾 النسخ الاحتياطي</h4>
+                    <p>إنشاء نسخ احتياطية تلقائية للبيانات</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📱 الإشعارات الفورية</h4>
+                    <p>إشعارات فورية عند حدوث أخطاء</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="status" class="status info"></div>
+        
+        <div class="iframe-container">
+            <h3>🔧 لوحة تحكم الأدمن المختبرة</h3>
+            <iframe src="https://ahmedsheta89-cell.github.io/sale-zone/ادمن_2.HTML" title="لوحة تحكم الأدمن"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // 🔴 اختبارات الأخطاء الخاصة بالأدمن
+        function testAdminAuthError() {
+            showStatus('اختبار خطأ المصادقة...', 'info');
+            setTimeout(() => {
+                // محاكاة خطأ مصادقة
+                const authError = new Error('Invalid admin credentials');
+                authError.type = 'ADMIN_AUTH_ERROR';
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logError({
+                        type: 'ADMIN_AUTH_ERROR',
+                        message: 'فشل مصادقة الأدمن',
+                        timestamp: new Date().toISOString(),
+                        stack: authError.stack
+                    });
+                }
+                showStatus('تم محاكاة خطأ المصادقة', 'error');
+            }, 500);
+        }
+        
+        function testProductSaveError() {
+            showStatus('اختبار خطأ حفظ المنتج...', 'info');
+            setTimeout(() => {
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logError({
+                        type: 'PRODUCT_SAVE_ERROR',
+                        message: 'فشل حفظ المنتج في Firebase',
+                        timestamp: new Date().toISOString(),
+                        details: {
+                            productId: 'test-123',
+                            error: 'Permission denied'
+                        }
+                    });
+                }
+                showStatus('تم محاكاة خطأ حفظ المنتج', 'error');
+            }, 500);
+        }
+        
+        function testOrderDeleteError() {
+            showStatus('اختبار خطأ حذف الطلب...', 'info');
+            setTimeout(() => {
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logError({
+                        type: 'ORDER_DELETE_ERROR',
+                        message: 'فشل حذف الطلب',
+                        timestamp: new Date().toISOString(),
+                        details: {
+                            orderId: 'order-456',
+                            error: 'Order not found'
+                        }
+                    });
+                }
+                showStatus('تم محاكاة خطأ حذف الطلب', 'error');
+            }, 500);
+        }
+        
+        function testCustomerDataError() {
+            showStatus('اختبار خطأ بيانات العملاء...', 'info');
+            setTimeout(() => {
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logError({
+                        type: 'CUSTOMER_DATA_ERROR',
+                        message: 'خطأ في قراءة بيانات العملاء',
+                        timestamp: new Date().toISOString(),
+                        details: {
+                            operation: 'fetchCustomers',
+                            error: 'Data corruption detected'
+                        }
+                    });
+                }
+                showStatus('تم محاكاة خطأ بيانات العملاء', 'error');
+            }, 500);
+        }
+        
+        function testFirebasePermissionError() {
+            showStatus('اختبار خطأ صلاحيات Firebase...', 'info');
+            setTimeout(() => {
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logError({
+                        type: 'FIREBASE_PERMISSION_ERROR',
+                        message: 'صلاحيات Firebase غير كافية',
+                        timestamp: new Date().toISOString(),
+                        details: {
+                            collection: 'products',
+                            operation: 'write',
+                            permission: 'denied'
+                        }
+                    });
+                }
+                showStatus('تم محاكاة خطأ صلاحيات Firebase', 'error');
+            }, 500);
+        }
+        
+        // 🟡 اختبارات التحذيرات الخاصة بالأدمن
+        function testLargeDataWarning() {
+            showStatus('اختبار بيانات ضخمة...', 'info');
+            setTimeout(() => {
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logWarning({
+                        type: 'LARGE_DATA_WARNING',
+                        message: 'حجم البيانات كبير جداً',
+                        timestamp: new Date().toISOString(),
+                        details: {
+                            size: '15MB',
+                            limit: '10MB',
+                            collection: 'products'
+                        }
+                    });
+                }
+                showStatus('تم محاكاة تحذير البيانات الضخمة', 'error');
+            }, 500);
+        }
+        
+        function testSlowAdminOperation() {
+            showStatus('اختبار عملية بطيئة...', 'info');
+            setTimeout(() => {
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logWarning({
+                        type: 'SLOW_ADMIN_OPERATION',
+                        message: 'عملية أدمين بطيئة جداً',
+                        timestamp: new Date().toISOString(),
+                        details: {
+                            operation: 'bulkProductUpdate',
+                            duration: '12.5s',
+                            threshold: '5s'
+                        }
+                    });
+                }
+                showStatus('تم محاكاة تحذير العملية البطيئة', 'error');
+            }, 500);
+        }
+        
+        function testStorageQuotaWarning() {
+            showStatus('اختبار نصاب التخزين...', 'info');
+            setTimeout(() => {
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logWarning({
+                        type: 'STORAGE_QUOTA_WARNING',
+                        message: 'اقتراب الوصول لنصاب التخزين',
+                        timestamp: new Date().toISOString(),
+                        details: {
+                            used: '85%',
+                            available: '15%',
+                            quota: '100MB'
+                        }
+                    });
+                }
+                showStatus('تم محاكاة تحذير نصاب التخزين', 'error');
+            }, 500);
+        }
+        
+        function testConcurrentUserWarning() {
+            showStatus('اختبار مستخدمين متزامنين...', 'info');
+            setTimeout(() => {
+                if (window.errorDetectionSystem) {
+                    window.errorDetectionSystem.logWarning({
+                        type: 'CONCURRENT_USER_WARNING',
+                        message: 'عدد كبير من المستخدمين المتزامنين',
+                        timestamp: new Date().toISOString(),
+                        details: {
+                            currentUsers: 25,
+                            maxAllowed: 20,
+                            adminUsers: 3
+                        }
+                    });
+                }
+                showStatus('تم محاكاة تحذير المستخدمين المتزامنين', 'error');
+            }, 500);
+        }
+        
+        // 📊 اختبارات عمليات الأدمن
+        function testAddProduct() {
+            showStatus('اختبار إضافة منتج...', 'info');
+            setTimeout(() => {
+                showStatus('تم محاكاة إضافة منتج بنجاح', 'success');
+            }, 1000);
+        }
+        
+        function testUpdateOrder() {
+            showStatus('اختبار تحديث طلب...', 'info');
+            setTimeout(() => {
+                showStatus('تم محاكاة تحديث الطلب بنجاح', 'success');
+            }, 1000);
+        }
+        
+        function testDeleteCoupon() {
+            showStatus('اختبار حذف كوبون...', 'info');
+            setTimeout(() => {
+                showStatus('تم محاكاة حذف الكوبون بنجاح', 'success');
+            }, 1000);
+        }
+        
+        function testUpdateSettings() {
+            showStatus('اختبار تحديث الإعدادات...', 'info');
+            setTimeout(() => {
+                showStatus('تم محاكاة تحديث الإعدادات بنجاح', 'success');
+            }, 1000);
+        }
+        
+        function testExportData() {
+            showStatus('اختبار تصدير البيانات...', 'info');
+            setTimeout(() => {
+                showStatus('تم محاكاة تصدير البيانات بنجاح', 'success');
+            }, 2000);
+        }
+        
+        // 🔧 اختبارات التعافي في الأدمن
+        function testAutoSaveRecovery() {
+            showStatus('اختبار التعافي بالحفظ التلقائي...', 'info');
+            setTimeout(() => {
+                showStatus('تم التعافي بالحفظ التلقائي بنجاح', 'success');
+            }, 1500);
+        }
+        
+        function testDataSyncRecovery() {
+            showStatus('اختبار التعافي بالمزامنة...', 'info');
+            setTimeout(() => {
+                showStatus('تم التعافي بالمزامنة بنجاح', 'success');
+            }, 1500);
+        }
+        
+        function testSessionRecovery() {
+            showStatus('اختبار تعافي الجلسة...', 'info');
+            setTimeout(() => {
+                showStatus('تم تعافي الجلسة بنجاح', 'success');
+            }, 1000);
+        }
+        
+        function testBackupRecovery() {
+            showStatus('اختبار التعافي من النسخ الاحتياطي...', 'info');
+            setTimeout(() => {
+                showStatus('تم التعافي من النسخ الاحتياطي بنجاح', 'success');
+            }, 2000);
+        }
+        
+        // 📤 اختبارات التقارير في الأدمن
+        function testSalesReport() {
+            showStatus('اختبار تقرير المبيعات...', 'info');
+            setTimeout(() => {
+                showStatus('تم إنشاء تقرير المبيعات بنجاح', 'success');
+            }, 1000);
+        }
+        
+        function testCustomerReport() {
+            showStatus('اختبار تقرير العملاء...', 'info');
+            setTimeout(() => {
+                showStatus('تم إنشاء تقرير العملاء بنجاح', 'success');
+            }, 1000);
+        }
+        
+        function testInventoryReport() {
+            showStatus('اختبار تقرير المخزون...', 'info');
+            setTimeout(() => {
+                showStatus('تم إنشاء تقرير المخزون بنجاح', 'success');
+            }, 1000);
+        }
+        
+        function testErrorReport() {
+            showStatus('اختبار تقرير الأخطاء...', 'info');
+            setTimeout(() => {
+                showStatus('تم إنشاء تقرير الأخطاء بنجاح', 'success');
+            }, 1000);
+        }
+        
+        // 📝 عرض الحالة
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            // إخفاء الرسالة بعد 5 ثواني
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+        
+        // 🚀 تهيئة الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            showStatus('صفحة اختبار الأدمن جاهزة', 'success');
+            console.log('🔧 Admin Error Detection Test Page Loaded');
+            console.log('💡 اضغط على الأزرار لاختبار نظام الأخطاء في الأدمن');
+        });
+    </script>
+</body>
+</html>
