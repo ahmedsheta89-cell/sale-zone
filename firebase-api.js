@@ -81,6 +81,7 @@ async function deleteCoupon(id) {
 // ==========================================
 async function getBanners() {
     try {
+        const db = getFirebaseDB();
         const snapshot = await db.collection('banners').get();
         const banners = snapshot.docs.map(doc => {
             const data = doc.data();
