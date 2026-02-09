@@ -1038,23 +1038,36 @@
                 }, 1000);
             }
 
-            // 📱 Register Service Worker for PWA
+            // 📱 Register Professional ServiceWorker for PWA
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('./sw.js', { scope: './' })
                     .then(registration => {
-                        console.log('✅ Service Worker registered:', registration.scope);
+                        console.log('✅ Professional ServiceWorker registered:', registration.scope);
+                        console.log('🚀 PWA Features Enabled');
                         
-                        // التحقق من التحديثات
+                        // 🔄 Check for updates
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;
                             newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'activated') {
-                                    console.log('🔄 New version available!');
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('🔄 New version available! Refreshing...');
+                                    window.location.reload();
                                 }
                             });
                         });
+                        
+                        // 📨 Get ServiceWorker version
+                        if (registration.active) {
+                            registration.active.postMessage({ type: 'GET_VERSION' }, [new MessageChannel().port1]);
+                        }
                     })
-                    .catch(err => console.error('❌ SW Error:', err));
+                    .catch(err => {
+                        console.error('❌ ServiceWorker registration failed:', err);
+                        // Fallback to basic functionality
+                        console.log('🔄 Fallback: Running without ServiceWorker');
+                    });
+            } else {
+                console.log('📱 ServiceWorker not supported - PWA features disabled');
             }
         });
 
