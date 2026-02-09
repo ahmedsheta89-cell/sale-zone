@@ -1233,6 +1233,29 @@
         function startBannerSlider() { bannerInterval = setInterval(nextBanner, 5000); }
 
         // ============================================
+        // Image Sanitizer (avoid external ORB/CORS issues)
+        // ============================================
+        function sanitizeImageUrl(url) {
+            const placeholder = './assets/placeholder.svg';
+            if (!url || typeof url !== 'string') return placeholder;
+
+            const trimmed = url.trim();
+            if (trimmed.startsWith('data:')) return trimmed;
+            if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
+
+            try {
+                const parsed = new URL(trimmed, window.location.origin);
+                if (parsed.origin === window.location.origin) {
+                    return parsed.pathname + parsed.search + parsed.hash;
+                }
+            } catch (e) {
+                return placeholder;
+            }
+
+            return placeholder;
+        }
+
+        // ============================================
         // 🎴 Products
         // ============================================
         function renderProducts(productsToRender = null) {
@@ -1251,7 +1274,7 @@
                         ${favorites.includes(p.id) ? '❤️' : '🤍'}
                     </div>
                     <div class="product-image">
-                        <img src="${p.image}" alt="${p.name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjRFNDFCIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiMwQTExMjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPjx0c3BhbiB4PSIxNTAiIGR5PSIxNTAiPuKAqjwvdHNwYW4+PC90ZXh0Pgo8L3N2Zz4K'" loading="lazy">
+                        <img src="${sanitizeImageUrl(p.image)}" alt="${p.name}" onerror="this.src='${sanitizeImageUrl('')}'" loading="lazy">
                         <div class="product-actions">
                             <button class="action-btn" onclick="showProductDetails('${p.id}')">👁️</button>
                             <button class="action-btn" onclick="addToCart('${p.id}')">🛒</button>
@@ -1334,7 +1357,7 @@
             if (!p) return;
             document.getElementById('productModalBody').innerHTML = `
                 <div style="text-align: center;">
-                    <img src="${p.image}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgdmlld0JveD0iMCAwIDQwMCAyNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjUwIiBmaWxsPSIjRjRFNDFCIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTI1IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiMwQTExMjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPjx0c3BhbiB4PSIyMDAiIGR5PSIxMjUiPuKAqjwvdHNwYW4+PC90ZXh0Pgo8L3N2Zz4K'">
+                    <img src="${sanitizeImageUrl(p.image)}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;" onerror="this.src='${sanitizeImageUrl('')}'">
                     <h2 style="font-size: 20px; color: var(--navy); margin-bottom: 8px;">${p.name}</h2>
                     <p style="color: #666; margin-bottom: 15px; font-size: 13px;">${p.desc}</p>
                     <div style="margin-bottom: 15px;" onclick="showRatingModal(${p.id})">
@@ -1456,7 +1479,7 @@
                 if (!p) return '';
                 return `
                     <div class="fav-item">
-                        <div class="fav-item-image"><img src="${p.image}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjRFNDFCIi8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjMEExMTI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj48dHNwYW4geD0iMzAiIGR5PSIzMCI+4oCiPC90c3Bhbj48L3RleHQ+Cjwvc3ZnPgo='"></div>
+                        <div class="fav-item-image"><img src="${sanitizeImageUrl(p.image)}" onerror="this.src='${sanitizeImageUrl('')}'"></div>
                         <div class="fav-item-details">
                             <div class="fav-item-name">${p.name}</div>
                             <div class="fav-item-price">${p.price} ج.م</div>
@@ -1517,7 +1540,7 @@
 
             cartItems.innerHTML = cart.map(item => `
                 <div class="cart-item">
-                    <div class="cart-item-image"><img src="${item.image}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjRFNDFCIi8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjMEExMTI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj48dHNwYW4geD0iMzAiIGR5PSIzMCI+4oCiPC90c3Bhbj48L3RleHQ+Cjwvc3ZnPgo='"></div>
+                    <div class="cart-item-image"><img src="${sanitizeImageUrl(item.image)}" onerror="this.src='${sanitizeImageUrl('')}'"></div>
                     <div class="cart-item-details">
                         <div class="cart-item-name">${item.name}</div>
                         <div class="cart-item-price">${item.price} ج.م</div>

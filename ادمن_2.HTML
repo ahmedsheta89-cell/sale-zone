@@ -1154,6 +1154,14 @@
                         <button class="btn btn-info" onclick="document.getElementById('importJSONFile').click()" style="width: 100%;">📥 استيراد JSON</button>
                     </div>
 
+                    <div class="settings-card">
+                        <h3>🧹 تنظيف الصور الخارجية</h3>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 12px;">
+                            استبدال جميع الروابط الخارجية للصور بـ Placeholders محلية لتجنب مشاكل ORB/CORS.
+                        </p>
+                        <button class="btn btn-gold" onclick="sanitizeAllImages()" style="width: 100%;">✅ تنظيف صور المنتجات والبانرات</button>
+                    </div>
+
                     <div class="settings-card danger-zone">
                         <h3>⚠️ منطقة الخطر</h3>
                         <p style="color: #666; margin-bottom: 15px; font-size: 12px;">لا يمكن التراجع عن هذه الإجراءات!</p>
@@ -1586,6 +1594,26 @@ function adminLogout(){
         // ============================================
         // Products
         // ============================================
+        function sanitizeImageUrl(url) {
+            const placeholder = './assets/placeholder.svg';
+            if (!url || typeof url !== 'string') return placeholder;
+
+            const trimmed = url.trim();
+            if (trimmed.startsWith('data:')) return trimmed;
+            if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
+
+            try {
+                const parsed = new URL(trimmed, window.location.origin);
+                if (parsed.origin === window.location.origin) {
+                    return parsed.pathname + parsed.search + parsed.hash;
+                }
+            } catch (e) {
+                return placeholder;
+            }
+
+            return placeholder;
+        }
+
         function renderProductsTable() {
             const tbody = document.getElementById('productsTable');
             if (products.length === 0) {
@@ -1594,13 +1622,87 @@ function adminLogout(){
             }
             tbody.innerHTML = products.map(p => `
                 <tr>
-                    <td><div class="product-cell"><img src="${p.image}" class="product-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0yMCAyNkMxOC4yMDYxIDI2IDE2Ljg2NjIgMjUuMzMzMyAxNS44Mjg0IDI0LjI4NTVDMTQuNzkwNiAyMy4yMzc3IDE0LjE2NjcgMjEuODMzMyAxNC4xNjY3IDIwLjVDMTQuMTY2NyAxOS4xNjY3IDE0Ljc5MDYgMTcuNzYyMyAxNS44Mjg0IDE2LjcxNDVDMTYuODY2MiAxNS42NjY3IDE4LjIwNjEgMTUgMjAgMTVDMjEuNzkzOSAxNSAyMy4xMzM4IDE1LjY2NjcgMjQuMTcxNiAxNi43MTQ1QzI1LjIwOTQgMTcuNzYyMyAyNS44MzMzIDE5LjE2NjcgMjUuODMzMyAyMC41QzI1LjgzMzMgMjEuODMzMyAyNS4yMDk0IDIzLjIzNzcgMjQuMTcxNiAyNC4yODU1QzIzLjEzMzggMjUuMzMzMyAyMS43OTM5IDI2IDIwIDI2WiIgZmlsbD0iIzlDOUNDOSIvPgo8L3N2Zz4K'"><div><strong>${p.name}</strong></div></div></td>
+                    <td><div class="product-cell"><img src="${sanitizeImageUrl(p.image)}" class="product-img" onerror="this.src='${sanitizeImageUrl('')}'"><div><strong>${p.name}</strong></div></div></td>
                     <td>${getCategoryName(p.category)}</td>
                     <td><strong>${p.price} ج.م</strong></td>
                     <td>⭐ ${(p.rating || 0).toFixed(1)}</td>
                     <td><div class="action-btns"><button class="action-btn edit" onclick="editProduct('${p.id}')">✏️</button><button class="action-btn delete" onclick="deleteProduct('${p.id}')">🗑️</button></div></td>
                 </tr>
             `).join('');
+        }
+
+        // ============================================
+        // Bulk sanitize external images (professional fix)
+        // ============================================
+        function isExternalImageUrl(url) {
+            if (!url || typeof url !== 'string') return false;
+            const trimmed = url.trim();
+            if (trimmed.startsWith('data:')) return false;
+            if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return false;
+            try {
+                const parsed = new URL(trimmed, window.location.origin);
+                return parsed.origin !== window.location.origin;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function sanitizeAllImages() {
+            if (!confirm('هل تريد استبدال كل الصور الخارجية ببدائل محلية؟')) return;
+
+            const productPlaceholder = './assets/placeholder.svg';
+            const bannerPlaceholder = './assets/banner-placeholder.svg';
+
+            let productsUpdated = 0;
+            let bannersUpdated = 0;
+
+            // Update products
+            products = products.map(p => {
+                if (isExternalImageUrl(p.image)) {
+                    productsUpdated += 1;
+                    return { ...p, image: productPlaceholder };
+                }
+                return p;
+            });
+
+            // Update banners (if banners are used in admin data)
+            if (Array.isArray(banners)) {
+                banners = banners.map(b => {
+                    if (isExternalImageUrl(b.image)) {
+                        bannersUpdated += 1;
+                        return { ...b, image: bannerPlaceholder };
+                    }
+                    return b;
+                });
+            }
+
+            // Persist locally
+            if (typeof saveProducts === 'function') saveProducts();
+            if (typeof saveBanners === 'function') saveBanners();
+
+            // Update Firebase if available
+            try {
+                if (typeof updateProduct === 'function') {
+                    for (const p of products) {
+                        if (p.id && p.image === productPlaceholder) {
+                            await updateProduct(p.id, { image: p.image });
+                        }
+                    }
+                }
+                if (typeof updateBanner === 'function') {
+                    for (const b of banners) {
+                        if (b.id && b.image === bannerPlaceholder) {
+                            await updateBanner(b.id, { image: b.image });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Firebase update skipped or failed:', e);
+            }
+
+            renderProductsTable();
+            renderBannersTable();
+            showNotification('success', 'تم تنظيف الصور', `تم تحديث ${productsUpdated} منتج و ${bannersUpdated} بانر`);
         }
 
         function getCategoryName(cat) {
@@ -1686,8 +1788,9 @@ function adminLogout(){
   // ✅ معاينة الصورة (اختياري)
   const preview = document.getElementById('imgPreview');
   if (preview) {
-    preview.innerHTML = img
-      ? `<img src="${img}" style="max-width:150px;border-radius:8px;border:2px solid #D4AF37;margin-top:10px;" onerror="this.style.display='none'">`
+    const safeImg = img ? sanitizeImageUrl(img) : '';
+    preview.innerHTML = safeImg
+      ? `<img src="${safeImg}" style="max-width:150px;border-radius:8px;border:2px solid #D4AF37;margin-top:10px;" onerror="this.style.display='none'">`
       : '';
   }
 
