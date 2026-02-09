@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>غير متصل - Sale Zone Store</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0A1128, #1A2744);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .offline-container {
+            max-width: 500px;
+        }
+        
+        .offline-icon {
+            font-size: 100px;
+            margin-bottom: 30px;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        h1 {
+            font-size: 32px;
+            color: #D4AF37;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            font-size: 18px;
+            line-height: 1.6;
+            color: #F4E4BC;
+            margin-bottom: 30px;
+        }
+        
+        .offline-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #D4AF37, #B8960C);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(212,175,55,0.4);
+        }
+        
+        .tips {
+            margin-top: 40px;
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: right;
+        }
+        
+        .tips h3 {
+            color: #D4AF37;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .tips ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .tips li {
+            padding: 8px 0;
+            color: #F4E4BC;
+            font-size: 14px;
+        }
+        
+        .tips li:before {
+            content: "✓ ";
+            color: #50C878;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-icon">📡</div>
+        <h1>غير متصل بالإنترنت</h1>
+        <p>عذراً، يبدو أنك غير متصل بالإنترنت حالياً. تحقق من اتصالك وحاول مرة أخرى.</p>
+        
+        <div class="offline-actions">
+            <button onclick="window.location.reload()">🔄 إعادة المحاولة</button>
+            <button onclick="window.history.back()">↩️ الرجوع</button>
+        </div>
+        
+        <div class="tips">
+            <h3>💡 نصائح:</h3>
+            <ul>
+                <li>تحقق من اتصال الواي فاي أو بيانات الجوال</li>
+                <li>حاول إعادة تشغيل الراوتر</li>
+                <li>تأكد من أن وضع الطيران مغلق</li>
+                <li>بعض الصفحات قد تكون متاحة بدون إنترنت</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-retry when online
+        window.addEventListener('online', () => {
+            window.location.reload();
+        });
+        
+        // Check connection status
+        setInterval(() => {
+            if (navigator.onLine) {
+                window.location.reload();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

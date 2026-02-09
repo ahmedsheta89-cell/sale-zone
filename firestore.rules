@@ -1,0 +1,191 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 🛡️ قواعد الأمان العامة
+    
+    // 📦 المنتجات - القراءة للجميع، الكتابة للأدمن فقط
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 🎟️ الكوبونات - القراءة للجميع، الكتابة للأدمن فقط
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 🎪 البanners - القراءة للجميع، الكتابة للأدمن فقط
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 👥 العملاء - القراءة للأدمن فقط، الكتابة للأدمن فقط
+    match /customers/{customerId} {
+      allow read: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 📦 الطلبات - القراءة للأدمن فقط، الكتابة محدودة
+    match /orders/{orderId} {
+      allow read: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow create: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow update: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 🔐 الأدمن - الوصول للمسؤولين فقط
+    match /admins/{adminId} {
+      allow read: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow create: if false; // لا يمكن إنشاء أدمن جديد من التطبيق
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // ⚙️ الإعدادات - القراءة للجميع، الكتابة للأدمن فقط
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 📊 الإحصائيات - القراءة للأدمن فقط
+    match /analytics/{analyticsId} {
+      allow read: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 🛒 السلة - القراءة والكتابة للمستخدم نفسه فقط
+    match /carts/{cartId} {
+      allow read: if request.auth != null && 
+        request.auth.uid == cartId;
+      allow write: if request.auth != null && 
+        request.auth.uid == cartId;
+      allow delete: if request.auth != null && 
+        request.auth.uid == cartId;
+    }
+    
+    // ❤️ المفضلة - القراءة والكتابة للمستخدم نفسه فقط
+    match /favorites/{favoriteId} {
+      allow read: if request.auth != null && 
+        request.auth.uid == favoriteId;
+      allow write: if request.auth != null && 
+        request.auth.uid == favoriteId;
+      allow delete: if request.auth != null && 
+        request.auth.uid == favoriteId;
+    }
+    
+    // 📝 السجلات - القراءة والكتابة للأدمن فقط
+    match /logs/{logId} {
+      allow read: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 🔍 الأخطاء - القراءة والكتابة للأدمن فقط
+    match /errors/{errorId} {
+      allow read: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow write: if request.auth != null && 
+        request.auth.token.admin == true;
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // 📱 الجلسات - القراءة والكتابة للمستخدم نفسه فقط
+    match /sessions/{sessionId} {
+      allow read: if request.auth != null && 
+        request.auth.uid == sessionId;
+      allow write: if request.auth != null && 
+        request.auth.uid == sessionId;
+      allow delete: if request.auth != null && 
+        request.auth.uid == sessionId;
+    }
+    
+    // 🔄 المزامنة - القراءة والكتابة للمستخدم نفسه فقط
+    match /sync/{syncId} {
+      allow read: if request.auth != null && 
+        request.auth.uid == syncId;
+      allow write: if request.auth != null && 
+        request.auth.uid == syncId;
+      allow delete: if request.auth != null && 
+        request.auth.uid == syncId;
+    }
+    
+    // 🛡️ قواعد الحماية الإضافية
+    
+    // منع العمليات الضارة
+    match /{document=**} {
+      // منع الحذف الجماعي
+      allow delete: if request.auth != null && 
+        request.auth.token.admin == true &&
+        request.query.limit <= 100;
+      
+      // منع القراءة الجماعية الكبيرة
+      allow list: if request.auth != null && 
+        request.auth.token.admin == true &&
+        request.query.limit <= 1000;
+      
+      // التحقق من حجم البيانات
+      allow write: if request.resource.data.size() < 1000000; // 1MB max
+    }
+    
+    // 🕒 قواعد الوقت
+    match /{document=**} {
+      // منع التعديل على البيانات القديمة
+      allow update: if request.auth != null && 
+        request.auth.token.admin == true &&
+        (request.resource.data.createdAt == null || 
+         request.resource.data.createdAt > timestamp.date(timestamp.now().year, timestamp.now().month, timestamp.now().day - 30));
+    }
+    
+    // 🌐 قواعد الشبكة
+    match /{document=**} {
+      // التحقق من المصدر
+      allow read, write: if 
+        request.auth != null && 
+        request.headers['x-forwarded-for'] != null &&
+        request.headers['user-agent'] != null;
+    }
+    
+    // 📊 قواعد المراقبة
+    match /{document=**} {
+      // تسجيل جميع العمليات
+      allow read, write: if 
+        request.auth != null && 
+        request.time < timestamp.date(2026, 12, 31);
+    }
+  }
+}

@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Read access to all collections for public read
+    match /{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Orders collection - allow writes for authenticated users
+    match /orders/{orderId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Users collection - allow reads, writes only for own user
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Products collection - read only for public
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Coupons collection - read only for public
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Banners collection - read only for public
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Settings collection - read only for public
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
