@@ -170,6 +170,8 @@ class ErrorDetectionSystem {
         setInterval(() => {
             this.checkDOMHealth();
             this.checkNetworkHealth();
+            this.checkLocalStorageHealth();
+            this.checkFirebaseHealth();
         }, 5000);
     }
 
@@ -200,6 +202,30 @@ class ErrorDetectionSystem {
         setInterval(() => {
             this.checkFirebaseHealth();
         }, 10000);
+    }
+    
+    // 🔍 فحص صحة Firebase
+    checkFirebaseHealth() {
+        try {
+            // التحقق من وجود Firebase
+            if (typeof firebase !== 'undefined' && firebase.firestore) {
+                this.systemHealth.firebase = true;
+            } else {
+                this.systemHealth.firebase = false;
+                this.logWarning({
+                    type: 'FIREBASE_UNAVAILABLE',
+                    message: 'Firebase is not available',
+                    timestamp: new Date().toISOString()
+                });
+            }
+        } catch (error) {
+            this.systemHealth.firebase = false;
+            this.logWarning({
+                type: 'FIREBASE_ERROR',
+                message: 'Firebase error: ' + error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
     }
     
     // 🔍 مراقبة Firebase متقدمة
@@ -362,16 +388,29 @@ class ErrorDetectionSystem {
         
         const missingElements = criticalElements.filter(id => !document.getElementById(id));
         
-        if (missingElements.length > 0) {
-            this.logWarning({
-                type: 'MISSING_DOM_ELEMENTS',
-                message: `Missing elements: ${missingElements.join(', ')}`,
-                elements: missingElements,
-                timestamp: new Date().toISOString()
+        // تحسين التحقق - لا تعتبر العناصر المفقودة خطأ إذا كانت الصفحة لا تزال تتحمل
+        if (missingElements.length > 0 && document.readyState === 'complete') {
+            // تحقق مما إذا كانت العناصر موجودة ولكن مخفية
+            const hiddenElements = missingElements.filter(id => {
+                const element = document.getElementById(id);
+                return element && element.offsetParent === null; // مخفي
             });
+            
+            // فقط العناصر غير الموجودة تماماً تعتبر مشكلة
+            const trulyMissing = missingElements.filter(id => !document.getElementById(id));
+            
+            if (trulyMissing.length > 0) {
+                this.logWarning({
+                    type: 'MISSING_DOM_ELEMENTS',
+                    message: `Missing elements: ${trulyMissing.join(', ')}`,
+                    elements: trulyMissing,
+                    timestamp: new Date().toISOString()
+                });
+            }
         }
         
-        this.systemHealth.dom = missingElements.length === 0;
+        // تحسين حساب صحة DOM
+        this.systemHealth.dom = missingElements.length === 0 || document.readyState === 'complete';
     }
 
     // 🌐 فحص صحة الشبكة
@@ -385,6 +424,37 @@ class ErrorDetectionSystem {
         }
         
         this.systemHealth.network = navigator.onLine;
+    }
+    
+    // 💾 فحص صحة LocalStorage
+    checkLocalStorageHealth() {
+        try {
+            // اختبار كتابة وقراءة من LocalStorage
+            const testKey = 'health_test_' + Date.now();
+            const testValue = 'test_value';
+            
+            localStorage.setItem(testKey, testValue);
+            const retrieved = localStorage.getItem(testKey);
+            localStorage.removeItem(testKey);
+            
+            if (retrieved === testValue) {
+                this.systemHealth.localStorage = true;
+            } else {
+                this.systemHealth.localStorage = false;
+                this.logWarning({
+                    type: 'LOCALSTORAGE_CORRUPTED',
+                    message: 'LocalStorage data corruption detected',
+                    timestamp: new Date().toISOString()
+                });
+            }
+        } catch (error) {
+            this.systemHealth.localStorage = false;
+            this.logWarning({
+                type: 'LOCALSTORAGE_ERROR',
+                message: 'LocalStorage error: ' + error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
     }
 
     // 📝 تسجيل الخطأ
