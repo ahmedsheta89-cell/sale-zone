@@ -42,6 +42,9 @@
     <!-- 🖼️ Enhanced Image Links Fix -->
     <script src="image-links-enhanced.js"></script>
     
+    <!-- 🔍 Debugging Enhancements -->
+    <script src="debugging-enhancements.js"></script>
+    
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1207,7 +1210,20 @@
         function renderProducts(productsToRender = null) {
             const grid = document.getElementById('productsGrid');
             const displayProducts = productsToRender || getFilteredProducts();
-
+            
+            // 🔍 Debugging: Log render performance
+            if (window.debugEnhancements) {
+                console.log('🔍 Rendering products:', {
+                    count: displayProducts.length,
+                    category: currentCategory,
+                    filters: {
+                        minPrice: document.getElementById('minPrice')?.value,
+                        maxPrice: document.getElementById('maxPrice')?.value,
+                        sortBy: document.getElementById('sortSelect')?.value
+                    }
+                });
+            }
+            
             if (displayProducts.length === 0) {
                 grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><div style="font-size: 60px;">📦</div><h3 style="color: #666;">لا توجد منتجات</h3></div>';
                 return;
