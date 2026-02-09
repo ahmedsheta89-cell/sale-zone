@@ -1,462 +1,0 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Sale Zone - متجر التخفيضات الاحترافي</title>
-    <meta name="description" content="متجر إلكتروني احترافي متخصص في التخفيضات والعروض الحصرية بأفضل الأسعار">
-    <meta name="keywords" content="متجر, تخفيضات, عروض, تسوق, إلكترونيات, ملابس, أثاث, رياضة">
-    <meta name="author" content="Sale Zone">
-    <meta name="robots" content="index, follow">
-    
-    <!-- 🎨 Performance & SEO -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/ultimate.css">
-    
-    <!-- 📱 PWA & Icons -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" sizes="32x32" href="icon-192.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="icon-192.png">
-    <link rel="apple-touch-icon" href="icon-512.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="msapplication-TileColor" content="#1a1a2e">
-    <meta name="msapplication-TileImage" content="icon-512.png">
-    
-    <!-- 🔍 Open Graph -->
-    <meta property="og:title" content="Sale Zone - متجر التخفيضات الاحترافي">
-    <meta property="og:description" content="متجر إلكتروني احترافي متخصص في التخفيضات والعروض الحصرية بأفضل الأسعار">
-    <meta property="og:image" content="icon-512.png">
-    <meta property="og:url" content="https://sale-zone-store.github.io">
-    <meta property="og:type" content="website">
-    <meta property="og:locale" content="ar_SA">
-    
-    <!-- 🐦 Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Sale Zone - متجر التخفيضات الاحترافي">
-    <meta name="twitter:description" content="متجر إلكتروني احترافي متخصص في التخفيضات والعروض الحصرية بأفضل الأسعار">
-    <meta name="twitter:image" content="icon-512.png">
-    <meta name="twitter:creator" content="@salezone">
-    
-    <!-- 🎨 Theme & Colors -->
-    <meta name="theme-color" content="#1a1a2e">
-    <meta name="msapplication-navbutton-color" content="#1a1a2e">
-    <meta name="apple-mobile-web-app-status-bar-style" content="#1a1a2e">
-    
-    <!-- 🔒 Security -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
-    <meta name="referrer" content="strict-origin-when-cross-origin">
-    
-    <!-- 📱 Viewport & Mobile -->
-    <meta name="format-detection" content="telephone=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="Sale Zone">
-</head>
-<body>
-    <!-- 📱 Skip to Content (Accessibility) -->
-    <a href="#main-content" class="skip-link">تخطي إلى المحتوى الرئيسي</a>
-    
-    <!-- 📱 Loading Screen -->
-    <div id="loading-screen" class="loading-screen">
-        <div class="loading-content">
-            <div class="loading-logo">
-                <span class="loading-icon">🛍️</span>
-                <span class="loading-text">Sale Zone</span>
-            </div>
-            <div class="loading-spinner">
-                <div class="spinner"></div>
-                <p class="loading-message">جاري التحميل...</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 📱 Notifications Container -->
-    <div id="notifications" class="notifications" role="alert" aria-live="polite"></div>
-    
-    <!-- 📱 Header -->
-    <header class="header" role="banner">
-        <div class="container">
-            <div class="header-content">
-                <!-- 🏷️ Logo -->
-                <div class="logo">
-                    <a href="#home" aria-label="Sale Zone الرئيسية">
-                        <span class="logo-icon">🛍️</span>
-                        <span class="logo-text">Sale Zone</span>
-                    </a>
-                </div>
-                
-                <!-- 📱 Tagline -->
-                <div class="tagline">
-                    <span>أفضل التخفيضات والعروض الحصرية</span>
-                </div>
-                
-                <!-- 📱 Header Actions -->
-                <div class="header-actions">
-                    <button class="btn btn-outline search-toggle" aria-label="فتح البحث">
-                        <span class="search-icon">🔍</span>
-                    </button>
-                    <button class="btn btn-outline favorites-toggle" aria-label="فتح المفضلات">
-                        <span class="favorites-icon">❤️</span>
-                        <span class="favorites-count" aria-label="عدد المفضلات">0</span>
-                    </button>
-                    <button class="btn btn-primary cart-toggle" aria-label="فتح السلة">
-                        <span class="cart-icon">🛒</span>
-                        <span class="cart-count" aria-label="عدد المنتجات في السلة">0</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </header>
-    
-    <!-- 📱 Search Bar -->
-    <div class="search-bar" id="search-bar">
-        <div class="container">
-            <div class="search-content">
-                <div class="search-input-wrapper">
-                    <input 
-                        type="search" 
-                        class="search-input" 
-                        placeholder="ابحث عن منتجات..."
-                        aria-label="بحث عن المنتجات"
-                        autocomplete="off"
-                    >
-                    <button class="search-btn" aria-label="بحث">
-                        <span>🔍</span>
-                    </button>
-                </div>
-                <button class="search-close" aria-label="إغلاق البحث">
-                    <span>×</span>
-                </button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 📱 Main Content -->
-    <main id="main-content" class="main" role="main">
-        <div class="container">
-            <!-- 🎯 Hero Section -->
-            <section class="hero" aria-labelledby="hero-title">
-                <div class="hero-content">
-                    <h1 id="hero-title" class="hero-title">مرحباً بك في Sale Zone</h1>
-                    <p class="hero-description">اكتشف أفضل التخفيضات والعروض الحصرية بأفضل الأسعار</p>
-                    <div class="hero-actions">
-                        <button class="btn btn-primary btn-lg hero-cta" onclick="document.querySelector('.products-section').scrollIntoView({ behavior: 'smooth' })">
-                            <span>🛍️</span>
-                            <span>تسوق الآن</span>
-                        </button>
-                        <button class="btn btn-outline btn-lg hero-secondary" onclick="document.querySelector('.categories-section').scrollIntoView({ behavior: 'smooth' })">
-                            <span>🎯</span>
-                            <span>تصفح الفئات</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="hero-image">
-                    <div class="hero-placeholder">
-                        <span class="hero-icon">🛍️</span>
-                    </div>
-                </div>
-            </section>
-            
-            <!-- 📱 Categories Section -->
-            <section class="categories-section" aria-labelledby="categories-title">
-                <h2 id="categories-title" class="section-title">الفئات</h2>
-                <div class="categories-grid">
-                    <article class="category-card" data-category="electronics">
-                        <div class="category-icon">📱</div>
-                        <h3 class="category-title">إلكترونيات</h3>
-                        <p class="category-description">أحدث الأجهزة الإلكترونية</p>
-                        <button class="category-link" aria-label="تصفح الإلكترونيات">
-                            <span>تصفح</span>
-                            <span>→</span>
-                        </button>
-                    </article>
-                    
-                    <article class="category-card" data-category="clothing">
-                        <div class="category-icon">👕</div>
-                        <h3 class="category-title">ملابس</h3>
-                        <p class="category-description">أحدث الموديلات والأزياء</p>
-                        <button class="category-link" aria-label="تصفح الملابس">
-                            <span>تصفح</span>
-                            <span>→</span>
-                        </button>
-                    </article>
-                    
-                    <article class="category-card" data-category="furniture">
-                        <div class="category-icon">🏠</div>
-                        <h3 class="category-title">أثاث</h3>
-                        <p class="category-description">أثاث عصري وعصري</p>
-                        <button class="category-link" aria-label="تصفح الأثاث">
-                            <span>تصفح</span>
-                            <span>→</span>
-                        </button>
-                    </article>
-                    
-                    <article class="category-card" data-category="sports">
-                        <div class="category-icon">⚽</div>
-                        <h3 class="category-title">رياضة</h3>
-                        <p class="category-description">معدات رياضية احترافية</p>
-                        <button class="category-link" aria-label="تصفح الرياضة">
-                            <span>تصفح</span>
-                            <span>→</span>
-                        </button>
-                    </article>
-                </div>
-            </section>
-            
-            <!-- 📱 Products Section -->
-            <section class="products-section" aria-labelledby="products-title">
-                <div class="section-header">
-                    <h2 id="products-title" class="section-title">المنتجات</h2>
-                    <div class="products-filters">
-                        <select class="filter-select" aria-label="فلتر حسب الفئة">
-                            <option value="all">جميع الفئات</option>
-                            <option value="electronics">إلكترونيات</option>
-                            <option value="clothing">ملابس</option>
-                            <option value="furniture">أثاث</option>
-                            <option value="sports">رياضة</option>
-                        </select>
-                        <select class="sort-select" aria-label="ترتيب حسب">
-                            <option value="featured">الأكثر مبيعاً</option>
-                            <option value="price-low">السعر: الأقل للأعلى</option>
-                            <option value="price-high">السعر: الأعلى للأقل</option>
-                            <option value="newest">الأحدث</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="products-grid">
-                    <!-- Loading State -->
-                    <div class="products-loading">
-                        <div class="loading-spinner">
-                            <div class="spinner"></div>
-                            <p>جاري تحميل المنتجات...</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Load More Button -->
-                <div class="load-more-container">
-                    <button class="btn btn-outline load-more-btn" aria-label="تحميل المزيد من المنتجات">
-                        <span>تحميل المزيد</span>
-                        <span>↓</span>
-                    </button>
-                </div>
-            </section>
-            
-            <!-- 📱 Features Section -->
-            <section class="features-section" aria-labelledby="features-title">
-                <h2 id="features-title" class="section-title">لماذا تختار Sale Zone؟</h2>
-                <div class="features-grid">
-                    <article class="feature-card">
-                        <div class="feature-icon">🚀</div>
-                        <h3 class="feature-title">توصيل سريع</h3>
-                        <p class="feature-description">توصيل سريع وموثوق لجميع مناطق المملكة</p>
-                    </article>
-                    
-                    <article class="feature-card">
-                        <div class="feature-icon">💎</div>
-                        <h3 class="feature-title">جودة عالية</h3>
-                        <p class="feature-description">منتجات أصلية وعالية الجودة من مصادر موثوقة</p>
-                    </article>
-                    
-                    <article class="feature-card">
-                        <div class="feature-icon">🔒</div>
-                        <h3 class="feature-title">دفع آمن</h3>
-                        <p class="feature-description">طرق دفع آمنة ومشفرة لحماية بياناتك</p>
-                    </article>
-                    
-                    <article class="feature-card">
-                        <div class="feature-icon">🎁</div>
-                        <h3 class="feature-title">عروض حصرية</h3>
-                        <p class="feature-description">تخفيضات وعروض حصرية لا تجدها في مكان آخر</p>
-                    </article>
-                </div>
-            </section>
-        </div>
-    </main>
-    
-    <!-- 📱 Cart Sidebar -->
-    <aside class="cart-sidebar" id="cart-sidebar" role="dialog" aria-labelledby="cart-title">
-        <div class="cart-header">
-            <h2 id="cart-title" class="cart-title">السلة</h2>
-            <button class="cart-close" aria-label="إغلاق السلة">
-                <span>×</span>
-            </button>
-        </div>
-        <div class="cart-body">
-            <div class="cart-items" role="list">
-                <div class="cart-empty">
-                    <span class="cart-empty-icon">🛒</span>
-                    <p class="cart-empty-text">السلة فارغة</p>
-                </div>
-            </div>
-        </div>
-        <div class="cart-footer">
-            <div class="cart-summary">
-                <div class="cart-total">
-                    <span class="cart-total-label">الإجمالي:</span>
-                    <span class="cart-total-amount" aria-label="الإجمالي">0 ريال</span>
-                </div>
-                <div class="cart-actions">
-                    <button class="btn btn-primary checkout-btn" aria-label="إتمام الطلب">
-                        <span>🛍️</span>
-                        <span>إتمام الطلب</span>
-                    </button>
-                    <button class="btn btn-outline clear-cart-btn" aria-label="تفريغ السلة">
-                        <span>🗑️</span>
-                        <span>تفريغ السلة</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </aside>
-    
-    <!-- 📱 Favorites Sidebar -->
-    <aside class="favorites-sidebar" id="favorites-sidebar" role="dialog" aria-labelledby="favorites-title">
-        <div class="favorites-header">
-            <h2 id="favorites-title" class="favorites-title">المفضلات</h2>
-            <button class="favorites-close" aria-label="إغلاق المفضلات">
-                <span>×</span>
-            </button>
-        </div>
-        <div class="favorites-body">
-            <div class="favorites-items" role="list">
-                <div class="favorites-empty">
-                    <span class="favorites-empty-icon">❤️</span>
-                    <p class="favorites-empty-text">لا توجد مفضلات</p>
-                </div>
-            </div>
-        </div>
-    </aside>
-    
-    <!-- 📱 Modal -->
-    <div class="modal" id="modal" role="dialog" aria-labelledby="modal-title">
-        <div class="modal-backdrop"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modal-title" class="modal-title">عنوان النافذة</h2>
-                <button class="modal-close" aria-label="إغلاق النافذة">
-                    <span>×</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <!-- Modal content will be loaded here -->
-            </div>
-        </div>
-    </div>
-    
-    <!-- 📱 Footer -->
-    <footer class="footer" role="contentinfo">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3 class="footer-title">Sale Zone</h3>
-                    <p class="footer-description">متجر إلكتروني احترافي متخصص في التخفيضات والعروض الحصرية</p>
-                    <div class="footer-social">
-                        <a href="#" aria-label="فيسبوك" class="social-link">
-                            <span>📘</span>
-                        </a>
-                        <a href="#" aria-label="تويتر" class="social-link">
-                            <span>🐦</span>
-                        </a>
-                        <a href="#" aria-label="انستغرام" class="social-link">
-                            <span>📷</span>
-                        </a>
-                    </div>
-                </div>
-                
-                <div class="footer-section">
-                    <h3 class="footer-title">روابط سريعة</h3>
-                    <nav class="footer-nav">
-                        <ul class="footer-links">
-                            <li><a href="#products" class="footer-link">المنتجات</a></li>
-                            <li><a href="#categories" class="footer-link">الفئات</a></li>
-                            <li><a href="#about" class="footer-link">من نحن</a></li>
-                            <li><a href="#contact" class="footer-link">اتصل بنا</a></li>
-                        </ul>
-                    </nav>
-                </div>
-                
-                <div class="footer-section">
-                    <h3 class="footer-title">تواصل معنا</h3>
-                    <div class="footer-contact">
-                        <div class="contact-item">
-                            <span class="contact-icon">📧</span>
-                            <a href="mailto:info@salezone.com" class="contact-link">info@salezone.com</a>
-                        </div>
-                        <div class="contact-item">
-                            <span class="contact-icon">📞</span>
-                            <a href="tel:+966501234567" class="contact-link">966-50-123-4567</a>
-                        </div>
-                        <div class="contact-item">
-                            <span class="contact-icon">📍</span>
-                            <address class="contact-address">الرياض، المملكة العربية السعودية</address>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <p class="copyright">&copy; 2024 Sale Zone. جميع الحقوق محفوظة.</p>
-                <div class="footer-bottom-links">
-                    <a href="#privacy" class="footer-link">سياسة الخصوصية</a>
-                    <a href="#terms" class="footer-link">الشروط والأحكام</a>
-                </div>
-            </div>
-        </div>
-    </footer>
-    
-    <!-- 📱 JavaScript -->
-    <script src="assets/js/ultimate.js" defer></script>
-    
-    <!-- 📱 Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(registration => {
-                    console.log('✅ Service Worker registered successfully');
-                })
-                .catch(error => {
-                    console.log('❌ Service Worker registration failed:', error);
-                });
-        }
-    </script>
-    
-    <!-- 📱 Analytics & Performance -->
-    <script>
-        // Performance monitoring
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                if (window.performance && window.performance.timing) {
-                    const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
-                    console.log(`⚡ Page load time: ${loadTime}ms`);
-                    
-                    // Hide loading screen
-                    const loadingScreen = document.getElementById('loading-screen');
-                    if (loadingScreen) {
-                        loadingScreen.style.opacity = '0';
-                        setTimeout(() => {
-                            loadingScreen.style.display = 'none';
-                        }, 300);
-                    }
-                }
-            }, 100);
-        });
-        
-        // Error handling
-        window.addEventListener('error', (e) => {
-            console.error('🚨 JavaScript error:', e.error);
-        });
-        
-        // Unhandled promise rejections
-        window.addEventListener('unhandledrejection', (e) => {
-            console.error('🚨 Unhandled promise rejection:', e.reason);
-        });
-    </script>
-</body>
-</html>
