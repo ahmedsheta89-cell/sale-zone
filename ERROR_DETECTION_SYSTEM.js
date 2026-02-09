@@ -251,22 +251,32 @@ class ErrorDetectionSystem {
         };
     }
 
-    // 🏥 فحص صحة DOM - FIXED
+    // 🏥 فحص صحة DOM - FIXED with Page Context Detection
     checkDOMHealth() {
         // التحقق من أن الصفحة قد تم تحميلها بالكامل
         if (document.readyState !== 'complete') {
             return; // لا تفحص قبل اكتمال تحميل الصفحة
         }
 
-        const criticalElements = [
-            'bannerSlider',
-            'bannerDots',
-            'productsGrid',
-            'cartCount',
-            'loadingScreen'
-        ];
+        // 🎯 Page Context Detection - Production Grade Solution
+        const pageContext = document.documentElement.dataset.page || document.body.dataset.page || 'unknown';
+        
+        // 📋 Required Elements per Page Context
+        const REQUIRED_ELEMENTS = {
+            store: ['bannerSlider', 'bannerDots', 'productsGrid', 'cartCount', 'loadingScreen'],
+            admin: ['adminPanel', 'ordersTable', 'productsTable', 'customersTable'],
+            unknown: [] // لا تفحص في صفحات غير معروفة
+        };
 
-        const missingElements = criticalElements.filter(id => !document.getElementById(id));
+        const elementsToCheck = REQUIRED_ELEMENTS[pageContext] || [];
+        
+        if (elementsToCheck.length === 0) {
+            console.log(`🔍 No DOM elements to check for page context: ${pageContext}`);
+            this.systemHealth.dom = true;
+            return;
+        }
+
+        const missingElements = elementsToCheck.filter(id => !document.getElementById(id));
 
         // تحسين التحقق - لا تعتبر العناصر المفقودة خطأ إذا كانت الصفحة لا تزال تتحمل
         if (missingElements.length > 0 && document.readyState === 'complete') {
@@ -282,8 +292,9 @@ class ErrorDetectionSystem {
             if (trulyMissing.length > 0) {
                 this.logWarning({
                     type: 'MISSING_DOM_ELEMENTS',
-                    message: `Missing elements: ${trulyMissing.join(', ')}`,
+                    message: `Missing elements in ${pageContext}: ${trulyMissing.join(', ')}`,
                     elements: trulyMissing,
+                    pageContext: pageContext,
                     timestamp: new Date().toISOString()
                 });
             }
