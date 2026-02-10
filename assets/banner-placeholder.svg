@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-label="Sale Zone banner placeholder">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0A1128"/>
+      <stop offset="100%" stop-color="#1A2744"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="500" fill="url(#bg)"/>
+  <circle cx="960" cy="250" r="180" fill="#D4AF37" opacity="0.9"/>
+  <text x="180" y="265" font-family="Arial, sans-serif" font-size="42" fill="#D4AF37">Sale Zone</text>
+</svg>

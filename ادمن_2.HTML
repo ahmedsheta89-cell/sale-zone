@@ -706,8 +706,12 @@
             <div class="login-logo">🔐</div>
             <h1 class="login-title">لوحة التحكم</h1>
             <p class="login-subtitle">Sale Zone Store</p>
-            <div class="login-error" id="loginError">كلمة المرور غير صحيحة</div>
+            <div class="login-error" id="loginError">بيانات الدخول غير صحيحة</div>
             <form class="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>📧 البريد الإلكتروني</label>
+                    <input type="email" id="adminEmail" required placeholder="أدخل البريد الإلكتروني">
+                </div>
                 <div class="form-group">
                     <label>🔑 كلمة المرور</label>
                     <input type="password" id="adminPassword" required placeholder="أدخل كلمة المرور">
@@ -1390,7 +1394,7 @@
         let users = [];
         // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
         // ⚠️ يُنصح بتغييرها فوراً بعد أول تسجيل دخول
-        let adminPassword = 'SaleZone@2026!Admin';
+        let adminPassword = null;
         let storeSettings = {
             name: 'Sale Zone Store',
             tagline: 'التسوق الفاخر الذكي',
@@ -1446,8 +1450,6 @@
             }
             
             // كلمة المرور دائماً من localStorage
-            adminPassword = localStorage.getItem('adminPassword') || 'SaleZone@2026!Admin';
-            
             const saved = getStorageData('SETTINGS');
             if (saved) storeSettings = { ...storeSettings, ...saved };
             
@@ -1459,20 +1461,21 @@
         function saveCoupons() { setStorageData('COUPONS', coupons); }
         function saveBanners() { setStorageData('BANNERS', banners); }
         function saveUsers() { setStorageData('CUSTOMERS', users); }
-        function saveAdminPassword() { localStorage.setItem('adminPassword', adminPassword); }
+        function saveAdminPassword() {}
         function saveStoreSettings() { setStorageData('SETTINGS', storeSettings); }
 
         // ============================================
         // Auth
         // ============================================
-           const ADMIN_UID = "sI5NuzbQVIZOtggdoEMUzNRINl73";
-         const ADMIN_EMAIL = "ahmed.sheta89@gmail.com";
-        
+        const ADMIN_EMAIL = "ahmed.sheta89@gmail.com";
+        const ALLOW_BOOTSTRAP_ADMIN = true; // Temporary until custom claims are set
+
         async function handleLogin(e){
   e.preventDefault();
+  const email = document.getElementById('adminEmail').value.trim();
   const pass = document.getElementById('adminPassword').value;
   const loginError = document.getElementById('loginError');
-  
+
   // Rate limiting check
   const clientIP = 'client_' + Math.random().toString(36).substr(2, 9);
   if (rateLimiter.isBlocked(clientIP)) {
@@ -1483,12 +1486,17 @@
   }
 
   try{
-    // Direct password comparison for admin login
-    if (pass !== 'SaleZone@2026!Admin') {
+    const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
+    const token = await userCred.user.getIdTokenResult(true);
+    const isAdmin = token?.claims?.admin === true;
+    const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && userCred.user.email === ADMIN_EMAIL;
+
+    if (!isAdmin && !isBootstrapAdmin) {
+      await firebase.auth().signOut();
       rateLimiter.recordAttempt(clientIP);
       const remaining = rateLimiter.getRemainingAttempts(clientIP);
       loginError.style.display = 'block';
-      loginError.textContent = `كلمة المرور غير صحيحة. محاولات متبقية: ${remaining}`;
+      loginError.textContent = `غير مصرح لك بالدخول. محاولات متبقية: ${remaining}`;
       return;
     }
 
@@ -1496,7 +1504,7 @@
     rateLimiter.attempts.delete(clientIP);
     
     // Create secure session
-    const sessionId = sessionManager.createSession('admin', { 
+    const sessionId = sessionManager.createSession(userCred.user.uid, { 
       role: 'admin', 
       loginTime: new Date().toISOString() 
     });
@@ -1510,36 +1518,52 @@
     await loadAllData();
     initDashboard();
     
-    showNotification('success', 'تم تسجيل الدخول بنجاح');
+    if (!isAdmin && isBootstrapAdmin) {
+      showNotification('info', 'تنبيه أمني', 'الدخول تم بوضع مؤقت. فعّل Custom Claims ثم عطّل ALLOW_BOOTSTRAP_ADMIN.');
+    } else {
+      showNotification('success', 'تم تسجيل الدخول بنجاح');
+    }
 
   }catch(err){
     console.error('Login error:', err);
+    rateLimiter.recordAttempt(clientIP);
+    const remaining = rateLimiter.getRemainingAttempts(clientIP);
     loginError.style.display='block';
-    loginError.textContent='حدث خطأ أثناء تسجيل الدخول';
+    loginError.textContent = `بيانات الدخول غير صحيحة. محاولات متبقية: ${remaining}`;
   }
 }
 
        function checkAdminSession() {
-  const sessionId = sessionStorage.getItem('adminSessionId');
-  const isLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
-  
-  if (isLoggedIn && sessionId && sessionManager.validateSession(sessionId)) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('dashboard').classList.add('active');
-    
-    // Auto-load data if needed
-    if (!products.length) {
-      loadAllData().then(initDashboard);
-    }
-  } else {
-    // Clear invalid session
-    sessionStorage.removeItem('adminLoggedIn');
-    sessionStorage.removeItem('adminSessionId');
-    sessionStorage.removeItem('adminSession');
-    
-    document.getElementById('dashboard').classList.remove('active');
-    document.getElementById('loginScreen').style.display = 'flex';
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (!user) {
+        sessionStorage.removeItem('adminLoggedIn');
+        sessionStorage.removeItem('adminSessionId');
+        sessionStorage.removeItem('adminSession');
+        document.getElementById('dashboard').classList.remove('active');
+        document.getElementById('loginScreen').style.display = 'flex';
+        return;
+      }
+
+      const token = await user.getIdTokenResult();
+      const isAdmin = token?.claims?.admin === true;
+      const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.email === ADMIN_EMAIL;
+      if (isAdmin || isBootstrapAdmin) {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('dashboard').classList.add('active');
+        if (!products.length) {
+          loadAllData().then(initDashboard);
+        }
+      } else {
+        await firebase.auth().signOut();
+      }
+    });
+    return;
   }
+
+  // Fallback: no Firebase
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('loginScreen').style.display = 'flex';
 }
 
 function adminLogout(){
@@ -2406,7 +2430,7 @@ function adminLogout(){
         // JSON Backup
         // ============================================
         function exportAllDataJSON() {
-            const data = { products, orders, coupons, banners, users, storeSettings, adminPassword };
+            const data = { products, orders, coupons, banners, users, storeSettings };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -2445,19 +2469,25 @@ function adminLogout(){
             showNotification('success', 'تم الحذف');
         }
 
-        function changeAdminPassword(e) {
+        async function changeAdminPassword(e) {
             e.preventDefault();
             const current = document.getElementById('currentAdminPass').value;
             const newPass = document.getElementById('newAdminPass').value;
             const confirm = document.getElementById('confirmAdminPass').value;
-            if (current !== adminPassword) { showNotification('error', 'كلمة المرور الحالية خاطئة'); return; }
             if (newPass !== confirm) { showNotification('error', 'غير متطابقة'); return; }
-            adminPassword = newPass;
-            saveAdminPassword();
-            showNotification('success', 'تم التغيير');
-            document.getElementById('currentAdminPass').value = '';
-            document.getElementById('newAdminPass').value = '';
-            document.getElementById('confirmAdminPass').value = '';
+            const user = firebase.auth().currentUser;
+            if (!user) { showNotification('error', 'سجل دخول مرة أخرى'); return; }
+            try {
+                const cred = firebase.auth.EmailAuthProvider.credential(user.email, current);
+                await user.reauthenticateWithCredential(cred);
+                await user.updatePassword(newPass);
+                showNotification('success', 'تم التغيير');
+                document.getElementById('currentAdminPass').value = '';
+                document.getElementById('newAdminPass').value = '';
+                document.getElementById('confirmAdminPass').value = '';
+            } catch (err) {
+                showNotification('error', 'فشل تغيير كلمة المرور');
+            }
         }
 
         // ============================================
