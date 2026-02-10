@@ -201,6 +201,13 @@ async function initializeFirebaseData() {
 
 // Real-time listeners for live updates
 function setupRealtimeListeners() {
+    const hostname = window.location.hostname || '';
+    const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
+    if (isGithubPages) {
+        console.log('🔥 GitHub Pages detected - skipping Firestore real-time listeners');
+        return;
+    }
+
     // Listen for banners changes
     db.collection('banners').onSnapshot((snapshot) => {
         banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
