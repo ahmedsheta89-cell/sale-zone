@@ -1228,7 +1228,7 @@
             
             // ظ‡ط°ظ‡ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط¯ط§ط¦ظ…ط§ظ‹ ظ…ظ† localStorage (ط§ظ„ط³ظ„ط©طŒ ط§ظ„ظ…ظپط¶ظ„ط§طھطŒ ط¥ظ„ط®)
             cart = getStorageData('CART') || [];
-            favorites = getStorageData('WISHLIST') || [];
+            favorites = (getStorageData('WISHLIST') || []).map(id => String(id));
             orders = getStorageData('ORDERS') || [];
             users = getStorageData('CUSTOMERS') || [];
             
@@ -1398,8 +1398,8 @@
             grid.innerHTML = displayProducts.map(p => `
                 <div class="product-card">
                     ${p.oldPrice ? `<div class="product-badge">-${Math.round((1 - p.price/p.oldPrice) * 100)}%</div>` : ''}
-                    <div class="product-fav ${favorites.includes(p.id) ? 'active' : ''}" onclick="toggleFav(${p.id})">
-                        ${favorites.includes(p.id) ? 'â‌¤ï¸ڈ' : 'ًں¤چ'}
+                    <div class="product-fav ${favorites.includes(String(p.id)) ? 'active' : ''}" onclick="toggleFav('${p.id}')">
+                        ${favorites.includes(String(p.id)) ? 'â‌¤ï¸ڈ' : 'ًں¤چ'}
                     </div>
                     <div class="product-image">
                         <img src="${sanitizeImageUrl(p.image)}" alt="${p.name}" onerror="this.src='${sanitizeImageUrl('')}'" loading="lazy">
@@ -1411,7 +1411,7 @@
                     <div class="product-info">
                         <h3 class="product-name">${p.name}</h3>
                         <p class="product-desc">${p.desc}</p>
-                        <div class="product-rating" onclick="showRatingModal(${p.id})">
+                        <div class="product-rating" onclick="showRatingModal('${p.id}')">
                             <div class="stars">${getStars(p.rating)}</div>
                             <span class="rating-count">(${p.ratingCount || 0})</span>
                         </div>
@@ -1488,7 +1488,7 @@
                     <img src="${sanitizeImageUrl(p.image)}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;" onerror="this.src='${sanitizeImageUrl('')}'">
                     <h2 style="font-size: 20px; color: var(--navy); margin-bottom: 8px;">${p.name}</h2>
                     <p style="color: #666; margin-bottom: 15px; font-size: 13px;">${p.desc}</p>
-                    <div style="margin-bottom: 15px;" onclick="showRatingModal(${p.id})">
+                    <div style="margin-bottom: 15px;" onclick="showRatingModal('${p.id}')">
                         <span style="font-size: 18px;">${getStars(p.rating)}</span>
                         <span style="color: #999; font-size: 12px;">(${p.ratingCount || 0} طھظ‚ظٹظٹظ…)</span>
                     </div>
@@ -1497,8 +1497,8 @@
                         ${p.oldPrice ? `<span style="font-size: 16px; color: #999; text-decoration: line-through; margin-right: 10px;">${p.oldPrice} ط¬.ظ…</span>` : ''}
                     </div>
                     <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button class="submit-btn" onclick="addToCart(${p.id}); closeModal('productModal');" style="flex: 1; max-width: 200px;">ًں›’ ط£ط¶ظپ ظ„ظ„ط³ظ„ط©</button>
-                        <button class="submit-btn" onclick="toggleFav(${p.id})" style="width: 50px; background: ${favorites.includes(p.id) ? 'var(--error)' : 'var(--cream)'}; color: ${favorites.includes(p.id) ? 'white' : 'var(--error)'};">${favorites.includes(p.id) ? 'â‌¤ï¸ڈ' : 'ًں¤چ'}</button>
+                        <button class="submit-btn" onclick="addToCart('${p.id}'); closeModal('productModal');" style="flex: 1; max-width: 200px;">ًں›’ ط£ط¶ظپ ظ„ظ„ط³ظ„ط©</button>
+                        <button class="submit-btn" onclick="toggleFav('${p.id}')" style="width: 50px; background: ${favorites.includes(String(p.id)) ? 'var(--error)' : 'var(--cream)'}; color: ${favorites.includes(String(p.id)) ? 'white' : 'var(--error)'};">${favorites.includes(String(p.id)) ? 'â‌¤ï¸ڈ' : 'ًں¤چ'}</button>
                     </div>
                 </div>
             `;
@@ -1535,7 +1535,7 @@
                     <h3 style="margin-bottom: 15px;">${p.name}</h3>
                     <p style="margin-bottom: 20px;">ط§ظ„طھظ‚ظٹظٹظ… ط§ظ„ط­ط§ظ„ظٹ: ${getStars(p.rating)} (${p.ratingCount || 0})</p>
                     <div style="font-size: 36px; margin-bottom: 20px;" id="ratingStars">
-                        ${[1,2,3,4,5].map(i => `<span style="cursor: pointer;" onclick="rateProduct(${productId}, ${i})">${i <= (p.rating || 0) ? 'â­گ' : 'âک†'}</span>`).join('')}
+                        ${[1,2,3,4,5].map(i => `<span style="cursor: pointer;" onclick="rateProduct('${productId}', ${i})">${i <= (p.rating || 0) ? 'â­گ' : 'âک†'}</span>`).join('')}
                     </div>
                     <p style="color: #666; font-size: 12px;">ط§ط¶ط؛ط· ط¹ظ„ظ‰ ط§ظ„ظ†ط¬ظˆظ… ظ„ظ„طھظ‚ظٹظٹظ…</p>
                 </div>
@@ -1580,12 +1580,13 @@
         }
 
         function toggleFav(id) {
-            const idx = favorites.indexOf(id);
+            const pid = String(id);
+            const idx = favorites.indexOf(pid);
             if (idx > -1) {
                 favorites.splice(idx, 1);
                 showNotification('info', 'طھظ…طھ ط§ظ„ط¥ط²ط§ظ„ط©', 'طھظ… ط¥ط²ط§ظ„ط© ط§ظ„ظ…ظ†طھط¬ ظ…ظ† ط§ظ„ظ…ظپط¶ظ„ط©');
             } else {
-                favorites.push(id);
+                favorites.push(pid);
                 showNotification('success', 'طھظ…طھ ط§ظ„ط¥ط¶ط§ظپط©', 'طھظ… ط¥ط¶ط§ظپط© ط§ظ„ظ…ظ†طھط¬ ظ„ظ„ظ…ظپط¶ظ„ط©');
             }
             saveFavorites();
@@ -1614,7 +1615,7 @@
                         </div>
                         <div class="fav-item-actions">
                             <button class="fav-add-btn" onclick="addToCart('${p.id}')">ًں›’</button>
-                            <button class="fav-remove-btn" onclick="toggleFav(${p.id})">ًں—‘ï¸ڈ</button>
+                            <button class="fav-remove-btn" onclick="toggleFav('${p.id}')">ًں—‘ï¸ڈ</button>
                         </div>
                     </div>
                 `;
