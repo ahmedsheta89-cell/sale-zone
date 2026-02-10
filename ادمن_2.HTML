@@ -1482,8 +1482,23 @@
         // ============================================
         // Auth
         // ============================================
-        const ADMIN_EMAIL = "ahmed.sheta89@gmail.com";
+        const ADMIN_EMAILS = ["ahmed.sheta89@gmail.com"];
         const ALLOW_BOOTSTRAP_ADMIN = true; // Temporary until custom claims are set
+
+        function isEmailAllowed(email) {
+          return ADMIN_EMAILS.includes(String(email || '').toLowerCase());
+        }
+
+        async function requireAdminPermission() {
+          if (!firebase || !firebase.auth) throw new Error('auth-not-available');
+          const user = firebase.auth().currentUser;
+          if (!user) throw new Error('not-authenticated');
+          const token = await user.getIdTokenResult(true);
+          const isClaimAdmin = token?.claims?.admin === true;
+          const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
+          if (!isClaimAdmin && !isBootstrapAdmin) throw new Error('not-admin');
+          return { isClaimAdmin, isBootstrapAdmin, user };
+        }
 
         async function handleLogin(e){
   e.preventDefault();
@@ -1502,9 +1517,17 @@
 
   try{
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
-    const token = await userCred.user.getIdTokenResult(true);
+    const user = userCred.user;
+    const token = await user.getIdTokenResult(true);
     const isAdmin = token?.claims?.admin === true;
-    const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && userCred.user.email === ADMIN_EMAIL;
+    const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
+
+    if (!user.emailVerified) {
+      await firebase.auth().signOut();
+      loginError.style.display = 'block';
+      loginError.textContent = 'íÌÈ ÊİÚíá ÇáÈÑíÏ ÇáÅáßÊÑæäí ÃæáğÇ ááÏÎæá ßÃÏãä';
+      return;
+    }
 
     if (!isAdmin && !isBootstrapAdmin) {
       await firebase.auth().signOut();
@@ -1610,7 +1633,11 @@ async function sendPasswordReset() {
 
       const token = await user.getIdTokenResult();
       const isAdmin = token?.claims?.admin === true;
-      const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.email === ADMIN_EMAIL;
+      const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
+      if (!user.emailVerified) {
+        await firebase.auth().signOut();
+        return;
+      }
       if (isAdmin || isBootstrapAdmin) {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').classList.add('active');
@@ -1817,8 +1844,9 @@ function adminLogout(){
         ratingCount: 0
     };
             try {
+                await requireAdminPermission();
                 if (id) {
-                    // ØªØ­Ø¯ÙŠØ« Ù…Ù†ØªØ¬ Ù…ÙˆØ¬ÙˆØ¯
+                    // ÊÍÏíË ãäÊÌ ãæÌæÏ
                     const idx = products.findIndex(p => String(p.id) === String(id));
                     if (idx !== -1) {
                         products[idx] = { ...products[idx], ...data };
@@ -1826,9 +1854,9 @@ function adminLogout(){
                             await updateProduct(id, { ...products[idx] });
                         }
                     }
-                    showNotification('success', 'ØªÙ… Ø§Ù„ØªØ­Ø¯ÙŠØ« âœ…');
+                    showNotification('success', 'Êã ÇáÊÍÏíË ÈäÌÇÍ');
                 } else {
-                    // Ø¥Ø¶Ø§ÙØ© Ù…Ù†ØªØ¬ Ø¬Ø¯ÙŠØ¯
+                    // ÅÖÇİÉ ãäÊÌ ÌÏíÏ
                     if (typeof addProduct === 'function') {
                         const firebaseId = await addProduct(data);
                         data.id = firebaseId;
@@ -1836,19 +1864,14 @@ function adminLogout(){
                         data.id = Date.now().toString();
                     }
                     products.push(data);
-                    showNotification('success', 'ØªÙ…Øª Ø§Ù„Ø¥Ø¶Ø§ÙØ© âœ…');
+                    showNotification('success', 'ÊãÊ ÇáÅÖÇİÉ ÈäÌÇÍ');
                 }
             } catch (error) {
                 console.error('Firebase save error:', error);
-                if (!id) data.id = Date.now().toString();
-                if (id) {
-                    const idx = products.findIndex(p => String(p.id) === String(id));
-                    if (idx !== -1) products[idx] = { ...products[idx], ...data };
-                } else {
-                    products.push(data);
-                }
-                showNotification('success', 'ØªÙ…Øª Ø§Ù„Ø¥Ø¶Ø§ÙØ© (Ù…Ø­Ù„ÙŠØ§Ù‹) âœ…');
+                showNotification('error', 'İÔá ÇáÍİÙ', 'áÇ Êãáß ÕáÇÍíÇÊ Ãæ íæÌÏ ÎØÃ ÈÇáÇÊÕÇá');
+                return;
             }
+
             saveProducts();
             renderProductsTable();
             updateStats();
@@ -1890,20 +1913,23 @@ function adminLogout(){
 }
 
         async function deleteProduct(id) {
-            if (!confirm('Ø­Ø°Ù Ø§Ù„Ù…Ù†ØªØ¬ØŸ')) return;
+            if (!confirm('ÍĞİ ÇáãäÊÌ¿')) return;
             try {
+                await requireAdminPermission();
                 if (typeof deleteProductFromFirebase === 'function') {
                     await deleteProductFromFirebase(id);
                 }
+                products = products.filter(p => p.id != id && String(p.id) != String(id));
+                saveProducts();
+                renderProductsTable();
+                updateStats();
+                showNotification('success', 'Êã ÇáÍĞİ ?');
             } catch (error) {
                 console.error('Firebase delete error:', error);
+                showNotification('error', 'İÔá ÇáÍĞİ', 'áÇ Êãáß ÕáÇÍíÇÊ Ãæ íæÌÏ ÎØÃ ÈÇáÇÊÕÇá');
             }
-            products = products.filter(p => p.id != id && String(p.id) != String(id));
-            saveProducts();
-            renderProductsTable();
-            updateStats();
-            showNotification('success', 'ØªÙ… Ø§Ù„Ø­Ø°Ù âœ…');
         }
+
 
         function resetProductForm() {
   // IDs Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø© + Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ©
@@ -2649,3 +2675,4 @@ async function uploadAndPreview(input) {
 </script>
 </body>
 </html>
+

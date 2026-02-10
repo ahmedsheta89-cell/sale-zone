@@ -7,10 +7,10 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    function isBootstrapAdmin() {
+    function isAdminEmail() {
       return request.auth != null
-        && request.auth.token.email == "ahmed.sheta89@gmail.com"
-        && request.auth.token.email_verified == true;
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ["ahmed.sheta89@gmail.com"];
     }
 
     function isValidOrderCreate() {
@@ -30,56 +30,56 @@ service cloud.firestore {
     // Public readable content
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /coupons/{couponId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /banners/{bannerId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /settings/{settingId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     // Admin-only data
     match /orders/{orderId} {
-      allow read, update, delete: if isAdmin() || isBootstrapAdmin();
-      allow create: if isAdmin() || isBootstrapAdmin() || isValidOrderCreate();
+      allow read, update, delete: if isAdmin() || isAdminEmail();
+      allow create: if isAdmin() || isAdminEmail() || isValidOrderCreate();
     }
 
     match /customers/{customerId} {
-      allow read, create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow read, create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /admins/{adminId} {
-      allow read, create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow read, create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /analytics/{analyticsId} {
-      allow read, create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow read, create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /logs/{logId} {
-      allow read, create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow read, create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /errors/{errorId} {
-      allow read, create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow read, create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /sessions/{sessionId} {
-      allow read, create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow read, create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     match /sync/{syncId} {
-      allow read, create, update, delete: if isAdmin();
+      allow read, create, update, delete: if isAdmin() || isAdminEmail();
     }
   }
 }

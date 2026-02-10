@@ -1,16 +1,16 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl" data-page="store">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0A1128">
-    <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
+    <meta name="description" content="Sale Zone Store - ظ…طھط¬ط±ظƒ ط§ظ„ط£ظˆظ„ ظ„ظ„طھط³ظˆظ‚ ط§ظ„ظپط§ط®ط±">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="icon" href="./icon-192.png">
     <link rel="shortcut icon" href="./icon-192.png">
     <link rel="apple-touch-icon" href="./icon-192.png">
-    <title>Sale Zone Store | التسوق الفاخر الذكي</title>
+    <title>Sale Zone Store | ط§ظ„طھط³ظˆظ‚ ط§ظ„ظپط§ط®ط± ط§ظ„ط°ظƒظٹ</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -468,7 +468,7 @@
 <body>
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
-        <div class="loading-logo">🛍️</div>
+        <div class="loading-logo">ًں›چï¸ڈ</div>
         <div class="loading-text" id="loadingStoreName">Sale Zone Store</div>
         <div class="loading-spinner"></div>
     </div>
@@ -479,11 +479,11 @@
     <!-- Top Bar -->
     <div class="top-bar" id="topBar">
         <div class="top-bar-marquee">
-            <span id="topBarText">🎉 خصومات حصرية تصل إلى 50%! | 🚚 توصيل مجاني للطلبات أكثر من 500 ج.م</span>
+            <span id="topBarText">ًںژ‰ ط®طµظˆظ…ط§طھ ط­طµط±ظٹط© طھطµظ„ ط¥ظ„ظ‰ 50%! | ًںڑڑ طھظˆطµظٹظ„ ظ…ط¬ط§ظ†ظٹ ظ„ظ„ط·ظ„ط¨ط§طھ ط£ظƒط«ط± ظ…ظ† 500 ط¬.ظ…</span>
         </div>
         <div class="top-bar-contact">
-            <a href="tel:01018108979" id="topBarPhone">📞 01018108979</a>
-            <a href="#" id="topBarWhatsapp" target="_blank">💬 واتساب</a>
+            <a href="tel:01018108979" id="topBarPhone">ًں“‍ 01018108979</a>
+            <a href="#" id="topBarWhatsapp" target="_blank">ًں’¬ ظˆط§طھط³ط§ط¨</a>
         </div>
     </div>
 
@@ -491,7 +491,7 @@
     <header class="header">
         <div class="header-content">
             <h1 class="logo" id="storeLogo">Sale Zone Store</h1>
-            <p class="tagline" id="storeTagline">التسوق الفاخر الذكي</p>
+            <p class="tagline" id="storeTagline">ط§ظ„طھط³ظˆظ‚ ط§ظ„ظپط§ط®ط± ط§ظ„ط°ظƒظٹ</p>
             <div class="header-divider"></div>
         </div>
     </header>
@@ -499,36 +499,36 @@
     <!-- Navbar -->
     <nav class="navbar">
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="ابحث عن منتج...">
-            <button onclick="searchProducts()">🔍</button>
+            <input type="text" id="searchInput" placeholder="ط§ط¨ط­ط« ط¹ظ† ظ…ظ†طھط¬...">
+            <button onclick="searchProducts()">ًں”چ</button>
         </div>
         <div class="nav-actions">
             <div class="loyalty-badge">
-                <span>⭐</span>
+                <span>â­گ</span>
                 <span id="loyaltyPoints">0</span>
-                <span>نقطة</span>
+                <span>ظ†ظ‚ط·ط©</span>
             </div>
             <button class="nav-btn" onclick="toggleFavorites()">
-                ❤️ <span>المفضلة</span>
+                â‌¤ï¸ڈ <span>ط§ظ„ظ…ظپط¶ظ„ط©</span>
                 <div class="fav-count" id="favCount">0</div>
             </button>
             <button class="nav-btn cart-btn" onclick="toggleCart()">
-                🛒 <span>السلة</span>
+                ًں›’ <span>ط§ظ„ط³ظ„ط©</span>
                 <div class="cart-count" id="cartCount">0</div>
             </button>
             <div class="user-menu">
-                <button class="user-btn" id="userBtn">👤</button>
+                <button class="user-btn" id="userBtn">ًں‘¤</button>
                 <div class="user-dropdown">
                     <div id="guestMenu">
-                        <button onclick="showAuthModal('login')">🔐 تسجيل الدخول</button>
-                        <button onclick="showAuthModal('register')">📝 إنشاء حساب</button>
+                        <button onclick="showAuthModal('login')">ًں”گ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„</button>
+                        <button onclick="showAuthModal('register')">ًں“‌ ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨</button>
                     </div>
                     <div id="userMenu" class="hidden">
-                        <a href="#" onclick="showProfile()">👤 حسابي</a>
-                        <a href="#" onclick="showMyOrders()">📦 طلباتي</a>
-                        <a href="#" onclick="showOrderTracking()">🚚 تتبع طلبي</a>
-                        <a href="#" onclick="showChangePassword()">🔑 تغيير كلمة المرور</a>
-                        <button onclick="logout()">🚪 تسجيل الخروج</button>
+                        <a href="#" onclick="showProfile()">ًں‘¤ ط­ط³ط§ط¨ظٹ</a>
+                        <a href="#" onclick="showMyOrders()">ًں“¦ ط·ظ„ط¨ط§طھظٹ</a>
+                        <a href="#" onclick="showOrderTracking()">ًںڑڑ طھطھط¨ط¹ ط·ظ„ط¨ظٹ</a>
+                        <a href="#" onclick="showChangePassword()">ًں”‘ طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±</a>
+                        <button onclick="logout()">ًںڑھ طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬</button>
                     </div>
                 </div>
             </div>
@@ -541,45 +541,45 @@
             <!-- Banners will be loaded here -->
         </div>
         <div class="banner-dots" id="bannerDots"></div>
-        <div class="banner-arrow prev" onclick="prevBanner()">❮</div>
-        <div class="banner-arrow next" onclick="nextBanner()">❯</div>
+        <div class="banner-arrow prev" onclick="prevBanner()">â‌®</div>
+        <div class="banner-arrow next" onclick="nextBanner()">â‌¯</div>
     </section>
 
     <!-- Categories -->
     <section class="categories-section">
         <div class="section-title">
-            <h2>تسوق حسب القسم</h2>
+            <h2>طھط³ظˆظ‚ ط­ط³ط¨ ط§ظ„ظ‚ط³ظ…</h2>
             <div class="line"></div>
         </div>
         <div class="categories-grid">
             <div class="category-card active" data-category="all" onclick="filterByCategory('all')">
-                <div class="category-icon">🛍️</div>
-                <div class="category-name">الكل</div>
+                <div class="category-icon">ًں›چï¸ڈ</div>
+                <div class="category-name">ط§ظ„ظƒظ„</div>
                 <div class="category-count" id="countAll">0</div>
             </div>
             <div class="category-card" data-category="hair-care" onclick="filterByCategory('hair-care')">
-                <div class="category-icon">💇‍♀️</div>
-                <div class="category-name">الشعر</div>
+                <div class="category-icon">ًں’‡â€چâ™€ï¸ڈ</div>
+                <div class="category-name">ط§ظ„ط´ط¹ط±</div>
                 <div class="category-count" id="countHair">0</div>
             </div>
             <div class="category-card" data-category="skin-care" onclick="filterByCategory('skin-care')">
-                <div class="category-icon">🧴</div>
-                <div class="category-name">البشرة</div>
+                <div class="category-icon">ًں§´</div>
+                <div class="category-name">ط§ظ„ط¨ط´ط±ط©</div>
                 <div class="category-count" id="countSkin">0</div>
             </div>
             <div class="category-card" data-category="baby-care" onclick="filterByCategory('baby-care')">
-                <div class="category-icon">👶</div>
-                <div class="category-name">الطفل</div>
+                <div class="category-icon">ًں‘¶</div>
+                <div class="category-name">ط§ظ„ط·ظپظ„</div>
                 <div class="category-count" id="countBaby">0</div>
             </div>
             <div class="category-card" data-category="supplements" onclick="filterByCategory('supplements')">
-                <div class="category-icon">💊</div>
-                <div class="category-name">المكملات</div>
+                <div class="category-icon">ًں’ٹ</div>
+                <div class="category-name">ط§ظ„ظ…ظƒظ…ظ„ط§طھ</div>
                 <div class="category-count" id="countSupplements">0</div>
             </div>
             <div class="category-card" data-category="medical" onclick="filterByCategory('medical')">
-                <div class="category-icon">🏥</div>
-                <div class="category-name">الطبي</div>
+                <div class="category-icon">ًںڈ¥</div>
+                <div class="category-name">ط§ظ„ط·ط¨ظٹ</div>
                 <div class="category-count" id="countMedical">0</div>
             </div>
         </div>
@@ -589,30 +589,30 @@
     <section class="products-section">
         <div class="products-header">
             <div class="section-title" style="margin-bottom: 0;">
-                <h2 id="productsTitle">جميع المنتجات</h2>
+                <h2 id="productsTitle">ط¬ظ…ظٹط¹ ط§ظ„ظ…ظ†طھط¬ط§طھ</h2>
             </div>
         </div>
         
         <!-- Filter Bar -->
         <div class="filter-bar">
             <div class="filter-group">
-                <label>ترتيب:</label>
+                <label>طھط±طھظٹط¨:</label>
                 <select class="filter-select" id="sortSelect" onchange="sortProducts(this.value)">
-                    <option value="default">الافتراضي</option>
-                    <option value="price-low">السعر: الأقل</option>
-                    <option value="price-high">السعر: الأعلى</option>
-                    <option value="rating">التقييم</option>
-                    <option value="name">الاسم</option>
+                    <option value="default">ط§ظ„ط§ظپطھط±ط§ط¶ظٹ</option>
+                    <option value="price-low">ط§ظ„ط³ط¹ط±: ط§ظ„ط£ظ‚ظ„</option>
+                    <option value="price-high">ط§ظ„ط³ط¹ط±: ط§ظ„ط£ط¹ظ„ظ‰</option>
+                    <option value="rating">ط§ظ„طھظ‚ظٹظٹظ…</option>
+                    <option value="name">ط§ظ„ط§ط³ظ…</option>
                 </select>
             </div>
             <div class="filter-group price-range">
-                <label>السعر:</label>
-                <input type="number" class="price-input" id="minPrice" placeholder="من" onchange="filterByPrice()">
+                <label>ط§ظ„ط³ط¹ط±:</label>
+                <input type="number" class="price-input" id="minPrice" placeholder="ظ…ظ†" onchange="filterByPrice()">
                 <span>-</span>
-                <input type="number" class="price-input" id="maxPrice" placeholder="إلى" onchange="filterByPrice()">
+                <input type="number" class="price-input" id="maxPrice" placeholder="ط¥ظ„ظ‰" onchange="filterByPrice()">
             </div>
             <div class="filter-group">
-                <button class="filter-btn" onclick="resetFilters()">🔄 إعادة تعيين</button>
+                <button class="filter-btn" onclick="resetFilters()">ًں”„ ط¥ط¹ط§ط¯ط© طھط¹ظٹظٹظ†</button>
             </div>
         </div>
         
@@ -623,24 +623,24 @@
     <section class="stats-section">
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-icon">📦</div>
+                <div class="stat-icon">ًں“¦</div>
                 <div class="stat-number" id="statsProducts">0</div>
-                <div class="stat-label">منتج</div>
+                <div class="stat-label">ظ…ظ†طھط¬</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">🛍️</div>
+                <div class="stat-icon">ًں›چï¸ڈ</div>
                 <div class="stat-number" id="statsOrders">0</div>
-                <div class="stat-label">طلب</div>
+                <div class="stat-label">ط·ظ„ط¨</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">⭐</div>
+                <div class="stat-icon">â­گ</div>
                 <div class="stat-number" id="statsRating">4.8</div>
-                <div class="stat-label">تقييم</div>
+                <div class="stat-label">طھظ‚ظٹظٹظ…</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">👥</div>
+                <div class="stat-icon">ًں‘¥</div>
                 <div class="stat-number" id="statsUsers">0</div>
-                <div class="stat-label">عميل</div>
+                <div class="stat-label">ط¹ظ…ظٹظ„</div>
             </div>
         </div>
     </section>
@@ -648,7 +648,7 @@
     <!-- Coupons -->
     <section class="coupons-section">
         <div class="section-title">
-            <h2>كوبونات الخصم</h2>
+            <h2>ظƒظˆط¨ظˆظ†ط§طھ ط§ظ„ط®طµظ…</h2>
             <div class="line"></div>
         </div>
         <div class="coupons-grid" id="couponsGrid"></div>
@@ -658,39 +658,39 @@
     <footer class="footer">
         <div class="footer-grid">
             <div class="footer-section">
-                <h3>عن المتجر</h3>
-                <p id="footerAbout">Sale Zone Store - وجهتك الأولى للتسوق الفاخر والذكي.</p>
+                <h3>ط¹ظ† ط§ظ„ظ…طھط¬ط±</h3>
+                <p id="footerAbout">Sale Zone Store - ظˆط¬ظ‡طھظƒ ط§ظ„ط£ظˆظ„ظ‰ ظ„ظ„طھط³ظˆظ‚ ط§ظ„ظپط§ط®ط± ظˆط§ظ„ط°ظƒظٹ.</p>
             </div>
             <div class="footer-section">
-                <h3>روابط سريعة</h3>
+                <h3>ط±ظˆط§ط¨ط· ط³ط±ظٹط¹ط©</h3>
                 <ul>
-                    <li><a href="#" onclick="filterByCategory('all')">جميع المنتجات</a></li>
-                    <li><a href="#" onclick="toggleCart()">سلة التسوق</a></li>
-                    <li><a href="#" onclick="showOrderTracking()">تتبع طلبي</a></li>
-                    <li><a href="#" onclick="showAuthModal('login')">تسجيل الدخول</a></li>
-                    <li><a href="ادمن_2.HTML" target="_blank">🔐 لوحة التحكم</a></li>
+                    <li><a href="#" onclick="filterByCategory('all')">ط¬ظ…ظٹط¹ ط§ظ„ظ…ظ†طھط¬ط§طھ</a></li>
+                    <li><a href="#" onclick="toggleCart()">ط³ظ„ط© ط§ظ„طھط³ظˆظ‚</a></li>
+                    <li><a href="#" onclick="showOrderTracking()">طھطھط¨ط¹ ط·ظ„ط¨ظٹ</a></li>
+                    <li><a href="#" onclick="showAuthModal('login')">طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„</a></li>
+                    <li><a href="ط§ط¯ظ…ظ†_2.HTML" target="_blank">ًں”گ ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…</a></li>
                 </ul>
             </div>
             <div class="footer-section">
-                <h3>تواصل معنا</h3>
+                <h3>طھظˆط§طµظ„ ظ…ط¹ظ†ط§</h3>
                 <ul>
-                    <li>📞 <span id="footerPhone">01018108979</span></li>
-                    <li>💬 <span id="footerWhatsapp">01018108979</span></li>
-                    <li>📧 <span id="footerEmail"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="b5dcdbd3daf5c6d4d9d0cfdadbd09bd6dad8">[email&#160;protected]</a></span></li>
-                    <li>📍 <span id="footerAddress">مصر</span></li>
+                    <li>ًں“‍ <span id="footerPhone">01018108979</span></li>
+                    <li>ًں’¬ <span id="footerWhatsapp">01018108979</span></li>
+                    <li>ًں“§ <span id="footerEmail"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="b5dcdbd3daf5c6d4d9d0cfdadbd09bd6dad8">[email&#160;protected]</a></span></li>
+                    <li>ًں“چ <span id="footerAddress">ظ…طµط±</span></li>
                 </ul>
             </div>
             <div class="footer-section">
-                <h3>ساعات العمل</h3>
+                <h3>ط³ط§ط¹ط§طھ ط§ظ„ط¹ظ…ظ„</h3>
                 <ul>
-                    <li id="hoursWeekdays">السبت - الخميس: 9 ص - 10 م</li>
-                    <li id="hoursFriday">الجمعة: 2 م - 10 م</li>
-                    <li id="hoursNote">🔔 خدمة 24/7</li>
+                    <li id="hoursWeekdays">ط§ظ„ط³ط¨طھ - ط§ظ„ط®ظ…ظٹط³: 9 طµ - 10 ظ…</li>
+                    <li id="hoursFriday">ط§ظ„ط¬ظ…ط¹ط©: 2 ظ… - 10 ظ…</li>
+                    <li id="hoursNote">ًں”” ط®ط¯ظ…ط© 24/7</li>
                 </ul>
             </div>
         </div>
         <div class="footer-bottom">
-            <p id="footerCopyright">© 2026 Sale Zone Store ❤️</p>
+            <p id="footerCopyright">آ© 2026 Sale Zone Store â‌¤ï¸ڈ</p>
         </div>
     </footer>
 
@@ -698,54 +698,54 @@
     <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
     <div class="cart-sidebar" id="cartSidebar">
         <div class="cart-header">
-            <h2>🛒 سلة التسوق</h2>
-            <button class="close-cart" onclick="toggleCart()">✕</button>
+            <h2>ًں›’ ط³ظ„ط© ط§ظ„طھط³ظˆظ‚</h2>
+            <button class="close-cart" onclick="toggleCart()">âœ•</button>
         </div>
         <div class="cart-items" id="cartItems">
             <div class="cart-empty">
-                <div class="cart-empty-icon">🛒</div>
-                <p>السلة فارغة</p>
+                <div class="cart-empty-icon">ًں›’</div>
+                <p>ط§ظ„ط³ظ„ط© ظپط§ط±ط؛ط©</p>
             </div>
         </div>
         <div class="cart-footer">
             <div class="coupon-section">
-                <input type="text" class="coupon-input" id="couponInput" placeholder="كود الخصم">
-                <button class="apply-coupon-btn" onclick="applyCoupon()">تطبيق</button>
+                <input type="text" class="coupon-input" id="couponInput" placeholder="ظƒظˆط¯ ط§ظ„ط®طµظ…">
+                <button class="apply-coupon-btn" onclick="applyCoupon()">طھط·ط¨ظٹظ‚</button>
             </div>
             <div class="points-section hidden" id="pointsSection">
                 <div class="points-header">
-                    <span>💎 نقاطك:</span>
+                    <span>ًں’ژ ظ†ظ‚ط§ط·ظƒ:</span>
                     <strong id="availablePoints">0</strong>
                 </div>
                 <div class="points-input-group">
-                    <input type="number" class="points-input" id="pointsToUse" placeholder="عدد النقاط">
-                    <button class="points-apply-btn" onclick="applyPoints()">استبدال</button>
+                    <input type="number" class="points-input" id="pointsToUse" placeholder="ط¹ط¯ط¯ ط§ظ„ظ†ظ‚ط§ط·">
+                    <button class="points-apply-btn" onclick="applyPoints()">ط§ط³طھط¨ط¯ط§ظ„</button>
                 </div>
-                <div class="points-info" id="pointsInfo">كل 10 نقاط = 1 ج.م</div>
+                <div class="points-info" id="pointsInfo">ظƒظ„ 10 ظ†ظ‚ط§ط· = 1 ط¬.ظ…</div>
             </div>
             <div class="cart-summary">
                 <div class="summary-row">
-                    <span>المجموع:</span>
-                    <span id="subtotal">0 ج.م</span>
+                    <span>ط§ظ„ظ…ط¬ظ…ظˆط¹:</span>
+                    <span id="subtotal">0 ط¬.ظ…</span>
                 </div>
                 <div class="summary-row discount hidden" id="discountRow">
-                    <span>خصم الكوبون:</span>
-                    <span id="discountAmount">- 0 ج.م</span>
+                    <span>ط®طµظ… ط§ظ„ظƒظˆط¨ظˆظ†:</span>
+                    <span id="discountAmount">- 0 ط¬.ظ…</span>
                 </div>
                 <div class="summary-row points-discount hidden" id="pointsDiscountRow">
-                    <span>خصم النقاط:</span>
-                    <span id="pointsDiscountAmount">- 0 ج.م</span>
+                    <span>ط®طµظ… ط§ظ„ظ†ظ‚ط§ط·:</span>
+                    <span id="pointsDiscountAmount">- 0 ط¬.ظ…</span>
                 </div>
                 <div class="summary-row loyalty">
-                    <span>نقاط ستكتسب:</span>
+                    <span>ظ†ظ‚ط§ط· ط³طھظƒطھط³ط¨:</span>
                     <span id="earnedPoints">0</span>
                 </div>
                 <div class="summary-row total">
-                    <span>الإجمالي:</span>
-                    <span id="totalAmount">0 ج.م</span>
+                    <span>ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ:</span>
+                    <span id="totalAmount">0 ط¬.ظ…</span>
                 </div>
             </div>
-            <button class="checkout-btn" onclick="showCheckout()">إتمام الطلب ✓</button>
+            <button class="checkout-btn" onclick="showCheckout()">ط¥طھظ…ط§ظ… ط§ظ„ط·ظ„ط¨ âœ“</button>
         </div>
     </div>
 
@@ -753,13 +753,13 @@
     <div class="cart-overlay" id="favOverlay" onclick="toggleFavorites()"></div>
     <div class="fav-sidebar" id="favSidebar">
         <div class="fav-header">
-            <h2>❤️ المفضلة</h2>
-            <button class="close-cart" onclick="toggleFavorites()">✕</button>
+            <h2>â‌¤ï¸ڈ ط§ظ„ظ…ظپط¶ظ„ط©</h2>
+            <button class="close-cart" onclick="toggleFavorites()">âœ•</button>
         </div>
         <div class="fav-items" id="favItems">
             <div class="fav-empty">
-                <div class="cart-empty-icon">❤️</div>
-                <p>لا توجد منتجات مفضلة</p>
+                <div class="cart-empty-icon">â‌¤ï¸ڈ</div>
+                <p>ظ„ط§ طھظˆط¬ط¯ ظ…ظ†طھط¬ط§طھ ظ…ظپط¶ظ„ط©</p>
             </div>
         </div>
     </div>
@@ -768,52 +768,52 @@
     <div class="modal-overlay" id="authModal">
         <div class="modal">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('authModal')">✕</button>
-                <h2 id="authModalTitle">تسجيل الدخول</h2>
-                <p>مرحباً بك</p>
+                <button class="close-modal" onclick="closeModal('authModal')">âœ•</button>
+                <h2 id="authModalTitle">طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„</h2>
+                <p>ظ…ط±ط­ط¨ط§ظ‹ ط¨ظƒ</p>
             </div>
             <div class="modal-body">
                 <div class="auth-tabs">
-                    <button class="auth-tab active" onclick="switchAuthTab('login')">دخول</button>
-                    <button class="auth-tab" onclick="switchAuthTab('register')">تسجيل</button>
+                    <button class="auth-tab active" onclick="switchAuthTab('login')">ط¯ط®ظˆظ„</button>
+                    <button class="auth-tab" onclick="switchAuthTab('register')">طھط³ط¬ظٹظ„</button>
                 </div>
                 <form id="loginForm" onsubmit="handleLogin(event)">
                     <div class="form-group">
-                        <label>📱 رقم الهاتف <span class="required">*</span></label>
+                        <label>ًں“± ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ <span class="required">*</span></label>
                         <input type="tel" id="loginPhone" required placeholder="01xxxxxxxxx">
                     </div>
                     <div class="form-group">
-                        <label>🔐 كلمة المرور <span class="required">*</span></label>
+                        <label>ًں”گ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± <span class="required">*</span></label>
                         <input type="password" id="loginPassword" required>
                     </div>
-                    <button type="submit" class="submit-btn">دخول 🔓</button>
+                    <button type="submit" class="submit-btn">ط¯ط®ظˆظ„ ًں”“</button>
                 </form>
                 <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
                     <div class="form-group">
-                        <label>👤 الاسم <span class="required">*</span></label>
+                        <label>ًں‘¤ ط§ظ„ط§ط³ظ… <span class="required">*</span></label>
                         <input type="text" id="registerName" required>
                     </div>
                     <div class="form-group">
-                        <label>📱 الهاتف <span class="required">*</span></label>
+                        <label>ًں“± ط§ظ„ظ‡ط§طھظپ <span class="required">*</span></label>
                         <input type="tel" id="registerPhone" required placeholder="01xxxxxxxxx">
                     </div>
                     <div class="form-group">
-                        <label>📧 الإيميل</label>
+                        <label>ًں“§ ط§ظ„ط¥ظٹظ…ظٹظ„</label>
                         <input type="email" id="registerEmail">
                     </div>
                     <div class="form-group">
-                        <label>📍 العنوان <span class="required">*</span></label>
+                        <label>ًں“چ ط§ظ„ط¹ظ†ظˆط§ظ† <span class="required">*</span></label>
                         <textarea id="registerAddress" required></textarea>
                     </div>
                     <div class="form-group">
-                        <label>🔐 كلمة المرور <span class="required">*</span></label>
+                        <label>ًں”گ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± <span class="required">*</span></label>
                         <input type="password" id="registerPassword" required>
                     </div>
                     <div class="form-group">
-                        <label>🔐 تأكيد كلمة المرور <span class="required">*</span></label>
+                        <label>ًں”گ طھط£ظƒظٹط¯ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± <span class="required">*</span></label>
                         <input type="password" id="registerPasswordConfirm" required>
                     </div>
-                    <button type="submit" class="submit-btn">إنشاء حساب ✓</button>
+                    <button type="submit" class="submit-btn">ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨ âœ“</button>
                 </form>
             </div>
         </div>
@@ -823,29 +823,29 @@
     <div class="modal-overlay" id="checkoutModal">
         <div class="modal">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('checkoutModal')">✕</button>
-                <h2>إتمام الطلب</h2>
-                <p>بيانات التوصيل</p>
+                <button class="close-modal" onclick="closeModal('checkoutModal')">âœ•</button>
+                <h2>ط¥طھظ…ط§ظ… ط§ظ„ط·ظ„ط¨</h2>
+                <p>ط¨ظٹط§ظ†ط§طھ ط§ظ„طھظˆطµظٹظ„</p>
             </div>
             <div class="modal-body">
                 <form id="checkoutForm" onsubmit="handleCheckout(event)">
                     <div class="form-group">
-                        <label>👤 الاسم <span class="required">*</span></label>
+                        <label>ًں‘¤ ط§ظ„ط§ط³ظ… <span class="required">*</span></label>
                         <input type="text" id="checkoutName" required>
                     </div>
                     <div class="form-group">
-                        <label>📱 الهاتف <span class="required">*</span></label>
+                        <label>ًں“± ط§ظ„ظ‡ط§طھظپ <span class="required">*</span></label>
                         <input type="tel" id="checkoutPhone" required>
                     </div>
                     <div class="form-group">
-                        <label>📍 العنوان <span class="required">*</span></label>
+                        <label>ًں“چ ط§ظ„ط¹ظ†ظˆط§ظ† <span class="required">*</span></label>
                         <textarea id="checkoutAddress" required></textarea>
                     </div>
                     <div class="form-group">
-                        <label>📝 ملاحظات</label>
+                        <label>ًں“‌ ظ…ظ„ط§ط­ط¸ط§طھ</label>
                         <textarea id="checkoutNotes"></textarea>
                     </div>
-                    <button type="submit" class="submit-btn">تأكيد الطلب 📦</button>
+                    <button type="submit" class="submit-btn">طھط£ظƒظٹط¯ ط§ظ„ط·ظ„ط¨ ًں“¦</button>
                 </form>
             </div>
         </div>
@@ -855,15 +855,15 @@
     <div class="modal-overlay" id="trackingModal">
         <div class="modal large">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('trackingModal')">✕</button>
-                <h2>🚚 تتبع الطلب</h2>
+                <button class="close-modal" onclick="closeModal('trackingModal')">âœ•</button>
+                <h2>ًںڑڑ طھطھط¨ط¹ ط§ظ„ط·ظ„ط¨</h2>
             </div>
             <div class="modal-body" id="trackingModalBody">
                 <div class="form-group">
-                    <label>أدخل رقم الطلب</label>
+                    <label>ط£ط¯ط®ظ„ ط±ظ‚ظ… ط§ظ„ط·ظ„ط¨</label>
                     <input type="text" id="trackOrderNumber" placeholder="SZ-XXXXXXXX">
                 </div>
-                <button class="submit-btn" onclick="trackOrder()">تتبع 🔍</button>
+                <button class="submit-btn" onclick="trackOrder()">طھطھط¨ط¹ ًں”چ</button>
                 <div id="trackingResult" style="margin-top: 20px;"></div>
             </div>
         </div>
@@ -873,8 +873,8 @@
     <div class="modal-overlay" id="productModal">
         <div class="modal large">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('productModal')">✕</button>
-                <h2>تفاصيل المنتج</h2>
+                <button class="close-modal" onclick="closeModal('productModal')">âœ•</button>
+                <h2>طھظپط§طµظٹظ„ ط§ظ„ظ…ظ†طھط¬</h2>
             </div>
             <div class="modal-body" id="productModalBody"></div>
         </div>
@@ -884,24 +884,24 @@
     <div class="modal-overlay" id="passwordModal">
         <div class="modal">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('passwordModal')">✕</button>
-                <h2>تغيير كلمة المرور</h2>
+                <button class="close-modal" onclick="closeModal('passwordModal')">âœ•</button>
+                <h2>طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±</h2>
             </div>
             <div class="modal-body">
                 <form onsubmit="handleChangePassword(event)">
                     <div class="form-group">
-                        <label>🔐 الحالية <span class="required">*</span></label>
+                        <label>ًں”گ ط§ظ„ط­ط§ظ„ظٹط© <span class="required">*</span></label>
                         <input type="password" id="currentPassword" required>
                     </div>
                     <div class="form-group">
-                        <label>🔐 الجديدة <span class="required">*</span></label>
+                        <label>ًں”گ ط§ظ„ط¬ط¯ظٹط¯ط© <span class="required">*</span></label>
                         <input type="password" id="newPassword" required>
                     </div>
                     <div class="form-group">
-                        <label>🔐 تأكيد <span class="required">*</span></label>
+                        <label>ًں”گ طھط£ظƒظٹط¯ <span class="required">*</span></label>
                         <input type="password" id="confirmNewPassword" required>
                     </div>
-                    <button type="submit" class="submit-btn">تغيير 🔑</button>
+                    <button type="submit" class="submit-btn">طھط؛ظٹظٹط± ًں”‘</button>
                 </form>
             </div>
         </div>
@@ -911,8 +911,8 @@
     <div class="modal-overlay" id="ordersModal">
         <div class="modal large">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('ordersModal')">✕</button>
-                <h2>📦 طلباتي</h2>
+                <button class="close-modal" onclick="closeModal('ordersModal')">âœ•</button>
+                <h2>ًں“¦ ط·ظ„ط¨ط§طھظٹ</h2>
             </div>
             <div class="modal-body" id="ordersModalBody"></div>
         </div>
@@ -922,8 +922,8 @@
     <div class="modal-overlay" id="ratingModal">
         <div class="modal">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('ratingModal')">✕</button>
-                <h2>⭐ تقييم المنتج</h2>
+                <button class="close-modal" onclick="closeModal('ratingModal')">âœ•</button>
+                <h2>â­گ طھظ‚ظٹظٹظ… ط§ظ„ظ…ظ†طھط¬</h2>
             </div>
             <div class="modal-body" id="ratingModalBody"></div>
         </div>
@@ -931,34 +931,34 @@
 
     <!-- Chat Widget -->
     <div class="chat-widget">
-        <button class="chat-toggle" onclick="toggleChat()">🤖</button>
+        <button class="chat-toggle" onclick="toggleChat()">ًں¤–</button>
         <div class="chat-box" id="chatBox">
             <div class="chat-box-header">
-                <div class="chat-avatar">🤖</div>
+                <div class="chat-avatar">ًں¤–</div>
                 <div class="chat-bot-info">
-                    <h4>مساعد Sale Zone</h4>
-                    <span><span class="online-dot"></span> متصل</span>
+                    <h4>ظ…ط³ط§ط¹ط¯ Sale Zone</h4>
+                    <span><span class="online-dot"></span> ظ…طھطµظ„</span>
                 </div>
             </div>
             <div class="chat-messages" id="chatMessages">
-                <div class="chat-message bot">مرحباً! كيف أساعدك؟ 😊</div>
+                <div class="chat-message bot">ظ…ط±ط­ط¨ط§ظ‹! ظƒظٹظپ ط£ط³ط§ط¹ط¯ظƒطں ًںکٹ</div>
             </div>
             <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب..." onkeypress="if(event.key==='Enter')sendChatMessage()">
-                <button class="chat-send" onclick="sendChatMessage()">➤</button>
+                <input type="text" class="chat-input" id="chatInput" placeholder="ط§ظƒطھط¨..." onkeypress="if(event.key==='Enter')sendChatMessage()">
+                <button class="chat-send" onclick="sendChatMessage()">â‍¤</button>
             </div>
         </div>
     </div>
 
     <!-- Floating Buttons -->
     <div class="floating-buttons">
-        <a href="#" id="floatWhatsapp" target="_blank" class="float-btn whatsapp-btn">💬</a>
+        <a href="#" id="floatWhatsapp" target="_blank" class="float-btn whatsapp-btn">ًں’¬</a>
     </div>
     <script data-cfasync="false">
         // Cloudflare email decode script removed - not available on GitHub Pages
     </script><script>
         // ============================================
-        // 🗄️ Data Store
+        // ًں—„ï¸ڈ Data Store
         // ============================================
         let products = [];
         let cart = [];
@@ -977,46 +977,46 @@
 
         let storeSettings = {
             name: 'Sale Zone Store',
-            tagline: 'التسوق الفاخر الذكي',
+            tagline: 'ط§ظ„طھط³ظˆظ‚ ط§ظ„ظپط§ط®ط± ط§ظ„ط°ظƒظٹ',
             description: '',
             whatsappNumber: '01018108979',
-            topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
-            contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
-            footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
+            topBar: { enabled: true, text: 'ًںژ‰ ط®طµظˆظ…ط§طھ ط­طµط±ظٹط©!', bgColor: '#0A1128', textColor: '#F4E4BC' },
+            contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'ظ…طµط±' },
+            footer: { about: '', workingHoursWeekdays: 'ط§ظ„ط³ط¨طھ - ط§ظ„ط®ظ…ظٹط³: 9 طµ - 10 ظ…', workingHoursFriday: 'ط§ظ„ط¬ظ…ط¹ط©: 2 ظ… - 10 ظ…', workingHoursNote: 'ًں”” ط®ط¯ظ…ط© 24/7', copyright: 'آ© 2026 Sale Zone Store â‌¤ï¸ڈ' },
             loyalty: { rate: 5, pointValue: 0.1 }
         };
 
         const defaultProducts = [
-            { id: 1, name: 'شامبو كيراتين فاخر', desc: 'شامبو احترافي بالكيراتين لتنعيم الشعر', price: 189, oldPrice: 249, image: './assets/placeholder.svg', category: 'hair-care', rating: 4.8, ratingCount: 124, ratings: [] },
-            { id: 2, name: 'سيروم فيتامين C', desc: 'سيروم مضاد للأكسدة للبشرة المشرقة', price: 220, oldPrice: 280, image: './assets/placeholder.svg', category: 'skin-care', rating: 4.8, ratingCount: 198, ratings: [] },
-            { id: 3, name: 'زيت جوز الهند', desc: 'زيت طبيعي 100% للشعر', price: 120, oldPrice: 150, image: './assets/placeholder.svg', category: 'hair-care', rating: 4.9, ratingCount: 203, ratings: [] },
-            { id: 4, name: 'كريم الترطيب المكثف', desc: 'كريم مرطب بحمض الهيالورونيك', price: 320, oldPrice: 400, image: './assets/placeholder.svg', category: 'skin-care', rating: 4.7, ratingCount: 156, ratings: [] },
-            { id: 5, name: 'غسول الوجه اللطيف', desc: 'غسول رغوي للتنظيف العميق', price: 150, oldPrice: 180, image: './assets/placeholder.svg', category: 'skin-care', rating: 4.5, ratingCount: 87, ratings: [] },
-            { id: 6, name: 'شامبو أطفال', desc: 'شامبو لطيف بدون دموع', price: 85, oldPrice: 110, image: './assets/placeholder.svg', category: 'baby-care', rating: 4.9, ratingCount: 245, ratings: [] },
-            { id: 7, name: 'كريم حفاضات', desc: 'كريم واقي ومهدئ', price: 95, oldPrice: 120, image: './assets/placeholder.svg', category: 'baby-care', rating: 4.7, ratingCount: 167, ratings: [] },
-            { id: 8, name: 'لوشن ترطيب الأطفال', desc: 'لوشن مرطب يومي', price: 75, oldPrice: 95, image: './assets/placeholder.svg', category: 'baby-care', rating: 4.8, ratingCount: 132, ratings: [] },
-            { id: 9, name: 'فيتامين د3', desc: 'مكمل فيتامين د3 - 60 كبسولة', price: 220, oldPrice: 280, image: './assets/placeholder.svg', category: 'supplements', rating: 4.8, ratingCount: 312, ratings: [] },
-            { id: 10, name: 'أوميغا 3', desc: 'زيت السمك - 90 كبسولة', price: 350, oldPrice: 420, image: './assets/placeholder.svg', category: 'supplements', rating: 4.7, ratingCount: 189, ratings: [] },
-            { id: 11, name: 'مالتي فيتامين', desc: 'فيتامينات شاملة - 30 قرص', price: 180, oldPrice: 230, image: './assets/placeholder.svg', category: 'supplements', rating: 4.6, ratingCount: 256, ratings: [] },
-            { id: 12, name: 'جهاز قياس الضغط', desc: 'جهاز رقمي دقيق', price: 450, oldPrice: 600, image: './assets/placeholder.svg', category: 'medical', rating: 4.9, ratingCount: 178, ratings: [] },
-            { id: 13, name: 'جهاز قياس السكر', desc: 'جهاز + 50 شريط', price: 380, oldPrice: 480, image: './assets/placeholder.svg', category: 'medical', rating: 4.8, ratingCount: 234, ratings: [] },
-            { id: 14, name: 'ترمومتر رقمي', desc: 'قياس الحرارة عن بُعد', price: 280, oldPrice: 350, image: './assets/placeholder.svg', category: 'medical', rating: 4.7, ratingCount: 145, ratings: [] }
+            { id: 1, name: 'ط´ط§ظ…ط¨ظˆ ظƒظٹط±ط§طھظٹظ† ظپط§ط®ط±', desc: 'ط´ط§ظ…ط¨ظˆ ط§ط­طھط±ط§ظپظٹ ط¨ط§ظ„ظƒظٹط±ط§طھظٹظ† ظ„طھظ†ط¹ظٹظ… ط§ظ„ط´ط¹ط±', price: 189, oldPrice: 249, image: './assets/placeholder.svg', category: 'hair-care', rating: 4.8, ratingCount: 124, ratings: [] },
+            { id: 2, name: 'ط³ظٹط±ظˆظ… ظپظٹطھط§ظ…ظٹظ† C', desc: 'ط³ظٹط±ظˆظ… ظ…ط¶ط§ط¯ ظ„ظ„ط£ظƒط³ط¯ط© ظ„ظ„ط¨ط´ط±ط© ط§ظ„ظ…ط´ط±ظ‚ط©', price: 220, oldPrice: 280, image: './assets/placeholder.svg', category: 'skin-care', rating: 4.8, ratingCount: 198, ratings: [] },
+            { id: 3, name: 'ط²ظٹطھ ط¬ظˆط² ط§ظ„ظ‡ظ†ط¯', desc: 'ط²ظٹطھ ط·ط¨ظٹط¹ظٹ 100% ظ„ظ„ط´ط¹ط±', price: 120, oldPrice: 150, image: './assets/placeholder.svg', category: 'hair-care', rating: 4.9, ratingCount: 203, ratings: [] },
+            { id: 4, name: 'ظƒط±ظٹظ… ط§ظ„طھط±ط·ظٹط¨ ط§ظ„ظ…ظƒط«ظپ', desc: 'ظƒط±ظٹظ… ظ…ط±ط·ط¨ ط¨ط­ظ…ط¶ ط§ظ„ظ‡ظٹط§ظ„ظˆط±ظˆظ†ظٹظƒ', price: 320, oldPrice: 400, image: './assets/placeholder.svg', category: 'skin-care', rating: 4.7, ratingCount: 156, ratings: [] },
+            { id: 5, name: 'ط؛ط³ظˆظ„ ط§ظ„ظˆط¬ظ‡ ط§ظ„ظ„ط·ظٹظپ', desc: 'ط؛ط³ظˆظ„ ط±ط؛ظˆظٹ ظ„ظ„طھظ†ط¸ظٹظپ ط§ظ„ط¹ظ…ظٹظ‚', price: 150, oldPrice: 180, image: './assets/placeholder.svg', category: 'skin-care', rating: 4.5, ratingCount: 87, ratings: [] },
+            { id: 6, name: 'ط´ط§ظ…ط¨ظˆ ط£ط·ظپط§ظ„', desc: 'ط´ط§ظ…ط¨ظˆ ظ„ط·ظٹظپ ط¨ط¯ظˆظ† ط¯ظ…ظˆط¹', price: 85, oldPrice: 110, image: './assets/placeholder.svg', category: 'baby-care', rating: 4.9, ratingCount: 245, ratings: [] },
+            { id: 7, name: 'ظƒط±ظٹظ… ط­ظپط§ط¶ط§طھ', desc: 'ظƒط±ظٹظ… ظˆط§ظ‚ظٹ ظˆظ…ظ‡ط¯ط¦', price: 95, oldPrice: 120, image: './assets/placeholder.svg', category: 'baby-care', rating: 4.7, ratingCount: 167, ratings: [] },
+            { id: 8, name: 'ظ„ظˆط´ظ† طھط±ط·ظٹط¨ ط§ظ„ط£ط·ظپط§ظ„', desc: 'ظ„ظˆط´ظ† ظ…ط±ط·ط¨ ظٹظˆظ…ظٹ', price: 75, oldPrice: 95, image: './assets/placeholder.svg', category: 'baby-care', rating: 4.8, ratingCount: 132, ratings: [] },
+            { id: 9, name: 'ظپظٹطھط§ظ…ظٹظ† ط¯3', desc: 'ظ…ظƒظ…ظ„ ظپظٹطھط§ظ…ظٹظ† ط¯3 - 60 ظƒط¨ط³ظˆظ„ط©', price: 220, oldPrice: 280, image: './assets/placeholder.svg', category: 'supplements', rating: 4.8, ratingCount: 312, ratings: [] },
+            { id: 10, name: 'ط£ظˆظ…ظٹط؛ط§ 3', desc: 'ط²ظٹطھ ط§ظ„ط³ظ…ظƒ - 90 ظƒط¨ط³ظˆظ„ط©', price: 350, oldPrice: 420, image: './assets/placeholder.svg', category: 'supplements', rating: 4.7, ratingCount: 189, ratings: [] },
+            { id: 11, name: 'ظ…ط§ظ„طھظٹ ظپظٹطھط§ظ…ظٹظ†', desc: 'ظپظٹطھط§ظ…ظٹظ†ط§طھ ط´ط§ظ…ظ„ط© - 30 ظ‚ط±طµ', price: 180, oldPrice: 230, image: './assets/placeholder.svg', category: 'supplements', rating: 4.6, ratingCount: 256, ratings: [] },
+            { id: 12, name: 'ط¬ظ‡ط§ط² ظ‚ظٹط§ط³ ط§ظ„ط¶ط؛ط·', desc: 'ط¬ظ‡ط§ط² ط±ظ‚ظ…ظٹ ط¯ظ‚ظٹظ‚', price: 450, oldPrice: 600, image: './assets/placeholder.svg', category: 'medical', rating: 4.9, ratingCount: 178, ratings: [] },
+            { id: 13, name: 'ط¬ظ‡ط§ط² ظ‚ظٹط§ط³ ط§ظ„ط³ظƒط±', desc: 'ط¬ظ‡ط§ط² + 50 ط´ط±ظٹط·', price: 380, oldPrice: 480, image: './assets/placeholder.svg', category: 'medical', rating: 4.8, ratingCount: 234, ratings: [] },
+            { id: 14, name: 'طھط±ظ…ظˆظ…طھط± ط±ظ‚ظ…ظٹ', desc: 'ظ‚ظٹط§ط³ ط§ظ„ط­ط±ط§ط±ط© ط¹ظ† ط¨ظڈط¹ط¯', price: 280, oldPrice: 350, image: './assets/placeholder.svg', category: 'medical', rating: 4.7, ratingCount: 145, ratings: [] }
         ];
 
         const defaultCoupons = [
-            { id: 1, code: 'WELCOME20', desc: 'خصم 20% للعملاء الجدد', type: 'percentage', value: 20 },
-            { id: 2, code: 'SAVE50', desc: 'خصم 50 جنيه', type: 'fixed', value: 50 },
-            { id: 3, code: 'HEALTH15', desc: 'خصم 15%', type: 'percentage', value: 15 }
+            { id: 1, code: 'WELCOME20', desc: 'ط®طµظ… 20% ظ„ظ„ط¹ظ…ظ„ط§ط، ط§ظ„ط¬ط¯ط¯', type: 'percentage', value: 20 },
+            { id: 2, code: 'SAVE50', desc: 'ط®طµظ… 50 ط¬ظ†ظٹظ‡', type: 'fixed', value: 50 },
+            { id: 3, code: 'HEALTH15', desc: 'ط®طµظ… 15%', type: 'percentage', value: 15 }
         ];
 
         const defaultBanners = [
-            { id: 1, icon: '🎉', title: 'خصومات تصل إلى 50%', text: 'على جميع منتجات العناية بالبشرة', btn: 'تسوق الآن', category: 'skin-care' },
-            { id: 2, icon: '🚚', title: 'توصيل مجاني', text: 'للطلبات أكثر من 500 جنيه', btn: 'اطلب الآن', category: 'all' },
-            { id: 3, icon: '💎', title: 'نقاط الولاء', text: 'اجمع نقاط واستبدلها بخصومات', btn: 'سجل الآن', category: 'all' }
+            { id: 1, icon: 'ًںژ‰', title: 'ط®طµظˆظ…ط§طھ طھطµظ„ ط¥ظ„ظ‰ 50%', text: 'ط¹ظ„ظ‰ ط¬ظ…ظٹط¹ ظ…ظ†طھط¬ط§طھ ط§ظ„ط¹ظ†ط§ظٹط© ط¨ط§ظ„ط¨ط´ط±ط©', btn: 'طھط³ظˆظ‚ ط§ظ„ط¢ظ†', category: 'skin-care' },
+            { id: 2, icon: 'ًںڑڑ', title: 'طھظˆطµظٹظ„ ظ…ط¬ط§ظ†ظٹ', text: 'ظ„ظ„ط·ظ„ط¨ط§طھ ط£ظƒط«ط± ظ…ظ† 500 ط¬ظ†ظٹظ‡', btn: 'ط§ط·ظ„ط¨ ط§ظ„ط¢ظ†', category: 'all' },
+            { id: 3, icon: 'ًں’ژ', title: 'ظ†ظ‚ط§ط· ط§ظ„ظˆظ„ط§ط،', text: 'ط§ط¬ظ…ط¹ ظ†ظ‚ط§ط· ظˆط§ط³طھط¨ط¯ظ„ظ‡ط§ ط¨ط®طµظˆظ…ط§طھ', btn: 'ط³ط¬ظ„ ط§ظ„ط¢ظ†', category: 'all' }
         ];
 
         // ============================================
-        // 🚀 Initialize
+        // ًںڑ€ Initialize
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
             // 🧯 Minimal client-side error capture for mobile debugging
@@ -1039,76 +1039,101 @@
                     stack: reason && reason.stack ? String(reason.stack) : ''
                 });
             };
-            // 🔧 DOM Element Safety Checks
+            const safeRun = (label, fn) => {
+                try { fn(); }
+                catch (err) {
+                    console.error(`❌ ${label} failed`, err);
+                    window.__errors.push({
+                        type: 'boot',
+                        message: `${label} failed`,
+                        stack: err && err.stack ? String(err.stack) : String(err)
+                    });
+                }
+            };
+            // ًں”§ DOM Element Safety Checks
             const criticalElements = ['bannerSlider', 'bannerDots', 'productsGrid', 'cartCount', 'loadingScreen'];
             criticalElements.forEach(id => {
                 const element = document.getElementById(id);
                 if (!element) {
-                    console.warn(`⚠️ Missing element: ${id}`);
+                    console.warn(`âڑ ï¸ڈ Missing element: ${id}`);
                 }
             });
 
-            loadData();
-            applyStoreSettings();
-            renderBanners();
-            renderProducts();
-            renderCoupons();
-            updateCategoryCounts();
-            updateStats();
-            updateCartUI();
-            updateFavUI();
-            checkLoggedInUser();
-            startBannerSlider();
+            // ✅ Fast boot render with defaults (never block UI)
+            safeRun('applyStoreSettings', applyStoreSettings);
+            safeRun('renderBanners', renderBanners);
+            safeRun('renderProducts', renderProducts);
+            safeRun('renderCoupons', renderCoupons);
+            safeRun('updateCategoryCounts', updateCategoryCounts);
+            safeRun('updateStats', updateStats);
+            safeRun('updateCartUI', updateCartUI);
+            safeRun('updateFavUI', updateFavUI);
+            safeRun('checkLoggedInUser', checkLoggedInUser);
+            safeRun('startBannerSlider', startBannerSlider);
 
-            // 🛡️ Safe loading screen hide
+            // ًں›،ï¸ڈ Safe loading screen hide
             const loadingScreen = document.getElementById('loadingScreen');
             if (loadingScreen) {
                 setTimeout(() => {
                     loadingScreen.classList.add('hidden');
                 }, 1000);
 
-                // ⏱️ Auto-fallback: never keep the loading screen forever
+                // âڈ±ï¸ڈ Auto-fallback: never keep the loading screen forever
                 setTimeout(() => {
                     if (!loadingScreen.classList.contains('hidden')) {
                         loadingScreen.classList.add('hidden');
-                        showToast('تم تجاوز شاشة التحميل تلقائيًا. إذا استمر الخطأ أخبرنا.', 'warning');
+                        showToast('طھظ… طھط¬ط§ظˆط² ط´ط§ط´ط© ط§ظ„طھط­ظ…ظٹظ„ طھظ„ظ‚ط§ط¦ظٹظ‹ط§. ط¥ط°ط§ ط§ط³طھظ…ط± ط§ظ„ط®ط·ط£ ط£ط®ط¨ط±ظ†ط§.', 'warning');
                     }
                 }, 6000);
             }
 
-            // 📱 Register Professional ServiceWorker for PWA
+            // 🔁 Load data with timeout, then re-render safely
+            safeRun('loadDataWithTimeout', () => {
+                loadDataWithTimeout(6000).then(() => {
+                    safeRun('applyStoreSettings', applyStoreSettings);
+                    safeRun('renderBanners', renderBanners);
+                    safeRun('renderProducts', renderProducts);
+                    safeRun('renderCoupons', renderCoupons);
+                    safeRun('updateCategoryCounts', updateCategoryCounts);
+                    safeRun('updateStats', updateStats);
+                    safeRun('updateCartUI', updateCartUI);
+                    safeRun('updateFavUI', updateFavUI);
+                });
+            });
+
+            // ًں“± Register Professional ServiceWorker for PWA
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('./sw.js', { scope: './' })
                     .then(registration => {
-                        console.log('✅ Professional ServiceWorker registered:', registration.scope);
-                        console.log('🚀 PWA Features Enabled');
+                        console.log('âœ… Professional ServiceWorker registered:', registration.scope);
+                        console.log('ًںڑ€ PWA Features Enabled');
                         
-                        // 🔄 Check for updates
+                        // ًں”„ Check for updates
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;
                             newWorker.addEventListener('statechange', () => {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('🔄 New version available! Refreshing...');
+                                    console.log('ًں”„ New version available! Refreshing...');
                                     window.location.reload();
                                 }
                             });
                         });
                         
-                        // 📨 Get ServiceWorker version
+                        // ًں“¨ Get ServiceWorker version
                         if (registration.active) {
                             registration.active.postMessage({ type: 'GET_VERSION' }, [new MessageChannel().port1]);
                         }
                     })
                     .catch(err => {
-                        console.error('❌ ServiceWorker registration failed:', err);
+                        console.error('â‌Œ ServiceWorker registration failed:', err);
                         // Fallback to basic functionality
-                        console.log('🔄 Fallback: Running without ServiceWorker');
+                        console.log('ًں”„ Fallback: Running without ServiceWorker');
                     });
             } else {
-                console.log('📱 ServiceWorker not supported - PWA features disabled');
+                console.log('ًں“± ServiceWorker not supported - PWA features disabled');
             }
 
-            // 🧪 Debug overlay (enable with ?debug=1)
+            // ًں§ھ Debug overlay (enable with ?debug=1)
             if (new URLSearchParams(window.location.search).get('debug') === '1') {
                 const panel = document.createElement('div');
                 panel.id = 'debugPanel';
@@ -1137,71 +1162,71 @@
         });
 
         // ============================================
-        // 💾 Data Management
+        // ًں’¾ Data Management
         // ============================================
-        // 🔥 Firebase + LocalStorage Hybrid Data Loading
+        // ًں”¥ Firebase + LocalStorage Hybrid Data Loading
         // ============================================
         async function loadData() {
             try {
-                // محاولة تحميل من Firebase أولاً
+                // ظ…ط­ط§ظˆظ„ط© طھط­ظ…ظٹظ„ ظ…ظ† Firebase ط£ظˆظ„ط§ظ‹
                 if (typeof getAllProducts === 'function') {
-                    console.log('🔥 Loading from Firebase...');
+                    console.log('ًں”¥ Loading from Firebase...');
                     
-                    // تحميل المنتجات
+                    // طھط­ظ…ظٹظ„ ط§ظ„ظ…ظ†طھط¬ط§طھ
                     const fbProducts = await getAllProducts();
                     if (fbProducts && fbProducts.length > 0) {
                         products = fbProducts;
-                        setStorageData('PRODUCTS', products); // حفظ في localStorage
-                        console.log('✅ Products loaded from Firebase:', products.length);
+                        setStorageData('PRODUCTS', products); // ط­ظپط¸ ظپظٹ localStorage
+                        console.log('âœ… Products loaded from Firebase:', products.length);
                     } else {
                         // Fallback to localStorage
                         products = getStorageData('PRODUCTS') || [...defaultProducts];
-                        setStorageData('PRODUCTS', products); // حفظ في localStorage
-                        console.log('📦 Products loaded from localStorage:', products.length);
+                        setStorageData('PRODUCTS', products); // ط­ظپط¸ ظپظٹ localStorage
+                        console.log('ًں“¦ Products loaded from localStorage:', products.length);
                     }
                     
-                    // تحميل الكوبونات
+                    // طھط­ظ…ظٹظ„ ط§ظ„ظƒظˆط¨ظˆظ†ط§طھ
                     const fbCoupons = await getCoupons();
                     if (fbCoupons && fbCoupons.length > 0) {
                         coupons = fbCoupons;
-                        setStorageData('COUPONS', coupons); // حفظ في localStorage
-                        console.log('✅ Coupons loaded from Firebase:', coupons.length);
+                        setStorageData('COUPONS', coupons); // ط­ظپط¸ ظپظٹ localStorage
+                        console.log('âœ… Coupons loaded from Firebase:', coupons.length);
                     } else {
                         coupons = getStorageData('COUPONS') || [...defaultCoupons];
-                        setStorageData('COUPONS', coupons); // حفظ في localStorage
-                        console.log('📦 Coupons loaded from localStorage:', coupons.length);
+                        setStorageData('COUPONS', coupons); // ط­ظپط¸ ظپظٹ localStorage
+                        console.log('ًں“¦ Coupons loaded from localStorage:', coupons.length);
                     }
                     
-                    // تحميل البانرات
+                    // طھط­ظ…ظٹظ„ ط§ظ„ط¨ط§ظ†ط±ط§طھ
                     const fbBanners = await getBanners();
                     if (fbBanners && fbBanners.length > 0) {
                         banners = fbBanners;
-                        setStorageData('BANNERS', banners); // حفظ في localStorage
-                        console.log('✅ Banners loaded from Firebase:', banners.length);
+                        setStorageData('BANNERS', banners); // ط­ظپط¸ ظپظٹ localStorage
+                        console.log('âœ… Banners loaded from Firebase:', banners.length);
                     } else {
                         banners = getStorageData('BANNERS') || [...defaultBanners];
-                        setStorageData('BANNERS', banners); // حفظ في localStorage
-                        console.log('📦 Banners loaded from localStorage:', banners.length);
+                        setStorageData('BANNERS', banners); // ط­ظپط¸ ظپظٹ localStorage
+                        console.log('ًں“¦ Banners loaded from localStorage:', banners.length);
                     }
                     
                 } else {
                     throw new Error('Firebase not available');
                 }
             } catch (error) {
-                console.warn('⚠️ Firebase error, using localStorage:', error);
+                console.warn('âڑ ï¸ڈ Firebase error, using localStorage:', error);
                 // Fallback to localStorage
                 products = getStorageData('PRODUCTS') || [...defaultProducts];
                 coupons = getStorageData('COUPONS') || [...defaultCoupons];
                 banners = getStorageData('BANNERS') || [...defaultBanners];
                 
-                // حفظ في localStorage دائماً
+                // ط­ظپط¸ ظپظٹ localStorage ط¯ط§ط¦ظ…ط§ظ‹
                 setStorageData('PRODUCTS', products);
                 setStorageData('COUPONS', coupons);
                 setStorageData('BANNERS', banners);
-                console.log('📦 Data saved to localStorage from fallback');
+                console.log('ًں“¦ Data saved to localStorage from fallback');
             }
             
-            // هذه البيانات دائماً من localStorage (السلة، المفضلات، إلخ)
+            // ظ‡ط°ظ‡ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط¯ط§ط¦ظ…ط§ظ‹ ظ…ظ† localStorage (ط§ظ„ط³ظ„ط©طŒ ط§ظ„ظ…ظپط¶ظ„ط§طھطŒ ط¥ظ„ط®)
             cart = getStorageData('CART') || [];
             favorites = getStorageData('WISHLIST') || [];
             orders = getStorageData('ORDERS') || [];
@@ -1210,11 +1235,22 @@
             const savedSettings = getStorageData('SETTINGS');
             if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
             
-            // حفظ في localStorage دائماً لضمان الاستمرارية
+            // ط­ظپط¸ ظپظٹ localStorage ط¯ط§ط¦ظ…ط§ظ‹ ظ„ط¶ظ…ط§ظ† ط§ظ„ط§ط³طھظ…ط±ط§ط±ظٹط©
             setStorageData('PRODUCTS', products);
             setStorageData('COUPONS', coupons);
             setStorageData('BANNERS', banners);
-            console.log('💾 Data saved to localStorage for persistence');
+            console.log('ًں’¾ Data saved to localStorage for persistence');
+        }
+
+        async function loadDataWithTimeout(ms = 6000) {
+            const timeout = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('loadData timeout')), ms);
+            });
+            try {
+                await Promise.race([loadData(), timeout]);
+            } catch (error) {
+                console.warn('⚠️ loadData timed out, continuing with fallback data:', error);
+            }
         }
 
         function saveCart() { setStorageData('CART', cart); }
@@ -1248,12 +1284,12 @@
         }
 
         // ============================================
-        // 🎨 Apply Store Settings
+        // ًںژ¨ Apply Store Settings
         // ============================================
         function applyStoreSettings() {
             document.getElementById('loadingStoreName').textContent = storeSettings.name || 'Sale Zone Store';
             document.getElementById('storeLogo').textContent = storeSettings.name || 'Sale Zone Store';
-            document.getElementById('storeTagline').textContent = storeSettings.tagline || 'التسوق الفاخر الذكي';
+            document.getElementById('storeTagline').textContent = storeSettings.tagline || 'ط§ظ„طھط³ظˆظ‚ ط§ظ„ظپط§ط®ط± ط§ظ„ط°ظƒظٹ';
             document.title = storeSettings.name || 'Sale Zone Store';
 
             const topBar = document.getElementById('topBar');
@@ -1267,7 +1303,7 @@
 
             const phone = storeSettings.contact?.phone || '01018108979';
             const whatsapp = storeSettings.contact?.whatsapp || '01018108979';
-            document.getElementById('topBarPhone').textContent = `📞 ${phone}`;
+            document.getElementById('topBarPhone').textContent = `ًں“‍ ${phone}`;
             document.getElementById('topBarPhone').href = `tel:${phone}`;
             document.getElementById('topBarWhatsapp').href = `https://wa.me/2${whatsapp}`;
             document.getElementById('footerAbout').textContent = storeSettings.footer?.about || storeSettings.description || '';
@@ -1283,30 +1319,30 @@
         }
 
         // ============================================
-        // 🎠 Banner Slider
+        // ًںژ  Banner Slider
         // ============================================
         function renderBanners() {
             const slider = document.getElementById('bannerSlider');
             const dots = document.getElementById('bannerDots');
             
-            // التحقق من وجود العناصر قبل استخدامها
+            // ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ظˆط¬ظˆط¯ ط§ظ„ط¹ظ†ط§طµط± ظ‚ط¨ظ„ ط§ط³طھط®ط¯ط§ظ…ظ‡ط§
             if (!slider || !dots) {
-                console.warn('⚠️ Banner elements not found, skipping render');
+                console.warn('âڑ ï¸ڈ Banner elements not found, skipping render');
                 return;
             }
             
             if (banners.length === 0) {
-                slider.innerHTML = '<div class="banner-slide"><div class="banner-content"><div class="banner-icon">🛍️</div><div class="banner-title">مرحباً بك</div></div></div>';
+                slider.innerHTML = '<div class="banner-slide"><div class="banner-content"><div class="banner-icon">ًں›چï¸ڈ</div><div class="banner-title">ظ…ط±ط­ط¨ط§ظ‹ ط¨ظƒ</div></div></div>';
                 return;
             }
 
             slider.innerHTML = banners.map((b, i) => `
                 <div class="banner-slide">
                     <div class="banner-content">
-                        <div class="banner-icon">${b.icon || '🎉'}</div>
+                        <div class="banner-icon">${b.icon || 'ًںژ‰'}</div>
                         <div class="banner-title">${b.title}</div>
                         <div class="banner-text">${b.text || ''}</div>
-                        <a href="#" class="banner-btn" onclick="filterByCategory('${b.category || 'all'}')">${b.btn || 'تسوق الآن'}</a>
+                        <a href="#" class="banner-btn" onclick="filterByCategory('${b.category || 'all'}')">${b.btn || 'طھط³ظˆظ‚ ط§ظ„ط¢ظ†'}</a>
                     </div>
                 </div>
             `).join('');
@@ -1348,14 +1384,14 @@
         }
 
         // ============================================
-        // 🎴 Products
+        // ًںژ´ Products
         // ============================================
         function renderProducts(productsToRender = null) {
             const grid = document.getElementById('productsGrid');
             const displayProducts = productsToRender || getFilteredProducts();
 
             if (displayProducts.length === 0) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><div style="font-size: 60px;">📦</div><h3 style="color: #666;">لا توجد منتجات</h3></div>';
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><div style="font-size: 60px;">ًں“¦</div><h3 style="color: #666;">ظ„ط§ طھظˆط¬ط¯ ظ…ظ†طھط¬ط§طھ</h3></div>';
                 return;
             }
 
@@ -1363,13 +1399,13 @@
                 <div class="product-card">
                     ${p.oldPrice ? `<div class="product-badge">-${Math.round((1 - p.price/p.oldPrice) * 100)}%</div>` : ''}
                     <div class="product-fav ${favorites.includes(p.id) ? 'active' : ''}" onclick="toggleFav(${p.id})">
-                        ${favorites.includes(p.id) ? '❤️' : '🤍'}
+                        ${favorites.includes(p.id) ? 'â‌¤ï¸ڈ' : 'ًں¤چ'}
                     </div>
                     <div class="product-image">
                         <img src="${sanitizeImageUrl(p.image)}" alt="${p.name}" onerror="this.src='${sanitizeImageUrl('')}'" loading="lazy">
                         <div class="product-actions">
-                            <button class="action-btn" onclick="showProductDetails('${p.id}')">👁️</button>
-                            <button class="action-btn" onclick="addToCart('${p.id}')">🛒</button>
+                            <button class="action-btn" onclick="showProductDetails('${p.id}')">ًں‘پï¸ڈ</button>
+                            <button class="action-btn" onclick="addToCart('${p.id}')">ًں›’</button>
                         </div>
                     </div>
                     <div class="product-info">
@@ -1380,10 +1416,10 @@
                             <span class="rating-count">(${p.ratingCount || 0})</span>
                         </div>
                         <div class="product-price">
-                            <span class="current-price">${p.price} ج.م</span>
-                            ${p.oldPrice ? `<span class="old-price">${p.oldPrice} ج.م</span>` : ''}
+                            <span class="current-price">${p.price} ط¬.ظ…</span>
+                            ${p.oldPrice ? `<span class="old-price">${p.oldPrice} ط¬.ظ…</span>` : ''}
                         </div>
-                        <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">🛒 أضف للسلة</button>
+                        <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">ًں›’ ط£ط¶ظپ ظ„ظ„ط³ظ„ط©</button>
                     </div>
                 </div>
             `).join('');
@@ -1400,20 +1436,20 @@
         }
 
         function getCategoryName(cat) {
-            const names = { 'hair-care': 'شعر', 'skin-care': 'بشرة', 'baby-care': 'طفل', 'supplements': 'مكملات', 'medical': 'طبي' };
+            const names = { 'hair-care': 'ط´ط¹ط±', 'skin-care': 'ط¨ط´ط±ط©', 'baby-care': 'ط·ظپظ„', 'supplements': 'ظ…ظƒظ…ظ„ط§طھ', 'medical': 'ط·ط¨ظٹ' };
             return names[cat] || cat;
         }
 
         function getStars(rating) {
             let stars = '';
-            for (let i = 0; i < Math.floor(rating || 0); i++) stars += '⭐';
-            return stars || '⭐';
+            for (let i = 0; i < Math.floor(rating || 0); i++) stars += 'â­گ';
+            return stars || 'â­گ';
         }
 
         function filterByCategory(category) {
             currentCategory = category;
             document.querySelectorAll('.category-card').forEach(c => c.classList.toggle('active', c.dataset.category === category));
-            document.getElementById('productsTitle').textContent = category === 'all' ? 'جميع المنتجات' : getCategoryName(category);
+            document.getElementById('productsTitle').textContent = category === 'all' ? 'ط¬ظ…ظٹط¹ ط§ظ„ظ…ظ†طھط¬ط§طھ' : getCategoryName(category);
             renderProducts();
         }
 
@@ -1440,7 +1476,7 @@
             const query = document.getElementById('searchInput').value.trim().toLowerCase();
             if (!query) { renderProducts(); return; }
             const results = products.filter(p => p.name.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query));
-            document.getElementById('productsTitle').textContent = `بحث: "${query}"`;
+            document.getElementById('productsTitle').textContent = `ط¨ط­ط«: "${query}"`;
             renderProducts(results);
         }
 
@@ -1454,15 +1490,15 @@
                     <p style="color: #666; margin-bottom: 15px; font-size: 13px;">${p.desc}</p>
                     <div style="margin-bottom: 15px;" onclick="showRatingModal(${p.id})">
                         <span style="font-size: 18px;">${getStars(p.rating)}</span>
-                        <span style="color: #999; font-size: 12px;">(${p.ratingCount || 0} تقييم)</span>
+                        <span style="color: #999; font-size: 12px;">(${p.ratingCount || 0} طھظ‚ظٹظٹظ…)</span>
                     </div>
                     <div style="margin-bottom: 18px;">
-                        <span style="font-size: 26px; font-weight: 800; color: var(--gold-dark);">${p.price} ج.م</span>
-                        ${p.oldPrice ? `<span style="font-size: 16px; color: #999; text-decoration: line-through; margin-right: 10px;">${p.oldPrice} ج.م</span>` : ''}
+                        <span style="font-size: 26px; font-weight: 800; color: var(--gold-dark);">${p.price} ط¬.ظ…</span>
+                        ${p.oldPrice ? `<span style="font-size: 16px; color: #999; text-decoration: line-through; margin-right: 10px;">${p.oldPrice} ط¬.ظ…</span>` : ''}
                     </div>
                     <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button class="submit-btn" onclick="addToCart(${p.id}); closeModal('productModal');" style="flex: 1; max-width: 200px;">🛒 أضف للسلة</button>
-                        <button class="submit-btn" onclick="toggleFav(${p.id})" style="width: 50px; background: ${favorites.includes(p.id) ? 'var(--error)' : 'var(--cream)'}; color: ${favorites.includes(p.id) ? 'white' : 'var(--error)'};">${favorites.includes(p.id) ? '❤️' : '🤍'}</button>
+                        <button class="submit-btn" onclick="addToCart(${p.id}); closeModal('productModal');" style="flex: 1; max-width: 200px;">ًں›’ ط£ط¶ظپ ظ„ظ„ط³ظ„ط©</button>
+                        <button class="submit-btn" onclick="toggleFav(${p.id})" style="width: 50px; background: ${favorites.includes(p.id) ? 'var(--error)' : 'var(--cream)'}; color: ${favorites.includes(p.id) ? 'white' : 'var(--error)'};">${favorites.includes(p.id) ? 'â‌¤ï¸ڈ' : 'ًں¤چ'}</button>
                     </div>
                 </div>
             `;
@@ -1488,7 +1524,7 @@
         }
 
         // ============================================
-        // ⭐ Rating System
+        // â­گ Rating System
         // ============================================
         function showRatingModal(productId) {
             const p = products.find(x => String(x.id) === String(productId));
@@ -1497,11 +1533,11 @@
             document.getElementById('ratingModalBody').innerHTML = `
                 <div style="text-align: center;">
                     <h3 style="margin-bottom: 15px;">${p.name}</h3>
-                    <p style="margin-bottom: 20px;">التقييم الحالي: ${getStars(p.rating)} (${p.ratingCount || 0})</p>
+                    <p style="margin-bottom: 20px;">ط§ظ„طھظ‚ظٹظٹظ… ط§ظ„ط­ط§ظ„ظٹ: ${getStars(p.rating)} (${p.ratingCount || 0})</p>
                     <div style="font-size: 36px; margin-bottom: 20px;" id="ratingStars">
-                        ${[1,2,3,4,5].map(i => `<span style="cursor: pointer;" onclick="rateProduct(${productId}, ${i})">${i <= (p.rating || 0) ? '⭐' : '☆'}</span>`).join('')}
+                        ${[1,2,3,4,5].map(i => `<span style="cursor: pointer;" onclick="rateProduct(${productId}, ${i})">${i <= (p.rating || 0) ? 'â­گ' : 'âک†'}</span>`).join('')}
                     </div>
-                    <p style="color: #666; font-size: 12px;">اضغط على النجوم للتقييم</p>
+                    <p style="color: #666; font-size: 12px;">ط§ط¶ط؛ط· ط¹ظ„ظ‰ ط§ظ„ظ†ط¬ظˆظ… ظ„ظ„طھظ‚ظٹظٹظ…</p>
                 </div>
             `;
             openModal('ratingModal');
@@ -1509,7 +1545,7 @@
 
         function rateProduct(productId, rating) {
             if (!currentUser) {
-                showNotification('error', 'خطأ', 'سجل دخول أولاً');
+                showNotification('error', 'ط®ط·ط£', 'ط³ط¬ظ„ ط¯ط®ظˆظ„ ط£ظˆظ„ط§ظ‹');
                 showAuthModal('login');
                 return;
             }
@@ -1532,11 +1568,11 @@
             saveProducts();
             renderProducts();
             closeModal('ratingModal');
-            showNotification('success', 'شكراً', `تم تقييم المنتج بـ ${rating} نجوم`);
+            showNotification('success', 'ط´ظƒط±ط§ظ‹', `طھظ… طھظ‚ظٹظٹظ… ط§ظ„ظ…ظ†طھط¬ ط¨ظ€ ${rating} ظ†ط¬ظˆظ…`);
         }
 
         // ============================================
-        // ❤️ Favorites
+        // â‌¤ï¸ڈ Favorites
         // ============================================
         function toggleFavorites() {
             document.getElementById('favOverlay').classList.toggle('active');
@@ -1547,10 +1583,10 @@
             const idx = favorites.indexOf(id);
             if (idx > -1) {
                 favorites.splice(idx, 1);
-                showNotification('info', 'تمت الإزالة', 'تم إزالة المنتج من المفضلة');
+                showNotification('info', 'طھظ…طھ ط§ظ„ط¥ط²ط§ظ„ط©', 'طھظ… ط¥ط²ط§ظ„ط© ط§ظ„ظ…ظ†طھط¬ ظ…ظ† ط§ظ„ظ…ظپط¶ظ„ط©');
             } else {
                 favorites.push(id);
-                showNotification('success', 'تمت الإضافة', 'تم إضافة المنتج للمفضلة');
+                showNotification('success', 'طھظ…طھ ط§ظ„ط¥ط¶ط§ظپط©', 'طھظ… ط¥ط¶ط§ظپط© ط§ظ„ظ…ظ†طھط¬ ظ„ظ„ظ…ظپط¶ظ„ط©');
             }
             saveFavorites();
             updateFavUI();
@@ -1562,7 +1598,7 @@
             const container = document.getElementById('favItems');
             
             if (favorites.length === 0) {
-                container.innerHTML = '<div class="fav-empty"><div class="cart-empty-icon">❤️</div><p>لا توجد منتجات مفضلة</p></div>';
+                container.innerHTML = '<div class="fav-empty"><div class="cart-empty-icon">â‌¤ï¸ڈ</div><p>ظ„ط§ طھظˆط¬ط¯ ظ…ظ†طھط¬ط§طھ ظ…ظپط¶ظ„ط©</p></div>';
                 return;
             }
 
@@ -1574,11 +1610,11 @@
                         <div class="fav-item-image"><img src="${sanitizeImageUrl(p.image)}" onerror="this.src='${sanitizeImageUrl('')}'"></div>
                         <div class="fav-item-details">
                             <div class="fav-item-name">${p.name}</div>
-                            <div class="fav-item-price">${p.price} ج.م</div>
+                            <div class="fav-item-price">${p.price} ط¬.ظ…</div>
                         </div>
                         <div class="fav-item-actions">
-                            <button class="fav-add-btn" onclick="addToCart('${p.id}')">🛒</button>
-                            <button class="fav-remove-btn" onclick="toggleFav(${p.id})">🗑️</button>
+                            <button class="fav-add-btn" onclick="addToCart('${p.id}')">ًں›’</button>
+                            <button class="fav-remove-btn" onclick="toggleFav(${p.id})">ًں—‘ï¸ڈ</button>
                         </div>
                     </div>
                 `;
@@ -1586,7 +1622,7 @@
         }
 
         // ============================================
-        // 🛒 Cart
+        // ًں›’ Cart
         // ============================================
         function toggleCart() {
             document.getElementById('cartOverlay').classList.toggle('active');
@@ -1602,7 +1638,7 @@
             else cart.push({ id: p.id, name: p.name, price: p.price, image: p.image, quantity: 1 });
             saveCart();
             updateCartUI();
-            showNotification('success', 'تمت الإضافة', `"${p.name}" في السلة`);
+            showNotification('success', 'طھظ…طھ ط§ظ„ط¥ط¶ط§ظپط©', `"${p.name}" ظپظٹ ط§ظ„ط³ظ„ط©`);
         }
 
         function removeFromCart(id) {
@@ -1625,7 +1661,7 @@
             document.getElementById('cartCount').textContent = totalItems;
 
             if (cart.length === 0) {
-                cartItems.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div><p>السلة فارغة</p></div>';
+                cartItems.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">ًں›’</div><p>ط§ظ„ط³ظ„ط© ظپط§ط±ط؛ط©</p></div>';
                 updateCartSummary(0, 0);
                 return;
             }
@@ -1635,14 +1671,14 @@
                     <div class="cart-item-image"><img src="${sanitizeImageUrl(item.image)}" onerror="this.src='${sanitizeImageUrl('')}'"></div>
                     <div class="cart-item-details">
                         <div class="cart-item-name">${item.name}</div>
-                        <div class="cart-item-price">${item.price} ج.م</div>
+                        <div class="cart-item-price">${item.price} ط¬.ظ…</div>
                         <div class="cart-item-controls">
                             <button class="qty-btn" onclick="updateQuantity('${item.id}', -1)">-</button>
                             <span class="qty-value">${item.quantity}</span>
                             <button class="qty-btn" onclick="updateQuantity('${item.id}', 1)">+</button>
                         </div>
                     </div>
-                    <button class="remove-item" onclick="removeFromCart('${item.id}')">🗑️</button>
+                    <button class="remove-item" onclick="removeFromCart('${item.id}')">ًں—‘ï¸ڈ</button>
                 </div>
             `).join('');
 
@@ -1660,14 +1696,14 @@
             const loyaltyRate = storeSettings.loyalty?.rate || 5;
             const earnedPoints = Math.floor(total * (loyaltyRate / 100));
 
-            document.getElementById('subtotal').textContent = `${subtotal} ج.م`;
-            document.getElementById('totalAmount').textContent = `${total.toFixed(0)} ج.م`;
-            document.getElementById('earnedPoints').textContent = `${earnedPoints} نقطة`;
+            document.getElementById('subtotal').textContent = `${subtotal} ط¬.ظ…`;
+            document.getElementById('totalAmount').textContent = `${total.toFixed(0)} ط¬.ظ…`;
+            document.getElementById('earnedPoints').textContent = `${earnedPoints} ظ†ظ‚ط·ط©`;
 
             const discountRow = document.getElementById('discountRow');
             if (discount > 0) {
                 discountRow.classList.remove('hidden');
-                document.getElementById('discountAmount').textContent = `- ${discount} ج.م`;
+                document.getElementById('discountAmount').textContent = `- ${discount} ط¬.ظ…`;
             } else {
                 discountRow.classList.add('hidden');
             }
@@ -1675,7 +1711,7 @@
             const pointsRow = document.getElementById('pointsDiscountRow');
             if (pointsDiscount > 0) {
                 pointsRow.classList.remove('hidden');
-                document.getElementById('pointsDiscountAmount').textContent = `- ${pointsDiscount.toFixed(0)} ج.م`;
+                document.getElementById('pointsDiscountAmount').textContent = `- ${pointsDiscount.toFixed(0)} ط¬.ظ…`;
             } else {
                 pointsRow.classList.add('hidden');
             }
@@ -1685,16 +1721,16 @@
 
         function applyCoupon() {
             const code = document.getElementById('couponInput').value.trim().toUpperCase();
-            if (!code) { showNotification('error', 'خطأ', 'أدخل الكود'); return; }
+            if (!code) { showNotification('error', 'ط®ط·ط£', 'ط£ط¯ط®ظ„ ط§ظ„ظƒظˆط¯'); return; }
             const coupon = coupons.find(c => c.code.toUpperCase() === code);
-            if (!coupon) { showNotification('error', 'خطأ', 'كود غير صحيح'); return; }
+            if (!coupon) { showNotification('error', 'ط®ط·ط£', 'ظƒظˆط¯ ط؛ظٹط± طµط­ظٹط­'); return; }
             appliedCoupon = coupon;
             updateCartUI();
-            showNotification('success', 'تم', `خصم ${coupon.type === 'percentage' ? coupon.value + '%' : coupon.value + ' ج.م'}`);
+            showNotification('success', 'طھظ…', `ط®طµظ… ${coupon.type === 'percentage' ? coupon.value + '%' : coupon.value + ' ط¬.ظ…'}`);
         }
 
         // ============================================
-        // 💎 Points Redemption
+        // ًں’ژ Points Redemption
         // ============================================
         function updatePointsSection() {
             const section = document.getElementById('pointsSection');
@@ -1705,14 +1741,14 @@
             section.classList.remove('hidden');
             document.getElementById('availablePoints').textContent = currentUser.loyaltyPoints;
             const pointValue = storeSettings.loyalty?.pointValue || 0.1;
-            document.getElementById('pointsInfo').textContent = `كل 10 نقاط = ${(10 * pointValue).toFixed(0)} ج.م`;
+            document.getElementById('pointsInfo').textContent = `ظƒظ„ 10 ظ†ظ‚ط§ط· = ${(10 * pointValue).toFixed(0)} ط¬.ظ…`;
         }
 
         function applyPoints() {
-            if (!currentUser) { showNotification('error', 'خطأ', 'سجل دخول'); return; }
+            if (!currentUser) { showNotification('error', 'ط®ط·ط£', 'ط³ط¬ظ„ ط¯ط®ظˆظ„'); return; }
             const points = parseInt(document.getElementById('pointsToUse').value) || 0;
-            if (points <= 0) { showNotification('error', 'خطأ', 'أدخل عدد صحيح'); return; }
-            if (points > currentUser.loyaltyPoints) { showNotification('error', 'خطأ', `لديك ${currentUser.loyaltyPoints} فقط`); return; }
+            if (points <= 0) { showNotification('error', 'ط®ط·ط£', 'ط£ط¯ط®ظ„ ط¹ط¯ط¯ طµط­ظٹط­'); return; }
+            if (points > currentUser.loyaltyPoints) { showNotification('error', 'ط®ط·ط£', `ظ„ط¯ظٹظƒ ${currentUser.loyaltyPoints} ظپظ‚ط·`); return; }
 
             const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             let couponDiscount = appliedCoupon ? (appliedCoupon.type === 'percentage' ? subtotal * (appliedCoupon.value / 100) : appliedCoupon.value) : 0;
@@ -1724,19 +1760,19 @@
             usedPoints = Math.ceil(pointsDiscount / pointValue);
 
             updateCartUI();
-            showNotification('success', 'تم', `خصم ${pointsDiscount.toFixed(0)} ج.م`);
+            showNotification('success', 'طھظ…', `ط®طµظ… ${pointsDiscount.toFixed(0)} ط¬.ظ…`);
             document.getElementById('pointsToUse').value = '';
         }
 
         function resetPoints() { usedPoints = 0; pointsDiscount = 0; }
 
         // ============================================
-        // 🎫 Coupons
+        // ًںژ« Coupons
         // ============================================
         function renderCoupons() {
             const grid = document.getElementById('couponsGrid');
             if (coupons.length === 0) {
-                grid.innerHTML = '<p style="text-align: center; color: #666; grid-column: 1/-1;">لا توجد كوبونات</p>';
+                grid.innerHTML = '<p style="text-align: center; color: #666; grid-column: 1/-1;">ظ„ط§ طھظˆط¬ط¯ ظƒظˆط¨ظˆظ†ط§طھ</p>';
                 return;
             }
             grid.innerHTML = coupons.map(c => `
@@ -1744,18 +1780,18 @@
                     <div class="coupon-content">
                         <div class="coupon-code">${c.code}</div>
                         <p class="coupon-desc">${c.desc}</p>
-                        <button class="copy-coupon-btn" onclick="copyCoupon('${c.code}')">📋 نسخ</button>
+                        <button class="copy-coupon-btn" onclick="copyCoupon('${c.code}')">ًں“‹ ظ†ط³ط®</button>
                     </div>
                 </div>
             `).join('');
         }
 
         function copyCoupon(code) {
-            navigator.clipboard.writeText(code).then(() => showNotification('success', 'تم', `الكود: ${code}`));
+            navigator.clipboard.writeText(code).then(() => showNotification('success', 'طھظ…', `ط§ظ„ظƒظˆط¯: ${code}`));
         }
 
         // ============================================
-        // 🔐 Auth
+        // ًں”گ Auth
         // ============================================
         function showAuthModal(tab = 'login') {
             openModal('authModal');
@@ -1766,7 +1802,7 @@
             document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1)));
             document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
             document.getElementById('registerForm').classList.toggle('hidden', tab !== 'register');
-            document.getElementById('authModalTitle').textContent = tab === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب';
+            document.getElementById('authModalTitle').textContent = tab === 'login' ? 'طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„' : 'ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨';
         }
 
         function handleLogin(e) {
@@ -1774,12 +1810,12 @@
             const phone = document.getElementById('loginPhone').value.trim();
             const password = document.getElementById('loginPassword').value;
             const user = users.find(u => u.phone === phone && u.password === password);
-            if (!user) { showNotification('error', 'خطأ', 'بيانات غير صحيحة'); return; }
+            if (!user) { showNotification('error', 'ط®ط·ط£', 'ط¨ظٹط§ظ†ط§طھ ط؛ظٹط± طµط­ظٹط­ط©'); return; }
             currentUser = user;
             localStorage.setItem('currentUser', JSON.stringify(user));
             updateUserUI();
             closeModal('authModal');
-            showNotification('success', 'مرحباً', `أهلاً ${user.name}!`);
+            showNotification('success', 'ظ…ط±ط­ط¨ط§ظ‹', `ط£ظ‡ظ„ط§ظ‹ ${user.name}!`);
         }
 
         function handleRegister(e) {
@@ -1791,8 +1827,8 @@
             const password = document.getElementById('registerPassword').value;
             const confirm = document.getElementById('registerPasswordConfirm').value;
 
-            if (password !== confirm) { showNotification('error', 'خطأ', 'كلمات المرور غير متطابقة'); return; }
-            if (users.find(u => u.phone === phone)) { showNotification('error', 'خطأ', 'الرقم مسجل'); return; }
+            if (password !== confirm) { showNotification('error', 'ط®ط·ط£', 'ظƒظ„ظ…ط§طھ ط§ظ„ظ…ط±ظˆط± ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚ط©'); return; }
+            if (users.find(u => u.phone === phone)) { showNotification('error', 'ط®ط·ط£', 'ط§ظ„ط±ظ‚ظ… ظ…ط³ط¬ظ„'); return; }
 
             const newUser = { id: Date.now(), name, phone, email, address, password, loyaltyPoints: 0, createdAt: new Date().toISOString() };
             users.push(newUser);
@@ -1801,7 +1837,7 @@
             localStorage.setItem('currentUser', JSON.stringify(newUser));
             updateUserUI();
             closeModal('authModal');
-            showNotification('success', 'مرحباً', 'تم إنشاء حسابك!');
+            showNotification('success', 'ظ…ط±ط­ط¨ط§ظ‹', 'طھظ… ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨ظƒ!');
         }
 
         function checkLoggedInUser() {
@@ -1821,7 +1857,7 @@
         function updateUserUI() {
             document.getElementById('guestMenu').classList.toggle('hidden', !!currentUser);
             document.getElementById('userMenu').classList.toggle('hidden', !currentUser);
-            document.getElementById('userBtn').textContent = currentUser ? currentUser.name.charAt(0) : '👤';
+            document.getElementById('userBtn').textContent = currentUser ? currentUser.name.charAt(0) : 'ًں‘¤';
             updateLoyaltyDisplay();
         }
 
@@ -1833,7 +1869,7 @@
             currentUser = null;
             localStorage.removeItem('currentUser');
             updateUserUI();
-            showNotification('info', 'تم', 'تسجيل الخروج');
+            showNotification('info', 'طھظ…', 'طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬');
         }
 
         function showChangePassword() {
@@ -1848,8 +1884,8 @@
             const newPass = document.getElementById('newPassword').value;
             const confirm = document.getElementById('confirmNewPassword').value;
 
-            if (current !== currentUser.password) { showNotification('error', 'خطأ', 'كلمة المرور الحالية غير صحيحة'); return; }
-            if (newPass !== confirm) { showNotification('error', 'خطأ', 'غير متطابقة'); return; }
+            if (current !== currentUser.password) { showNotification('error', 'ط®ط·ط£', 'ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط­ط§ظ„ظٹط© ط؛ظٹط± طµط­ظٹط­ط©'); return; }
+            if (newPass !== confirm) { showNotification('error', 'ط®ط·ط£', 'ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚ط©'); return; }
 
             const idx = users.findIndex(u => u.id === currentUser.id);
             if (idx !== -1) {
@@ -1858,27 +1894,27 @@
                 saveUsers();
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 closeModal('passwordModal');
-                showNotification('success', 'تم', 'تم تغيير كلمة المرور');
+                showNotification('success', 'طھظ…', 'طھظ… طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±');
             }
         }
 
         function showProfile() {
             if (!currentUser) return;
-            showNotification('info', 'حسابي', `${currentUser.name}\n${currentUser.phone}\nنقاط: ${currentUser.loyaltyPoints || 0}`);
+            showNotification('info', 'ط­ط³ط§ط¨ظٹ', `${currentUser.name}\n${currentUser.phone}\nظ†ظ‚ط§ط·: ${currentUser.loyaltyPoints || 0}`);
         }
 
         // ============================================
-        // 📦 Checkout
+        // ًں“¦ Checkout
         // ============================================
         function showCheckout() {
             if (cart.length === 0) { 
-                showNotification('error', 'خطأ', 'السلة فارغة'); 
+                showNotification('error', 'ط®ط·ط£', 'ط§ظ„ط³ظ„ط© ظپط§ط±ط؛ط©'); 
                 return; 
             }
             
-            // ✅ Require login before checkout
+            // âœ… Require login before checkout
             if (!currentUser) {
-                showNotification('error', '🔒 تسجيل الدخول مطلوب', 'يجب تسجيل الدخول أولاً لإتمام الطلب');
+                showNotification('error', 'ًں”’ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ظ…ط·ظ„ظˆط¨', 'ظٹط¬ط¨ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ط£ظˆظ„ط§ظ‹ ظ„ط¥طھظ…ط§ظ… ط§ظ„ط·ظ„ط¨');
                 showLoginModal();
                 return;
             }
@@ -1922,22 +1958,22 @@
                 couponCode: appliedCoupon?.code || null,
                 usedPoints, pointsDiscount, total, earnedPoints,
                 status: 'pending',
-                statusHistory: [{ status: 'pending', date: new Date().toISOString(), note: 'تم استلام الطلب' }],
+                statusHistory: [{ status: 'pending', date: new Date().toISOString(), note: 'طھظ… ط§ط³طھظ„ط§ظ… ط§ظ„ط·ظ„ط¨' }],
                 createdAt: new Date().toISOString()
             };
 
-            // 🔥 حفظ في Firebase أولاً، ثم localStorage كـ backup
+            // ًں”¥ ط­ظپط¸ ظپظٹ Firebase ط£ظˆظ„ط§ظ‹طŒ ط«ظ… localStorage ظƒظ€ backup
             if (typeof addOrder === 'function') {
                 addOrder(order).then(() => {
-                    console.log('✅ Order saved to Firebase');
+                    console.log('âœ… Order saved to Firebase');
                 }).catch(error => {
-                    console.error('❌ Firebase error:', error);
-                    // حفظ في localStorage كـ fallback
+                    console.error('â‌Œ Firebase error:', error);
+                    // ط­ظپط¸ ظپظٹ localStorage ظƒظ€ fallback
                     orders.push(order);
                     saveOrders();
                 });
             } else {
-                // حفظ في localStorage فقط
+                // ط­ظپط¸ ظپظٹ localStorage ظپظ‚ط·
                 orders.push(order);
                 saveOrders();
             }
@@ -1966,41 +2002,41 @@
             toggleCart();
             updateStats();
             
-            showNotification('success', '🎉 تم الطلب!', `رقم: ${order.orderNumber}`);
+            showNotification('success', 'ًںژ‰ طھظ… ط§ظ„ط·ظ„ط¨!', `ط±ظ‚ظ…: ${order.orderNumber}`);
             document.getElementById('checkoutForm').reset();
         }
 
         // ============================================
-        // 📱 WhatsApp Notification
+        // ًں“± WhatsApp Notification
         // ============================================
         function sendWhatsAppNotification(order) {
             const whatsapp = storeSettings.contact?.whatsapp || '01018108979';
-            const items = order.items.map(i => `• ${i.name} × ${i.quantity}`).join('\n');
-            const message = `🛍️ *طلب جديد!*
+            const items = order.items.map(i => `â€¢ ${i.name} أ— ${i.quantity}`).join('\n');
+            const message = `ًں›چï¸ڈ *ط·ظ„ط¨ ط¬ط¯ظٹط¯!*
 
-📋 *رقم الطلب:* ${order.orderNumber}
-📅 *التاريخ:* ${new Date().toLocaleDateString('ar-EG')}
+ًں“‹ *ط±ظ‚ظ… ط§ظ„ط·ظ„ط¨:* ${order.orderNumber}
+ًں“… *ط§ظ„طھط§ط±ظٹط®:* ${new Date().toLocaleDateString('ar-EG')}
 
-👤 *العميل:* ${order.customer.name}
-📱 *الهاتف:* ${order.customer.phone}
-📍 *العنوان:* ${order.customer.address}
+ًں‘¤ *ط§ظ„ط¹ظ…ظٹظ„:* ${order.customer.name}
+ًں“± *ط§ظ„ظ‡ط§طھظپ:* ${order.customer.phone}
+ًں“چ *ط§ظ„ط¹ظ†ظˆط§ظ†:* ${order.customer.address}
 
-📦 *المنتجات:*
+ًں“¦ *ط§ظ„ظ…ظ†طھط¬ط§طھ:*
 ${items}
 
-💰 *المجموع:* ${order.subtotal} ج.م
-${order.couponCode ? `🎫 *كوبون:* ${order.couponCode} (-${order.discount} ج.م)` : ''}
-${order.pointsDiscount > 0 ? `💎 *نقاط:* -${order.pointsDiscount} ج.م` : ''}
-✅ *الإجمالي:* ${order.total} ج.م
+ًں’° *ط§ظ„ظ…ط¬ظ…ظˆط¹:* ${order.subtotal} ط¬.ظ…
+${order.couponCode ? `ًںژ« *ظƒظˆط¨ظˆظ†:* ${order.couponCode} (-${order.discount} ط¬.ظ…)` : ''}
+${order.pointsDiscount > 0 ? `ًں’ژ *ظ†ظ‚ط§ط·:* -${order.pointsDiscount} ط¬.ظ…` : ''}
+âœ… *ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ:* ${order.total} ط¬.ظ…
 
-${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`;
+${order.customer.notes ? `ًں“‌ *ظ…ظ„ط§ط­ط¸ط§طھ:* ${order.customer.notes}` : ''}`;
 
             const encodedMessage = encodeURIComponent(message);
             window.open(`https://wa.me/2${whatsapp}?text=${encodedMessage}`, '_blank');
         }
 
         // ============================================
-        // 🚚 Order Tracking
+        // ًںڑڑ Order Tracking
         // ============================================
         function showOrderTracking() {
             openModal('trackingModal');
@@ -2012,7 +2048,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const myOrders = orders.filter(o => o.customer?.phone === currentUser.phone);
             
             document.getElementById('ordersModalBody').innerHTML = myOrders.length === 0 
-                ? '<div style="text-align: center; padding: 30px; color: #666;"><div style="font-size: 50px;">📦</div><p>لا توجد طلبات</p></div>'
+                ? '<div style="text-align: center; padding: 30px; color: #666;"><div style="font-size: 50px;">ًں“¦</div><p>ظ„ط§ طھظˆط¬ط¯ ط·ظ„ط¨ط§طھ</p></div>'
                 : myOrders.reverse().map(o => `
                     <div style="background: var(--cream); border-radius: 12px; padding: 15px; margin-bottom: 12px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
@@ -2022,8 +2058,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                             </span>
                         </div>
                         <p style="font-size: 12px; color: #666;">${new Date(o.createdAt).toLocaleDateString('ar-EG')}</p>
-                        <p style="font-size: 14px; font-weight: 700; color: var(--gold-dark);">${o.total} ج.م</p>
-                        <button onclick="trackOrderById('${o.orderNumber}')" style="margin-top: 8px; padding: 6px 15px; background: var(--navy); color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer;">تتبع 🚚</button>
+                        <p style="font-size: 14px; font-weight: 700; color: var(--gold-dark);">${o.total} ط¬.ظ…</p>
+                        <button onclick="trackOrderById('${o.orderNumber}')" style="margin-top: 8px; padding: 6px 15px; background: var(--navy); color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer;">طھطھط¨ط¹ ًںڑڑ</button>
                     </div>
                 `).join('');
             
@@ -2039,17 +2075,17 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const order = orders.find(o => o.orderNumber === orderNumber || o.id.toString() === orderNumber);
             
             if (!order) {
-                document.getElementById('trackingResult').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--error);"><div style="font-size: 40px;">❌</div><p>لم يتم العثور على الطلب</p></div>';
+                document.getElementById('trackingResult').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--error);"><div style="font-size: 40px;">â‌Œ</div><p>ظ„ظ… ظٹطھظ… ط§ظ„ط¹ط«ظˆط± ط¹ظ„ظ‰ ط§ظ„ط·ظ„ط¨</p></div>';
                 return;
             }
 
             const statuses = [
-                { key: 'pending', icon: '📋', title: 'تم استلام الطلب', desc: 'جاري مراجعة الطلب' },
-                { key: 'confirmed', icon: '✅', title: 'تم تأكيد الطلب', desc: 'جاري تجهيز المنتجات' },
-                { key: 'processing', icon: '📦', title: 'جاري التجهيز', desc: 'يتم تجهيز طلبك' },
-                { key: 'shipped', icon: '🚚', title: 'تم الشحن', desc: 'الطلب في الطريق إليك' },
-                { key: 'delivered', icon: '🎉', title: 'تم التوصيل', desc: 'تم توصيل الطلب بنجاح' },
-                { key: 'completed', icon: '⭐', title: 'مكتمل', desc: 'شكراً لتسوقك معنا' }
+                { key: 'pending', icon: 'ًں“‹', title: 'طھظ… ط§ط³طھظ„ط§ظ… ط§ظ„ط·ظ„ط¨', desc: 'ط¬ط§ط±ظٹ ظ…ط±ط§ط¬ط¹ط© ط§ظ„ط·ظ„ط¨' },
+                { key: 'confirmed', icon: 'âœ…', title: 'طھظ… طھط£ظƒظٹط¯ ط§ظ„ط·ظ„ط¨', desc: 'ط¬ط§ط±ظٹ طھط¬ظ‡ظٹط² ط§ظ„ظ…ظ†طھط¬ط§طھ' },
+                { key: 'processing', icon: 'ًں“¦', title: 'ط¬ط§ط±ظٹ ط§ظ„طھط¬ظ‡ظٹط²', desc: 'ظٹطھظ… طھط¬ظ‡ظٹط² ط·ظ„ط¨ظƒ' },
+                { key: 'shipped', icon: 'ًںڑڑ', title: 'طھظ… ط§ظ„ط´ط­ظ†', desc: 'ط§ظ„ط·ظ„ط¨ ظپظٹ ط§ظ„ط·ط±ظٹظ‚ ط¥ظ„ظٹظƒ' },
+                { key: 'delivered', icon: 'ًںژ‰', title: 'طھظ… ط§ظ„طھظˆطµظٹظ„', desc: 'طھظ… طھظˆطµظٹظ„ ط§ظ„ط·ظ„ط¨ ط¨ظ†ط¬ط§ط­' },
+                { key: 'completed', icon: 'â­گ', title: 'ظ…ظƒطھظ…ظ„', desc: 'ط´ظƒط±ط§ظ‹ ظ„طھط³ظˆظ‚ظƒ ظ…ط¹ظ†ط§' }
             ];
 
             const currentIdx = statuses.findIndex(s => s.key === order.status);
@@ -2081,12 +2117,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function getStatusName(status) {
-            const names = { pending: 'قيد المعالجة', confirmed: 'مؤكد', processing: 'جاري التجهيز', shipped: 'تم الشحن', delivered: 'تم التوصيل', completed: 'مكتمل', cancelled: 'ملغي' };
+            const names = { pending: 'ظ‚ظٹط¯ ط§ظ„ظ…ط¹ط§ظ„ط¬ط©', confirmed: 'ظ…ط¤ظƒط¯', processing: 'ط¬ط§ط±ظٹ ط§ظ„طھط¬ظ‡ظٹط²', shipped: 'طھظ… ط§ظ„ط´ط­ظ†', delivered: 'طھظ… ط§ظ„طھظˆطµظٹظ„', completed: 'ظ…ظƒطھظ…ظ„', cancelled: 'ظ…ظ„ط؛ظٹ' };
             return names[status] || status;
         }
 
         // ============================================
-        // 💬 Chat
+        // ًں’¬ Chat
         // ============================================
         function toggleChat() {
             document.getElementById('chatBox').classList.toggle('active');
@@ -2112,21 +2148,21 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         function getBotResponse(msg) {
             const m = msg.toLowerCase();
-            if (m.includes('مرحبا') || m.includes('السلام') || m.includes('اهلا')) return 'أهلاً! كيف أساعدك؟ 😊';
-            if (m.includes('سعر')) return 'تصفح المنتجات لمعرفة الأسعار 💰';
-            if (m.includes('توصيل') || m.includes('شحن')) return 'التوصيل مجاني فوق 500 ج.م 🚚';
-            if (m.includes('تتبع') || m.includes('طلب')) return 'اضغط على "تتبع طلبي" في القائمة 📦';
-            if (m.includes('خصم') || m.includes('كوبون')) return 'جرب كود WELCOME20 لخصم 20% 🎁';
-            if (m.includes('نقاط') || m.includes('ولاء')) return 'تكسب 5% نقاط من كل طلب! 💎';
-            return `تواصل معنا: ${storeSettings.contact?.phone || '01018108979'} 📞`;
+            if (m.includes('ظ…ط±ط­ط¨ط§') || m.includes('ط§ظ„ط³ظ„ط§ظ…') || m.includes('ط§ظ‡ظ„ط§')) return 'ط£ظ‡ظ„ط§ظ‹! ظƒظٹظپ ط£ط³ط§ط¹ط¯ظƒطں ًںکٹ';
+            if (m.includes('ط³ط¹ط±')) return 'طھطµظپط­ ط§ظ„ظ…ظ†طھط¬ط§طھ ظ„ظ…ط¹ط±ظپط© ط§ظ„ط£ط³ط¹ط§ط± ًں’°';
+            if (m.includes('طھظˆطµظٹظ„') || m.includes('ط´ط­ظ†')) return 'ط§ظ„طھظˆطµظٹظ„ ظ…ط¬ط§ظ†ظٹ ظپظˆظ‚ 500 ط¬.ظ… ًںڑڑ';
+            if (m.includes('طھطھط¨ط¹') || m.includes('ط·ظ„ط¨')) return 'ط§ط¶ط؛ط· ط¹ظ„ظ‰ "طھطھط¨ط¹ ط·ظ„ط¨ظٹ" ظپظٹ ط§ظ„ظ‚ط§ط¦ظ…ط© ًں“¦';
+            if (m.includes('ط®طµظ…') || m.includes('ظƒظˆط¨ظˆظ†')) return 'ط¬ط±ط¨ ظƒظˆط¯ WELCOME20 ظ„ط®طµظ… 20% ًںژپ';
+            if (m.includes('ظ†ظ‚ط§ط·') || m.includes('ظˆظ„ط§ط،')) return 'طھظƒط³ط¨ 5% ظ†ظ‚ط§ط· ظ…ظ† ظƒظ„ ط·ظ„ط¨! ًں’ژ';
+            return `طھظˆط§طµظ„ ظ…ط¹ظ†ط§: ${storeSettings.contact?.phone || '01018108979'} ًں“‍`;
         }
 
         // ============================================
-        // 🔔 Notifications
+        // ًں”” Notifications
         // ============================================
         function showNotification(type, title, message) {
             const container = document.getElementById('notificationsContainer');
-            const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+            const icons = { success: 'âœ“', error: 'âœ•', warning: 'âڑ ', info: 'â„¹' };
             const n = document.createElement('div');
             n.className = `notification ${type}`;
             n.innerHTML = `
@@ -2135,14 +2171,14 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                     <div class="notification-title">${title}</div>
                     <div class="notification-message">${message}</div>
                 </div>
-                <button class="notification-close" onclick="this.parentElement.remove()">✕</button>
+                <button class="notification-close" onclick="this.parentElement.remove()">âœ•</button>
             `;
             container.appendChild(n);
             setTimeout(() => n.remove(), 4000);
 
             // Browser notification
             if (Notification.permission === 'granted' && type === 'success') {
-                new Notification(title, { body: message, icon: '🛍️' });
+                new Notification(title, { body: message, icon: 'ًں›چï¸ڈ' });
             }
         }
 
@@ -2152,7 +2188,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         // ============================================
-        // 🎛️ UI Helpers
+        // ًںژ›ï¸ڈ UI Helpers
         // ============================================
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -2176,3 +2212,5 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
     </script>
 </body>
 </html>
+
+

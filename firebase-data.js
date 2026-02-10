@@ -186,7 +186,9 @@ async function initializeFirebaseData() {
         
         // Setup real-time listeners for live updates
         // GitHub Pages can block Firestore listen channel (CORS). Skip to avoid spam.
-        if (window.location.hostname !== 'ahmedsheta89-cell.github.io') {
+        const hostname = window.location.hostname || '';
+        const isGithubPages = /(^|\\.)github\\.io$/i.test(hostname);
+        if (!isGithubPages) {
             setupRealtimeListeners();
         } else {
             console.log('🔥 GitHub Pages detected - skipping Firestore real-time listeners');
