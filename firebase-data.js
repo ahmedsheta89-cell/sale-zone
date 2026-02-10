@@ -185,7 +185,12 @@ async function initializeFirebaseData() {
         console.log('🎉 Firebase initialization completed!');
         
         // Setup real-time listeners for live updates
-        setupRealtimeListeners();
+        // GitHub Pages can block Firestore listen channel (CORS). Skip to avoid spam.
+        if (window.location.hostname !== 'ahmedsheta89-cell.github.io') {
+            setupRealtimeListeners();
+        } else {
+            console.log('🔥 GitHub Pages detected - skipping Firestore real-time listeners');
+        }
         
     } catch (error) {
         console.error('❌ Firebase initialization error:', error);
