@@ -4,7 +4,7 @@
 // Progressive Web App (PWA) ready with offline support
 
 // 📋 Cache Management - Version Control
-const CACHE_VERSION = 'v6.0.1';
+const CACHE_VERSION = 'v6.0.2';
 const CACHE_PREFIX = 'salezone';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic-${CACHE_VERSION}`;
@@ -25,8 +25,13 @@ const CRITICAL_ASSETS = [
   '/متجر_2.HTML',
   '/ادمن_2.HTML',
   '/manifest.json',
+  '/favicon.ico',
   '/icon-192.png',
   '/icon-512.png',
+  '/assets/placeholder.svg',
+  '/assets/banner-placeholder.svg',
+  '/cloudinary-service.js',
+  '/ADMIN_ERROR_DASHBOARD.js',
   '/offline.html'
 ];
 
