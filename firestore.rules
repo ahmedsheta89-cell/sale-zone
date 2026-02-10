@@ -27,6 +27,17 @@ service cloud.firestore {
       && request.resource.data.total is number;
     }
 
+    function isValidCustomerCreate() {
+      return request.resource.data.keys().hasAll([
+        "name",
+        "phone",
+        "createdAt"
+      ])
+      && request.resource.data.name is string
+      && request.resource.data.phone is string
+      && !request.resource.data.keys().hasAny(["password"]);
+    }
+
     // Public readable content
     match /products/{productId} {
       allow read: if true;
@@ -55,7 +66,8 @@ service cloud.firestore {
     }
 
     match /customers/{customerId} {
-      allow read, create, update, delete: if isAdmin() || isAdminEmail();
+      allow read, update, delete: if isAdmin() || isAdminEmail();
+      allow create: if isAdmin() || isAdminEmail() || isValidCustomerCreate();
     }
 
     match /admins/{adminId} {

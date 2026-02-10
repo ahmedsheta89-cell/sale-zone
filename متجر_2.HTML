@@ -1818,7 +1818,7 @@
             showNotification('success', 'ظ…ط±ط­ط¨ط§ظ‹', `ط£ظ‡ظ„ط§ظ‹ ${user.name}!`);
         }
 
-        function handleRegister(e) {
+        async function handleRegister(e) {
             e.preventDefault();
             const name = document.getElementById('registerName').value.trim();
             const phone = document.getElementById('registerPhone').value.trim();
@@ -1830,14 +1830,30 @@
             if (password !== confirm) { showNotification('error', 'ط®ط·ط£', 'ظƒظ„ظ…ط§طھ ط§ظ„ظ…ط±ظˆط± ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚ط©'); return; }
             if (users.find(u => u.phone === phone)) { showNotification('error', 'ط®ط·ط£', 'ط§ظ„ط±ظ‚ظ… ظ…ط³ط¬ظ„'); return; }
 
-            const newUser = { id: Date.now(), name, phone, email, address, password, loyaltyPoints: 0, createdAt: new Date().toISOString() };
-            users.push(newUser);
-            saveUsers();
-            currentUser = newUser;
-            localStorage.setItem('currentUser', JSON.stringify(newUser));
-            updateUserUI();
-            closeModal('authModal');
-            showNotification('success', 'ظ…ط±ط­ط¨ط§ظ‹', 'طھظ… ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨ظƒ!');
+            const newUser = { id: Date.now().toString(), name, phone, email, address, password, loyaltyPoints: 0, createdAt: new Date().toISOString() };
+            const customerPayload = { name, phone, email, address, loyaltyPoints: 0, createdAt: newUser.createdAt };
+            try {
+                if (typeof addCustomer === 'function') {
+                    const firebaseId = await addCustomer(customerPayload);
+                    if (firebaseId) newUser.id = firebaseId;
+                }
+                users.push(newUser);
+                saveUsers();
+                currentUser = newUser;
+                localStorage.setItem('currentUser', JSON.stringify(newUser));
+                updateUserUI();
+                closeModal('authModal');
+                showNotification('success', 'مرحباً', 'تم إنشاء حسابك بنجاح!');
+            } catch (error) {
+                console.error('addCustomer error:', error);
+                users.push(newUser);
+                saveUsers();
+                currentUser = newUser;
+                localStorage.setItem('currentUser', JSON.stringify(newUser));
+                updateUserUI();
+                closeModal('authModal');
+                showNotification('info', 'تم التسجيل محليًا', 'سيتم المزامنة لاحقًا عند توفر الاتصال.');
+            }
         }
 
         function checkLoggedInUser() {

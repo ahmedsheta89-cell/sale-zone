@@ -240,6 +240,18 @@ async function getAllUsers() {
     }
 }
 
+async function addCustomer(customer) {
+    try {
+        const db = getFirebaseDB();
+        const docRef = await db.collection('customers').add(customer);
+        console.log('✅ Customer added to Firebase:', docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('addCustomer error:', e);
+        throw e;
+    }
+}
+
 // ==========================================
 // COUPONS
 // ==========================================
