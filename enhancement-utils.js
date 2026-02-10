@@ -17,7 +17,7 @@ class EnhancedUI {
         notification.className = `enhanced-notification notification-${type}`;
         notification.innerHTML = `
             <div class="notification-icon">
-                ${this.getNotificationIcon(type)}
+                ${EnhancedUI.getNotificationIcon(type)}
             </div>
             <div class="notification-content">
                 <div class="notification-title">${title}</div>
