@@ -1444,9 +1444,66 @@
         let salesChart, categoriesChart;
 
         // ============================================
+        // ServiceWorker Auto Update (Admin)
+        // ============================================
+        function setupServiceWorkerAutoUpdate() {
+            if (!('serviceWorker' in navigator)) {
+                return;
+            }
+
+            let swRefreshing = false;
+            const requestRefresh = () => {
+                if (swRefreshing) return;
+                swRefreshing = true;
+                window.location.reload();
+            };
+
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                requestRefresh();
+            });
+
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'SW_UPDATED' && navigator.serviceWorker.controller) {
+                    requestRefresh();
+                }
+            });
+
+            navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
+                .then(registration => {
+                    const updateNow = () => registration.update().catch(() => undefined);
+                    updateNow();
+                    setInterval(updateNow, 60 * 60 * 1000);
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') updateNow();
+                    });
+
+                    if (registration.waiting) {
+                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        if (!newWorker) return;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed') {
+                                if (registration.waiting) {
+                                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                }
+                                if (navigator.serviceWorker.controller) {
+                                    requestRefresh();
+                                }
+                            }
+                        });
+                    });
+                })
+                .catch(() => undefined);
+        }
+
+        // ============================================
         // Initialize
         // ============================================
         document.addEventListener('DOMContentLoaded', async function() {
+            setupServiceWorkerAutoUpdate();
             await checkAdminSession();
         });
 
@@ -2698,7 +2755,7 @@ function adminLogout(){
 
                     // Check for unquoted Arabic keys inside <script> blocks
                     const scripts = [];
-                    const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+                    const scriptRegex = new RegExp('<script[^>]*>([\\s\\S]*?)<\\\\/script>', 'gi');
                     let match;
                     while ((match = scriptRegex.exec(text)) !== null) {
                         scripts.push(match[1]);

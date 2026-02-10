@@ -1101,24 +1101,57 @@
                 });
             });
 
-            // 📱 Register Professional ServiceWorker for PWA
+            // 📱 Register Professional ServiceWorker for PWA (Auto Update)
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js', { scope: './' })
+                let swRefreshing = false;
+                const requestRefresh = () => {
+                    if (swRefreshing) return;
+                    swRefreshing = true;
+                    window.location.reload();
+                };
+
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    requestRefresh();
+                });
+
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'SW_UPDATED' && navigator.serviceWorker.controller) {
+                        requestRefresh();
+                    }
+                });
+
+                navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
                     .then(registration => {
                         console.log('✅ Professional ServiceWorker registered:', registration.scope);
                         console.log('🚀 PWA Features Enabled');
-                        
-                        // 🔄 Check for updates
+
+                        const updateNow = () => registration.update().catch(() => undefined);
+                        updateNow();
+                        setInterval(updateNow, 60 * 60 * 1000);
+                        document.addEventListener('visibilitychange', () => {
+                            if (document.visibilityState === 'visible') updateNow();
+                        });
+
+                        if (registration.waiting) {
+                            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        }
+
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;
+                            if (!newWorker) return;
                             newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('🔄 New version available! Refreshing...');
-                                    window.location.reload();
+                                if (newWorker.state === 'installed') {
+                                    if (registration.waiting) {
+                                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                    }
+                                    if (navigator.serviceWorker.controller) {
+                                        console.log('🔄 New version available! Refreshing...');
+                                        requestRefresh();
+                                    }
                                 }
                             });
                         });
-                        
+
                         // 📨 Get ServiceWorker version
                         if (registration.active) {
                             registration.active.postMessage({ type: 'GET_VERSION' }, [new MessageChannel().port1]);

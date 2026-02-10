@@ -1,14 +1,19 @@
 // Firebase Data Initializer
 // ==========================
 
-// Initialize Firebase with sample data if empty
+// Initialize Firebase (sample data seeding disabled in production)
+const ENABLE_SAMPLE_DATA = false; // set true فقط في بيئة التطوير
+
 async function initializeFirebaseData() {
     try {
         // Check if products collection exists
         const productsSnapshot = await db.collection('products').get();
         
         if (productsSnapshot.empty) {
-            console.log('🔥 Initializing Firebase with sample data...');
+            if (!ENABLE_SAMPLE_DATA) {
+                console.log('ℹ️ Sample data seeding disabled (products).');
+            } else {
+                console.log('🔥 Initializing Firebase with sample data...');
             
             // Sample Products
             const sampleProducts = [
@@ -105,19 +110,23 @@ async function initializeFirebaseData() {
                 }
             ];
             
-            // Add products to Firestore
-            for (const product of sampleProducts) {
-                await db.collection('products').add(product);
+                // Add products to Firestore
+                for (const product of sampleProducts) {
+                    await db.collection('products').add(product);
+                }
+                
+                console.log('✅ Sample products added to Firebase');
             }
-            
-            console.log('✅ Sample products added to Firebase');
         }
         
         // Check if banners collection exists
         const bannersSnapshot = await db.collection('banners').get();
         
         if (bannersSnapshot.empty) {
-            const sampleBanners = [
+            if (!ENABLE_SAMPLE_DATA) {
+                console.log('ℹ️ Sample data seeding disabled (banners).');
+            } else {
+                const sampleBanners = [
                 {
                     title: 'خصم 30%',
                     subtitle: 'على جميع منتجات العناية بالشعر',
@@ -138,18 +147,22 @@ async function initializeFirebaseData() {
                 }
             ];
             
-            for (const banner of sampleBanners) {
-                await db.collection('banners').add(banner);
+                for (const banner of sampleBanners) {
+                    await db.collection('banners').add(banner);
+                }
+                
+                console.log('✅ Sample banners added to Firebase');
             }
-            
-            console.log('✅ Sample banners added to Firebase');
         }
         
         // Check if coupons collection exists
         const couponsSnapshot = await db.collection('coupons').get();
         
         if (couponsSnapshot.empty) {
-            const sampleCoupons = [
+            if (!ENABLE_SAMPLE_DATA) {
+                console.log('ℹ️ Sample data seeding disabled (coupons).');
+            } else {
+                const sampleCoupons = [
                 {
                     code: 'WELCOME20',
                     discount: 20,
@@ -175,11 +188,12 @@ async function initializeFirebaseData() {
                 }
             ];
             
-            for (const coupon of sampleCoupons) {
-                await db.collection('coupons').add(coupon);
+                for (const coupon of sampleCoupons) {
+                    await db.collection('coupons').add(coupon);
+                }
+                
+                console.log('✅ Sample coupons added to Firebase');
             }
-            
-            console.log('✅ Sample coupons added to Firebase');
         }
         
         console.log('🎉 Firebase initialization completed!');

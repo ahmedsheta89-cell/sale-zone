@@ -4,7 +4,7 @@
 // Progressive Web App (PWA) ready with offline support
 
 // 📋 Cache Management - Version Control
-const CACHE_VERSION = 'v6.0.2';
+const CACHE_VERSION = 'v6.0.3';
 const CACHE_PREFIX = 'salezone';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic-${CACHE_VERSION}`;
@@ -136,7 +136,13 @@ self.addEventListener('activate', (event) => {
       }));
       
       console.log('✅ Cache cleanup completed');
-      return self.clients.claim();
+      await self.clients.claim();
+
+      // 🔔 Notify clients that a fresh SW is active (auto-refresh)
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      clients.forEach(client => {
+        client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION });
+      });
     })()
   );
 });
