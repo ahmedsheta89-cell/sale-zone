@@ -1,14 +1,14 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl" data-page="admin">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0A1128">
-    <meta name="description" content="Sale Zone Store Admin - لوحة التحكم">
+    <meta name="description" content="Sale Zone Store Admin - ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…">
     <link rel="icon" href="./icon-192.png">
     <link rel="shortcut icon" href="./icon-192.png">
     <link rel="apple-touch-icon" href="./icon-192.png">
-    <title>لوحة التحكم | Sale Zone Store</title>
+    <title>ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ… | Sale Zone Store</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -433,9 +433,9 @@
         .close-modal:hover { background: #ddd; transform: rotate(90deg); }
         .modal-body{
           padding: 18px;
-          max-height: 80vh;      /* أقصى ارتفاع 80% من الشاشة */
-          overflow-y: auto;      /* فعل التمرير داخل المودال */
-          padding-bottom: 30px;  /* مساحة تحت للزر */
+          max-height: 80vh;      /* ط£ظ‚طµظ‰ ط§ط±طھظپط§ط¹ 80% ظ…ظ† ط§ظ„ط´ط§ط´ط© */
+          overflow-y: auto;      /* ظپط¹ظ„ ط§ظ„طھظ…ط±ظٹط± ط¯ط§ط®ظ„ ط§ظ„ظ…ظˆط¯ط§ظ„ */
+          padding-bottom: 30px;  /* ظ…ط³ط§ط­ط© طھط­طھ ظ„ظ„ط²ط± */
 }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px; font-size: 13px; }
@@ -712,29 +712,29 @@
     <!-- Login -->
     <div class="login-screen" id="loginScreen">
         <div class="login-card">
-            <div class="login-logo">🔐</div>
-            <h1 class="login-title">لوحة التحكم</h1>
+            <div class="login-logo">ًں”گ</div>
+            <h1 class="login-title">ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…</h1>
             <p class="login-subtitle">Sale Zone Store</p>
-            <div class="login-error" id="loginError">بيانات الدخول غير صحيحة</div>
+            <div class="login-error" id="loginError">ط¨ظٹط§ظ†ط§طھ ط§ظ„ط¯ط®ظˆظ„ ط؛ظٹط± طµط­ظٹط­ط©</div>
             <form class="login-form" onsubmit="handleLogin(event)">
                 <div class="form-group">
-                    <label>📧 البريد الإلكتروني</label>
-                    <input type="email" id="adminEmail" required placeholder="أدخل البريد الإلكتروني">
+                    <label>ًں“§ ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ</label>
+                    <input type="email" id="adminEmail" required placeholder="ط£ط¯ط®ظ„ ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ">
                 </div>
                 <div class="form-group">
-                    <label>🔑 كلمة المرور</label>
-                    <input type="password" id="adminPassword" required placeholder="أدخل كلمة المرور">
+                    <label>ًں”‘ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±</label>
+                    <input type="password" id="adminPassword" required placeholder="ط£ط¯ط®ظ„ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±">
                 </div>
-                <button type="submit" class="login-btn">دخول</button>
+                <button type="submit" class="login-btn">ط¯ط®ظˆظ„</button>
                 <button type="button" class="login-btn" style="margin-top: 10px; background: #1A2744;" onclick="sendVerificationLink()">
-                    إرسال رابط التحقق
+                    ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· ط§ظ„طھط­ظ‚ظ‚
                 </button>
                 <button type="button" class="login-btn" style="margin-top: 10px; background: #800020;" onclick="sendPasswordReset()">
-                    نسيت كلمة المرور
+                    ظ†ط³ظٹطھ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±
                 </button>
             </form>
-            <a href="index.html" class="back-link">← العودة للمتجر</a>
-            <a href="متجر_2.HTML" class="back-link" style="margin-right: 20px;">🛍️ عرض المتجر</a>
+            <a href="index.html" class="back-link">â†گ ط§ظ„ط¹ظˆط¯ط© ظ„ظ„ظ…طھط¬ط±</a>
+            <a href="ظ…طھط¬ط±_2.HTML" class="back-link" style="margin-right: 20px;">ًں›چï¸ڈ ط¹ط±ط¶ ط§ظ„ظ…طھط¬ط±</a>
         </div>
     </div>
 
@@ -746,32 +746,32 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">Sale Zone</div>
-                <div class="sidebar-subtitle">لوحة التحكم</div>
+                <div class="sidebar-subtitle">ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…</div>
             </div>
             <nav class="sidebar-menu">
                 <div class="menu-section">
-                    <div class="menu-section-title">الرئيسية</div>
-                    <button class="menu-item active" onclick="showSection('overview')">📊 نظرة عامة</button>
+                    <div class="menu-section-title">ط§ظ„ط±ط¦ظٹط³ظٹط©</div>
+                    <button class="menu-item active" onclick="showSection('overview')">ًں“ٹ ظ†ط¸ط±ط© ط¹ط§ظ…ط©</button>
                 </div>
                 <div class="menu-section">
-                    <div class="menu-section-title">الإدارة</div>
-                    <button class="menu-item" onclick="showSection('products')">📦 المنتجات <span class="badge" id="productsCount">0</span></button>
-                    <button class="menu-item" onclick="showSection('orders')">🛍️ الطلبات <span class="badge" id="ordersCount">0</span></button>
-                    <button class="menu-item" onclick="showSection('banners')">🎠 البانرات</button>
-                    <button class="menu-item" onclick="showSection('coupons')">🎫 الكوبونات</button>
-                    <button class="menu-item" onclick="showSection('users')">👥 العملاء</button>
-                    <button class="menu-item" onclick="showSection('loyalty')">💎 نقاط الولاء</button>
+                    <div class="menu-section-title">ط§ظ„ط¥ط¯ط§ط±ط©</div>
+                    <button class="menu-item" onclick="showSection('products')">ًں“¦ ط§ظ„ظ…ظ†طھط¬ط§طھ <span class="badge" id="productsCount">0</span></button>
+                    <button class="menu-item" onclick="showSection('orders')">ًں›چï¸ڈ ط§ظ„ط·ظ„ط¨ط§طھ <span class="badge" id="ordersCount">0</span></button>
+                    <button class="menu-item" onclick="showSection('banners')">ًںژ  ط§ظ„ط¨ط§ظ†ط±ط§طھ</button>
+                    <button class="menu-item" onclick="showSection('coupons')">ًںژ« ط§ظ„ظƒظˆط¨ظˆظ†ط§طھ</button>
+                    <button class="menu-item" onclick="showSection('users')">ًں‘¥ ط§ظ„ط¹ظ…ظ„ط§ط،</button>
+                    <button class="menu-item" onclick="showSection('loyalty')">ًں’ژ ظ†ظ‚ط§ط· ط§ظ„ظˆظ„ط§ط،</button>
                 </div>
                 <div class="menu-section">
-                    <div class="menu-section-title">التقارير</div>
-                    <button class="menu-item" onclick="showSection('reports')">📈 التقارير</button>
+                    <div class="menu-section-title">ط§ظ„طھظ‚ط§ط±ظٹط±</div>
+                    <button class="menu-item" onclick="showSection('reports')">ًں“ˆ ط§ظ„طھظ‚ط§ط±ظٹط±</button>
                 </div>
                 <div class="menu-section">
-                    <div class="menu-section-title">الإعدادات</div>
-                    <button class="menu-item" onclick="showSection('storeSettings')">🏪 المتجر</button>
-                    <button class="menu-item" onclick="showSection('settings')">⚙️ النظام</button>
-                    <a href="متجر_2.HTML" class="menu-item">🛍️ عرض المتجر</a>
-                    <a href="index.html" class="menu-item">🏠 الصفحة الرئيسية</a>
+                    <div class="menu-section-title">ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ</div>
+                    <button class="menu-item" onclick="showSection('storeSettings')">ًںڈھ ط§ظ„ظ…طھط¬ط±</button>
+                    <button class="menu-item" onclick="showSection('settings')">âڑ™ï¸ڈ ط§ظ„ظ†ط¸ط§ظ…</button>
+                    <a href="ظ…طھط¬ط±_2.HTML" class="menu-item">ًں›چï¸ڈ ط¹ط±ط¶ ط§ظ„ظ…طھط¬ط±</a>
+                    <a href="index.html" class="menu-item">ًںڈ  ط§ظ„طµظپط­ط© ط§ظ„ط±ط¦ظٹط³ظٹط©</a>
                 </div>
             </nav>
         </aside>
@@ -780,67 +780,67 @@
         <main class="main-content">
             <div class="top-bar">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
-                    <h1 class="page-title" id="pageTitle">📊 نظرة عامة</h1>
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">âک°</button>
+                    <h1 class="page-title" id="pageTitle">ًں“ٹ ظ†ط¸ط±ط© ط¹ط§ظ…ط©</h1>
                 </div>
                 <div class="top-bar-actions">
                     <div class="admin-info">
-                        <div class="admin-avatar">م</div>
-                        <span>المدير</span>
+                        <div class="admin-avatar">ظ…</div>
+                        <span>ط§ظ„ظ…ط¯ظٹط±</span>
                     </div>
-                    <button class="logout-btn" onclick="adminLogout()">🚪 خروج</button>
+                    <button class="logout-btn" onclick="adminLogout()">ًںڑھ ط®ط±ظˆط¬</button>
                 </div>
             </div>
             <!-- Overview -->
             <section class="content-section active" id="overviewSection">
                 <div class="stats-grid">
                     <div class="stat-card products">
-                        <div class="stat-icon">📦</div>
+                        <div class="stat-icon">ًں“¦</div>
                         <div class="stat-value" id="statProducts">0</div>
-                        <div class="stat-label">منتج</div>
+                        <div class="stat-label">ظ…ظ†طھط¬</div>
                     </div>
                     <div class="stat-card orders">
-                        <div class="stat-icon">🛍️</div>
+                        <div class="stat-icon">ًں›چï¸ڈ</div>
                         <div class="stat-value" id="statOrders">0</div>
-                        <div class="stat-label">طلب</div>
+                        <div class="stat-label">ط·ظ„ط¨</div>
                     </div>
                     <div class="stat-card users">
-                        <div class="stat-icon">👥</div>
+                        <div class="stat-icon">ًں‘¥</div>
                         <div class="stat-value" id="statUsers">0</div>
-                        <div class="stat-label">عميل</div>
+                        <div class="stat-label">ط¹ظ…ظٹظ„</div>
                     </div>
                     <div class="stat-card revenue">
-                        <div class="stat-icon">💰</div>
+                        <div class="stat-icon">ًں’°</div>
                         <div class="stat-value" id="statRevenue">0</div>
-                        <div class="stat-label">إيرادات (ج.م)</div>
+                        <div class="stat-label">ط¥ظٹط±ط§ط¯ط§طھ (ط¬.ظ…)</div>
                     </div>
                     <div class="stat-card loyalty">
-                        <div class="stat-icon">💎</div>
+                        <div class="stat-icon">ًں’ژ</div>
                         <div class="stat-value" id="statLoyalty">0</div>
-                        <div class="stat-label">نقاط ولاء</div>
+                        <div class="stat-label">ظ†ظ‚ط§ط· ظˆظ„ط§ط،</div>
                     </div>
                 </div>
 
                 <div class="charts-grid">
                     <div class="chart-card">
-                        <div class="chart-title">📈 المبيعات</div>
+                        <div class="chart-title">ًں“ˆ ط§ظ„ظ…ط¨ظٹط¹ط§طھ</div>
                         <div class="chart-container"><canvas id="salesChart"></canvas></div>
                     </div>
                     <div class="chart-card">
-                        <div class="chart-title">📊 الأقسام</div>
+                        <div class="chart-title">ًں“ٹ ط§ظ„ط£ظ‚ط³ط§ظ…</div>
                         <div class="chart-container"><canvas id="categoriesChart"></canvas></div>
                     </div>
                 </div>
 
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">🕐 آخر الطلبات</h3>
-                        <button class="btn btn-gold" onclick="showSection('orders')">عرض الكل</button>
+                        <h3 class="section-title">ًں•گ ط¢ط®ط± ط§ظ„ط·ظ„ط¨ط§طھ</h3>
+                        <button class="btn btn-gold" onclick="showSection('orders')">ط¹ط±ط¶ ط§ظ„ظƒظ„</button>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>رقم</th><th>العميل</th><th>المبلغ</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+                                <thead><tr><th>ط±ظ‚ظ…</th><th>ط§ظ„ط¹ظ…ظٹظ„</th><th>ط§ظ„ظ…ط¨ظ„ط؛</th><th>ط§ظ„ط­ط§ظ„ط©</th><th>ط§ظ„طھط§ط±ظٹط®</th></tr></thead>
                                 <tbody id="recentOrdersTable"></tbody>
                             </table>
                         </div>
@@ -852,18 +852,18 @@
             <section class="content-section" id="productsSection">
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">📦 المنتجات</h3>
+                        <h3 class="section-title">ًں“¦ ط§ظ„ظ…ظ†طھط¬ط§طھ</h3>
                         <div class="header-actions">
-                            <button class="btn btn-gold" onclick="openModal('productModal')">➕ إضافة</button>
-                            <button class="btn btn-success" onclick="exportProductsExcel()">📤 Excel</button>
+                            <button class="btn btn-gold" onclick="openModal('productModal')">â‍• ط¥ط¶ط§ظپط©</button>
+                            <button class="btn btn-success" onclick="exportProductsExcel()">ًں“¤ Excel</button>
                             <input type="file" id="importProductsFile" accept=".xlsx,.xls" onchange="importProductsExcel(event)" style="display:none">
-                            <button class="btn btn-info" onclick="document.getElementById('importProductsFile').click()">📥 استيراد</button>
+                            <button class="btn btn-info" onclick="document.getElementById('importProductsFile').click()">ًں“¥ ط§ط³طھظٹط±ط§ط¯</button>
                         </div>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>المنتج</th><th>القسم</th><th>السعر</th><th>التقييم</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>ط§ظ„ظ…ظ†طھط¬</th><th>ط§ظ„ظ‚ط³ظ…</th><th>ط§ظ„ط³ط¹ط±</th><th>ط§ظ„طھظ‚ظٹظٹظ…</th><th>ط¥ط¬ط±ط§ط،ط§طھ</th></tr></thead>
                                 <tbody id="productsTable"></tbody>
                             </table>
                         </div>
@@ -875,15 +875,15 @@
             <section class="content-section" id="ordersSection">
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">🛍️ الطلبات</h3>
+                        <h3 class="section-title">ًں›چï¸ڈ ط§ظ„ط·ظ„ط¨ط§طھ</h3>
                         <div class="header-actions">
-                            <button class="btn btn-success" onclick="exportOrdersExcel()">📤 Excel</button>
+                            <button class="btn btn-success" onclick="exportOrdersExcel()">ًں“¤ Excel</button>
                         </div>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>رقم</th><th>العميل</th><th>الهاتف</th><th>المبلغ</th><th>الحالة</th><th>التاريخ</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>ط±ظ‚ظ…</th><th>ط§ظ„ط¹ظ…ظٹظ„</th><th>ط§ظ„ظ‡ط§طھظپ</th><th>ط§ظ„ظ…ط¨ظ„ط؛</th><th>ط§ظ„ط­ط§ظ„ط©</th><th>ط§ظ„طھط§ط±ظٹط®</th><th>ط¥ط¬ط±ط§ط،ط§طھ</th></tr></thead>
                                 <tbody id="ordersTable"></tbody>
                             </table>
                         </div>
@@ -895,13 +895,13 @@
             <section class="content-section" id="bannersSection">
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">🎠 البانرات</h3>
-                        <button class="btn btn-gold" onclick="openModal('bannerModal')">➕ إضافة</button>
+                        <h3 class="section-title">ًںژ  ط§ظ„ط¨ط§ظ†ط±ط§طھ</h3>
+                        <button class="btn btn-gold" onclick="openModal('bannerModal')">â‍• ط¥ط¶ط§ظپط©</button>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>أيقونة</th><th>العنوان</th><th>النص</th><th>القسم</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>ط£ظٹظ‚ظˆظ†ط©</th><th>ط§ظ„ط¹ظ†ظˆط§ظ†</th><th>ط§ظ„ظ†طµ</th><th>ط§ظ„ظ‚ط³ظ…</th><th>ط¥ط¬ط±ط§ط،ط§طھ</th></tr></thead>
                                 <tbody id="bannersTable"></tbody>
                             </table>
                         </div>
@@ -913,16 +913,16 @@
             <section class="content-section" id="couponsSection">
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">🎫 الكوبونات</h3>
+                        <h3 class="section-title">ًںژ« ط§ظ„ظƒظˆط¨ظˆظ†ط§طھ</h3>
                         <div class="header-actions">
-                            <button class="btn btn-gold" onclick="openModal('couponModal')">➕ إضافة</button>
-                            <button class="btn btn-success" onclick="exportCouponsExcel()">📤 Excel</button>
+                            <button class="btn btn-gold" onclick="openModal('couponModal')">â‍• ط¥ط¶ط§ظپط©</button>
+                            <button class="btn btn-success" onclick="exportCouponsExcel()">ًں“¤ Excel</button>
                         </div>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>الكود</th><th>الوصف</th><th>النوع</th><th>القيمة</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>ط§ظ„ظƒظˆط¯</th><th>ط§ظ„ظˆطµظپ</th><th>ط§ظ„ظ†ظˆط¹</th><th>ط§ظ„ظ‚ظٹظ…ط©</th><th>ط¥ط¬ط±ط§ط،ط§طھ</th></tr></thead>
                                 <tbody id="couponsTable"></tbody>
                             </table>
                         </div>
@@ -934,13 +934,13 @@
             <section class="content-section" id="usersSection">
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">👥 العملاء</h3>
-                        <button class="btn btn-success" onclick="exportUsersExcel()">📤 Excel</button>
+                        <h3 class="section-title">ًں‘¥ ط§ظ„ط¹ظ…ظ„ط§ط،</h3>
+                        <button class="btn btn-success" onclick="exportUsersExcel()">ًں“¤ Excel</button>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>الاسم</th><th>الهاتف</th><th>البريد</th><th>النقاط</th><th>التسجيل</th></tr></thead>
+                                <thead><tr><th>ط§ظ„ط§ط³ظ…</th><th>ط§ظ„ظ‡ط§طھظپ</th><th>ط§ظ„ط¨ط±ظٹط¯</th><th>ط§ظ„ظ†ظ‚ط§ط·</th><th>ط§ظ„طھط³ط¬ظٹظ„</th></tr></thead>
                                 <tbody id="usersTable"></tbody>
                             </table>
                         </div>
@@ -953,39 +953,39 @@
                 <div class="stats-grid" style="margin-bottom: 20px;">
                     <div class="loyalty-card">
                         <div class="loyalty-value" id="totalLoyalty">0</div>
-                        <div class="loyalty-label">💎 إجمالي النقاط</div>
+                        <div class="loyalty-label">ًں’ژ ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظ†ظ‚ط§ط·</div>
                     </div>
                     <div class="loyalty-card" style="background: linear-gradient(135deg, var(--burgundy), #a00030);">
                         <div class="loyalty-value" id="loyaltyRate">5</div>
-                        <div class="loyalty-label">% نسبة الاكتساب</div>
+                        <div class="loyalty-label">% ظ†ط³ط¨ط© ط§ظ„ط§ظƒطھط³ط§ط¨</div>
                     </div>
                 </div>
 
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">⚙️ إعدادات الولاء</h3>
+                        <h3 class="section-title">âڑ™ï¸ڈ ط¥ط¹ط¯ط§ط¯ط§طھ ط§ظ„ظˆظ„ط§ط،</h3>
                     </div>
                     <div class="section-body">
                         <form onsubmit="saveLoyaltySettings(event)">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>نسبة الاكتساب (%)</label>
+                                    <label>ظ†ط³ط¨ط© ط§ظ„ط§ظƒطھط³ط§ط¨ (%)</label>
                                     <input type="number" id="loyaltyRateInput" min="1" max="50" value="5">
                                 </div>
                                 <div class="form-group">
-                                    <label>قيمة النقطة (ج.م)</label>
+                                    <label>ظ‚ظٹظ…ط© ط§ظ„ظ†ظ‚ط·ط© (ط¬.ظ…)</label>
                                     <input type="number" id="pointValueInput" min="0.01" step="0.01" value="0.1">
                                 </div>
                             </div>
-                            <button type="submit" class="submit-btn" style="max-width: 200px;">💾 حفظ</button>
+                            <button type="submit" class="submit-btn" style="max-width: 200px;">ًں’¾ ط­ظپط¸</button>
                         </form>
                     </div>
                 </div>
 
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">👥 نقاط العملاء</h3>
-                        <button class="btn btn-gold" onclick="openModal('pointsModal')">➕ إضافة نقاط</button>
+                        <h3 class="section-title">ًں‘¥ ظ†ظ‚ط§ط· ط§ظ„ط¹ظ…ظ„ط§ط،</h3>
+                        <button class="btn btn-gold" onclick="openModal('pointsModal')">â‍• ط¥ط¶ط§ظپط© ظ†ظ‚ط§ط·</button>
                     </div>
                     <div class="section-body" id="loyaltyUsersList"></div>
                 </div>
@@ -995,31 +995,31 @@
             <section class="content-section" id="reportsSection">
                 <div class="settings-grid">
                     <div class="section-card">
-                        <div class="section-header"><h3 class="section-title">📦 المنتجات</h3></div>
+                        <div class="section-header"><h3 class="section-title">ًں“¦ ط§ظ„ظ…ظ†طھط¬ط§طھ</h3></div>
                         <div class="section-body">
-                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">تصدير جميع المنتجات</p>
-                            <button class="btn btn-success" onclick="exportProductsExcel()" style="width: 100%;">📤 Excel</button>
+                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">طھطµط¯ظٹط± ط¬ظ…ظٹط¹ ط§ظ„ظ…ظ†طھط¬ط§طھ</p>
+                            <button class="btn btn-success" onclick="exportProductsExcel()" style="width: 100%;">ًں“¤ Excel</button>
                         </div>
                     </div>
                     <div class="section-card">
-                        <div class="section-header"><h3 class="section-title">🛍️ الطلبات</h3></div>
+                        <div class="section-header"><h3 class="section-title">ًں›چï¸ڈ ط§ظ„ط·ظ„ط¨ط§طھ</h3></div>
                         <div class="section-body">
-                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">تصدير جميع الطلبات</p>
-                            <button class="btn btn-success" onclick="exportOrdersExcel()" style="width: 100%;">📤 Excel</button>
+                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">طھطµط¯ظٹط± ط¬ظ…ظٹط¹ ط§ظ„ط·ظ„ط¨ط§طھ</p>
+                            <button class="btn btn-success" onclick="exportOrdersExcel()" style="width: 100%;">ًں“¤ Excel</button>
                         </div>
                     </div>
                     <div class="section-card">
-                        <div class="section-header"><h3 class="section-title">👥 العملاء</h3></div>
+                        <div class="section-header"><h3 class="section-title">ًں‘¥ ط§ظ„ط¹ظ…ظ„ط§ط،</h3></div>
                         <div class="section-body">
-                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">تصدير بيانات العملاء</p>
-                            <button class="btn btn-success" onclick="exportUsersExcel()" style="width: 100%;">📤 Excel</button>
+                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">طھطµط¯ظٹط± ط¨ظٹط§ظ†ط§طھ ط§ظ„ط¹ظ…ظ„ط§ط،</p>
+                            <button class="btn btn-success" onclick="exportUsersExcel()" style="width: 100%;">ًں“¤ Excel</button>
                         </div>
                     </div>
                     <div class="section-card">
-                        <div class="section-header"><h3 class="section-title">📊 تقرير شامل</h3></div>
+                        <div class="section-header"><h3 class="section-title">ًں“ٹ طھظ‚ط±ظٹط± ط´ط§ظ…ظ„</h3></div>
                         <div class="section-body">
-                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">جميع البيانات</p>
-                            <button class="btn btn-success" onclick="exportFullReport()" style="width: 100%;">📤 تقرير شامل</button>
+                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">ط¬ظ…ظٹط¹ ط§ظ„ط¨ظٹط§ظ†ط§طھ</p>
+                            <button class="btn btn-success" onclick="exportFullReport()" style="width: 100%;">ًں“¤ طھظ‚ط±ظٹط± ط´ط§ظ…ظ„</button>
                         </div>
                     </div>
                 </div>
@@ -1028,10 +1028,10 @@
             <!-- Store Settings -->
             <section class="content-section" id="storeSettingsSection">
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('general')">⚙️ عام</button>
-                    <button class="tab-btn" onclick="switchTab('topbar')">📢 الشريط</button>
-                    <button class="tab-btn" onclick="switchTab('footer')">🦶 الفوتر</button>
-                    <button class="tab-btn" onclick="switchTab('contact')">📞 التواصل</button>
+                    <button class="tab-btn active" onclick="switchTab('general')">âڑ™ï¸ڈ ط¹ط§ظ…</button>
+                    <button class="tab-btn" onclick="switchTab('topbar')">ًں“¢ ط§ظ„ط´ط±ظٹط·</button>
+                    <button class="tab-btn" onclick="switchTab('footer')">ًں¦¶ ط§ظ„ظپظˆطھط±</button>
+                    <button class="tab-btn" onclick="switchTab('contact')">ًں“‍ ط§ظ„طھظˆط§طµظ„</button>
                 </div>
 
                 <div class="tab-content active" id="generalTab">
@@ -1039,18 +1039,18 @@
                         <div class="section-body">
                             <form onsubmit="saveGeneralSettings(event)">
                                 <div class="form-group">
-                                    <label>🏪 اسم المتجر</label>
+                                    <label>ًںڈھ ط§ط³ظ… ط§ظ„ظ…طھط¬ط±</label>
                                     <input type="text" id="storeName" placeholder="Sale Zone Store">
                                 </div>
                                 <div class="form-group">
-                                    <label>💬 الشعار</label>
-                                    <input type="text" id="storeTagline" placeholder="التسوق الفاخر الذكي">
+                                    <label>ًں’¬ ط§ظ„ط´ط¹ط§ط±</label>
+                                    <input type="text" id="storeTagline" placeholder="ط§ظ„طھط³ظˆظ‚ ط§ظ„ظپط§ط®ط± ط§ظ„ط°ظƒظٹ">
                                 </div>
                                 <div class="form-group">
-                                    <label>📝 الوصف</label>
+                                    <label>ًں“‌ ط§ظ„ظˆطµظپ</label>
                                     <textarea id="storeDescription"></textarea>
                                 </div>
-                                <button type="submit" class="submit-btn">💾 حفظ</button>
+                                <button type="submit" class="submit-btn">ًں’¾ ط­ظپط¸</button>
                             </form>
                         </div>
                     </div>
@@ -1061,23 +1061,23 @@
                         <div class="section-body">
                             <form onsubmit="saveTopBarSettings(event)">
                                 <div class="form-group">
-                                    <label>📝 النص المتحرك</label>
+                                    <label>ًں“‌ ط§ظ„ظ†طµ ط§ظ„ظ…طھط­ط±ظƒ</label>
                                     <textarea id="topBarText" rows="2"></textarea>
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label>🎨 لون الخلفية</label>
+                                        <label>ًںژ¨ ظ„ظˆظ† ط§ظ„ط®ظ„ظپظٹط©</label>
                                         <input type="color" id="topBarBgColor" value="#0A1128">
                                     </div>
                                     <div class="form-group">
-                                        <label>🎨 لون النص</label>
+                                        <label>ًںژ¨ ظ„ظˆظ† ط§ظ„ظ†طµ</label>
                                         <input type="color" id="topBarTextColor" value="#F4E4BC">
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label><input type="checkbox" id="topBarEnabled" checked> تفعيل الشريط</label>
+                                    <label><input type="checkbox" id="topBarEnabled" checked> طھظپط¹ظٹظ„ ط§ظ„ط´ط±ظٹط·</label>
                                 </div>
-                                <button type="submit" class="submit-btn">💾 حفظ</button>
+                                <button type="submit" class="submit-btn">ًں’¾ ط­ظپط¸</button>
                             </form>
                         </div>
                     </div>
@@ -1088,26 +1088,26 @@
                         <div class="section-body">
                             <form onsubmit="saveFooterSettings(event)">
                                 <div class="form-group">
-                                    <label>📖 عن المتجر</label>
+                                    <label>ًں“– ط¹ظ† ط§ظ„ظ…طھط¬ط±</label>
                                     <textarea id="footerAbout" rows="2"></textarea>
                                 </div>
                                 <div class="form-group">
-                                    <label>⏰ أيام الأسبوع</label>
-                                    <input type="text" id="workingHoursWeekdays" placeholder="السبت - الخميس: 9 ص - 10 م">
+                                    <label>âڈ° ط£ظٹط§ظ… ط§ظ„ط£ط³ط¨ظˆط¹</label>
+                                    <input type="text" id="workingHoursWeekdays" placeholder="ط§ظ„ط³ط¨طھ - ط§ظ„ط®ظ…ظٹط³: 9 طµ - 10 ظ…">
                                 </div>
                                 <div class="form-group">
-                                    <label>⏰ الجمعة</label>
-                                    <input type="text" id="workingHoursFriday" placeholder="الجمعة: 2 م - 10 م">
+                                    <label>âڈ° ط§ظ„ط¬ظ…ط¹ط©</label>
+                                    <input type="text" id="workingHoursFriday" placeholder="ط§ظ„ط¬ظ…ط¹ط©: 2 ظ… - 10 ظ…">
                                 </div>
                                 <div class="form-group">
-                                    <label>📝 ملاحظة</label>
-                                    <input type="text" id="workingHoursNote" placeholder="🔔 خدمة 24/7">
+                                    <label>ًں“‌ ظ…ظ„ط§ط­ط¸ط©</label>
+                                    <input type="text" id="workingHoursNote" placeholder="ًں”” ط®ط¯ظ…ط© 24/7">
                                 </div>
                                 <div class="form-group">
-                                    <label>©️ حقوق النشر</label>
+                                    <label>آ©ï¸ڈ ط­ظ‚ظˆظ‚ ط§ظ„ظ†ط´ط±</label>
                                     <input type="text" id="copyrightText">
                                 </div>
-                                <button type="submit" class="submit-btn">💾 حفظ</button>
+                                <button type="submit" class="submit-btn">ًں’¾ ط­ظپط¸</button>
                             </form>
                         </div>
                     </div>
@@ -1119,25 +1119,25 @@
                             <form onsubmit="saveContactSettings(event)">
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label>📞 الهاتف</label>
+                                        <label>ًں“‍ ط§ظ„ظ‡ط§طھظپ</label>
                                         <input type="tel" id="contactPhone" placeholder="01018108979">
                                     </div>
                                     <div class="form-group">
-                                        <label>💬 واتساب</label>
+                                        <label>ًں’¬ ظˆط§طھط³ط§ط¨</label>
                                         <input type="tel" id="contactWhatsapp" placeholder="01018108979">
                                     </div>
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label>📧 الإيميل</label>
+                                        <label>ًں“§ ط§ظ„ط¥ظٹظ…ظٹظ„</label>
                                         <input type="email" id="contactEmail">
                                     </div>
                                     <div class="form-group">
-                                        <label>📍 العنوان</label>
+                                        <label>ًں“چ ط§ظ„ط¹ظ†ظˆط§ظ†</label>
                                         <input type="text" id="contactAddress">
                                     </div>
                                 </div>
-                                <button type="submit" class="submit-btn">💾 حفظ</button>
+                                <button type="submit" class="submit-btn">ًں’¾ ط­ظپط¸</button>
                             </form>
                         </div>
                     </div>
@@ -1148,43 +1148,43 @@
             <section class="content-section" id="settingsSection">
                 <div class="settings-grid">
                     <div class="settings-card">
-                        <h3>🔐 كلمة المرور</h3>
+                        <h3>ًں”گ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±</h3>
                         <form onsubmit="changeAdminPassword(event)">
                             <div class="form-group">
-                                <label>الحالية</label>
+                                <label>ط§ظ„ط­ط§ظ„ظٹط©</label>
                                 <input type="password" id="currentAdminPass" required>
                             </div>
                             <div class="form-group">
-                                <label>الجديدة</label>
+                                <label>ط§ظ„ط¬ط¯ظٹط¯ط©</label>
                                 <input type="password" id="newAdminPass" required>
                             </div>
                             <div class="form-group">
-                                <label>تأكيد</label>
+                                <label>طھط£ظƒظٹط¯</label>
                                 <input type="password" id="confirmAdminPass" required>
                             </div>
-                            <button type="submit" class="submit-btn">🔑 تغيير</button>
+                            <button type="submit" class="submit-btn">ًں”‘ طھط؛ظٹظٹط±</button>
                         </form>
                     </div>
 
                     <div class="settings-card">
-                        <h3>💾 النسخ الاحتياطي</h3>
-                        <button class="btn btn-gold" onclick="exportAllDataJSON()" style="width: 100%; margin-bottom: 10px;">📤 تصدير JSON</button>
+                        <h3>ًں’¾ ط§ظ„ظ†ط³ط® ط§ظ„ط§ط­طھظٹط§ط·ظٹ</h3>
+                        <button class="btn btn-gold" onclick="exportAllDataJSON()" style="width: 100%; margin-bottom: 10px;">ًں“¤ طھطµط¯ظٹط± JSON</button>
                         <input type="file" id="importJSONFile" accept=".json" onchange="importAllDataJSON(event)" style="display:none">
-                        <button class="btn btn-info" onclick="document.getElementById('importJSONFile').click()" style="width: 100%;">📥 استيراد JSON</button>
+                        <button class="btn btn-info" onclick="document.getElementById('importJSONFile').click()" style="width: 100%;">ًں“¥ ط§ط³طھظٹط±ط§ط¯ JSON</button>
                     </div>
 
                     <div class="settings-card">
-                        <h3>🧹 تنظيف الصور الخارجية</h3>
+                        <h3>ًں§¹ طھظ†ط¸ظٹظپ ط§ظ„طµظˆط± ط§ظ„ط®ط§ط±ط¬ظٹط©</h3>
                         <p style="color: #666; margin-bottom: 15px; font-size: 12px;">
-                            استبدال جميع الروابط الخارجية للصور بـ Placeholders محلية لتجنب مشاكل ORB/CORS.
+                            ط§ط³طھط¨ط¯ط§ظ„ ط¬ظ…ظٹط¹ ط§ظ„ط±ظˆط§ط¨ط· ط§ظ„ط®ط§ط±ط¬ظٹط© ظ„ظ„طµظˆط± ط¨ظ€ Placeholders ظ…ط­ظ„ظٹط© ظ„طھط¬ظ†ط¨ ظ…ط´ط§ظƒظ„ ORB/CORS.
                         </p>
-                        <button class="btn btn-gold" onclick="sanitizeAllImages()" style="width: 100%;">✅ تنظيف صور المنتجات والبانرات</button>
+                        <button class="btn btn-gold" onclick="sanitizeAllImages()" style="width: 100%;">âœ… طھظ†ط¸ظٹظپ طµظˆط± ط§ظ„ظ…ظ†طھط¬ط§طھ ظˆط§ظ„ط¨ط§ظ†ط±ط§طھ</button>
                     </div>
 
                     <div class="settings-card danger-zone">
-                        <h3>⚠️ منطقة الخطر</h3>
-                        <p style="color: #666; margin-bottom: 15px; font-size: 12px;">لا يمكن التراجع عن هذه الإجراءات!</p>
-                        <button class="btn btn-danger" onclick="clearAllData()" style="width: 100%;">🗑️ حذف الكل</button>
+                        <h3>âڑ ï¸ڈ ظ…ظ†ط·ظ‚ط© ط§ظ„ط®ط·ط±</h3>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 12px;">ظ„ط§ ظٹظ…ظƒظ† ط§ظ„طھط±ط§ط¬ط¹ ط¹ظ† ظ‡ط°ظ‡ ط§ظ„ط¥ط¬ط±ط§ط،ط§طھ!</p>
+                        <button class="btn btn-danger" onclick="clearAllData()" style="width: 100%;">ًں—‘ï¸ڈ ط­ط°ظپ ط§ظ„ظƒظ„</button>
                     </div>
                 </div>
             </section>
@@ -1196,8 +1196,8 @@
 <div class="modal-overlay" id="productModal">
   <div class="modal">
     <div class="modal-header">
-      <h2 id="productModalTitle">➕ منتج جديد</h2>
-      <button class="close-modal" onclick="closeModal('productModal')">✕</button>
+      <h2 id="productModalTitle">â‍• ظ…ظ†طھط¬ ط¬ط¯ظٹط¯</h2>
+      <button class="close-modal" onclick="closeModal('productModal')">âœ•</button>
     </div>
 
     <div class="modal-body">
@@ -1205,65 +1205,65 @@
         <input type="hidden" id="productId">
 
         <div class="form-group">
-          <label>اسم المنتج *</label>
+          <label>ط§ط³ظ… ط§ظ„ظ…ظ†طھط¬ *</label>
           <input type="text" id="productName" required>
         </div>
 
         <div class="form-group">
-          <label>الوصف *</label>
+          <label>ط§ظ„ظˆطµظپ *</label>
           <textarea id="productDesc" required></textarea>
         </div>
 
         <div class="form-group">
-          <label>القسم *</label>
+          <label>ط§ظ„ظ‚ط³ظ… *</label>
           <select id="productCategory" required>
-            <option value="">اختر</option>
-            <option value="hair-care">💇‍♀️ شعر</option>
-            <option value="skin-care">🧴 بشرة</option>
-            <option value="baby-care">👶 طفل</option>
-            <option value="supplements">💊 مكملات</option>
-            <option value="medical">🏥 طبي</option>
+            <option value="">ط§ط®طھط±</option>
+            <option value="hair-care">ًں’‡â€چâ™€ï¸ڈ ط´ط¹ط±</option>
+            <option value="skin-care">ًں§´ ط¨ط´ط±ط©</option>
+            <option value="baby-care">ًں‘¶ ط·ظپظ„</option>
+            <option value="supplements">ًں’ٹ ظ…ظƒظ…ظ„ط§طھ</option>
+            <option value="medical">ًںڈ¥ ط·ط¨ظٹ</option>
           </select>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label>السعر *</label>
+            <label>ط§ظ„ط³ط¹ط± *</label>
             <input type="number" id="productPrice" required min="0">
           </div>
           <div class="form-group">
-            <label>السعر القديم</label>
+            <label>ط§ظ„ط³ط¹ط± ط§ظ„ظ‚ط¯ظٹظ…</label>
             <input type="number" id="productOldPrice" min="0">
           </div>
         </div>
 
-        <!-- ============ صورة المنتج (رفع أو رابط) ============ -->
+        <!-- ============ طµظˆط±ط© ط§ظ„ظ…ظ†طھط¬ (ط±ظپط¹ ط£ظˆ ط±ط§ط¨ط·) ============ -->
         <div class="form-group">
-          <label>🖼️ صورة المنتج</label>
+          <label>ًں–¼ï¸ڈ طµظˆط±ط© ط§ظ„ظ…ظ†طھط¬</label>
 
-          <!-- رفع من الجهاز -->
+          <!-- ط±ظپط¹ ظ…ظ† ط§ظ„ط¬ظ‡ط§ط² -->
           <input type="file" id="imgFile" accept="image/*" style="display:none" onchange="uploadAndPreview(this)">
           <button type="button"
                   onclick="document.getElementById('imgFile').click()"
                   style="background:#D4AF37;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;">
-            📁 رفع من الجهاز
+            ًں“پ ط±ظپط¹ ظ…ظ† ط§ظ„ط¬ظ‡ط§ط²
           </button>
 
           <div id="imgPreview" style="margin-top:10px;"></div>
 
-          <!-- أو رابط -->
-          <div style="margin:10px 0;color:#999;text-align:center;">— أو أدخل رابط —</div>
+          <!-- ط£ظˆ ط±ط§ط¨ط· -->
+          <div style="margin:10px 0;color:#999;text-align:center;">â€” ط£ظˆ ط£ط¯ط®ظ„ ط±ط§ط¨ط· â€”</div>
           <input type="url" id="manualImg" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;direction:ltr;">
 
-          <!-- رابط نهائي (يتم تعبئته تلقائياً بعد الرفع) -->
+          <!-- ط±ط§ط¨ط· ظ†ظ‡ط§ط¦ظٹ (ظٹطھظ… طھط¹ط¨ط¦طھظ‡ طھظ„ظ‚ط§ط¦ظٹط§ظ‹ ط¨ط¹ط¯ ط§ظ„ط±ظپط¹) -->
           <input type="hidden" id="finalImg" required>
         </div>
         <!-- =================================================== -->
 
-        <!-- زر حفظ المنتج (اللي كان ناقص) -->
+        <!-- ط²ط± ط­ظپط¸ ط§ظ„ظ…ظ†طھط¬ (ط§ظ„ظ„ظٹ ظƒط§ظ† ظ†ط§ظ‚طµ) -->
         <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #eee; text-align: center;">
           <button type="submit" class="submit-btn" style="min-width: 220px; font-size: 16px; font-weight: bold;">
-            💾 حفظ المنتج
+            ًں’¾ ط­ظپط¸ ط§ظ„ظ…ظ†طھط¬
           </button>
         </div>
 
@@ -1276,41 +1276,41 @@
     <div class="modal-overlay" id="bannerModal">
         <div class="modal">
             <div class="modal-header">
-                <h2>➕ بانر جديد</h2>
-                <button class="close-modal" onclick="closeModal('bannerModal')">✕</button>
+                <h2>â‍• ط¨ط§ظ†ط± ط¬ط¯ظٹط¯</h2>
+                <button class="close-modal" onclick="closeModal('bannerModal')">âœ•</button>
             </div>
             <div class="modal-body">
                 <form onsubmit="saveBanner(event)">
                     <div class="form-row">
                         <div class="form-group">
-                            <label>الأيقونة</label>
-                            <input type="text" id="bannerIcon" placeholder="🎉">
+                            <label>ط§ظ„ط£ظٹظ‚ظˆظ†ط©</label>
+                            <input type="text" id="bannerIcon" placeholder="ًںژ‰">
                         </div>
                         <div class="form-group">
-                            <label>القسم</label>
+                            <label>ط§ظ„ظ‚ط³ظ…</label>
                             <select id="bannerCategory">
-                                <option value="all">الكل</option>
-                                <option value="hair-care">شعر</option>
-                                <option value="skin-care">بشرة</option>
-                                <option value="baby-care">طفل</option>
-                                <option value="supplements">مكملات</option>
-                                <option value="medical">طبي</option>
+                                <option value="all">ط§ظ„ظƒظ„</option>
+                                <option value="hair-care">ط´ط¹ط±</option>
+                                <option value="skin-care">ط¨ط´ط±ط©</option>
+                                <option value="baby-care">ط·ظپظ„</option>
+                                <option value="supplements">ظ…ظƒظ…ظ„ط§طھ</option>
+                                <option value="medical">ط·ط¨ظٹ</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>العنوان *</label>
+                        <label>ط§ظ„ط¹ظ†ظˆط§ظ† *</label>
                         <input type="text" id="bannerTitle" required>
                     </div>
                     <div class="form-group">
-                        <label>النص</label>
+                        <label>ط§ظ„ظ†طµ</label>
                         <input type="text" id="bannerText">
                     </div>
                     <div class="form-group">
-                        <label>نص الزر</label>
-                        <input type="text" id="bannerBtn" placeholder="تسوق الآن">
+                        <label>ظ†طµ ط§ظ„ط²ط±</label>
+                        <input type="text" id="bannerBtn" placeholder="طھط³ظˆظ‚ ط§ظ„ط¢ظ†">
                     </div>
-                    <button type="submit" class="submit-btn">💾 حفظ</button>
+                    <button type="submit" class="submit-btn">ًں’¾ ط­ظپط¸</button>
                 </form>
             </div>
         </div>
@@ -1320,33 +1320,33 @@
     <div class="modal-overlay" id="couponModal">
         <div class="modal">
             <div class="modal-header">
-                <h2>➕ كوبون جديد</h2>
-                <button class="close-modal" onclick="closeModal('couponModal')">✕</button>
+                <h2>â‍• ظƒظˆط¨ظˆظ† ط¬ط¯ظٹط¯</h2>
+                <button class="close-modal" onclick="closeModal('couponModal')">âœ•</button>
             </div>
             <div class="modal-body">
                 <form onsubmit="saveCoupon(event)">
                     <div class="form-group">
-                        <label>الكود *</label>
+                        <label>ط§ظ„ظƒظˆط¯ *</label>
                         <input type="text" id="couponCode" required style="text-transform: uppercase;">
                     </div>
                     <div class="form-group">
-                        <label>الوصف *</label>
+                        <label>ط§ظ„ظˆطµظپ *</label>
                         <input type="text" id="couponDesc" required>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>النوع *</label>
+                            <label>ط§ظ„ظ†ظˆط¹ *</label>
                             <select id="couponType" required>
-                                <option value="percentage">نسبة %</option>
-                                <option value="fixed">مبلغ ثابت</option>
+                                <option value="percentage">ظ†ط³ط¨ط© %</option>
+                                <option value="fixed">ظ…ط¨ظ„ط؛ ط«ط§ط¨طھ</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>القيمة *</label>
+                            <label>ط§ظ„ظ‚ظٹظ…ط© *</label>
                             <input type="number" id="couponValue" required min="1">
                         </div>
                     </div>
-                    <button type="submit" class="submit-btn">💾 حفظ</button>
+                    <button type="submit" class="submit-btn">ًں’¾ ط­ظپط¸</button>
                 </form>
             </div>
         </div>
@@ -1356,8 +1356,8 @@
     <div class="modal-overlay" id="orderModal">
         <div class="modal large">
             <div class="modal-header">
-                <h2>📦 تفاصيل الطلب</h2>
-                <button class="close-modal" onclick="closeModal('orderModal')">✕</button>
+                <h2>ًں“¦ طھظپط§طµظٹظ„ ط§ظ„ط·ظ„ط¨</h2>
+                <button class="close-modal" onclick="closeModal('orderModal')">âœ•</button>
             </div>
             <div class="modal-body" id="orderModalBody"></div>
         </div>
@@ -1367,33 +1367,33 @@
     <div class="modal-overlay" id="pointsModal">
         <div class="modal">
             <div class="modal-header">
-                <h2>💎 إضافة/خصم نقاط</h2>
-                <button class="close-modal" onclick="closeModal('pointsModal')">✕</button>
+                <h2>ًں’ژ ط¥ط¶ط§ظپط©/ط®طµظ… ظ†ظ‚ط§ط·</h2>
+                <button class="close-modal" onclick="closeModal('pointsModal')">âœ•</button>
             </div>
             <div class="modal-body">
                 <form onsubmit="handlePointsAction(event)">
                     <div class="form-group">
-                        <label>العميل *</label>
+                        <label>ط§ظ„ط¹ظ…ظٹظ„ *</label>
                         <select id="pointsUserId" required></select>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>العملية *</label>
+                            <label>ط§ظ„ط¹ظ…ظ„ظٹط© *</label>
                             <select id="pointsAction" required>
-                                <option value="add">➕ إضافة</option>
-                                <option value="subtract">➖ خصم</option>
+                                <option value="add">â‍• ط¥ط¶ط§ظپط©</option>
+                                <option value="subtract">â‍– ط®طµظ…</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>النقاط *</label>
+                            <label>ط§ظ„ظ†ظ‚ط§ط· *</label>
                             <input type="number" id="pointsAmount" required min="1">
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>السبب</label>
+                        <label>ط§ظ„ط³ط¨ط¨</label>
                         <input type="text" id="pointsReason">
                     </div>
-                    <button type="submit" class="submit-btn">✅ تنفيذ</button>
+                    <button type="submit" class="submit-btn">âœ… طھظ†ظپظٹط°</button>
                 </form>
             </div>
         </div>
@@ -1407,16 +1407,16 @@
         let coupons = [];
         let banners = [];
         let users = [];
-        // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
-        // ⚠️ يُنصح بتغييرها فوراً بعد أول تسجيل دخول
+        // ًں”گ طھط­ط³ظٹظ† ط§ظ„ط£ظ…ط§ظ†: ظƒظ„ظ…ط© ظ…ط±ظˆط± ظ‚ظˆظٹط© ط§ظپطھط±ط§ط¶ظٹط§ظ‹
+        // âڑ ï¸ڈ ظٹظڈظ†طµط­ ط¨طھط؛ظٹظٹط±ظ‡ط§ ظپظˆط±ط§ظ‹ ط¨ط¹ط¯ ط£ظˆظ„ طھط³ط¬ظٹظ„ ط¯ط®ظˆظ„
         let adminPassword = null;
         let storeSettings = {
             name: 'Sale Zone Store',
-            tagline: 'التسوق الفاخر الذكي',
+            tagline: 'ط§ظ„طھط³ظˆظ‚ ط§ظ„ظپط§ط®ط± ط§ظ„ط°ظƒظٹ',
             description: '',
-            topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
-            contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
-            footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
+            topBar: { enabled: true, text: 'ًںژ‰ ط®طµظˆظ…ط§طھ ط­طµط±ظٹط©!', bgColor: '#0A1128', textColor: '#F4E4BC' },
+            contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'ظ…طµط±' },
+            footer: { about: '', workingHoursWeekdays: 'ط§ظ„ط³ط¨طھ - ط§ظ„ط®ظ…ظٹط³: 9 طµ - 10 ظ…', workingHoursFriday: 'ط§ظ„ط¬ظ…ط¹ط©: 2 ظ… - 10 ظ…', workingHoursNote: 'ًں”” ط®ط¯ظ…ط© 24/7', copyright: 'آ© 2026 Sale Zone Store â‌¤ï¸ڈ' },
             loyalty: { rate: 5, pointValue: 0.1 }
         };
         let salesChart, categoriesChart;
@@ -1431,12 +1431,12 @@
         // ============================================
         // Data Management
         // ============================================
-        // 🔥 Firebase + LocalStorage Hybrid Data Loading
+        // ًں”¥ Firebase + LocalStorage Hybrid Data Loading
         async function loadAllData() {
             try {
-                // محاولة تحميل من Firebase أولاً
+                // ظ…ط­ط§ظˆظ„ط© طھط­ظ…ظٹظ„ ظ…ظ† Firebase ط£ظˆظ„ط§ظ‹
                 if (typeof getAllProducts === 'function') {
-                    console.log('🔥 Admin: Loading from Firebase...');
+                    console.log('ًں”¥ Admin: Loading from Firebase...');
                     
                     products = await getAllProducts() || [];
                     orders = await getAllOrders() || [];
@@ -1447,15 +1447,15 @@
                     const settings = await getSettings();
                     if (settings) storeSettings = { ...storeSettings, ...settings };
                     
-                    console.log('✅ Admin data loaded from Firebase');
-                    console.log('📦 Products:', products.length);
-                    console.log('📦 Product IDs:', products.map(p => p.id));
-                    console.log('🛍️ Orders:', orders.length);
+                    console.log('âœ… Admin data loaded from Firebase');
+                    console.log('ًں“¦ Products:', products.length);
+                    console.log('ًں“¦ Product IDs:', products.map(p => p.id));
+                    console.log('ًں›چï¸ڈ Orders:', orders.length);
                 } else {
                     throw new Error('Firebase not available');
                 }
             } catch (error) {
-                console.warn('⚠️ Firebase error, using localStorage:', error);
+                console.warn('âڑ ï¸ڈ Firebase error, using localStorage:', error);
                 // Fallback to localStorage
                 products = getStorageData('PRODUCTS') || [];
                 orders = getStorageData('ORDERS') || [];
@@ -1464,7 +1464,7 @@
                 users = getStorageData('CUSTOMERS') || [];
             }
             
-            // كلمة المرور دائماً من localStorage
+            // ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط¯ط§ط¦ظ…ط§ظ‹ ظ…ظ† localStorage
             const saved = getStorageData('SETTINGS');
             if (saved) storeSettings = { ...storeSettings, ...saved };
             
@@ -1511,7 +1511,7 @@
   if (rateLimiter.isBlocked(clientIP)) {
     const blockTime = Math.ceil(rateLimiter.getBlockTimeRemaining(clientIP) / 60000);
     loginError.style.display = 'block';
-    loginError.textContent = `تم حظر المحاولات. حاول مرة أخرى بعد ${blockTime} دقيقة`;
+    loginError.textContent = `طھظ… ط­ط¸ط± ط§ظ„ظ…ط­ط§ظˆظ„ط§طھ. ط­ط§ظˆظ„ ظ…ط±ط© ط£ط®ط±ظ‰ ط¨ط¹ط¯ ${blockTime} ط¯ظ‚ظٹظ‚ط©`;
     return;
   }
 
@@ -1525,7 +1525,7 @@
     if (!user.emailVerified) {
       await firebase.auth().signOut();
       loginError.style.display = 'block';
-      loginError.textContent = '��� ����� ������ ���������� ����� ������ �����';
+      loginError.textContent = 'يجب تفعيل البريد الإلكتروني أولًا للدخول كأدمن';
       return;
     }
 
@@ -1534,7 +1534,7 @@
       rateLimiter.recordAttempt(clientIP);
       const remaining = rateLimiter.getRemainingAttempts(clientIP);
       loginError.style.display = 'block';
-      loginError.textContent = `غير مصرح لك بالدخول. محاولات متبقية: ${remaining}`;
+      loginError.textContent = `ط؛ظٹط± ظ…طµط±ط­ ظ„ظƒ ط¨ط§ظ„ط¯ط®ظˆظ„. ظ…ط­ط§ظˆظ„ط§طھ ظ…طھط¨ظ‚ظٹط©: ${remaining}`;
       return;
     }
 
@@ -1557,9 +1557,9 @@
     initDashboard();
     
     if (!isAdmin && isBootstrapAdmin) {
-      showNotification('info', 'تنبيه أمني', 'الدخول تم بوضع مؤقت. فعّل Custom Claims ثم عطّل ALLOW_BOOTSTRAP_ADMIN.');
+      showNotification('info', 'طھظ†ط¨ظٹظ‡ ط£ظ…ظ†ظٹ', 'ط§ظ„ط¯ط®ظˆظ„ طھظ… ط¨ظˆط¶ط¹ ظ…ط¤ظ‚طھ. ظپط¹ظ‘ظ„ Custom Claims ط«ظ… ط¹ط·ظ‘ظ„ ALLOW_BOOTSTRAP_ADMIN.');
     } else {
-      showNotification('success', 'تم تسجيل الدخول بنجاح');
+      showNotification('success', 'طھظ… طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ط¨ظ†ط¬ط§ط­');
     }
 
   }catch(err){
@@ -1567,7 +1567,7 @@
     rateLimiter.recordAttempt(clientIP);
     const remaining = rateLimiter.getRemainingAttempts(clientIP);
     loginError.style.display='block';
-    loginError.textContent = `بيانات الدخول غير صحيحة. محاولات متبقية: ${remaining}`;
+    loginError.textContent = `ط¨ظٹط§ظ†ط§طھ ط§ظ„ط¯ط®ظˆظ„ ط؛ظٹط± طµط­ظٹط­ط©. ظ…ط­ط§ظˆظ„ط§طھ ظ…طھط¨ظ‚ظٹط©: ${remaining}`;
   }
 }
 
@@ -1578,7 +1578,7 @@ async function sendVerificationLink() {
 
   if (!email || !pass) {
     loginError.style.display = 'block';
-    loginError.textContent = 'أدخل البريد الإلكتروني وكلمة المرور لإرسال رابط التحقق';
+    loginError.textContent = 'ط£ط¯ط®ظ„ ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ ظˆظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ظ„ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· ط§ظ„طھط­ظ‚ظ‚';
     return;
   }
 
@@ -1586,16 +1586,16 @@ async function sendVerificationLink() {
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
     const user = userCred.user;
     if (user.emailVerified) {
-      showNotification('info', 'الحساب موثّق', 'لا حاجة لإرسال رابط تحقق');
+      showNotification('info', 'ط§ظ„ط­ط³ط§ط¨ ظ…ظˆط«ظ‘ظ‚', 'ظ„ط§ ط­ط§ط¬ط© ظ„ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· طھط­ظ‚ظ‚');
     } else {
       await user.sendEmailVerification();
-      showNotification('success', 'تم الإرسال', 'تم إرسال رابط التحقق إلى بريدك');
+      showNotification('success', 'طھظ… ط§ظ„ط¥ط±ط³ط§ظ„', 'طھظ… ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· ط§ظ„طھط­ظ‚ظ‚ ط¥ظ„ظ‰ ط¨ط±ظٹط¯ظƒ');
     }
     await firebase.auth().signOut();
   } catch (err) {
     console.error(err);
     loginError.style.display = 'block';
-    loginError.textContent = 'فشل إرسال رابط التحقق. تأكد من البيانات.';
+    loginError.textContent = 'ظپط´ظ„ ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· ط§ظ„طھط­ظ‚ظ‚. طھط£ظƒط¯ ظ…ظ† ط§ظ„ط¨ظٹط§ظ†ط§طھ.';
   }
 }
 
@@ -1605,17 +1605,17 @@ async function sendPasswordReset() {
 
   if (!email) {
     loginError.style.display = 'block';
-    loginError.textContent = 'أدخل البريد الإلكتروني أولاً';
+    loginError.textContent = 'ط£ط¯ط®ظ„ ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ ط£ظˆظ„ط§ظ‹';
     return;
   }
 
   try {
     await firebase.auth().sendPasswordResetEmail(email);
-    showNotification('success', 'تم الإرسال', 'تم إرسال رابط استعادة كلمة المرور إلى بريدك');
+    showNotification('success', 'طھظ… ط§ظ„ط¥ط±ط³ط§ظ„', 'طھظ… ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· ط§ط³طھط¹ط§ط¯ط© ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط¥ظ„ظ‰ ط¨ط±ظٹط¯ظƒ');
   } catch (err) {
     console.error(err);
     loginError.style.display = 'block';
-    loginError.textContent = 'فشل إرسال رابط الاستعادة. تأكد من البريد.';
+    loginError.textContent = 'ظپط´ظ„ ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· ط§ظ„ط§ط³طھط¹ط§ط¯ط©. طھط£ظƒط¯ ظ…ظ† ط§ظ„ط¨ط±ظٹط¯.';
   }
 }
 
@@ -1671,7 +1671,7 @@ function adminLogout(){
     firebase.auth().signOut();
   }
   
-  showNotification('info', 'تم تسجيل الخروج بنجاح');
+  showNotification('info', 'طھظ… طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬ ط¨ظ†ط¬ط§ط­');
   location.reload();
 }
 
@@ -1731,16 +1731,16 @@ function adminLogout(){
         function renderProductsTable() {
             const tbody = document.getElementById('productsTable');
             if (products.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">📦</div><p>لا توجد منتجات</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">ًں“¦</div><p>ظ„ط§ طھظˆط¬ط¯ ظ…ظ†طھط¬ط§طھ</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = products.map(p => `
                 <tr>
                     <td><div class="product-cell"><img src="${sanitizeImageUrl(p.image)}" class="product-img" onerror="this.src='${sanitizeImageUrl('')}'"><div><strong>${p.name}</strong></div></div></td>
                     <td>${getCategoryName(p.category)}</td>
-                    <td><strong>${p.price} ج.م</strong></td>
-                    <td>⭐ ${(p.rating || 0).toFixed(1)}</td>
-                    <td><div class="action-btns"><button class="action-btn edit" onclick="editProduct('${p.id}')">✏️</button><button class="action-btn delete" onclick="deleteProduct('${p.id}')">🗑️</button></div></td>
+                    <td><strong>${p.price} ط¬.ظ…</strong></td>
+                    <td>â­گ ${(p.rating || 0).toFixed(1)}</td>
+                    <td><div class="action-btns"><button class="action-btn edit" onclick="editProduct('${p.id}')">âœڈï¸ڈ</button><button class="action-btn delete" onclick="deleteProduct('${p.id}')">ًں—‘ï¸ڈ</button></div></td>
                 </tr>
             `).join('');
         }
@@ -1762,7 +1762,7 @@ function adminLogout(){
         }
 
         async function sanitizeAllImages() {
-            if (!confirm('هل تريد استبدال كل الصور الخارجية ببدائل محلية؟')) return;
+            if (!confirm('ظ‡ظ„ طھط±ظٹط¯ ط§ط³طھط¨ط¯ط§ظ„ ظƒظ„ ط§ظ„طµظˆط± ط§ظ„ط®ط§ط±ط¬ظٹط© ط¨ط¨ط¯ط§ط¦ظ„ ظ…ط­ظ„ظٹط©طں')) return;
 
             const productPlaceholder = './assets/placeholder.svg';
             const bannerPlaceholder = './assets/banner-placeholder.svg';
@@ -1816,11 +1816,11 @@ function adminLogout(){
 
             renderProductsTable();
             renderBannersTable();
-            showNotification('success', 'تم تنظيف الصور', `تم تحديث ${productsUpdated} منتج و ${bannersUpdated} بانر`);
+            showNotification('success', 'طھظ… طھظ†ط¸ظٹظپ ط§ظ„طµظˆط±', `طھظ… طھط­ط¯ظٹط« ${productsUpdated} ظ…ظ†طھط¬ ظˆ ${bannersUpdated} ط¨ط§ظ†ط±`);
         }
 
         function getCategoryName(cat) {
-            const names = { 'hair-care': 'شعر', 'skin-care': 'بشرة', 'baby-care': 'طفل', 'supplements': 'مكملات', 'medical': 'طبي' };
+            const names = { 'hair-care': 'ط´ط¹ط±', 'skin-care': 'ط¨ط´ط±ط©', 'baby-care': 'ط·ظپظ„', 'supplements': 'ظ…ظƒظ…ظ„ط§طھ', 'medical': 'ط·ط¨ظٹ' };
             return names[cat] || cat;
         }
 
@@ -1829,7 +1829,7 @@ function adminLogout(){
             const id = document.getElementById('productId').value.trim();
             const imageUrl = document.getElementById('finalImg').value || document.getElementById('manualImg').value;
             if (!imageUrl) {
-        showNotification('error', '❌ الصورة مطلوبة', 'يرجى رفع صورة أو إدخال رابط');
+        showNotification('error', 'â‌Œ ط§ظ„طµظˆط±ط© ظ…ط·ظ„ظˆط¨ط©', 'ظٹط±ط¬ظ‰ ط±ظپط¹ طµظˆط±ط© ط£ظˆ ط¥ط¯ط®ط§ظ„ ط±ط§ط¨ط·');
         return;
     }
     
@@ -1839,14 +1839,14 @@ function adminLogout(){
         category: document.getElementById('productCategory').value,
         price: parseFloat(document.getElementById('productPrice').value),
         oldPrice: parseFloat(document.getElementById('productOldPrice').value) || null,
-        image: imageUrl, // ← هنا استخدمنا المتغير الجديد
+        image: imageUrl, // â†گ ظ‡ظ†ط§ ط§ط³طھط®ط¯ظ…ظ†ط§ ط§ظ„ظ…طھط؛ظٹط± ط§ظ„ط¬ط¯ظٹط¯
         rating: 4.5,
         ratingCount: 0
     };
             try {
                 await requireAdminPermission();
                 if (id) {
-                    // ����� ���� �����
+                    // تحديث منتج موجود
                     const idx = products.findIndex(p => String(p.id) === String(id));
                     if (idx !== -1) {
                         products[idx] = { ...products[idx], ...data };
@@ -1854,9 +1854,9 @@ function adminLogout(){
                             await updateProduct(id, { ...products[idx] });
                         }
                     }
-                    showNotification('success', '�� ������� �����');
+                    showNotification('success', 'تم التحديث بنجاح');
                 } else {
-                    // ����� ���� ����
+                    // إضافة منتج جديد
                     if (typeof addProduct === 'function') {
                         const firebaseId = await addProduct(data);
                         data.id = firebaseId;
@@ -1864,11 +1864,11 @@ function adminLogout(){
                         data.id = Date.now().toString();
                     }
                     products.push(data);
-                    showNotification('success', '��� ������� �����');
+                    showNotification('success', 'تمت الإضافة بنجاح');
                 }
             } catch (error) {
                 console.error('Firebase save error:', error);
-                showNotification('error', '��� �����', '�� ���� ������� �� ���� ��� ��������');
+                showNotification('error', 'فشل الحفظ', 'لا تملك صلاحيات أو يوجد خطأ بالاتصال');
                 return;
             }
 
@@ -1890,12 +1890,12 @@ function adminLogout(){
   document.getElementById('productPrice').value = p.price ?? '';
   document.getElementById('productOldPrice').value = p.oldPrice ?? '';
 
-  // ✅ الصورة
+  // âœ… ط§ظ„طµظˆط±ط©
   const img = p.image || '';
   document.getElementById('finalImg').value = img;
   document.getElementById('manualImg').value = img;
 
-  // ✅ معاينة الصورة (اختياري)
+  // âœ… ظ…ط¹ط§ظٹظ†ط© ط§ظ„طµظˆط±ط© (ط§ط®طھظٹط§ط±ظٹ)
   const preview = document.getElementById('imgPreview');
   if (preview) {
     const safeImg = img ? sanitizeImageUrl(img) : '';
@@ -1904,16 +1904,16 @@ function adminLogout(){
       : '';
   }
 
-  // (اختياري) تصفير اختيار الملف عشان لو هيرفع صورة جديدة
+  // (ط§ط®طھظٹط§ط±ظٹ) طھطµظپظٹط± ط§ط®طھظٹط§ط± ط§ظ„ظ…ظ„ظپ ط¹ط´ط§ظ† ظ„ظˆ ظ‡ظٹط±ظپط¹ طµظˆط±ط© ط¬ط¯ظٹط¯ط©
   const fileInput = document.getElementById('imgFile');
   if (fileInput) fileInput.value = '';
 
-  document.getElementById('productModalTitle').textContent = '✏️ تعديل';
+  document.getElementById('productModalTitle').textContent = 'âœڈï¸ڈ طھط¹ط¯ظٹظ„';
   openModal('productModal');
 }
 
         async function deleteProduct(id) {
-            if (!confirm('��� �����̿')) return;
+            if (!confirm('حذف المنتج؟')) return;
             try {
                 await requireAdminPermission();
                 if (typeof deleteProductFromFirebase === 'function') {
@@ -1923,16 +1923,16 @@ function adminLogout(){
                 saveProducts();
                 renderProductsTable();
                 updateStats();
-                showNotification('success', '�� ����� ?');
+                showNotification('success', 'تم الحذف ?');
             } catch (error) {
                 console.error('Firebase delete error:', error);
-                showNotification('error', '��� �����', '�� ���� ������� �� ���� ��� ��������');
+                showNotification('error', 'فشل الحذف', 'لا تملك صلاحيات أو يوجد خطأ بالاتصال');
             }
         }
 
 
         function resetProductForm() {
-  // IDs الجديدة + الأساسية
+  // IDs ط§ظ„ط¬ط¯ظٹط¯ط© + ط§ظ„ط£ط³ط§ط³ظٹط©
   const idsToClear = [
     'productId',
     'productName',
@@ -1941,7 +1941,7 @@ function adminLogout(){
     'productPrice',
     'productOldPrice',
 
-    // نظام الصورة الجديد
+    // ظ†ط¸ط§ظ… ط§ظ„طµظˆط±ط© ط§ظ„ط¬ط¯ظٹط¯
     'manualImg',
     'finalImg',
     'imgFile'
@@ -1949,17 +1949,17 @@ function adminLogout(){
 
   idsToClear.forEach((id) => {
     const el = document.getElementById(id);
-    if (!el) return; // ✅ لو العنصر مش موجود ما نعملش خطأ
+    if (!el) return; // âœ… ظ„ظˆ ط§ظ„ط¹ظ†طµط± ظ…ط´ ظ…ظˆط¬ظˆط¯ ظ…ط§ ظ†ط¹ظ…ظ„ط´ ط®ط·ط£
 
     if (el.type === 'file') el.value = '';
     else el.value = '';
   });
 
-  // مسح المعاينة
+  // ظ…ط³ط­ ط§ظ„ظ…ط¹ط§ظٹظ†ط©
   const preview = document.getElementById('imgPreview');
   if (preview) preview.innerHTML = '';
 
-  // (توافق مع IDs قديمة لو موجودة عندك في أي جزء)
+  // (طھظˆط§ظپظ‚ ظ…ط¹ IDs ظ‚ط¯ظٹظ…ط© ظ„ظˆ ظ…ظˆط¬ظˆط¯ط© ط¹ظ†ط¯ظƒ ظپظٹ ط£ظٹ ط¬ط²ط،)
   const legacy = ['productImage', 'productImageUrl', 'imagePreviewContainer', 'uploadStatus'];
   legacy.forEach((id) => {
     const el = document.getElementById(id);
@@ -1968,9 +1968,9 @@ function adminLogout(){
     else el.value = '';
   });
 
-  // عنوان المودال يرجع افتراضي
+  // ط¹ظ†ظˆط§ظ† ط§ظ„ظ…ظˆط¯ط§ظ„ ظٹط±ط¬ط¹ ط§ظپطھط±ط§ط¶ظٹ
   const title = document.getElementById('productModalTitle');
-  if (title) title.textContent = '➕ منتج جديد';
+  if (title) title.textContent = 'â‍• ظ…ظ†طھط¬ ط¬ط¯ظٹط¯';
 }
 
         // ============================================
@@ -1979,7 +1979,7 @@ function adminLogout(){
         function renderOrdersTable() {
             const tbody = document.getElementById('ordersTable');
             if (orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🛍️</div><p>لا توجد طلبات</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">ًں›چï¸ڈ</div><p>ظ„ط§ طھظˆط¬ط¯ ط·ظ„ط¨ط§طھ</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = orders.map(o => `
@@ -1987,13 +1987,13 @@ function adminLogout(){
                     <td><strong>${o.orderNumber || o.id}</strong></td>
                     <td>${o.customer?.name || '-'}</td>
                     <td>${o.customer?.phone || '-'}</td>
-                    <td><strong>${o.total || 0} ج.م</strong></td>
+                    <td><strong>${o.total || 0} ط¬.ظ…</strong></td>
                     <td><span class="status-badge status-${o.status}">${getStatusName(o.status)}</span></td>
                     <td>${formatDate(o.createdAt)}</td>
                     <td>
                         <div class="action-btns">
-                            <button class="action-btn view" onclick="viewOrder(${o.id})">👁️</button>
-                            <button class="action-btn delete" onclick="deleteOrder('${o.id}')">🗑️</button>
+                            <button class="action-btn view" onclick="viewOrder(${o.id})">ًں‘پï¸ڈ</button>
+                            <button class="action-btn delete" onclick="deleteOrder('${o.id}')">ًں—‘ï¸ڈ</button>
                         </div>
                     </td>
                 </tr>
@@ -2004,14 +2004,14 @@ function adminLogout(){
             const tbody = document.getElementById('recentOrdersTable');
             const recent = orders.slice(-5).reverse();
             if (recent.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">لا توجد طلبات</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">ظ„ط§ طھظˆط¬ط¯ ط·ظ„ط¨ط§طھ</td></tr>';
                 return;
             }
             tbody.innerHTML = recent.map(o => `
                 <tr>
                     <td><strong>${o.orderNumber || o.id}</strong></td>
                     <td>${o.customer?.name || '-'}</td>
-                    <td><strong>${o.total || 0} ج.م</strong></td>
+                    <td><strong>${o.total || 0} ط¬.ظ…</strong></td>
                     <td><span class="status-badge status-${o.status}">${getStatusName(o.status)}</span></td>
                     <td>${formatDate(o.createdAt)}</td>
                 </tr>
@@ -2019,7 +2019,7 @@ function adminLogout(){
         }
 
         function getStatusName(s) {
-            const names = { pending: 'جديد', confirmed: 'مؤكد', processing: 'تجهيز', shipped: 'شحن', delivered: 'توصيل', completed: 'مكتمل', cancelled: 'ملغي' };
+            const names = { pending: 'ط¬ط¯ظٹط¯', confirmed: 'ظ…ط¤ظƒط¯', processing: 'طھط¬ظ‡ظٹط²', shipped: 'ط´ط­ظ†', delivered: 'طھظˆطµظٹظ„', completed: 'ظ…ظƒطھظ…ظ„', cancelled: 'ظ…ظ„ط؛ظٹ' };
             return names[s] || s;
         }
 
@@ -2034,53 +2034,53 @@ function adminLogout(){
 
             let itemsHtml = o.items?.map(i => `
                 <div class="order-item">
-                    <span>${i.name} × ${i.quantity}</span>
-                    <strong>${i.price * i.quantity} ج.م</strong>
+                    <span>${i.name} أ— ${i.quantity}</span>
+                    <strong>${i.price * i.quantity} ط¬.ظ…</strong>
                 </div>
             `).join('') || '';
 
             document.getElementById('orderModalBody').innerHTML = `
                 <div class="order-detail-section">
-                    <h4>📋 الطلب</h4>
-                    <p><strong>رقم:</strong> ${o.orderNumber || o.id}</p>
-                    <p><strong>التاريخ:</strong> ${formatDate(o.createdAt)}</p>
-                    <p><strong>الحالة:</strong> 
+                    <h4>ًں“‹ ط§ظ„ط·ظ„ط¨</h4>
+                    <p><strong>ط±ظ‚ظ…:</strong> ${o.orderNumber || o.id}</p>
+                    <p><strong>ط§ظ„طھط§ط±ظٹط®:</strong> ${formatDate(o.createdAt)}</p>
+                    <p><strong>ط§ظ„ط­ط§ظ„ط©:</strong> 
                         <select class="status-select" onchange="updateOrderStatus(${o.id}, this.value)">
-                            <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>جديد</option>
-                            <option value="confirmed" ${o.status === 'confirmed' ? 'selected' : ''}>مؤكد</option>
-                            <option value="processing" ${o.status === 'processing' ? 'selected' : ''}>تجهيز</option>
-                            <option value="shipped" ${o.status === 'shipped' ? 'selected' : ''}>شحن</option>
-                            <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>توصيل</option>
-                            <option value="completed" ${o.status === 'completed' ? 'selected' : ''}>مكتمل</option>
-                            <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>ملغي</option>
+                            <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>ط¬ط¯ظٹط¯</option>
+                            <option value="confirmed" ${o.status === 'confirmed' ? 'selected' : ''}>ظ…ط¤ظƒط¯</option>
+                            <option value="processing" ${o.status === 'processing' ? 'selected' : ''}>طھط¬ظ‡ظٹط²</option>
+                            <option value="shipped" ${o.status === 'shipped' ? 'selected' : ''}>ط´ط­ظ†</option>
+                            <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>طھظˆطµظٹظ„</option>
+                            <option value="completed" ${o.status === 'completed' ? 'selected' : ''}>ظ…ظƒطھظ…ظ„</option>
+                            <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>ظ…ظ„ط؛ظٹ</option>
                         </select>
                     </p>
                 </div>
 
                 <div class="order-detail-section">
-                    <h4>👤 العميل</h4>
-                    <p><strong>الاسم:</strong> ${o.customer?.name}</p>
-                    <p><strong>الهاتف:</strong> ${o.customer?.phone}</p>
-                    <p><strong>العنوان:</strong> ${o.customer?.address}</p>
-                    ${o.customer?.notes ? `<p><strong>ملاحظات:</strong> ${o.customer.notes}</p>` : ''}
+                    <h4>ًں‘¤ ط§ظ„ط¹ظ…ظٹظ„</h4>
+                    <p><strong>ط§ظ„ط§ط³ظ…:</strong> ${o.customer?.name}</p>
+                    <p><strong>ط§ظ„ظ‡ط§طھظپ:</strong> ${o.customer?.phone}</p>
+                    <p><strong>ط§ظ„ط¹ظ†ظˆط§ظ†:</strong> ${o.customer?.address}</p>
+                    ${o.customer?.notes ? `<p><strong>ظ…ظ„ط§ط­ط¸ط§طھ:</strong> ${o.customer.notes}</p>` : ''}
                 </div>
 
                 <div class="order-detail-section">
-                    <h4>📦 المنتجات</h4>
-                    ${itemsHtml || '<p>لا توجد</p>'}
+                    <h4>ًں“¦ ط§ظ„ظ…ظ†طھط¬ط§طھ</h4>
+                    ${itemsHtml || '<p>ظ„ط§ طھظˆط¬ط¯</p>'}
                     
                     <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #ddd;">
-                        <div class="order-item"><span>المجموع:</span><span>${o.subtotal || 0} ج.م</span></div>
-                        ${o.couponCode ? `<div class="order-item" style="color: var(--success);"><span>🎫 ${o.couponCode}</span><span>- ${o.discount || 0} ج.م</span></div>` : ''}
-                        ${o.usedPoints > 0 ? `<div class="order-item" style="color: var(--info);"><span>💎 نقاط (${o.usedPoints})</span><span>- ${o.pointsDiscount || 0} ج.م</span></div>` : ''}
-                        ${o.earnedPoints > 0 ? `<div class="order-item" style="color: var(--burgundy);"><span>⭐ نقاط مكتسبة</span><span>+${o.earnedPoints}</span></div>` : ''}
+                        <div class="order-item"><span>ط§ظ„ظ…ط¬ظ…ظˆط¹:</span><span>${o.subtotal || 0} ط¬.ظ…</span></div>
+                        ${o.couponCode ? `<div class="order-item" style="color: var(--success);"><span>ًںژ« ${o.couponCode}</span><span>- ${o.discount || 0} ط¬.ظ…</span></div>` : ''}
+                        ${o.usedPoints > 0 ? `<div class="order-item" style="color: var(--info);"><span>ًں’ژ ظ†ظ‚ط§ط· (${o.usedPoints})</span><span>- ${o.pointsDiscount || 0} ط¬.ظ…</span></div>` : ''}
+                        ${o.earnedPoints > 0 ? `<div class="order-item" style="color: var(--burgundy);"><span>â­گ ظ†ظ‚ط§ط· ظ…ظƒطھط³ط¨ط©</span><span>+${o.earnedPoints}</span></div>` : ''}
                     </div>
-                    <div class="order-total"><span>الإجمالي:</span><span>${o.total || 0} ج.م</span></div>
+                    <div class="order-total"><span>ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ:</span><span>${o.total || 0} ط¬.ظ…</span></div>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button class="btn btn-navy" onclick="printOrder(${o.id})" style="flex: 1;">🖨️ طباعة</button>
-                    <button class="btn btn-success" onclick="sendWhatsAppUpdate(${o.id})" style="flex: 1;">💬 واتساب</button>
+                    <button class="btn btn-navy" onclick="printOrder(${o.id})" style="flex: 1;">ًں–¨ï¸ڈ ط·ط¨ط§ط¹ط©</button>
+                    <button class="btn btn-success" onclick="sendWhatsAppUpdate(${o.id})" style="flex: 1;">ًں’¬ ظˆط§طھط³ط§ط¨</button>
                 </div>
             `;
             openModal('orderModal');
@@ -2096,14 +2096,14 @@ function adminLogout(){
             renderOrdersTable();
             renderRecentOrders();
             updateBadges();
-            showNotification('success', 'تم تحديث الحالة');
+            showNotification('success', 'طھظ… طھط­ط¯ظٹط« ط§ظ„ط­ط§ظ„ط©');
         }
 
         function sendWhatsAppUpdate(id) {
             const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
             const phone = o.customer?.phone || '';
-            const msg = `مرحباً ${o.customer?.name}!\n\n📦 طلبك رقم: ${o.orderNumber}\n📍 الحالة: ${getStatusName(o.status)}\n\nشكراً لتسوقك معنا! 🛍️`;
+            const msg = `ظ…ط±ط­ط¨ط§ظ‹ ${o.customer?.name}!\n\nًں“¦ ط·ظ„ط¨ظƒ ط±ظ‚ظ…: ${o.orderNumber}\nًں“چ ط§ظ„ط­ط§ظ„ط©: ${getStatusName(o.status)}\n\nط´ظƒط±ط§ظ‹ ظ„طھط³ظˆظ‚ظƒ ظ…ط¹ظ†ط§! ًں›چï¸ڈ`;
             window.open(`https://wa.me/2${phone}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -2113,20 +2113,20 @@ function adminLogout(){
             const w = window.open('', '_blank');
             w.document.write(`
                 <!DOCTYPE html>
-                <html dir="rtl"><head><title>فاتورة ${o.orderNumber}</title>
+                <html dir="rtl"><head><title>ظپط§طھظˆط±ط© ${o.orderNumber}</title>
                 <style>body{font-family:Arial;padding:20px}h1{color:#D4AF37;text-align:center}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#f5f5f5;font-weight:700;color:#0A1128}.total{font-size:20px;font-weight:bold}</style></head>
                 <body>
                 <h1>Sale Zone Store</h1>
-                <h2>فاتورة: ${o.orderNumber}</h2>
-                <p><strong>التاريخ:</strong> ${formatDate(o.createdAt)}</p>
-                <p><strong>العميل:</strong> ${o.customer?.name}</p>
-                <p><strong>الهاتف:</strong> ${o.customer?.phone}</p>
-                <p><strong>العنوان:</strong> ${o.customer?.address}</p>
-                <table><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>
+                <h2>ظپط§طھظˆط±ط©: ${o.orderNumber}</h2>
+                <p><strong>ط§ظ„طھط§ط±ظٹط®:</strong> ${formatDate(o.createdAt)}</p>
+                <p><strong>ط§ظ„ط¹ظ…ظٹظ„:</strong> ${o.customer?.name}</p>
+                <p><strong>ط§ظ„ظ‡ط§طھظپ:</strong> ${o.customer?.phone}</p>
+                <p><strong>ط§ظ„ط¹ظ†ظˆط§ظ†:</strong> ${o.customer?.address}</p>
+                <table><tr><th>ط§ظ„ظ…ظ†طھط¬</th><th>ط§ظ„ظƒظ…ظٹط©</th><th>ط§ظ„ط³ط¹ط±</th><th>ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ</th></tr>
                 ${o.items?.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${i.price}</td><td>${i.price * i.quantity}</td></tr>`).join('')}
                 </table>
-                <p class="total">الإجمالي: ${o.total} ج.م</p>
-                <p style="text-align:center">شكراً لتسوقك معنا! 📞 ${storeSettings.contact?.phone}</p>
+                <p class="total">ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ: ${o.total} ط¬.ظ…</p>
+                <p style="text-align:center">ط´ظƒط±ط§ظ‹ ظ„طھط³ظˆظ‚ظƒ ظ…ط¹ظ†ط§! ًں“‍ ${storeSettings.contact?.phone}</p>
                 </body></html>
             `);
             w.document.close();
@@ -2134,13 +2134,13 @@ function adminLogout(){
         }
 
         function deleteOrder(id) {
-            if (!confirm('حذف الطلب؟')) return;
+            if (!confirm('ط­ط°ظپ ط§ظ„ط·ظ„ط¨طں')) return;
             orders = orders.filter(o => String(o.id) !== String(id));
             saveOrders();
             renderOrdersTable();
             renderRecentOrders();
             updateStats();
-            showNotification('success', 'تم الحذف');
+            showNotification('success', 'طھظ… ط§ظ„ط­ط°ظپ');
         }
 
         // ============================================
@@ -2149,16 +2149,16 @@ function adminLogout(){
         function renderBannersTable() {
             const tbody = document.getElementById('bannersTable');
             if (banners.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎠</div><p>لا توجد بانرات</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">ًںژ </div><p>ظ„ط§ طھظˆط¬ط¯ ط¨ط§ظ†ط±ط§طھ</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = banners.map(b => `
                 <tr>
-                    <td style="font-size: 24px;">${b.icon || '🎉'}</td>
+                    <td style="font-size: 24px;">${b.icon || 'ًںژ‰'}</td>
                     <td><strong>${b.title}</strong></td>
                     <td>${b.text || '-'}</td>
-                    <td>${getCategoryName(b.category) || 'الكل'}</td>
-                    <td><button class="action-btn delete" onclick="deleteBanner('${b.id}')">🗑️</button></td>
+                    <td>${getCategoryName(b.category) || 'ط§ظ„ظƒظ„'}</td>
+                    <td><button class="action-btn delete" onclick="deleteBanner('${b.id}')">ًں—‘ï¸ڈ</button></td>
                 </tr>
             `).join('');
         }
@@ -2167,10 +2167,10 @@ function adminLogout(){
             e.preventDefault();
             const data = {
                 id: Date.now(),
-                icon: document.getElementById('bannerIcon').value || '🎉',
+                icon: document.getElementById('bannerIcon').value || 'ًںژ‰',
                 title: document.getElementById('bannerTitle').value.trim(),
                 text: document.getElementById('bannerText').value.trim(),
-                btn: document.getElementById('bannerBtn').value.trim() || 'تسوق الآن',
+                btn: document.getElementById('bannerBtn').value.trim() || 'طھط³ظˆظ‚ ط§ظ„ط¢ظ†',
                 category: document.getElementById('bannerCategory').value
             };
             try {
@@ -2183,7 +2183,7 @@ function adminLogout(){
             saveBanners();
             renderBannersTable();
             closeModal('bannerModal');
-            showNotification('success', 'تمت الإضافة ✅');
+            showNotification('success', 'طھظ…طھ ط§ظ„ط¥ط¶ط§ظپط© âœ…');
             document.getElementById('bannerIcon').value = '';
             document.getElementById('bannerTitle').value = '';
             document.getElementById('bannerText').value = '';
@@ -2191,7 +2191,7 @@ function adminLogout(){
         }
 
         async function deleteBanner(id) {
-            if (!confirm('حذف البانر؟')) return;
+            if (!confirm('ط­ط°ظپ ط§ظ„ط¨ط§ظ†ط±طں')) return;
             try {
                 if (typeof deleteBannerFromFirebase === 'function') {
                     await deleteBannerFromFirebase(id);
@@ -2200,7 +2200,7 @@ function adminLogout(){
             banners = banners.filter(b => String(b.id) !== String(id));
             saveBanners();
             renderBannersTable();
-            showNotification('success', 'تم الحذف ✅');
+            showNotification('success', 'طھظ… ط§ظ„ط­ط°ظپ âœ…');
         }
 
         // ============================================
@@ -2209,16 +2209,16 @@ function adminLogout(){
         function renderCouponsTable() {
             const tbody = document.getElementById('couponsTable');
             if (coupons.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎫</div><p>لا توجد كوبونات</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">ًںژ«</div><p>ظ„ط§ طھظˆط¬ط¯ ظƒظˆط¨ظˆظ†ط§طھ</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = coupons.map(c => `
                 <tr>
                     <td><strong style="color: var(--burgundy);">${c.code}</strong></td>
                     <td>${c.desc}</td>
-                    <td>${c.type === 'percentage' ? 'نسبة' : 'ثابت'}</td>
-                    <td><strong>${c.value}${c.type === 'percentage' ? '%' : ' ج.م'}</strong></td>
-                    <td><button class="action-btn delete" onclick="deleteCoupon('${c.id}')">🗑️</button></td>
+                    <td>${c.type === 'percentage' ? 'ظ†ط³ط¨ط©' : 'ط«ط§ط¨طھ'}</td>
+                    <td><strong>${c.value}${c.type === 'percentage' ? '%' : ' ط¬.ظ…'}</strong></td>
+                    <td><button class="action-btn delete" onclick="deleteCoupon('${c.id}')">ًں—‘ï¸ڈ</button></td>
                 </tr>
             `).join('');
         }
@@ -2227,7 +2227,7 @@ function adminLogout(){
             e.preventDefault();
             const code = document.getElementById('couponCode').value.trim().toUpperCase();
             if (coupons.find(c => c.code === code)) {
-                showNotification('error', 'الكود موجود');
+                showNotification('error', 'ط§ظ„ظƒظˆط¯ ظ…ظˆط¬ظˆط¯');
                 return;
             }
             coupons.push({
@@ -2240,14 +2240,14 @@ function adminLogout(){
             saveCoupons();
             renderCouponsTable();
             closeModal('couponModal');
-            showNotification('success', 'تمت الإضافة');
+            showNotification('success', 'طھظ…طھ ط§ظ„ط¥ط¶ط§ظپط©');
             document.getElementById('couponCode').value = '';
             document.getElementById('couponDesc').value = '';
             document.getElementById('couponValue').value = '';
         }
 
         async function deleteCoupon(id) {
-            if (!confirm('حذف الكوبون؟')) return;
+            if (!confirm('ط­ط°ظپ ط§ظ„ظƒظˆط¨ظˆظ†طں')) return;
             try {
                 if (typeof deleteCouponFromFirebase === 'function') {
                     await deleteCouponFromFirebase(id);
@@ -2256,7 +2256,7 @@ function adminLogout(){
             coupons = coupons.filter(c => String(c.id) !== String(id));
             saveCoupons();
             renderCouponsTable();
-            showNotification('success', 'تم الحذف ✅');
+            showNotification('success', 'طھظ… ط§ظ„ط­ط°ظپ âœ…');
         }
 
         // ============================================
@@ -2265,7 +2265,7 @@ function adminLogout(){
         function renderUsersTable() {
             const tbody = document.getElementById('usersTable');
             if (users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👥</div><p>لا يوجد عملاء</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">ًں‘¥</div><p>ظ„ط§ ظٹظˆط¬ط¯ ط¹ظ…ظ„ط§ط،</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = users.map(u => `
@@ -2293,8 +2293,8 @@ function adminLogout(){
             const select = document.getElementById('pointsUserId');
 
             if (users.length === 0) {
-                list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><p>لا يوجد عملاء</p></div>';
-                select.innerHTML = '<option value="">لا يوجد</option>';
+                list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">ًں‘¥</div><p>ظ„ط§ ظٹظˆط¬ط¯ ط¹ظ…ظ„ط§ط،</p></div>';
+                select.innerHTML = '<option value="">ظ„ط§ ظٹظˆط¬ط¯</option>';
                 return;
             }
 
@@ -2306,13 +2306,13 @@ function adminLogout(){
                     </div>
                     <strong style="color: var(--gold-dark); font-size: 18px;">${u.loyaltyPoints || 0}</strong>
                     <div class="user-points-actions">
-                        <button class="points-btn add" onclick="quickAddPoints(${u.id})">➕</button>
-                        <button class="points-btn sub" onclick="quickSubPoints(${u.id})">➖</button>
+                        <button class="points-btn add" onclick="quickAddPoints(${u.id})">â‍•</button>
+                        <button class="points-btn sub" onclick="quickSubPoints(${u.id})">â‍–</button>
                     </div>
                 </div>
             `).join('');
 
-            select.innerHTML = '<option value="">اختر</option>' + users.map(u => `<option value="${u.id}">${u.name} (${u.loyaltyPoints || 0})</option>`).join('');
+            select.innerHTML = '<option value="">ط§ط®طھط±</option>' + users.map(u => `<option value="${u.id}">${u.name} (${u.loyaltyPoints || 0})</option>`).join('');
         }
 
         function saveLoyaltySettings(e) {
@@ -2323,11 +2323,11 @@ function adminLogout(){
             };
             saveStoreSettings();
             renderLoyaltySection();
-            showNotification('success', 'تم الحفظ');
+            showNotification('success', 'طھظ… ط§ظ„ط­ظپط¸');
         }
 
         function quickAddPoints(userId) {
-            const pts = prompt('عدد النقاط:');
+            const pts = prompt('ط¹ط¯ط¯ ط§ظ„ظ†ظ‚ط§ط·:');
             if (pts && !isNaN(pts)) {
                 const u = users.find(x => x.id === userId);
                 if (u) {
@@ -2336,13 +2336,13 @@ function adminLogout(){
                     renderLoyaltySection();
                     renderUsersTable();
                     updateStats();
-                    showNotification('success', `تم إضافة ${pts} نقطة`);
+                    showNotification('success', `طھظ… ط¥ط¶ط§ظپط© ${pts} ظ†ظ‚ط·ط©`);
                 }
             }
         }
 
         function quickSubPoints(userId) {
-            const pts = prompt('عدد النقاط:');
+            const pts = prompt('ط¹ط¯ط¯ ط§ظ„ظ†ظ‚ط§ط·:');
             if (pts && !isNaN(pts)) {
                 const u = users.find(x => x.id === userId);
                 if (u) {
@@ -2351,7 +2351,7 @@ function adminLogout(){
                     renderLoyaltySection();
                     renderUsersTable();
                     updateStats();
-                    showNotification('success', `تم خصم ${pts} نقطة`);
+                    showNotification('success', `طھظ… ط®طµظ… ${pts} ظ†ظ‚ط·ط©`);
                 }
             }
         }
@@ -2362,7 +2362,7 @@ function adminLogout(){
             const action = document.getElementById('pointsAction').value;
             const amount = parseInt(document.getElementById('pointsAmount').value);
             const u = users.find(x => x.id === userId);
-            if (!u) { showNotification('error', 'اختر عميل'); return; }
+            if (!u) { showNotification('error', 'ط§ط®طھط± ط¹ظ…ظٹظ„'); return; }
             if (action === 'add') u.loyaltyPoints = (u.loyaltyPoints || 0) + amount;
             else u.loyaltyPoints = Math.max(0, (u.loyaltyPoints || 0) - amount);
             saveUsers();
@@ -2370,7 +2370,7 @@ function adminLogout(){
             renderUsersTable();
             updateStats();
             closeModal('pointsModal');
-            showNotification('success', 'تم');
+            showNotification('success', 'طھظ…');
         }
 
         // ============================================
@@ -2401,7 +2401,7 @@ function adminLogout(){
             storeSettings.tagline = document.getElementById('storeTagline').value.trim();
             storeSettings.description = document.getElementById('storeDescription').value.trim();
             saveStoreSettings();
-            showNotification('success', 'تم الحفظ');
+            showNotification('success', 'طھظ… ط§ظ„ط­ظپط¸');
         }
 
         function saveTopBarSettings(e) {
@@ -2413,7 +2413,7 @@ function adminLogout(){
                 textColor: document.getElementById('topBarTextColor').value
             };
             saveStoreSettings();
-            showNotification('success', 'تم الحفظ');
+            showNotification('success', 'طھظ… ط§ظ„ط­ظپط¸');
         }
 
         function saveFooterSettings(e) {
@@ -2426,7 +2426,7 @@ function adminLogout(){
                 copyright: document.getElementById('copyrightText').value.trim()
             };
             saveStoreSettings();
-            showNotification('success', 'تم الحفظ');
+            showNotification('success', 'طھظ… ط§ظ„ط­ظپط¸');
         }
 
         function saveContactSettings(e) {
@@ -2438,7 +2438,7 @@ function adminLogout(){
                 address: document.getElementById('contactAddress').value.trim()
             };
             saveStoreSettings();
-            showNotification('success', 'تم الحفظ');
+            showNotification('success', 'طھظ… ط§ظ„ط­ظپط¸');
         }
 
         function switchTab(name) {
@@ -2452,42 +2452,42 @@ function adminLogout(){
         // Excel Export/Import
         // ============================================
         function exportProductsExcel() {
-            const data = products.map(p => ({ 'الاسم': p.name, 'الوصف': p.desc, 'القسم': getCategoryName(p.category), 'السعر': p.price, 'السعر القديم': p.oldPrice || '', 'التقييم': p.rating, 'الصورة': p.image }));
+            const data = products.map(p => ({ 'ط§ظ„ط§ط³ظ…': p.name, 'ط§ظ„ظˆطµظپ': p.desc, 'ط§ظ„ظ‚ط³ظ…': getCategoryName(p.category), 'ط§ظ„ط³ط¹ط±': p.price, 'ط§ظ„ط³ط¹ط± ط§ظ„ظ‚ط¯ظٹظ…': p.oldPrice || '', 'ط§ظ„طھظ‚ظٹظٹظ…': p.rating, 'ط§ظ„طµظˆط±ط©': p.image }));
             exportToExcel(data, 'products');
         }
 
         function exportOrdersExcel() {
-            const data = orders.map(o => ({ 'رقم': o.orderNumber, 'العميل': o.customer?.name, 'الهاتف': o.customer?.phone, 'العنوان': o.customer?.address, 'المبلغ': o.total, 'الكوبون': o.couponCode || '', 'الخصم': o.discount || 0, 'الحالة': getStatusName(o.status), 'التاريخ': formatDate(o.createdAt) }));
+            const data = orders.map(o => ({ 'ط±ظ‚ظ…': o.orderNumber, 'ط§ظ„ط¹ظ…ظٹظ„': o.customer?.name, 'ط§ظ„ظ‡ط§طھظپ': o.customer?.phone, 'ط§ظ„ط¹ظ†ظˆط§ظ†': o.customer?.address, 'ط§ظ„ظ…ط¨ظ„ط؛': o.total, 'ط§ظ„ظƒظˆط¨ظˆظ†': o.couponCode || '', 'ط§ظ„ط®طµظ…': o.discount || 0, 'ط§ظ„ط­ط§ظ„ط©': getStatusName(o.status), 'ط§ظ„طھط§ط±ظٹط®': formatDate(o.createdAt) }));
             exportToExcel(data, 'orders');
         }
 
         function exportUsersExcel() {
-            const data = users.map(u => ({ 'الاسم': u.name, 'الهاتف': u.phone, 'البريد': u.email || '', 'العنوان': u.address, 'النقاط': u.loyaltyPoints || 0, 'التسجيل': formatDate(u.createdAt) }));
+            const data = users.map(u => ({ 'ط§ظ„ط§ط³ظ…': u.name, 'ط§ظ„ظ‡ط§طھظپ': u.phone, 'ط§ظ„ط¨ط±ظٹط¯': u.email || '', 'ط§ظ„ط¹ظ†ظˆط§ظ†': u.address, 'ط§ظ„ظ†ظ‚ط§ط·': u.loyaltyPoints || 0, 'ط§ظ„طھط³ط¬ظٹظ„': formatDate(u.createdAt) }));
             exportToExcel(data, 'users');
         }
 
         function exportCouponsExcel() {
-            const data = coupons.map(c => ({ 'الكود': c.code, 'الوصف': c.desc, 'النوع': c.type === 'percentage' ? 'نسبة' : 'ثابت', 'القيمة': c.value }));
+            const data = coupons.map(c => ({ 'ط§ظ„ظƒظˆط¯': c.code, 'ط§ظ„ظˆطµظپ': c.desc, 'ط§ظ„ظ†ظˆط¹': c.type === 'percentage' ? 'ظ†ط³ط¨ط©' : 'ط«ط§ط¨طھ', 'ط§ظ„ظ‚ظٹظ…ط©': c.value }));
             exportToExcel(data, 'coupons');
         }
 
         function exportFullReport() {
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(products.map(p => ({ الاسم: p.name, القسم: getCategoryName(p.category), السعر: p.price }))), 'المنتجات');
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orders.map(o => ({ رقم: o.orderNumber, العميل: o.customer?.name, المبلغ: o.total, الحالة: getStatusName(o.status) }))), 'الطلبات');
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users.map(u => ({ الاسم: u.name, الهاتف: u.phone, النقاط: u.loyaltyPoints || 0 }))), 'العملاء');
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ المنتجات: products.length, الطلبات: orders.length, العملاء: users.length, الإيرادات: orders.reduce((s, o) => s + (o.total || 0), 0) }]), 'ملخص');
-            XLSX.writeFile(wb, `تقرير-${Date.now()}.xlsx`);
-            showNotification('success', 'تم التصدير');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(products.map(p => ({ ط§ظ„ط§ط³ظ…: p.name, ط§ظ„ظ‚ط³ظ…: getCategoryName(p.category), ط§ظ„ط³ط¹ط±: p.price }))), 'ط§ظ„ظ…ظ†طھط¬ط§طھ');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orders.map(o => ({ ط±ظ‚ظ…: o.orderNumber, ط§ظ„ط¹ظ…ظٹظ„: o.customer?.name, ط§ظ„ظ…ط¨ظ„ط؛: o.total, ط§ظ„ط­ط§ظ„ط©: getStatusName(o.status) }))), 'ط§ظ„ط·ظ„ط¨ط§طھ');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users.map(u => ({ ط§ظ„ط§ط³ظ…: u.name, ط§ظ„ظ‡ط§طھظپ: u.phone, ط§ظ„ظ†ظ‚ط§ط·: u.loyaltyPoints || 0 }))), 'ط§ظ„ط¹ظ…ظ„ط§ط،');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ط§ظ„ظ…ظ†طھط¬ط§طھ: products.length, ط§ظ„ط·ظ„ط¨ط§طھ: orders.length, ط§ظ„ط¹ظ…ظ„ط§ط،: users.length, ط§ظ„ط¥ظٹط±ط§ط¯ط§طھ: orders.reduce((s, o) => s + (o.total || 0), 0) }]), 'ظ…ظ„ط®طµ');
+            XLSX.writeFile(wb, `طھظ‚ط±ظٹط±-${Date.now()}.xlsx`);
+            showNotification('success', 'طھظ… ط§ظ„طھطµط¯ظٹط±');
         }
 
         function exportToExcel(data, name) {
-            if (data.length === 0) { showNotification('error', 'لا توجد بيانات'); return; }
+            if (data.length === 0) { showNotification('error', 'ظ„ط§ طھظˆط¬ط¯ ط¨ظٹط§ظ†ط§طھ'); return; }
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, name);
             XLSX.writeFile(wb, `${name}-${Date.now()}.xlsx`);
-            showNotification('success', 'تم التصدير');
+            showNotification('success', 'طھظ… ط§ظ„طھطµط¯ظٹط±');
         }
 
         function importProductsExcel(e) {
@@ -2500,16 +2500,16 @@ function adminLogout(){
                     const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
                     let count = 0;
                     data.forEach(row => {
-                        if (row['الاسم'] && row['السعر']) {
-                            products.push({ id: Date.now() + Math.random(), name: row['الاسم'], desc: row['الوصف'] || '', category: 'supplements', price: parseFloat(row['السعر']), oldPrice: parseFloat(row['السعر القديم']) || null, image: row['الصورة'] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0xNTAgMTkwQzEzNS4wNDYgMTkwIDEyMy4yOTkgMTc4LjI1MyAxMjMuMjk5IDE2M0MxMjMuMjk5IDE0Ny43NDcgMTM1LjA0NiAxMzYgMTUwIDEzNkMxNjQuOTU0IDEzNiAxNzYuNzAxIDE0Ny43NDcgMTc2LjcwMSAxNjNDMTc2LjcwMSAxNzguMjUzIDE2NC45NTQgMTkwIDE1MCAxOTBaIiBmaWxsPSIjOUNDOUNDOSIvPgo8L3N2Zz4K', rating: 4.5, ratingCount: 0 });
+                        if (row['ط§ظ„ط§ط³ظ…'] && row['ط§ظ„ط³ط¹ط±']) {
+                            products.push({ id: Date.now() + Math.random(), name: row['ط§ظ„ط§ط³ظ…'], desc: row['ط§ظ„ظˆطµظپ'] || '', category: 'supplements', price: parseFloat(row['ط§ظ„ط³ط¹ط±']), oldPrice: parseFloat(row['ط§ظ„ط³ط¹ط± ط§ظ„ظ‚ط¯ظٹظ…']) || null, image: row['ط§ظ„طµظˆط±ط©'] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0xNTAgMTkwQzEzNS4wNDYgMTkwIDEyMy4yOTkgMTc4LjI1MyAxMjMuMjk5IDE2M0MxMjMuMjk5IDE0Ny43NDcgMTM1LjA0NiAxMzYgMTUwIDEzNkMxNjQuOTU0IDEzNiAxNzYuNzAxIDE0Ny43NDcgMTc2LjcwMSAxNjNDMTc2LjcwMSAxNzguMjUzIDE2NC45NTQgMTkwIDE1MCAxOTBaIiBmaWxsPSIjOUNDOUNDOSIvPgo8L3N2Zz4K', rating: 4.5, ratingCount: 0 });
                             count++;
                         }
                     });
                     saveProducts();
                     renderProductsTable();
                     updateStats();
-                    showNotification('success', `تم استيراد ${count} منتج`);
-                } catch (err) { showNotification('error', 'خطأ في الملف'); }
+                    showNotification('success', `طھظ… ط§ط³طھظٹط±ط§ط¯ ${count} ظ…ظ†طھط¬`);
+                } catch (err) { showNotification('error', 'ط®ط·ط£ ظپظٹ ط§ظ„ظ…ظ„ظپ'); }
             };
             reader.readAsBinaryString(file);
             e.target.value = '';
@@ -2525,7 +2525,7 @@ function adminLogout(){
             a.href = URL.createObjectURL(blob);
             a.download = `backup-${Date.now()}.json`;
             a.click();
-            showNotification('success', 'تم التصدير');
+            showNotification('success', 'طھظ… ط§ظ„طھطµط¯ظٹط±');
         }
 
         function importAllDataJSON(e) {
@@ -2542,20 +2542,20 @@ function adminLogout(){
                     if (data.users) { users = data.users; saveUsers(); }
                     if (data.storeSettings) { storeSettings = data.storeSettings; saveStoreSettings(); }
                     initDashboard();
-                    showNotification('success', 'تم الاستيراد');
-                } catch (err) { showNotification('error', 'ملف غير صالح'); }
+                    showNotification('success', 'طھظ… ط§ظ„ط§ط³طھظٹط±ط§ط¯');
+                } catch (err) { showNotification('error', 'ظ…ظ„ظپ ط؛ظٹط± طµط§ظ„ط­'); }
             };
             reader.readAsText(file);
             e.target.value = '';
         }
 
         function clearAllData() {
-            if (!confirm('⚠️ حذف كل البيانات؟')) return;
-            if (!confirm('⚠️ متأكد؟ لا يمكن التراجع!')) return;
+            if (!confirm('âڑ ï¸ڈ ط­ط°ظپ ظƒظ„ ط§ظ„ط¨ظٹط§ظ†ط§طھطں')) return;
+            if (!confirm('âڑ ï¸ڈ ظ…طھط£ظƒط¯طں ظ„ط§ ظٹظ…ظƒظ† ط§ظ„طھط±ط§ط¬ط¹!')) return;
             localStorage.clear();
             products = []; orders = []; coupons = []; banners = []; users = [];
             initDashboard();
-            showNotification('success', 'تم الحذف');
+            showNotification('success', 'طھظ… ط§ظ„ط­ط°ظپ');
         }
 
         async function changeAdminPassword(e) {
@@ -2563,19 +2563,19 @@ function adminLogout(){
             const current = document.getElementById('currentAdminPass').value;
             const newPass = document.getElementById('newAdminPass').value;
             const confirm = document.getElementById('confirmAdminPass').value;
-            if (newPass !== confirm) { showNotification('error', 'غير متطابقة'); return; }
+            if (newPass !== confirm) { showNotification('error', 'ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚ط©'); return; }
             const user = firebase.auth().currentUser;
-            if (!user) { showNotification('error', 'سجل دخول مرة أخرى'); return; }
+            if (!user) { showNotification('error', 'ط³ط¬ظ„ ط¯ط®ظˆظ„ ظ…ط±ط© ط£ط®ط±ظ‰'); return; }
             try {
                 const cred = firebase.auth.EmailAuthProvider.credential(user.email, current);
                 await user.reauthenticateWithCredential(cred);
                 await user.updatePassword(newPass);
-                showNotification('success', 'تم التغيير');
+                showNotification('success', 'طھظ… ط§ظ„طھط؛ظٹظٹط±');
                 document.getElementById('currentAdminPass').value = '';
                 document.getElementById('newAdminPass').value = '';
                 document.getElementById('confirmAdminPass').value = '';
             } catch (err) {
-                showNotification('error', 'فشل تغيير كلمة المرور');
+                showNotification('error', 'ظپط´ظ„ طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±');
             }
         }
 
@@ -2589,8 +2589,8 @@ function adminLogout(){
                 salesChart = new Chart(salesCtx, {
                     type: 'line',
                     data: {
-                        labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو'],
-                        datasets: [{ label: 'المبيعات', data: [1200, 1900, 3000, 5000, 4000, 6000], borderColor: '#D4AF37', backgroundColor: 'rgba(212,175,55,0.1)', fill: true, tension: 0.4 }]
+                        labels: ['ظٹظ†ط§ظٹط±', 'ظپط¨ط±ط§ظٹط±', 'ظ…ط§ط±ط³', 'ط£ط¨ط±ظٹظ„', 'ظ…ط§ظٹظˆ', 'ظٹظˆظ†ظٹظˆ'],
+                        datasets: [{ label: 'ط§ظ„ظ…ط¨ظٹط¹ط§طھ', data: [1200, 1900, 3000, 5000, 4000, 6000], borderColor: '#D4AF37', backgroundColor: 'rgba(212,175,55,0.1)', fill: true, tension: 0.4 }]
                     },
                     options: { responsive: true, maintainAspectRatio: false }
                 });
@@ -2602,7 +2602,7 @@ function adminLogout(){
                 categoriesChart = new Chart(catCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: ['شعر', 'بشرة', 'طفل', 'مكملات', 'طبي'],
+                        labels: ['ط´ط¹ط±', 'ط¨ط´ط±ط©', 'ط·ظپظ„', 'ظ…ظƒظ…ظ„ط§طھ', 'ط·ط¨ظٹ'],
                         datasets: [{ data: [products.filter(p => p.category === 'hair-care').length, products.filter(p => p.category === 'skin-care').length, products.filter(p => p.category === 'baby-care').length, products.filter(p => p.category === 'supplements').length, products.filter(p => p.category === 'medical').length], backgroundColor: ['#B76E79', '#E8A0BF', '#7EC8E3', '#4CAF50', '#2196F3'] }]
                     },
                     options: { responsive: true, maintainAspectRatio: false }
@@ -2618,7 +2618,7 @@ function adminLogout(){
             document.getElementById(name + 'Section').classList.add('active');
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
             event?.target?.classList.add('active');
-            const titles = { overview: '📊 نظرة عامة', products: '📦 المنتجات', orders: '🛍️ الطلبات', banners: '🎠 البانرات', coupons: '🎫 الكوبونات', users: '👥 العملاء', loyalty: '💎 نقاط الولاء', reports: '📈 التقارير', storeSettings: '🏪 المتجر', settings: '⚙️ النظام' };
+            const titles = { overview: 'ًں“ٹ ظ†ط¸ط±ط© ط¹ط§ظ…ط©', products: 'ًں“¦ ط§ظ„ظ…ظ†طھط¬ط§طھ', orders: 'ًں›چï¸ڈ ط§ظ„ط·ظ„ط¨ط§طھ', banners: 'ًںژ  ط§ظ„ط¨ط§ظ†ط±ط§طھ', coupons: 'ًںژ« ط§ظ„ظƒظˆط¨ظˆظ†ط§طھ', users: 'ًں‘¥ ط§ظ„ط¹ظ…ظ„ط§ط،', loyalty: 'ًں’ژ ظ†ظ‚ط§ط· ط§ظ„ظˆظ„ط§ط،', reports: 'ًں“ˆ ط§ظ„طھظ‚ط§ط±ظٹط±', storeSettings: 'ًںڈھ ط§ظ„ظ…طھط¬ط±', settings: 'âڑ™ï¸ڈ ط§ظ„ظ†ط¸ط§ظ…' };
             document.getElementById('pageTitle').textContent = titles[name] || name;
             document.getElementById('sidebar').classList.remove('active');
             document.getElementById('overlay').classList.remove('active');
@@ -2647,7 +2647,7 @@ function adminLogout(){
             const container = document.getElementById('notificationsContainer');
             const n = document.createElement('div');
             n.className = `notification ${type}`;
-            n.innerHTML = `<div class="notification-icon">${type === 'success' ? '✓' : '✕'}</div><div class="notification-content"><div class="notification-title">${type === 'success' ? 'نجاح' : 'خطأ'}</div><div class="notification-message">${message}</div></div><button class="notification-close" onclick="this.parentElement.remove()">✕</button>`;
+            n.innerHTML = `<div class="notification-icon">${type === 'success' ? 'âœ“' : 'âœ•'}</div><div class="notification-content"><div class="notification-title">${type === 'success' ? 'ظ†ط¬ط§ط­' : 'ط®ط·ط£'}</div><div class="notification-message">${message}</div></div><button class="notification-close" onclick="this.parentElement.remove()">âœ•</button>`;
             container.appendChild(n);
             setTimeout(() => n.remove(), 4000);
         }
@@ -2655,21 +2655,21 @@ function adminLogout(){
     <script>
 async function uploadAndPreview(input) {
     if(!input.files[0]) return;
-    // معاينة
+    // ظ…ط¹ط§ظٹظ†ط©
     const reader = new FileReader();
     reader.onload = (e) => document.getElementById('imgPreview').innerHTML = `<img src="${e.target.result}" style="max-width:150px;border-radius:5px;margin:5px 0;">`;
     reader.readAsDataURL(input.files[0]);
     
-    // رفع
+    // ط±ظپط¹
     try {
         const res = await uploadToCloudinary(input.files[0]);
         if(res) {
             document.getElementById('finalImg').value = res.url;
             document.getElementById('manualImg').value = res.url;
-            alert('✅ تم رفع الصورة');
+            alert('âœ… طھظ… ط±ظپط¹ ط§ظ„طµظˆط±ط©');
         }
     } catch(err) {
-        alert('❌ فشل الرفع: ' + err.message);
+        alert('â‌Œ ظپط´ظ„ ط§ظ„ط±ظپط¹: ' + err.message);
     }
 }
 </script>
