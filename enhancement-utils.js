@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
             originalShowNotification(type, title, message);
         };
     } else {
-        window.showNotification = EnhancedUI.showNotification;
+        window.showNotification = (type, title, message) => EnhancedUI.showNotification(type, title, message);
     }
     
     console.log('✅ Enhanced utilities loaded successfully');

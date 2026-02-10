@@ -1844,7 +1844,7 @@
                 localStorage.setItem('currentUser', JSON.stringify(newUser));
                 updateUserUI();
                 closeModal('authModal');
-                showNotification('success', '������', '�� ����� ����� �����!');
+                showNotification('success', 'مرحباً', 'تم إنشاء حسابك بنجاح!');
             } catch (error) {
                 console.error('addCustomer error:', error);
                 users.push(newUser);
@@ -1853,7 +1853,7 @@
                 localStorage.setItem('currentUser', JSON.stringify(newUser));
                 updateUserUI();
                 closeModal('authModal');
-                showNotification('info', '�� ������� ������', '���� �������� ������ ��� ���� �������.');
+                showNotification('info', 'تم التسجيل محليًا', 'سيتم المزامنة لاحقًا عند توفر الاتصال.');
             }
         }
 

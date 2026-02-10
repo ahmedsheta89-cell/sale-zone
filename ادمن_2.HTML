@@ -1525,7 +1525,7 @@
     if (!user.emailVerified) {
       await firebase.auth().signOut();
       loginError.style.display = 'block';
-      loginError.textContent = '��� ����� ������ ���������� ����� ������ �����';
+      loginError.textContent = 'يجب تفعيل البريد الإلكتروني أولًا للدخول كأدمن';
       return;
     }
 
@@ -1846,7 +1846,7 @@ function adminLogout(){
             try {
                 await requireAdminPermission();
                 if (id) {
-                    // ����� ���� �����
+                    // تحديث منتج موجود
                     const idx = products.findIndex(p => String(p.id) === String(id));
                     if (idx !== -1) {
                         products[idx] = { ...products[idx], ...data };
@@ -1854,9 +1854,9 @@ function adminLogout(){
                             await updateProduct(id, { ...products[idx] });
                         }
                     }
-                    showNotification('success', '�� ������� �����');
+                    showNotification('success', 'تم التحديث بنجاح');
                 } else {
-                    // ����� ���� ����
+                    // إضافة منتج جديد
                     if (typeof addProduct === 'function') {
                         const firebaseId = await addProduct(data);
                         data.id = firebaseId;
@@ -1864,11 +1864,11 @@ function adminLogout(){
                         data.id = Date.now().toString();
                     }
                     products.push(data);
-                    showNotification('success', '��� ������� �����');
+                    showNotification('success', 'تمت الإضافة بنجاح');
                 }
             } catch (error) {
                 console.error('Firebase save error:', error);
-                showNotification('error', '��� �����', '�� ���� ������� �� ���� ��� ��������');
+                showNotification('error', 'فشل الحفظ', 'لا تملك صلاحيات أو يوجد خطأ بالاتصال');
                 return;
             }
 
@@ -1913,7 +1913,7 @@ function adminLogout(){
 }
 
         async function deleteProduct(id) {
-            if (!confirm('��� �����̿')) return;
+            if (!confirm('حذف المنتج؟')) return;
             try {
                 await requireAdminPermission();
                 if (typeof deleteProductFromFirebase === 'function') {
@@ -1923,10 +1923,10 @@ function adminLogout(){
                 saveProducts();
                 renderProductsTable();
                 updateStats();
-                showNotification('success', '�� ����� ?');
+                showNotification('success', 'تم الحذف ✅');
             } catch (error) {
                 console.error('Firebase delete error:', error);
-                showNotification('error', '��� �����', '�� ���� ������� �� ���� ��� ��������');
+                showNotification('error', 'فشل الحذف', 'لا تملك صلاحيات أو يوجد خطأ بالاتصال');
             }
         }
 
@@ -2473,10 +2473,10 @@ function adminLogout(){
 
         function exportFullReport() {
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(products.map(p => ({ الاسم: p.name, القسم: getCategoryName(p.category), السعر: p.price }))), 'المنتجات');
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orders.map(o => ({ رقم: o.orderNumber, العميل: o.customer?.name, المبلغ: o.total, الحالة: getStatusName(o.status) }))), 'الطلبات');
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users.map(u => ({ الاسم: u.name, الهاتف: u.phone, النقاط: u.loyaltyPoints || 0 }))), 'العملاء');
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ المنتجات: products.length, الطلبات: orders.length, العملاء: users.length, الإيرادات: orders.reduce((s, o) => s + (o.total || 0), 0) }]), 'ملخص');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(products.map(p => ({ 'الاسم': p.name, 'القسم': getCategoryName(p.category), 'السعر': p.price }))), 'المنتجات');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orders.map(o => ({ 'رقم': o.orderNumber, 'العميل': o.customer?.name, 'المبلغ': o.total, 'الحالة': getStatusName(o.status) }))), 'الطلبات');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users.map(u => ({ 'الاسم': u.name, 'الهاتف': u.phone, 'النقاط': u.loyaltyPoints || 0 }))), 'العملاء');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ 'المنتجات': products.length, 'الطلبات': orders.length, 'العملاء': users.length, 'الإيرادات': orders.reduce((s, o) => s + (o.total || 0), 0) }]), 'ملخص');
             XLSX.writeFile(wb, `تقرير-${Date.now()}.xlsx`);
             showNotification('success', 'تم التصدير');
         }
