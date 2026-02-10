@@ -717,6 +717,9 @@
                     <input type="password" id="adminPassword" required placeholder="أدخل كلمة المرور">
                 </div>
                 <button type="submit" class="login-btn">دخول</button>
+                <button type="button" class="login-btn" style="margin-top: 10px; background: #1A2744;" onclick="sendVerificationLink()">
+                    إرسال رابط التحقق
+                </button>
             </form>
             <a href="index.html" class="back-link">← العودة للمتجر</a>
             <a href="متجر_2.HTML" class="back-link" style="margin-right: 20px;">🛍️ عرض المتجر</a>
@@ -1530,6 +1533,34 @@
     const remaining = rateLimiter.getRemainingAttempts(clientIP);
     loginError.style.display='block';
     loginError.textContent = `بيانات الدخول غير صحيحة. محاولات متبقية: ${remaining}`;
+  }
+}
+
+async function sendVerificationLink() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pass = document.getElementById('adminPassword').value;
+  const loginError = document.getElementById('loginError');
+
+  if (!email || !pass) {
+    loginError.style.display = 'block';
+    loginError.textContent = 'أدخل البريد الإلكتروني وكلمة المرور لإرسال رابط التحقق';
+    return;
+  }
+
+  try {
+    const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
+    const user = userCred.user;
+    if (user.emailVerified) {
+      showNotification('info', 'الحساب موثّق', 'لا حاجة لإرسال رابط تحقق');
+    } else {
+      await user.sendEmailVerification();
+      showNotification('success', 'تم الإرسال', 'تم إرسال رابط التحقق إلى بريدك');
+    }
+    await firebase.auth().signOut();
+  } catch (err) {
+    console.error(err);
+    loginError.style.display = 'block';
+    loginError.textContent = 'فشل إرسال رابط التحقق. تأكد من البيانات.';
   }
 }
 
