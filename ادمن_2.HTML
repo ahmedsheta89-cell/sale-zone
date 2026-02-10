@@ -1181,6 +1181,14 @@
                         <button class="btn btn-gold" onclick="sanitizeAllImages()" style="width: 100%;">✅ تنظيف صور المنتجات والبانرات</button>
                     </div>
 
+                    <div class="settings-card">
+                        <h3>🧪 فحص قبل النشر</h3>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 12px;">
+                            فحص سريع يمنع تكرار أخطاء العربية والترميز قبل أي رفع.
+                        </p>
+                        <button class="btn btn-info" onclick="runPreflightCheck()" style="width: 100%;">🔍 تشغيل الفحص</button>
+                    </div>
+
                     <div class="settings-card danger-zone">
                         <h3>⚠️ منطقة الخطر</h3>
                         <p style="color: #666; margin-bottom: 15px; font-size: 12px;">لا يمكن التراجع عن هذه الإجراءات!</p>
@@ -1191,8 +1199,22 @@
         </main>
     </div>
 
-    <!-- Modals -->
-    <!-- Product Modal -->
+<!-- Modals -->
+<!-- Preflight Modal -->
+<div class="modal-overlay" id="preflightModal">
+  <div class="modal" style="max-width: 700px;">
+    <div class="modal-header">
+      <h2>🧪 تقرير فحص قبل النشر</h2>
+      <button class="close-modal" onclick="closeModal('preflightModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <pre id="preflightOutput" style="white-space: pre-wrap; font-size: 13px; color: #333; background: #f7f7f7; padding: 12px; border-radius: 8px; border: 1px solid #eee;"></pre>
+      <button class="btn btn-gold" onclick="copyPreflightReport()" style="width: 100%; margin-top: 10px;">📋 نسخ التقرير</button>
+    </div>
+  </div>
+</div>
+
+<!-- Product Modal -->
 <div class="modal-overlay" id="productModal">
   <div class="modal">
     <div class="modal-header">
@@ -2650,6 +2672,63 @@ function adminLogout(){
             n.innerHTML = `<div class="notification-icon">${type === 'success' ? '✓' : '✕'}</div><div class="notification-content"><div class="notification-title">${type === 'success' ? 'نجاح' : 'خطأ'}</div><div class="notification-message">${message}</div></div><button class="notification-close" onclick="this.parentElement.remove()">✕</button>`;
             container.appendChild(n);
             setTimeout(() => n.remove(), 4000);
+        }
+
+        async function runPreflightCheck() {
+            try {
+                const files = ['index.html', 'offline.html', 'متجر_2.HTML', 'ادمن_2.HTML'];
+                const issues = [];
+
+                for (const file of files) {
+                    const res = await fetch(file, { cache: 'no-store' });
+                    if (!res.ok) {
+                        issues.push(`${file}: تعذر التحميل (${res.status})`);
+                        continue;
+                    }
+                    const buf = new Uint8Array(await res.arrayBuffer());
+                    const hasBom = buf.length >= 3 && buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF;
+                    const text = new TextDecoder('utf-8').decode(buf);
+
+                    if (!hasBom) issues.push(`${file}: لا يوجد BOM UTF-8`);
+                    if (!/<meta\\s+charset=[\"']?utf-8[\"']?/i.test(text)) {
+                        issues.push(`${file}: لا يوجد <meta charset="UTF-8">`);
+                    }
+                    if (text.includes('�')) issues.push(`${file}: يحتوي على أحرف تالفة (�)`);
+                    if (text.includes('§')) issues.push(`${file}: يحتوي على الحرف غير المسموح (§)`);
+
+                    // Check for unquoted Arabic keys inside <script> blocks
+                    const scripts = [];
+                    const scriptRegex = /<script[^>]*>([\\s\\S]*?)<\\/script>/gi;
+                    let match;
+                    while ((match = scriptRegex.exec(text)) !== null) {
+                        scripts.push(match[1]);
+                    }
+                    const arabicKeyRegex = /[,{]\\s*([\\u0600-\\u06FF]+)\\s*:/g;
+                    if (scripts.some(s => arabicKeyRegex.test(s))) {
+                        issues.push(`${file}: مفاتيح عربية بدون علامات اقتباس داخل JS`);
+                    }
+                }
+
+                const output = issues.length
+                    ? `❌ تم العثور على مشاكل:\\n- ${issues.join('\\n- ')}`
+                    : '✅ الفحص ناجح: لا توجد مشاكل ترميز أو أخطاء عربية.';
+
+                document.getElementById('preflightOutput').textContent = output;
+                openModal('preflightModal');
+                showNotification(issues.length ? 'error' : 'success', issues.length ? 'تم اكتشاف مشاكل' : 'الفحص ناجح');
+            } catch (err) {
+                console.error('Preflight error:', err);
+                showNotification('error', 'فشل الفحص');
+            }
+        }
+
+        function copyPreflightReport() {
+            const text = document.getElementById('preflightOutput').textContent || '';
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('success', 'تم نسخ التقرير');
+            }).catch(() => {
+                showNotification('error', 'فشل النسخ');
+            });
         }
     </script>
     <script>
