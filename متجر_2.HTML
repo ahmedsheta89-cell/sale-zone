@@ -77,17 +77,20 @@
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+        html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         body {
             font-family: var(--font-arabic);
             background-color: var(--cream);
             color: var(--navy);
             line-height: 1.7;
             overflow-x: hidden;
+            text-rendering: optimizeLegibility;
+            overscroll-behavior: none;
+            touch-action: manipulation;
         }
         a { text-decoration: none; color: inherit; }
-        button { cursor: pointer; border: none; outline: none; font-family: var(--font-arabic); }
-        input, textarea, select { font-family: var(--font-arabic); outline: none; }
+        button { cursor: pointer; border: none; outline: none; font-family: var(--font-arabic); min-height: 44px; }
+        input, textarea, select { font-family: var(--font-arabic); outline: none; font-size: 16px; }
         .hidden { display: none !important; }
 
         /* Loading Screen */
@@ -122,7 +125,7 @@
         .header { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%); padding: 25px 20px; text-align: center; position: relative; overflow: hidden; }
         .header::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 50%); animation: spin 30s linear infinite; }
         .header-content { position: relative; z-index: 1; }
-        .logo { font-family: var(--font-display); font-size: 48px; font-weight: 700; color: var(--gold); animation: glow 3s ease-in-out infinite; margin-bottom: 8px; }
+        .logo { font-family: var(--font-display); font-size: clamp(28px, 6vw, 48px); font-weight: 700; color: var(--gold); animation: glow 3s ease-in-out infinite; margin-bottom: 8px; }
         .tagline { font-size: 14px; color: var(--gold-light); letter-spacing: 3px; text-transform: uppercase; }
         .header-divider { width: 150px; height: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 15px auto; }
 
@@ -153,8 +156,8 @@
         .banner-slide::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(212,175,55,0.1), transparent); }
         .banner-content { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
         .banner-icon { font-size: 50px; margin-bottom: 15px; }
-        .banner-title { font-family: var(--font-display); font-size: 32px; color: var(--gold); margin-bottom: 10px; }
-        .banner-text { font-size: 16px; color: var(--gold-light); margin-bottom: 20px; }
+        .banner-title { font-family: var(--font-display); font-size: clamp(20px, 5vw, 32px); color: var(--gold); margin-bottom: 10px; }
+        .banner-text { font-size: clamp(12px, 3.5vw, 16px); color: var(--gold-light); margin-bottom: 20px; }
         .banner-btn { background: var(--gold); color: var(--navy); padding: 12px 30px; border-radius: 25px; font-weight: 700; display: inline-block; transition: var(--transition); }
         .banner-btn:hover { transform: scale(1.05); box-shadow: var(--shadow-gold); }
         .banner-dots { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
@@ -168,7 +171,7 @@
         /* Categories */
         .categories-section { padding: 40px 20px; background: var(--white); }
         .section-title { text-align: center; margin-bottom: 35px; }
-        .section-title h2 { font-family: var(--font-display); font-size: 32px; color: var(--navy); margin-bottom: 8px; }
+        .section-title h2 { font-family: var(--font-display); font-size: clamp(22px, 5vw, 32px); color: var(--navy); margin-bottom: 8px; }
         .section-title .line { width: 70px; height: 3px; background: linear-gradient(90deg, var(--gold), var(--burgundy)); margin: 0 auto; border-radius: 2px; }
         .categories-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; max-width: 1000px; margin: 0 auto; }
         .category-card { background: var(--cream); border-radius: 14px; padding: 20px 12px; text-align: center; cursor: pointer; transition: var(--transition); border: 2px solid transparent; position: relative; overflow: hidden; }
@@ -289,15 +292,15 @@
         .checkout-btn:hover { transform: scale(1.02); box-shadow: var(--shadow-gold); }
 
         /* Modals */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; visibility: hidden; transition: var(--transition); }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; visibility: hidden; transition: var(--transition); -webkit-overflow-scrolling: touch; }
         .modal-overlay.active { opacity: 1; visibility: visible; }
-        .modal { background: var(--white); border-radius: 18px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; transform: scale(0.9); transition: var(--transition); }
+        .modal { background: var(--white); border-radius: 18px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; transform: scale(0.9); transition: var(--transition); overscroll-behavior: contain; }
         .modal-overlay.active .modal { transform: scale(1); }
         .modal.large { max-width: 700px; }
         .modal-header { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: var(--white); padding: 20px; text-align: center; position: relative; border-radius: 18px 18px 0 0; }
         .modal-header h2 { font-family: var(--font-display); font-size: 20px; margin-bottom: 4px; }
         .modal-header p { color: var(--gold-light); font-size: 12px; }
-        .close-modal { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.1); color: var(--white); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: var(--transition); }
+        .close-modal { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.1); color: var(--white); width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
         .close-modal:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }
         .modal-body { padding: 22px; }
         .form-group { margin-bottom: 15px; }
@@ -424,12 +427,14 @@
 
         /* Responsive */
         @media (max-width: 768px) {
+            .navbar { gap: 8px; }
+            .nav-actions { width: 100%; justify-content: space-between; }
+            .nav-btn { padding: 10px 14px; font-size: 12px; }
             .logo { font-size: 32px; }
             .tagline { font-size: 11px; }
             .navbar { padding: 10px 12px; }
             .search-box { order: 3; flex: 0 0 100%; max-width: 100%; }
             .nav-btn span { display: none; }
-            .nav-btn { padding: 8px; }
             .loyalty-badge span:last-child { display: none; }
             .cart-sidebar, .fav-sidebar { max-width: 100%; }
             .products-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
@@ -440,8 +445,14 @@
             .banner-text { font-size: 14px; }
             .chat-box { width: calc(100vw - 40px); max-width: 320px; }
             .filter-bar { flex-direction: column; align-items: stretch; }
+            .modal-overlay { align-items: flex-end; padding: 10px; }
+            .modal { max-width: 100%; max-height: 92dvh; border-radius: 16px; }
+            .modal-body { padding: 16px; }
+            .close-modal { top: 10px; left: 10px; }
         }
         @media (max-width: 480px) {
+            .top-bar { font-size: 12px; gap: 8px; }
+            .banner-slide { padding: 40px 16px; }
             .categories-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
             .category-card { padding: 15px 8px; }
             .category-icon { width: 45px; height: 45px; font-size: 22px; }
@@ -449,6 +460,8 @@
             .products-grid { grid-template-columns: repeat(2, 1fr); }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .stat-number { font-size: 26px; }
+            .modal-header h2 { font-size: 18px; }
+            .modal-body { padding: 14px; }
         }
     </style>
 </head>

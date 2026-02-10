@@ -57,7 +57,10 @@
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: var(--font-arabic); background: #f5f6fa; min-height: 100vh; }
+        html { -webkit-text-size-adjust: 100%; }
+        body { font-family: var(--font-arabic); background: #f5f6fa; min-height: 100vh; text-rendering: optimizeLegibility; overscroll-behavior: none; touch-action: manipulation; }
+        button { min-height: 44px; }
+        input, textarea, select { font-size: 16px; }
 
         /* Login */
         .login-screen {
@@ -310,7 +313,7 @@
         .section-body { padding: 18px; }
 
         /* Tables */
-        .table-container { overflow-x: auto; }
+        .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .data-table { width: 100%; border-collapse: collapse; min-width: 500px; }
         .data-table th, .data-table td {
             padding: 12px 10px;
@@ -624,10 +627,16 @@
             .stat-value { font-size: 20px; }
             .form-row, .form-row-3 { grid-template-columns: 1fr; }
             .charts-grid { grid-template-columns: 1fr; }
+            .modal-overlay { align-items: flex-end; padding: 10px; }
+            .modal { max-width: 100%; max-height: 92dvh; border-radius: 16px; }
+            .modal-body { padding: 16px; }
+            .close-modal { top: 10px; left: 10px; }
         }
         @media (max-width: 480px) {
             .stats-grid { grid-template-columns: 1fr; }
             .settings-grid { grid-template-columns: 1fr; }
+            .modal-header h2 { font-size: 16px; }
+            .modal-body { padding: 14px; }
         }
 
         /* Status Select */
