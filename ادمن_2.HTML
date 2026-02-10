@@ -720,6 +720,9 @@
                 <button type="button" class="login-btn" style="margin-top: 10px; background: #1A2744;" onclick="sendVerificationLink()">
                     إرسال رابط التحقق
                 </button>
+                <button type="button" class="login-btn" style="margin-top: 10px; background: #800020;" onclick="sendPasswordReset()">
+                    نسيت كلمة المرور
+                </button>
             </form>
             <a href="index.html" class="back-link">← العودة للمتجر</a>
             <a href="متجر_2.HTML" class="back-link" style="margin-right: 20px;">🛍️ عرض المتجر</a>
@@ -1561,6 +1564,26 @@ async function sendVerificationLink() {
     console.error(err);
     loginError.style.display = 'block';
     loginError.textContent = 'فشل إرسال رابط التحقق. تأكد من البيانات.';
+  }
+}
+
+async function sendPasswordReset() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const loginError = document.getElementById('loginError');
+
+  if (!email) {
+    loginError.style.display = 'block';
+    loginError.textContent = 'أدخل البريد الإلكتروني أولاً';
+    return;
+  }
+
+  try {
+    await firebase.auth().sendPasswordResetEmail(email);
+    showNotification('success', 'تم الإرسال', 'تم إرسال رابط استعادة كلمة المرور إلى بريدك');
+  } catch (err) {
+    console.error(err);
+    loginError.style.display = 'block';
+    loginError.textContent = 'فشل إرسال رابط الاستعادة. تأكد من البريد.';
   }
 }
 
