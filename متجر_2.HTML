@@ -1019,6 +1019,26 @@
         // 🚀 Initialize
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
+            // 🧯 Minimal client-side error capture for mobile debugging
+            window.__errors = window.__errors || [];
+            window.onerror = function(message, source, lineno, colno, error) {
+                window.__errors.push({
+                    type: 'error',
+                    message: String(message || ''),
+                    source: String(source || ''),
+                    line: lineno || 0,
+                    col: colno || 0,
+                    stack: error && error.stack ? String(error.stack) : ''
+                });
+            };
+            window.onunhandledrejection = function(event) {
+                const reason = event && event.reason ? event.reason : '';
+                window.__errors.push({
+                    type: 'unhandledrejection',
+                    message: String(reason && reason.message ? reason.message : reason),
+                    stack: reason && reason.stack ? String(reason.stack) : ''
+                });
+            };
             // 🔧 DOM Element Safety Checks
             const criticalElements = ['bannerSlider', 'bannerDots', 'productsGrid', 'cartCount', 'loadingScreen'];
             criticalElements.forEach(id => {
@@ -1046,6 +1066,14 @@
                 setTimeout(() => {
                     loadingScreen.classList.add('hidden');
                 }, 1000);
+
+                // ⏱️ Auto-fallback: never keep the loading screen forever
+                setTimeout(() => {
+                    if (!loadingScreen.classList.contains('hidden')) {
+                        loadingScreen.classList.add('hidden');
+                        showToast('تم تجاوز شاشة التحميل تلقائيًا. إذا استمر الخطأ أخبرنا.', 'warning');
+                    }
+                }, 6000);
             }
 
             // 📱 Register Professional ServiceWorker for PWA
@@ -1078,6 +1106,33 @@
                     });
             } else {
                 console.log('📱 ServiceWorker not supported - PWA features disabled');
+            }
+
+            // 🧪 Debug overlay (enable with ?debug=1)
+            if (new URLSearchParams(window.location.search).get('debug') === '1') {
+                const panel = document.createElement('div');
+                panel.id = 'debugPanel';
+                panel.style.cssText = [
+                    'position:fixed','bottom:12px','left:12px','right:12px','z-index:99999',
+                    'background:#0A1128','color:#F4E4BC','border:1px solid #D4AF37',
+                    'padding:10px','border-radius:10px','font-size:13px','max-height:40vh',
+                    'overflow:auto','box-shadow:0 10px 30px rgba(0,0,0,.3)'
+                ].join(';');
+                panel.innerHTML = '<strong>Debug (Errors)</strong><div id="debugErrors" style="margin-top:8px;white-space:pre-wrap;"></div>';
+                document.body.appendChild(panel);
+
+                const renderErrors = () => {
+                    const el = document.getElementById('debugErrors');
+                    if (!el) return;
+                    const list = window.__errors || [];
+                    if (!list.length) {
+                        el.textContent = 'No errors captured.';
+                        return;
+                    }
+                    el.textContent = JSON.stringify(list.slice(-20), null, 2);
+                };
+                renderErrors();
+                setInterval(renderErrors, 2000);
             }
         });
 
@@ -1167,6 +1222,30 @@
         function saveOrders() { setStorageData('ORDERS', orders); }
         function saveUsers() { setStorageData('CUSTOMERS', users); }
         function saveProducts() { setStorageData('PRODUCTS', products); }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const colors = {
+                info: { bg: '#0A1128', border: '#D4AF37' },
+                warning: { bg: '#2B1B00', border: '#D4AF37' },
+                error: { bg: '#2B0000', border: '#D4AF37' },
+                success: { bg: '#0B2B1B', border: '#D4AF37' }
+            };
+            const c = colors[type] || colors.info;
+            toast.textContent = message;
+            toast.style.cssText = [
+                'position:fixed','bottom:20px','left:20px','right:20px','z-index:99999',
+                'background:' + c.bg,'color:#F4E4BC','border:1px solid ' + c.border,
+                'padding:12px','border-radius:10px','font-size:14px','text-align:center',
+                'box-shadow:0 10px 30px rgba(0,0,0,.3)','opacity:0','transition:opacity .2s ease'
+            ].join(';');
+            document.body.appendChild(toast);
+            requestAnimationFrame(() => { toast.style.opacity = '1'; });
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 250);
+            }, 2500);
+        }
 
         // ============================================
         // 🎨 Apply Store Settings

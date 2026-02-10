@@ -13,6 +13,20 @@ service cloud.firestore {
         && request.auth.token.email_verified == true;
     }
 
+    function isValidOrderCreate() {
+      return request.resource.data.keys().hasAll([
+        "orderNumber",
+        "customer",
+        "items",
+        "total",
+        "createdAt"
+      ])
+      && request.resource.data.customer is map
+      && request.resource.data.items is list
+      && request.resource.data.items.size() > 0
+      && request.resource.data.total is number;
+    }
+
     // Public readable content
     match /products/{productId} {
       allow read: if true;
@@ -36,7 +50,8 @@ service cloud.firestore {
 
     // Admin-only data
     match /orders/{orderId} {
-      allow read, create, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow read, update, delete: if isAdmin() || isBootstrapAdmin();
+      allow create: if isAdmin() || isBootstrapAdmin() || isValidOrderCreate();
     }
 
     match /customers/{customerId} {
