@@ -252,6 +252,28 @@ async function addCustomer(customer) {
     }
 }
 
+async function updateCustomer(id, data) {
+    try {
+        const db = getFirebaseDB();
+        await db.collection('customers').doc(String(id)).set(data, { merge: true });
+        console.log('✅ Customer updated in Firebase:', id);
+    } catch (e) {
+        console.error('updateCustomer error:', e);
+        throw e;
+    }
+}
+
+async function deleteCustomerFromFirebase(id) {
+    try {
+        const db = getFirebaseDB();
+        await db.collection('customers').doc(String(id)).delete();
+        console.log('✅ Customer deleted from Firebase:', id);
+    } catch (e) {
+        console.error('deleteCustomerFromFirebase error:', e);
+        throw e;
+    }
+}
+
 // ==========================================
 // COUPONS
 // ==========================================

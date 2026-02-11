@@ -935,12 +935,15 @@
                 <div class="section-card">
                     <div class="section-header">
                         <h3 class="section-title">👥 العملاء</h3>
-                        <button class="btn btn-success" onclick="exportUsersExcel()">📤 Excel</button>
+                        <div class="header-actions">
+                            <button class="btn btn-info" onclick="syncCustomersFromFirebaseNow()">🔄 مزامنة فورية</button>
+                            <button class="btn btn-success" onclick="exportUsersExcel()">📤 Excel</button>
+                        </div>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>الاسم</th><th>الهاتف</th><th>البريد</th><th>النقاط</th><th>التسجيل</th></tr></thead>
+                                <thead><tr><th>الاسم</th><th>الهاتف</th><th>البريد</th><th>النقاط</th><th>التسجيل</th><th>إجراءات</th></tr></thead>
                                 <tbody id="usersTable"></tbody>
                             </table>
                         </div>
@@ -1465,6 +1468,7 @@
         let coupons = [];
         let banners = [];
         let users = [];
+        let customersUnsubscribe = null;
         let clientErrorLogs = [];
         // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
         // ⚠️ يُنصح بتغييرها فوراً بعد أول تسجيل دخول
@@ -1741,6 +1745,7 @@
 
     await loadAllData();
     initDashboard();
+    startCustomersRealtimeSync();
     
     if (!isAdmin && isBootstrapAdmin) {
       showNotification('info', 'تنبيه أمني', 'الدخول تم بوضع مؤقت. فعّل Custom Claims ثم عطّل ALLOW_BOOTSTRAP_ADMIN.');
@@ -1809,6 +1814,7 @@ async function sendPasswordReset() {
   if (typeof firebase !== 'undefined' && firebase.auth) {
     firebase.auth().onAuthStateChanged(async (user) => {
       if (!user) {
+        stopCustomersRealtimeSync();
         sessionStorage.removeItem('adminLoggedIn');
         sessionStorage.removeItem('adminSessionId');
         sessionStorage.removeItem('adminSession');
@@ -1824,13 +1830,15 @@ async function sendPasswordReset() {
         await firebase.auth().signOut();
         return;
       }
-      if (isAdmin || isBootstrapAdmin) {
+        if (isAdmin || isBootstrapAdmin) {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').classList.add('active');
+        startCustomersRealtimeSync();
         if (!products.length) {
           loadAllData().then(() => {
             initDashboard();
             autoPurgeSamplesOnce();
+            startCustomersRealtimeSync();
           });
         }
       } else {
@@ -1846,6 +1854,7 @@ async function sendPasswordReset() {
 }
 
 function adminLogout(){
+  stopCustomersRealtimeSync();
   const sessionId = sessionStorage.getItem('adminSessionId');
   if (sessionId) {
     sessionManager.destroySession(sessionId);
@@ -2455,7 +2464,7 @@ function adminLogout(){
         function renderUsersTable() {
             const tbody = document.getElementById('usersTable');
             if (users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👥</div><p>لا يوجد عملاء</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">👥</div><p>لا يوجد عملاء</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = users.map(u => `
@@ -2465,8 +2474,109 @@ function adminLogout(){
                     <td>${u.email || '-'}</td>
                     <td><strong style="color: var(--gold-dark);">${u.loyaltyPoints || 0}</strong></td>
                     <td>${formatDate(u.createdAt)}</td>
+                    <td>
+                        <button class="action-btn edit" onclick="editCustomer('${u.id}')">✏️</button>
+                        <button class="action-btn delete" onclick="deleteCustomer('${u.id}')">🗑️</button>
+                    </td>
                 </tr>
             `).join('');
+        }
+
+        async function syncCustomersFromFirebaseNow(showToastMessage = true) {
+            try {
+                if (typeof getAllUsers !== 'function') throw new Error('getAllUsers unavailable');
+                const freshUsers = await getAllUsers();
+                if (!Array.isArray(freshUsers)) throw new Error('customers fetch failed');
+                users = freshUsers;
+                saveUsers();
+                renderUsersTable();
+                renderLoyaltySection();
+                updateStats();
+                if (showToastMessage) showNotification('success', 'تمت مزامنة العملاء');
+            } catch (error) {
+                console.error('syncCustomersFromFirebaseNow error:', error);
+                if (showToastMessage) showNotification('error', 'فشل مزامنة العملاء');
+            }
+        }
+
+        function startCustomersRealtimeSync() {
+            try {
+                if (customersUnsubscribe || typeof db === 'undefined' || !db || !db.collection) return;
+                customersUnsubscribe = db.collection('customers').onSnapshot((snapshot) => {
+                    users = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+                    saveUsers();
+                    renderUsersTable();
+                    renderLoyaltySection();
+                    updateStats();
+                }, (error) => {
+                    console.error('customers realtime listener error:', error);
+                });
+                console.log('✅ Customers realtime sync enabled');
+            } catch (error) {
+                console.error('startCustomersRealtimeSync error:', error);
+            }
+        }
+
+        function stopCustomersRealtimeSync() {
+            if (typeof customersUnsubscribe === 'function') {
+                customersUnsubscribe();
+            }
+            customersUnsubscribe = null;
+        }
+
+        async function editCustomer(userId) {
+            const user = users.find(u => String(u.id) === String(userId));
+            if (!user) return;
+
+            const name = prompt('اسم العميل:', user.name || '');
+            if (name === null) return;
+            const phone = prompt('هاتف العميل:', user.phone || '');
+            if (phone === null) return;
+            const email = prompt('بريد العميل:', user.email || '');
+            if (email === null) return;
+
+            const payload = {
+                ...user,
+                name: String(name).trim(),
+                phone: String(phone).trim(),
+                email: String(email).trim()
+            };
+
+            try {
+                if (typeof updateCustomer === 'function') {
+                    await updateCustomer(user.id, payload);
+                }
+                users = users.map(u => String(u.id) === String(user.id) ? payload : u);
+                saveUsers();
+                renderUsersTable();
+                renderLoyaltySection();
+                updateStats();
+                showNotification('success', 'تم تعديل العميل');
+            } catch (error) {
+                console.error('editCustomer error:', error);
+                showNotification('error', 'فشل تعديل العميل');
+            }
+        }
+
+        async function deleteCustomer(userId) {
+            const user = users.find(u => String(u.id) === String(userId));
+            if (!user) return;
+            if (!confirm(`حذف العميل ${user.name || ''}؟`)) return;
+
+            try {
+                if (typeof deleteCustomerFromFirebase === 'function') {
+                    await deleteCustomerFromFirebase(user.id);
+                }
+                users = users.filter(u => String(u.id) !== String(user.id));
+                saveUsers();
+                renderUsersTable();
+                renderLoyaltySection();
+                updateStats();
+                showNotification('success', 'تم حذف العميل');
+            } catch (error) {
+                console.error('deleteCustomer error:', error);
+                showNotification('error', 'فشل حذف العميل');
+            }
         }
 
         // ============================================
@@ -2516,12 +2626,19 @@ function adminLogout(){
             showNotification('success', 'تم الحفظ');
         }
 
-        function quickAddPoints(userId) {
+        async function quickAddPoints(userId) {
             const pts = prompt('عدد النقاط:');
             if (pts && !isNaN(pts)) {
                 const u = users.find(x => x.id === userId);
                 if (u) {
                     u.loyaltyPoints = (u.loyaltyPoints || 0) + parseInt(pts);
+                    try {
+                        if (typeof updateCustomer === 'function') {
+                            await updateCustomer(u.id, { loyaltyPoints: u.loyaltyPoints });
+                        }
+                    } catch (error) {
+                        console.error('quickAddPoints firebase update error:', error);
+                    }
                     saveUsers();
                     renderLoyaltySection();
                     renderUsersTable();
@@ -2531,12 +2648,19 @@ function adminLogout(){
             }
         }
 
-        function quickSubPoints(userId) {
+        async function quickSubPoints(userId) {
             const pts = prompt('عدد النقاط:');
             if (pts && !isNaN(pts)) {
                 const u = users.find(x => x.id === userId);
                 if (u) {
                     u.loyaltyPoints = Math.max(0, (u.loyaltyPoints || 0) - parseInt(pts));
+                    try {
+                        if (typeof updateCustomer === 'function') {
+                            await updateCustomer(u.id, { loyaltyPoints: u.loyaltyPoints });
+                        }
+                    } catch (error) {
+                        console.error('quickSubPoints firebase update error:', error);
+                    }
                     saveUsers();
                     renderLoyaltySection();
                     renderUsersTable();
@@ -2546,15 +2670,22 @@ function adminLogout(){
             }
         }
 
-        function handlePointsAction(e) {
+        async function handlePointsAction(e) {
             e.preventDefault();
-            const userId = parseInt(document.getElementById('pointsUserId').value);
+            const userId = String(document.getElementById('pointsUserId').value || '');
             const action = document.getElementById('pointsAction').value;
             const amount = parseInt(document.getElementById('pointsAmount').value);
-            const u = users.find(x => x.id === userId);
+            const u = users.find(x => String(x.id) === userId);
             if (!u) { showNotification('error', 'اختر عميل'); return; }
             if (action === 'add') u.loyaltyPoints = (u.loyaltyPoints || 0) + amount;
             else u.loyaltyPoints = Math.max(0, (u.loyaltyPoints || 0) - amount);
+            try {
+                if (typeof updateCustomer === 'function') {
+                    await updateCustomer(u.id, { loyaltyPoints: u.loyaltyPoints });
+                }
+            } catch (error) {
+                console.error('handlePointsAction firebase update error:', error);
+            }
             saveUsers();
             renderLoyaltySection();
             renderUsersTable();
