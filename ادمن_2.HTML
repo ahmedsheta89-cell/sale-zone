@@ -1054,6 +1054,70 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="section-card" style="margin-top: 20px;">
+                    <div class="section-header">
+                        <h3 class="section-title">🛰️ التشغيل اللحظي للمتجر</h3>
+                        <div class="header-actions">
+                            <button class="btn btn-gold" onclick="refreshStoreOperationsNow()">🔄 تحديث</button>
+                            <span id="storeOpsLiveBadge" class="status-badge status-confirmed">LIVE</span>
+                        </div>
+                    </div>
+                    <div class="section-body">
+                        <div class="stats-grid" style="margin-bottom: 14px;">
+                            <div class="stat-card users">
+                                <div class="stat-icon">🟢</div>
+                                <div class="stat-value" id="liveSessionsCount">0</div>
+                                <div class="stat-label">جلسات أونلاين</div>
+                            </div>
+                            <div class="stat-card orders">
+                                <div class="stat-icon">📡</div>
+                                <div class="stat-value" id="storeEventsCount">0</div>
+                                <div class="stat-label">أحداث مباشرة</div>
+                            </div>
+                            <div class="stat-card revenue">
+                                <div class="stat-icon">⏱️</div>
+                                <div class="stat-value" id="lastStoreEventAt">-</div>
+                                <div class="stat-label">آخر حدث</div>
+                            </div>
+                        </div>
+
+                        <p id="liveSessionsMeta" style="color: #666; margin-bottom: 12px; font-size: 13px;">لا توجد جلسات مباشرة حالياً.</p>
+
+                        <div class="table-container" style="margin-bottom: 14px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>الجلسة</th>
+                                        <th>الجهاز</th>
+                                        <th>العميل</th>
+                                        <th>الصفحة</th>
+                                        <th>آخر نبضة</th>
+                                        <th>الحالة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="liveSessionsTable"></tbody>
+                            </table>
+                        </div>
+
+                        <p id="storeEventsMeta" style="color: #666; margin-bottom: 12px; font-size: 13px;">آخر 100 حدث تشغيلي من المتجر.</p>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>الوقت</th>
+                                        <th>المستوى</th>
+                                        <th>النوع</th>
+                                        <th>الرسالة</th>
+                                        <th>المصدر</th>
+                                        <th>تفاصيل</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="storeEventsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- Store Settings -->
@@ -1470,6 +1534,10 @@
         let users = [];
         let customersUnsubscribe = null;
         let clientErrorLogs = [];
+        let storeEvents = [];
+        let liveSessions = [];
+        let storeEventsUnsubscribe = null;
+        let liveSessionsUnsubscribe = null;
         // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
         // ⚠️ يُنصح بتغييرها فوراً بعد أول تسجيل دخول
         let adminPassword = null;
@@ -1815,6 +1883,7 @@ async function sendPasswordReset() {
     firebase.auth().onAuthStateChanged(async (user) => {
       if (!user) {
         stopCustomersRealtimeSync();
+        stopStoreOperationsMonitoring();
         sessionStorage.removeItem('adminLoggedIn');
         sessionStorage.removeItem('adminSessionId');
         sessionStorage.removeItem('adminSession');
@@ -1849,12 +1918,14 @@ async function sendPasswordReset() {
   }
 
   // Fallback: no Firebase
+  stopStoreOperationsMonitoring();
   document.getElementById('dashboard').classList.remove('active');
   document.getElementById('loginScreen').style.display = 'flex';
 }
 
 function adminLogout(){
   stopCustomersRealtimeSync();
+  stopStoreOperationsMonitoring();
   const sessionId = sessionStorage.getItem('adminSessionId');
   if (sessionId) {
     sessionManager.destroySession(sessionId);
@@ -1887,8 +1958,11 @@ function adminLogout(){
             renderRecentOrders();
             renderLoyaltySection();
             renderClientErrorLogsTable();
+            renderStoreEventsTable();
+            renderLiveSessionsTable();
             loadSettingsToForms();
             initCharts();
+            startStoreOperationsMonitoring();
         }
 
         function updateStats() {
@@ -2857,6 +2931,145 @@ function adminLogout(){
         }
 
         // ============================================
+        // Store Operations Monitoring (Live by second)
+        // ============================================
+        function levelClass(level) {
+            const normalized = String(level || 'info').toLowerCase();
+            if (normalized === 'error') return 'status-cancelled';
+            if (normalized === 'warning' || normalized === 'warn') return 'status-pending';
+            return 'status-confirmed';
+        }
+
+        function safeJsonPreview(value) {
+            try {
+                const raw = JSON.stringify(value || {});
+                if (raw.length <= 220) return raw;
+                return `${raw.slice(0, 220)}...`;
+            } catch (_) {
+                return '{}';
+            }
+        }
+
+        function renderStoreEventsTable() {
+            const tbody = document.getElementById('storeEventsTable');
+            const meta = document.getElementById('storeEventsMeta');
+            const countEl = document.getElementById('storeEventsCount');
+            const lastEl = document.getElementById('lastStoreEventAt');
+            if (!tbody || !meta || !countEl || !lastEl) return;
+
+            const rows = Array.isArray(storeEvents) ? storeEvents : [];
+            countEl.textContent = String(rows.length);
+            lastEl.textContent = rows.length ? formatDate(rows[0].timestamp) : '-';
+
+            if (!rows.length) {
+                meta.textContent = 'لا توجد أحداث تشغيلية حتى الآن.';
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">🛰️</div><p>لا توجد أحداث</p></div></td></tr>';
+                return;
+            }
+
+            meta.textContent = `عدد الأحداث: ${rows.length}`;
+            tbody.innerHTML = rows.map((ev) => `
+                <tr>
+                    <td>${formatDate(ev.timestamp)}</td>
+                    <td><span class="status-badge ${levelClass(ev.level)}">${escapeHtml(ev.level || 'info')}</span></td>
+                    <td><strong>${escapeHtml(ev.type || '-')}</strong></td>
+                    <td style="max-width: 260px; white-space: normal; word-break: break-word;">${escapeHtml(ev.message || '-')}</td>
+                    <td>${escapeHtml(ev.source || '-')}</td>
+                    <td style="max-width: 240px; white-space: normal; word-break: break-word;">${escapeHtml(safeJsonPreview(ev.meta || {}))}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderLiveSessionsTable() {
+            const tbody = document.getElementById('liveSessionsTable');
+            const meta = document.getElementById('liveSessionsMeta');
+            const countEl = document.getElementById('liveSessionsCount');
+            if (!tbody || !meta || !countEl) return;
+
+            const now = Date.now();
+            const sessions = Array.isArray(liveSessions) ? liveSessions : [];
+            const active = sessions.filter((s) => {
+                const ts = Date.parse(String(s.updatedAt || ''));
+                return Number.isFinite(ts) && (now - ts) <= 35000;
+            });
+            countEl.textContent = String(active.length);
+
+            if (!sessions.length) {
+                meta.textContent = 'لا توجد جلسات مباشرة حالياً.';
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">📴</div><p>لا توجد جلسات</p></div></td></tr>';
+                return;
+            }
+
+            meta.textContent = `جلسات نشطة: ${active.length} / إجمالي مرصود: ${sessions.length}`;
+            tbody.innerHTML = sessions.map((s) => {
+                const ts = Date.parse(String(s.updatedAt || ''));
+                const isActive = Number.isFinite(ts) && (now - ts) <= 35000;
+                const device = getDeviceLabel(s.userAgent || s.device || '');
+                return `
+                    <tr>
+                        <td>${escapeHtml(s.sessionId || s.id || '-')}</td>
+                        <td>${escapeHtml(device)}</td>
+                        <td>${escapeHtml(s.customerPhone || s.customerId || '-')}</td>
+                        <td style="max-width: 220px; white-space: normal; word-break: break-word;">${escapeHtml(s.page || '-')}</td>
+                        <td>${formatDate(s.updatedAt)}</td>
+                        <td><span class="status-badge ${isActive ? 'status-confirmed' : 'status-pending'}">${isActive ? 'Online' : 'Idle'}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function stopStoreOperationsMonitoring() {
+            if (typeof storeEventsUnsubscribe === 'function') storeEventsUnsubscribe();
+            if (typeof liveSessionsUnsubscribe === 'function') liveSessionsUnsubscribe();
+            storeEventsUnsubscribe = null;
+            liveSessionsUnsubscribe = null;
+        }
+
+        function startStoreOperationsMonitoring() {
+            const liveBadge = document.getElementById('storeOpsLiveBadge');
+            if (storeEventsUnsubscribe || liveSessionsUnsubscribe) return;
+
+            if (typeof subscribeStoreEvents !== 'function' || typeof subscribeLiveSessions !== 'function') {
+                if (liveBadge) liveBadge.textContent = 'N/A';
+                return;
+            }
+
+            storeEventsUnsubscribe = subscribeStoreEvents((rows) => {
+                storeEvents = rows || [];
+                renderStoreEventsTable();
+            }, (error) => {
+                console.error('store events listener error:', error);
+            }, 100);
+
+            liveSessionsUnsubscribe = subscribeLiveSessions((rows) => {
+                liveSessions = rows || [];
+                renderLiveSessionsTable();
+            }, (error) => {
+                console.error('live sessions listener error:', error);
+            }, 200);
+
+            if (liveBadge) liveBadge.textContent = 'LIVE';
+        }
+
+        async function refreshStoreOperationsNow() {
+            try {
+                if (typeof getStoreEvents === 'function') {
+                    storeEvents = await getStoreEvents(100) || [];
+                }
+                if (typeof db !== 'undefined' && db && db.collection) {
+                    const snapshot = await db.collection('store_live_sessions').orderBy('updatedAt', 'desc').limit(200).get();
+                    liveSessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                renderStoreEventsTable();
+                renderLiveSessionsTable();
+                showNotification('success', 'تم تحديث التشغيل اللحظي');
+            } catch (error) {
+                console.error('refreshStoreOperationsNow error:', error);
+                showNotification('error', 'فشل تحديث التشغيل اللحظي');
+            }
+        }
+
+        // ============================================
         // Excel Export/Import
         // ============================================
         function exportProductsExcel() {
@@ -3033,6 +3246,9 @@ function adminLogout(){
             if (name === 'reports') {
                 renderClientErrorLogsTable();
                 refreshClientErrorLogs();
+                renderStoreEventsTable();
+                renderLiveSessionsTable();
+                refreshStoreOperationsNow();
             }
         }
 

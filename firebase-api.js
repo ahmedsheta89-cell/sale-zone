@@ -428,4 +428,150 @@ async function getClientErrorLogs(limitCount = 50) {
     }
 }
 
+// ==========================================
+// STORE OPERATIONS MONITORING (Real-time)
+// ==========================================
+function normalizeStoreEventPayload(payload) {
+    const safe = payload && typeof payload === 'object' ? payload : {};
+    const context = safe.context && typeof safe.context === 'object' ? safe.context : {};
+    const meta = safe.meta && typeof safe.meta === 'object' ? safe.meta : {};
+    return {
+        type: String(safe.type || 'STORE_EVENT'),
+        level: String(safe.level || 'info'),
+        message: String(safe.message || ''),
+        source: String(safe.source || window.location.pathname || ''),
+        timestamp: String(safe.timestamp || new Date().toISOString()),
+        sessionId: String(safe.sessionId || ''),
+        customerId: String(safe.customerId || ''),
+        meta,
+        context: {
+            page: String(context.page || window.location.pathname || ''),
+            href: String(context.href || window.location.href || ''),
+            userAgent: String(context.userAgent || navigator.userAgent || ''),
+            online: typeof context.online === 'boolean' ? context.online : navigator.onLine,
+            viewport: context.viewport || {
+                width: window.innerWidth || 0,
+                height: window.innerHeight || 0
+            }
+        }
+    };
+}
+
+async function addStoreEvent(payload) {
+    try {
+        const fireDB = getFirebaseDB();
+        const normalized = normalizeStoreEventPayload(payload);
+        const docRef = await fireDB.collection('store_events').add(normalized);
+        return { ok: true, id: docRef.id };
+    } catch (e) {
+        console.warn('addStoreEvent warning:', e && e.message ? e.message : e);
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+    }
+}
+
+async function getStoreEvents(limitCount = 100) {
+    try {
+        const fireDB = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(500, Number(limitCount) || 100));
+        const snapshot = await fireDB
+            .collection('store_events')
+            .orderBy('timestamp', 'desc')
+            .limit(safeLimit)
+            .get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.warn('getStoreEvents warning:', e && e.message ? e.message : e);
+        return [];
+    }
+}
+
+function subscribeStoreEvents(onData, onError, limitCount = 100) {
+    try {
+        const fireDB = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(500, Number(limitCount) || 100));
+        return fireDB
+            .collection('store_events')
+            .orderBy('timestamp', 'desc')
+            .limit(safeLimit)
+            .onSnapshot(
+                (snapshot) => {
+                    const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (typeof onData === 'function') onData(rows);
+                },
+                (error) => {
+                    if (typeof onError === 'function') onError(error);
+                }
+            );
+    } catch (e) {
+        if (typeof onError === 'function') onError(e);
+        return null;
+    }
+}
+
+function normalizeLiveSessionPayload(payload) {
+    const safe = payload && typeof payload === 'object' ? payload : {};
+    const now = new Date().toISOString();
+    return {
+        sessionId: String(safe.sessionId || ''),
+        page: String(safe.page || window.location.pathname || ''),
+        href: String(safe.href || window.location.href || ''),
+        online: typeof safe.online === 'boolean' ? safe.online : navigator.onLine,
+        customerId: String(safe.customerId || ''),
+        customerPhone: String(safe.customerPhone || ''),
+        device: String(safe.device || ''),
+        userAgent: String(safe.userAgent || navigator.userAgent || ''),
+        updatedAt: String(safe.updatedAt || now),
+        createdAt: String(safe.createdAt || now)
+    };
+}
+
+async function upsertLiveSession(payload) {
+    try {
+        const fireDB = getFirebaseDB();
+        const normalized = normalizeLiveSessionPayload(payload);
+        if (!normalized.sessionId) throw new Error('sessionId required');
+        await fireDB.collection('store_live_sessions').doc(normalized.sessionId).set(normalized, { merge: true });
+        return { ok: true, id: normalized.sessionId };
+    } catch (e) {
+        console.warn('upsertLiveSession warning:', e && e.message ? e.message : e);
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+    }
+}
+
+async function removeLiveSession(sessionId) {
+    try {
+        const id = String(sessionId || '').trim();
+        if (!id) return { ok: false, error: 'sessionId required' };
+        const fireDB = getFirebaseDB();
+        await fireDB.collection('store_live_sessions').doc(id).delete();
+        return { ok: true };
+    } catch (e) {
+        console.warn('removeLiveSession warning:', e && e.message ? e.message : e);
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+    }
+}
+
+function subscribeLiveSessions(onData, onError, limitCount = 200) {
+    try {
+        const fireDB = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(1000, Number(limitCount) || 200));
+        return fireDB
+            .collection('store_live_sessions')
+            .orderBy('updatedAt', 'desc')
+            .limit(safeLimit)
+            .onSnapshot(
+                (snapshot) => {
+                    const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (typeof onData === 'function') onData(rows);
+                },
+                (error) => {
+                    if (typeof onError === 'function') onError(error);
+                }
+            );
+    } catch (e) {
+        if (typeof onError === 'function') onError(e);
+        return null;
+    }
+}
+
 console.log('âœ… Firebase API loaded');

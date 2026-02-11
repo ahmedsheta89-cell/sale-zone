@@ -97,6 +97,71 @@ service cloud.firestore {
       && request.resource.data.context.viewport is map;
     }
 
+    function isValidStoreEventCreate() {
+      return request.resource.data.keys().hasOnly([
+        "type",
+        "level",
+        "message",
+        "source",
+        "timestamp",
+        "sessionId",
+        "customerId",
+        "meta",
+        "context"
+      ])
+      && request.resource.data.keys().hasAll([
+        "type",
+        "level",
+        "source",
+        "timestamp"
+      ])
+      && request.resource.data.type is string
+      && request.resource.data.type.size() > 0
+      && request.resource.data.type.size() <= 120
+      && request.resource.data.level is string
+      && request.resource.data.level.size() > 0
+      && request.resource.data.level.size() <= 20
+      && (!("message" in request.resource.data) || request.resource.data.message is string)
+      && request.resource.data.source is string
+      && request.resource.data.source.size() <= 120
+      && request.resource.data.timestamp is string
+      && (!("sessionId" in request.resource.data) || request.resource.data.sessionId is string)
+      && (!("customerId" in request.resource.data) || request.resource.data.customerId is string)
+      && (!("meta" in request.resource.data) || request.resource.data.meta is map)
+      && (!("context" in request.resource.data) || request.resource.data.context is map);
+    }
+
+    function isValidLiveSessionWrite() {
+      return request.resource.data.keys().hasOnly([
+        "sessionId",
+        "page",
+        "href",
+        "online",
+        "customerId",
+        "customerPhone",
+        "device",
+        "userAgent",
+        "updatedAt",
+        "createdAt"
+      ])
+      && request.resource.data.keys().hasAll([
+        "sessionId",
+        "updatedAt"
+      ])
+      && request.resource.data.sessionId is string
+      && request.resource.data.sessionId.size() > 0
+      && request.resource.data.sessionId.size() <= 120
+      && request.resource.data.updatedAt is string
+      && (!("createdAt" in request.resource.data) || request.resource.data.createdAt is string)
+      && (!("page" in request.resource.data) || request.resource.data.page is string)
+      && (!("href" in request.resource.data) || request.resource.data.href is string)
+      && (!("online" in request.resource.data) || request.resource.data.online is bool)
+      && (!("customerId" in request.resource.data) || request.resource.data.customerId is string)
+      && (!("customerPhone" in request.resource.data) || request.resource.data.customerPhone is string)
+      && (!("device" in request.resource.data) || request.resource.data.device is string)
+      && (!("userAgent" in request.resource.data) || request.resource.data.userAgent is string);
+    }
+
     // Public readable content
     match /products/{productId} {
       allow read: if true;
@@ -149,6 +214,16 @@ service cloud.firestore {
     match /client_error_logs/{logId} {
       allow read, update, delete: if isAdmin() || isAdminEmail();
       allow create: if isValidClientErrorCreate();
+    }
+
+    match /store_events/{eventId} {
+      allow read, update, delete: if isAdmin() || isAdminEmail();
+      allow create: if isAdmin() || isAdminEmail() || isValidStoreEventCreate();
+    }
+
+    match /store_live_sessions/{sessionId} {
+      allow read, delete: if isAdmin() || isAdminEmail();
+      allow create, update: if isAdmin() || isAdminEmail() || isValidLiveSessionWrite();
     }
 
     match /sessions/{sessionId} {

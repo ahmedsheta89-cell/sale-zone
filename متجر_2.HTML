@@ -978,6 +978,16 @@
         let currentCategory = 'all';
         let currentBanner = 0;
         let bannerInterval;
+        let liveSessionHeartbeatTimer = null;
+        const STORE_SESSION_KEY = 'sale_zone_live_session_id';
+        const STORE_SESSION_ID = (() => {
+            let existing = '';
+            try { existing = sessionStorage.getItem(STORE_SESSION_KEY) || ''; } catch (_) {}
+            if (existing) return existing;
+            const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            try { sessionStorage.setItem(STORE_SESSION_KEY, id); } catch (_) {}
+            return id;
+        })();
 
         let storeSettings = {
             name: 'Sale Zone Store',
@@ -1093,6 +1103,8 @@
             });
 
             checkAppVersionAndRefresh();
+            startLiveSessionHeartbeat();
+            trackStoreEvent('STORE_BOOT', 'Store boot sequence started', 'info');
             const safeRun = (label, fn) => {
                 try { fn(); }
                 catch (err) {
@@ -1314,6 +1326,9 @@
                 }
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
+                trackStoreEvent('DATA_SYNC_FALLBACK', 'Firebase read failed, fallback to localStorage', 'warning', {
+                    error: error && error.message ? String(error.message) : String(error)
+                });
                 // Fallback to localStorage
                 products = getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []);
                 coupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
@@ -1370,6 +1385,15 @@
             setStorageData('COUPONS', coupons);
             setStorageData('BANNERS', banners);
             console.log('💾 Data saved to localStorage for persistence');
+            updateLiveSessionState({
+                customerId: currentUser && currentUser.id ? String(currentUser.id) : ''
+            });
+            trackStoreEvent('STORE_DATA_SYNC', 'Store data synchronized', 'info', {
+                products: products.length,
+                coupons: coupons.length,
+                banners: banners.length,
+                users: users.length
+            });
         }
 
         async function loadDataWithTimeout(ms = 6000) {
@@ -1924,6 +1948,83 @@
         // ============================================
         // 🔐 Auth
         // ============================================
+        function detectDeviceType() {
+            const ua = String(navigator.userAgent || '').toLowerCase();
+            if (ua.includes('ipad') || ua.includes('tablet')) return 'tablet';
+            if (ua.includes('android') && !ua.includes('mobile')) return 'tablet';
+            if (ua.includes('iphone') || ua.includes('mobile') || ua.includes('android')) return 'mobile';
+            return 'desktop';
+        }
+
+        async function trackStoreEvent(type, message, level = 'info', meta = {}) {
+            try {
+                if (typeof addStoreEvent !== 'function') return;
+                await addStoreEvent({
+                    type: String(type || 'STORE_EVENT'),
+                    message: String(message || ''),
+                    level: String(level || 'info'),
+                    source: 'store',
+                    sessionId: STORE_SESSION_ID,
+                    customerId: currentUser && currentUser.id ? String(currentUser.id) : '',
+                    meta: meta && typeof meta === 'object' ? meta : {},
+                    context: {
+                        page: window.location.pathname || '',
+                        href: window.location.href || '',
+                        userAgent: navigator.userAgent || '',
+                        online: navigator.onLine,
+                        viewport: { width: window.innerWidth || 0, height: window.innerHeight || 0 }
+                    }
+                });
+            } catch (error) {
+                console.warn('trackStoreEvent warning:', error && error.message ? error.message : error);
+            }
+        }
+
+        async function updateLiveSessionState(extra = {}) {
+            try {
+                if (typeof upsertLiveSession !== 'function') return;
+                await upsertLiveSession({
+                    sessionId: STORE_SESSION_ID,
+                    page: window.location.pathname || '',
+                    href: window.location.href || '',
+                    online: navigator.onLine,
+                    customerId: currentUser && currentUser.id ? String(currentUser.id) : '',
+                    customerPhone: currentUser && currentUser.phone ? String(currentUser.phone) : '',
+                    device: detectDeviceType(),
+                    userAgent: navigator.userAgent || '',
+                    updatedAt: new Date().toISOString(),
+                    ...(extra && typeof extra === 'object' ? extra : {})
+                });
+            } catch (error) {
+                console.warn('updateLiveSessionState warning:', error && error.message ? error.message : error);
+            }
+        }
+
+        function startLiveSessionHeartbeat() {
+            if (liveSessionHeartbeatTimer) return;
+            updateLiveSessionState();
+            liveSessionHeartbeatTimer = setInterval(() => {
+                updateLiveSessionState();
+            }, 10000);
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') updateLiveSessionState();
+            });
+            window.addEventListener('online', () => {
+                updateLiveSessionState({ online: true });
+                trackStoreEvent('NETWORK_ONLINE', 'Client back online', 'info');
+            });
+            window.addEventListener('offline', () => {
+                updateLiveSessionState({ online: false });
+                trackStoreEvent('NETWORK_OFFLINE', 'Client went offline', 'warning');
+            });
+            window.addEventListener('beforeunload', () => {
+                if (typeof removeLiveSession === 'function') {
+                    removeLiveSession(STORE_SESSION_ID).catch(() => null);
+                }
+            });
+        }
+
         function normalizePhone(phone) {
             const raw = String(phone || '').trim();
             const digits = raw.replace(/[^\d]/g, '');
@@ -1981,17 +2082,34 @@
             );
             if (phoneMatchedUser && !String(phoneMatchedUser.password || '').trim()) {
                 showNotification('warning', 'الحساب يحتاج استكمال', 'هذا رقم قديم بدون كلمة مرور. أعد التسجيل بنفس الرقم لاستكمال الحساب.');
+                trackStoreEvent('LOGIN_BLOCKED_LEGACY', 'Legacy account requires password completion', 'warning', {
+                    phoneNormalized: normalizePhone(phone)
+                });
                 return;
             }
             const user = (users || []).find(
                 u => normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone) && String(u.password || '') === String(password || '')
             );
-            if (!user) { showNotification('error', 'خطأ', 'بيانات غير صحيحة'); return; }
+            if (!user) {
+                showNotification('error', 'خطأ', 'بيانات غير صحيحة');
+                trackStoreEvent('LOGIN_FAILED', 'Customer login failed', 'warning', {
+                    phoneNormalized: normalizePhone(phone)
+                });
+                return;
+            }
             currentUser = user;
             localStorage.setItem('currentUser', JSON.stringify(user));
             updateUserUI();
             closeModal('authModal');
             showNotification('success', 'مرحباً', `أهلاً ${user.name}!`);
+            updateLiveSessionState({
+                customerId: String(user.id || ''),
+                customerPhone: String(user.phone || '')
+            });
+            trackStoreEvent('LOGIN_SUCCESS', 'Customer login success', 'info', {
+                customerId: String(user.id || ''),
+                phoneNormalized: normalizePhone(user.phone || '')
+            });
         }
 
         async function handleRegister(e) {
@@ -2033,10 +2151,21 @@
                     }
                     closeModal('authModal');
                     showNotification('success', 'تم استكمال الحساب', 'تم تحديث حسابك القديم ويمكنك الدخول الآن.');
+                    updateLiveSessionState({
+                        customerId: String(existsInCloud.id || '')
+                    });
+                    trackStoreEvent('REGISTER_RECOVER_LEGACY', 'Legacy customer profile completed', 'info', {
+                        customerId: String(existsInCloud.id || ''),
+                        phoneNormalized
+                    });
                     return;
                 } catch (error) {
                     console.error('legacy recovery error:', error);
                     showNotification('error', 'فشل استكمال الحساب', 'تعذر تحديث الحساب القديم. حاول مرة أخرى.');
+                    trackStoreEvent('REGISTER_RECOVER_FAILED', 'Legacy customer profile completion failed', 'error', {
+                        phoneNormalized,
+                        error: error && error.message ? String(error.message) : String(error)
+                    });
                     return;
                 }
             }
@@ -2049,6 +2178,9 @@
 
             if (existsInCloud || (!Array.isArray(cloudUsers) && existsLocal)) {
                 showNotification('error', 'خطأ', 'الرقم مسجل');
+                trackStoreEvent('REGISTER_DUPLICATE_PHONE', 'Registration rejected: phone already exists', 'warning', {
+                    phoneNormalized
+                });
                 return;
             }
 
@@ -2066,6 +2198,14 @@
                 updateUserUI();
                 closeModal('authModal');
                 showNotification('success', 'مرحباً', 'تم إنشاء حسابك بنجاح!');
+                updateLiveSessionState({
+                    customerId: String(newUser.id || ''),
+                    customerPhone: String(newUser.phone || '')
+                });
+                trackStoreEvent('REGISTER_SUCCESS', 'Customer registered successfully', 'info', {
+                    customerId: String(newUser.id || ''),
+                    phoneNormalized
+                });
             } catch (error) {
                 console.error('addCustomer error:', error);
                 if (!isOnlineMode()) {
@@ -2076,9 +2216,16 @@
                     updateUserUI();
                     closeModal('authModal');
                     showNotification('info', 'تم التسجيل محليًا', 'لا يوجد إنترنت. سيتم رفع الحساب تلقائيًا عند عودة الاتصال.');
+                    trackStoreEvent('REGISTER_LOCAL_FALLBACK', 'Customer registered locally due to offline mode', 'warning', {
+                        phoneNormalized
+                    });
                     return;
                 }
                 showNotification('error', 'فشل التسجيل', 'لم يتم حفظ الحساب على الخادم. حاول مرة أخرى.');
+                trackStoreEvent('REGISTER_FAILED', 'Customer registration failed on server', 'error', {
+                    phoneNormalized,
+                    error: error && error.message ? String(error.message) : String(error)
+                });
             }
         }
 
@@ -2092,6 +2239,10 @@
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 }
                 updateUserUI();
+                updateLiveSessionState({
+                    customerId: String(currentUser.id || ''),
+                    customerPhone: String(currentUser.phone || '')
+                });
             }
             updateLoyaltyDisplay();
         }
@@ -2108,9 +2259,15 @@
         }
 
         function logout() {
+            if (currentUser) {
+                trackStoreEvent('LOGOUT', 'Customer logged out', 'info', {
+                    customerId: String(currentUser.id || '')
+                });
+            }
             currentUser = null;
             localStorage.removeItem('currentUser');
             updateUserUI();
+            updateLiveSessionState({ customerId: '', customerPhone: '' });
             showNotification('info', 'تم', 'تسجيل الخروج');
         }
 
@@ -2119,7 +2276,7 @@
             openModal('passwordModal');
         }
 
-        function handleChangePassword(e) {
+        async function handleChangePassword(e) {
             e.preventDefault();
             if (!currentUser) return;
             const current = document.getElementById('currentPassword').value;
@@ -2131,12 +2288,29 @@
 
             const idx = users.findIndex(u => u.id === currentUser.id);
             if (idx !== -1) {
+                try {
+                    if (typeof updateCustomer === 'function') {
+                        await updateCustomer(currentUser.id, { password: newPass });
+                    }
+                } catch (error) {
+                    console.error('change password firebase error:', error);
+                    if (navigator.onLine) {
+                        showNotification('error', 'خطأ', 'فشل تحديث كلمة المرور على الخادم');
+                        trackStoreEvent('PASSWORD_CHANGE_FAILED', 'Password change failed on server', 'error', {
+                            customerId: String(currentUser.id || '')
+                        });
+                        return;
+                    }
+                }
                 users[idx].password = newPass;
                 currentUser.password = newPass;
                 saveUsers();
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 closeModal('passwordModal');
                 showNotification('success', 'تم', 'تم تغيير كلمة المرور');
+                trackStoreEvent('PASSWORD_CHANGED', 'Customer changed password', 'info', {
+                    customerId: String(currentUser.id || '')
+                });
             }
         }
 
@@ -2208,16 +2382,28 @@
             if (typeof addOrder === 'function') {
                 addOrder(order).then(() => {
                     console.log('✅ Order saved to Firebase');
+                    trackStoreEvent('ORDER_CREATED', 'Order saved to Firebase', 'info', {
+                        orderNumber: order.orderNumber,
+                        total: order.total,
+                        itemsCount: order.items.length
+                    });
                 }).catch(error => {
                     console.error('❌ Firebase error:', error);
                     // حفظ في localStorage كـ fallback
                     orders.push(order);
                     saveOrders();
+                    trackStoreEvent('ORDER_FALLBACK_LOCAL', 'Order failed on Firebase and saved locally', 'warning', {
+                        orderNumber: order.orderNumber,
+                        error: error && error.message ? String(error.message) : String(error)
+                    });
                 });
             } else {
                 // حفظ في localStorage فقط
                 orders.push(order);
                 saveOrders();
+                trackStoreEvent('ORDER_LOCAL_ONLY', 'Order saved locally (Firebase unavailable)', 'warning', {
+                    orderNumber: order.orderNumber
+                });
             }
 
             // Update user points
@@ -2245,6 +2431,7 @@
             updateStats();
             
             showNotification('success', '🎉 تم الطلب!', `رقم: ${order.orderNumber}`);
+            updateLiveSessionState();
             document.getElementById('checkoutForm').reset();
         }
 
