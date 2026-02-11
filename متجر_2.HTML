@@ -1039,6 +1039,34 @@
                     stack: reason && reason.stack ? String(reason.stack) : ''
                 });
             };
+            const checkAppVersionAndRefresh = async () => {
+                try {
+                    const res = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const incomingVersion = String(data?.version || '').trim();
+                    if (!incomingVersion) return;
+
+                    const storageKey = 'salezone_app_version';
+                    const currentVersion = localStorage.getItem(storageKey);
+                    if (!currentVersion) {
+                        localStorage.setItem(storageKey, incomingVersion);
+                        return;
+                    }
+                    if (currentVersion !== incomingVersion) {
+                        localStorage.setItem(storageKey, incomingVersion);
+                        window.location.reload();
+                    }
+                } catch (_) {}
+            };
+
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    window.location.reload();
+                }
+            });
+
+            checkAppVersionAndRefresh();
             const safeRun = (label, fn) => {
                 try { fn(); }
                 catch (err) {

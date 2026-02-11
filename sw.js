@@ -4,7 +4,7 @@
 // Progressive Web App (PWA) ready with offline support
 
 // 📋 Cache Management - Version Control
-const CACHE_VERSION = 'v6.0.3';
+const CACHE_VERSION = 'v6.0.4';
 const CACHE_PREFIX = 'salezone';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic-${CACHE_VERSION}`;
@@ -24,6 +24,7 @@ const CRITICAL_ASSETS = [
   '/index.html',
   '/متجر_2.HTML',
   '/ادمن_2.HTML',
+  '/version.json',
   '/manifest.json',
   '/favicon.ico',
   '/icon-192.png',
@@ -60,15 +61,34 @@ const CacheStrategies = {
     }
   },
 
-  // 🌐 Network First for Dynamic Content (Freshness)
-  networkFirst: async (request) => {
+  // 🌐 Network First for Fresh Assets with timeout fallback
+  networkFirst: async (request, cacheName = DYNAMIC_CACHE, timeoutMs = 5000) => {
     try {
-      const network = await fetch(request);
-      if (network.ok) {
-        const cache = await caches.open(DYNAMIC_CACHE);
-        cache.put(request, network.clone());
-      }
-      return network;
+      const cache = await caches.open(cacheName);
+
+      const networkPromise = fetch(request, { cache: 'no-store' })
+        .then((response) => {
+          if (response && response.ok) {
+            cache.put(request, response.clone());
+          }
+          return response;
+        })
+        .catch(() => null);
+
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => resolve(null), timeoutMs);
+      });
+
+      const raceResponse = await Promise.race([networkPromise, timeoutPromise]);
+      if (raceResponse) return raceResponse;
+
+      const cached = await cache.match(request);
+      if (cached) return cached;
+
+      const finalNetwork = await networkPromise;
+      if (finalNetwork) return finalNetwork;
+
+      return (await caches.match(OFFLINE_URL)) || Response.error();
     } catch (error) {
       console.warn(`⚠️ NetworkFirst failed for ${request.url}:`, error);
       const cached = await caches.match(request);
@@ -77,9 +97,9 @@ const CacheStrategies = {
   },
 
   // 🖼️ Stale While Revalidate for Images (Performance + Freshness)
-  staleWhileRevalidate: async (request) => {
+  staleWhileRevalidate: async (request, cacheName = IMAGE_CACHE) => {
     try {
-      const cache = await caches.open(IMAGE_CACHE);
+      const cache = await caches.open(cacheName);
       const cached = await cache.match(request);
       
       const networkPromise = fetch(request)
@@ -165,9 +185,14 @@ self.addEventListener('fetch', (event) => {
   // 🎯 Smart Route Based on Request Type
   event.respondWith(
     (async () => {
-      // 📦 Static Assets (CSS, JS, Fonts)
-      if (url.pathname.match(/\.(css|js|woff|woff2|ttf|otf)$/)) {
-        return CacheStrategies.cacheFirst(request);
+      // 🧠 JavaScript should be fresh first to avoid stale logic on mobile
+      if (url.pathname.match(/\.js$/)) {
+        return CacheStrategies.networkFirst(request, STATIC_CACHE, 4000);
+      }
+
+      // 📦 CSS/Fonts (fast cached + background refresh)
+      if (url.pathname.match(/\.(css|woff|woff2|ttf|otf)$/)) {
+        return CacheStrategies.staleWhileRevalidate(request, STATIC_CACHE);
       }
       
       // 🖼️ Images (Optimized for performance)
@@ -177,7 +202,12 @@ self.addEventListener('fetch', (event) => {
       
       // 📄 HTML Pages (Fresh content)
       if (url.pathname.match(/\.html$/)) {
-        return CacheStrategies.networkFirst(request);
+        return CacheStrategies.networkFirst(request, DYNAMIC_CACHE, 5000);
+      }
+
+      // 📄 JSON files (version/config)
+      if (url.pathname.match(/\.json$/)) {
+        return CacheStrategies.networkFirst(request, DYNAMIC_CACHE, 5000);
       }
       
       // 🌐 API Requests (Always fresh)
