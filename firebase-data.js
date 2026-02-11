@@ -201,7 +201,7 @@ async function initializeFirebaseData() {
         // Setup real-time listeners for live updates
         // GitHub Pages can block Firestore listen channel (CORS). Skip to avoid spam.
         const hostname = window.location.hostname || '';
-        const isGithubPages = /(^|\\.)github\\.io$/i.test(hostname);
+        const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
         if (!isGithubPages) {
             setupRealtimeListeners();
         } else {
@@ -268,10 +268,15 @@ function updateCouponsDisplay() {
     console.log('🎫 Updating coupon display with', coupons.length, 'coupons');
 }
 
-// Auto-initialize when Firebase is ready
-if (typeof db !== 'undefined') {
-    initializeFirebaseData();
-} else {
-    // Wait for Firebase to load
-    setTimeout(initializeFirebaseData, 2000);
+// Auto-initialize only on store page to avoid unnecessary admin listeners/network calls
+const currentPage = (document.documentElement && document.documentElement.dataset && document.documentElement.dataset.page) || '';
+const isStorePage = String(currentPage).toLowerCase() === 'store';
+
+if (isStorePage) {
+    if (typeof db !== 'undefined') {
+        initializeFirebaseData();
+    } else {
+        // Wait for Firebase to load
+        setTimeout(initializeFirebaseData, 2000);
+    }
 }
