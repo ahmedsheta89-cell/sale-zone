@@ -1274,12 +1274,12 @@
                     
                     // تحميل المنتجات
                     const fbProducts = await getAllProducts();
-                    if (fbProducts && fbProducts.length > 0) {
+                    if (Array.isArray(fbProducts)) {
                         products = fbProducts;
                         setStorageData('PRODUCTS', products); // حفظ في localStorage
                         console.log('✅ Products loaded from Firebase:', products.length);
                     } else {
-                        // Fallback to localStorage
+                        // Fallback to localStorage only when Firebase read fails
                         products = getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []);
                         setStorageData('PRODUCTS', products); // حفظ في localStorage
                         console.log('📦 Products loaded from localStorage:', products.length);
@@ -1287,7 +1287,7 @@
                     
                     // تحميل الكوبونات
                     const fbCoupons = await getCoupons();
-                    if (fbCoupons && fbCoupons.length > 0) {
+                    if (Array.isArray(fbCoupons)) {
                         coupons = fbCoupons;
                         setStorageData('COUPONS', coupons); // حفظ في localStorage
                         console.log('✅ Coupons loaded from Firebase:', coupons.length);
@@ -1299,7 +1299,7 @@
                     
                     // تحميل البانرات
                     const fbBanners = await getBanners();
-                    if (fbBanners && fbBanners.length > 0) {
+                    if (Array.isArray(fbBanners)) {
                         banners = fbBanners;
                         setStorageData('BANNERS', banners); // حفظ في localStorage
                         console.log('✅ Banners loaded from Firebase:', banners.length);

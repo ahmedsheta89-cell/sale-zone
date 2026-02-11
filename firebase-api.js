@@ -1,8 +1,8 @@
-// firebase-api.js - Firebase Firestore API
+﻿// firebase-api.js - Firebase Firestore API
 // ==========================================
 // Note: db is already declared in firebase-config.js
 
-// 🔥 Global Firebase DB Check
+// ًں”¥ Global Firebase DB Check
 function getFirebaseDB() {
     if (typeof db !== 'undefined') {
         return db;
@@ -41,14 +41,14 @@ async function getCoupons() {
         return coupons;
     } catch (e) {
         console.error('getCoupons error:', e);
-        return [];
+        return null;
     }
 }
 
 async function addCoupon(coupon) {
     try {
         const docRef = await db.collection('coupons').add(coupon);
-        console.log('✅ Coupon added to Firebase:', docRef.id);
+        console.log('âœ… Coupon added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addCoupon error:', e);
@@ -59,7 +59,7 @@ async function addCoupon(coupon) {
 async function updateCoupon(id, data) {
     try {
         await db.collection('coupons').doc(id).set(data, { merge: true });
-        console.log('✅ Coupon updated in Firebase:', id);
+        console.log('âœ… Coupon updated in Firebase:', id);
     } catch (e) {
         console.error('updateCoupon error:', e);
         throw e;
@@ -69,7 +69,7 @@ async function updateCoupon(id, data) {
 async function deleteCoupon(id) {
     try {
         await db.collection('coupons').doc(id).delete();
-        console.log('✅ Coupon deleted from Firebase:', id);
+        console.log('âœ… Coupon deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -87,24 +87,24 @@ async function getBanners() {
             const data = doc.data();
             return { 
                 id: doc.id, 
-                icon: data.icon || '🎉',
+                icon: data.icon || 'ًںژ‰',
                 title: data.title || '',
                 text: data.text || '',
-                btn: data.btn || 'تسوق الآن',
+                btn: data.btn || 'طھط³ظˆظ‚ ط§ظ„ط¢ظ†',
                 category: data.category || 'all'
             };
         });
         return banners;
     } catch (e) {
         console.error('getBanners error:', e);
-        return [];
+        return null;
     }
 }
 
 async function addBanner(banner) {
     try {
         const docRef = await db.collection('banners').add(banner);
-        console.log('✅ Banner added to Firebase:', docRef.id);
+        console.log('âœ… Banner added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addBanner error:', e);
@@ -115,7 +115,7 @@ async function addBanner(banner) {
 async function updateBanner(id, data) {
     try {
         await db.collection('banners').doc(id).set(data, { merge: true });
-        console.log('✅ Banner updated in Firebase:', id);
+        console.log('âœ… Banner updated in Firebase:', id);
     } catch (e) {
         console.error('updateBanner error:', e);
         throw e;
@@ -125,7 +125,7 @@ async function updateBanner(id, data) {
 async function deleteBanner(id) {
     try {
         await db.collection('banners').doc(id).delete();
-        console.log('✅ Banner deleted from Firebase:', id);
+        console.log('âœ… Banner deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
@@ -156,14 +156,14 @@ async function getAllProducts() {
         return products;
     } catch (e) {
         console.error('getAllProducts error:', e);
-        return [];
+        return null;
     }
 }
 
 async function addProduct(product) {
     try {
         const docRef = await db.collection('products').add(product);
-        console.log('✅ Product added to Firebase:', docRef.id);
+        console.log('âœ… Product added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addProduct error:', e);
@@ -174,7 +174,7 @@ async function addProduct(product) {
 async function updateProduct(id, data) {
     try {
         await db.collection('products').doc(id).set(data, { merge: true });
-        console.log('✅ Product updated in Firebase:', id);
+        console.log('âœ… Product updated in Firebase:', id);
     } catch (e) {
         console.error('updateProduct error:', e);
         throw e;
@@ -184,7 +184,7 @@ async function updateProduct(id, data) {
 async function deleteProductFromFirebase(id) {
     try {
         await db.collection('products').doc(id).delete();
-        console.log('✅ Product deleted from Firebase:', id);
+        console.log('âœ… Product deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteProduct error:', e);
         throw e;
@@ -201,14 +201,14 @@ async function getAllOrders() {
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
         console.error('getAllOrders error:', e);
-        return [];
+        return null;
     }
 }
 
 async function addOrder(order) {
     try {
         const docRef = await db.collection('orders').add(order);
-        console.log('✅ Order added to Firebase:', docRef.id);
+        console.log('âœ… Order added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addOrder error:', e);
@@ -219,7 +219,7 @@ async function addOrder(order) {
 async function updateOrderStatus(id, status) {
     try {
         await db.collection('orders').doc(id).update({ status: status });
-        console.log('✅ Order status updated:', id);
+        console.log('âœ… Order status updated:', id);
     } catch (e) {
         console.error('updateOrderStatus error:', e);
         throw e;
@@ -236,7 +236,7 @@ async function getAllUsers() {
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
         console.error('getAllUsers error:', e);
-        return [];
+        return null;
     }
 }
 
@@ -244,7 +244,7 @@ async function addCustomer(customer) {
     try {
         const db = getFirebaseDB();
         const docRef = await db.collection('customers').add(customer);
-        console.log('✅ Customer added to Firebase:', docRef.id);
+        console.log('âœ… Customer added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addCustomer error:', e);
@@ -262,14 +262,14 @@ async function getAllCoupons() {
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
         console.error('getAllCoupons error:', e);
-        return [];
+        return null;
     }
 }
 
 async function addCoupon(coupon) {
     try {
         const docRef = await db.collection('coupons').add(coupon);
-        console.log('✅ Coupon added to Firebase:', docRef.id);
+        console.log('âœ… Coupon added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addCoupon error:', e);
@@ -280,7 +280,7 @@ async function addCoupon(coupon) {
 async function deleteCouponFromFirebase(id) {
     try {
         await db.collection('coupons').doc(id).delete();
-        console.log('✅ Coupon deleted from Firebase:', id);
+        console.log('âœ… Coupon deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -297,14 +297,14 @@ async function getAllBanners() {
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
         console.error('getAllBanners error:', e);
-        return [];
+        return null;
     }
 }
 
 async function addBanner(banner) {
     try {
         const docRef = await db.collection('banners').add(banner);
-        console.log('✅ Banner added to Firebase:', docRef.id);
+        console.log('âœ… Banner added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addBanner error:', e);
@@ -315,7 +315,7 @@ async function addBanner(banner) {
 async function deleteBannerFromFirebase(id) {
     try {
         await db.collection('banners').doc(id).delete();
-        console.log('✅ Banner deleted from Firebase:', id);
+        console.log('âœ… Banner deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
@@ -340,7 +340,7 @@ async function saveSettings(settings) {
     try {
         const db = getFirebaseDB();
         await db.collection('settings').doc('store').set(settings, { merge: true });
-        console.log('✅ Settings saved to Firebase');
+        console.log('âœ… Settings saved to Firebase');
     } catch (e) {
         console.error('saveSettings error:', e);
         throw e;
@@ -406,4 +406,4 @@ async function getClientErrorLogs(limitCount = 50) {
     }
 }
 
-console.log('✅ Firebase API loaded');
+console.log('âœ… Firebase API loaded');

@@ -22,9 +22,9 @@ function shouldEnableRealtimeListeners() {
     const forceRealtime = new URLSearchParams(window.location.search).get('realtime') === '1' ||
         window.FORCE_FIREBASE_REALTIME === true;
 
-    if (isGithubPages) {
-        console.log('GitHub Pages detected - skipping Firestore real-time listeners');
-        return false;
+    if (isGithubPages && !forceRealtime) {
+        // Production must stay in online-sync mode across devices.
+        return true;
     }
 
     if (isLocalDev && !forceRealtime) {

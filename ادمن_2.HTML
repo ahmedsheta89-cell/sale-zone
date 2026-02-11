@@ -1597,12 +1597,17 @@
                 // محاولة تحميل من Firebase أولاً
                 if (typeof getAllProducts === 'function') {
                     console.log('🔥 Admin: Loading from Firebase...');
-                    
-                    products = await getAllProducts() || [];
-                    orders = await getAllOrders() || [];
-                    users = await getAllUsers() || [];
-                    coupons = await getAllCoupons() || [];
-                    banners = await getAllBanners() || [];
+                    const fbProducts = await getAllProducts();
+                    const fbOrders = await getAllOrders();
+                    const fbUsers = await getAllUsers();
+                    const fbCoupons = await getAllCoupons();
+                    const fbBanners = await getAllBanners();
+
+                    products = Array.isArray(fbProducts) ? fbProducts : (getStorageData('PRODUCTS') || []);
+                    orders = Array.isArray(fbOrders) ? fbOrders : (getStorageData('ORDERS') || []);
+                    users = Array.isArray(fbUsers) ? fbUsers : (getStorageData('CUSTOMERS') || []);
+                    coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
+                    banners = Array.isArray(fbBanners) ? fbBanners : (getStorageData('BANNERS') || []);
                     
                     const settings = await getSettings();
                     if (settings) storeSettings = { ...storeSettings, ...settings };
