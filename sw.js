@@ -1,29 +1,29 @@
-// 🚀 PROFESSIONAL SERVICEWORKER - 2025 Standards
+﻿// ًںڑ€ PROFESSIONAL SERVICEWORKER - 2025 Standards
 // ==========================================
 // Modern ServiceWorker implementation following best practices
 // Progressive Web App (PWA) ready with offline support
 
-// 📋 Cache Management - Version Control
-const CACHE_VERSION = 'v6.0.4';
+// ًں“‹ Cache Management - Version Control
+const CACHE_VERSION = 'v6.0.5';
 const CACHE_PREFIX = 'salezone';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `${CACHE_PREFIX}-images-${CACHE_VERSION}`;
 
-// 🌐 GitHub Pages Path Detection
+// ًںŒگ GitHub Pages Path Detection
 const BASE_PATH = self.location.pathname.replace(/\/[^\/]*$/, '') || '/';
 const NORMALIZED_BASE = BASE_PATH.endsWith('/') ? BASE_PATH.slice(0, -1) : BASE_PATH;
 const withBase = (assetPath) => `${NORMALIZED_BASE}${assetPath}`;
 const OFFLINE_URL = withBase('/offline.html');
-console.log(`🚀 ServiceWorker initialized - Version ${CACHE_VERSION}`);
-console.log(`📁 Base path: ${BASE_PATH}`);
+console.log(`ًںڑ€ ServiceWorker initialized - Version ${CACHE_VERSION}`);
+console.log(`ًں“پ Base path: ${BASE_PATH}`);
 
-// 📦 Critical Assets to Cache (LCP Optimization)
+// ًں“¦ Critical Assets to Cache (LCP Optimization)
 const CRITICAL_ASSETS = [
   '/',
   '/index.html',
-  '/متجر_2.HTML',
-  '/ادمن_2.HTML',
+  '/ظ…طھط¬ط±_2.HTML',
+  '/ط§ط¯ظ…ظ†_2.HTML',
   '/version.json',
   '/manifest.json',
   '/favicon.ico',
@@ -36,14 +36,14 @@ const CRITICAL_ASSETS = [
   '/offline.html'
 ];
 
-// 🎨 Admin Assets (Separate Cache)
+// ًںژ¨ Admin Assets (Separate Cache)
 const ADMIN_ASSETS = [
-  '/ادمن_2.HTML'
+  '/ط§ط¯ظ…ظ†_2.HTML'
 ];
 
-// 🎯 Modern Cache Strategies (2025 Standards)
+// ًںژ¯ Modern Cache Strategies (2025 Standards)
 const CacheStrategies = {
-  // 🚀 Cache First for Static Assets (Performance)
+  // ًںڑ€ Cache First for Static Assets (Performance)
   cacheFirst: async (request) => {
     try {
       const cached = await caches.match(request);
@@ -56,12 +56,12 @@ const CacheStrategies = {
       }
       return network;
     } catch (error) {
-      console.warn(`⚠️ CacheFirst failed for ${request.url}:`, error);
+      console.warn(`âڑ ï¸ڈ CacheFirst failed for ${request.url}:`, error);
       return (await caches.match(OFFLINE_URL)) || Response.error();
     }
   },
 
-  // 🌐 Network First for Fresh Assets with timeout fallback
+  // ًںŒگ Network First for Fresh Assets with timeout fallback
   networkFirst: async (request, cacheName = DYNAMIC_CACHE, timeoutMs = 5000) => {
     try {
       const cache = await caches.open(cacheName);
@@ -90,13 +90,13 @@ const CacheStrategies = {
 
       return (await caches.match(OFFLINE_URL)) || Response.error();
     } catch (error) {
-      console.warn(`⚠️ NetworkFirst failed for ${request.url}:`, error);
+      console.warn(`âڑ ï¸ڈ NetworkFirst failed for ${request.url}:`, error);
       const cached = await caches.match(request);
       return cached || (await caches.match(OFFLINE_URL)) || Response.error();
     }
   },
 
-  // 🖼️ Stale While Revalidate for Images (Performance + Freshness)
+  // ًں–¼ï¸ڈ Stale While Revalidate for Images (Performance + Freshness)
   staleWhileRevalidate: async (request, cacheName = IMAGE_CACHE) => {
     try {
       const cache = await caches.open(cacheName);
@@ -113,35 +113,35 @@ const CacheStrategies = {
 
       return cached || (await networkPromise) || (await caches.match(OFFLINE_URL)) || Response.error();
     } catch (error) {
-      console.warn(`⚠️ StaleWhileRevalidate failed for ${request.url}:`, error);
+      console.warn(`âڑ ï¸ڈ StaleWhileRevalidate failed for ${request.url}:`, error);
       return (await caches.match(OFFLINE_URL)) || Response.error();
     }
   }
 };
 
-// 📱 Install Event (PWA Installation)
+// ًں“± Install Event (PWA Installation)
 self.addEventListener('install', (event) => {
-  console.log('🚀 ServiceWorker installing...');
+  console.log('ًںڑ€ ServiceWorker installing...');
   
   event.waitUntil(
     (async () => {
       const cache = await caches.open(STATIC_CACHE);
       await cache.addAll(CRITICAL_ASSETS.map(asset => withBase(asset)));
-      console.log('✅ Critical assets cached');
+      console.log('âœ… Critical assets cached');
       
       // Preload admin assets separately
       const adminCache = await caches.open(DYNAMIC_CACHE);
       await adminCache.addAll(ADMIN_ASSETS.map(asset => withBase(asset)));
-      console.log('✅ Admin assets cached');
+      console.log('âœ… Admin assets cached');
       
       return self.skipWaiting();
     })()
   );
 });
 
-// 🔄 Activate Event (Cache Cleanup)
+// ًں”„ Activate Event (Cache Cleanup)
 self.addEventListener('activate', (event) => {
-  console.log('🔄 ServiceWorker activating...');
+  console.log('ًں”„ ServiceWorker activating...');
   
   event.waitUntil(
     (async () => {
@@ -151,14 +151,14 @@ self.addEventListener('activate', (event) => {
       );
       
       await Promise.all(oldCaches.map(name => {
-        console.log(`🗑️ Deleting old cache: ${name}`);
+        console.log(`ًں—‘ï¸ڈ Deleting old cache: ${name}`);
         return caches.delete(name);
       }));
       
-      console.log('✅ Cache cleanup completed');
+      console.log('âœ… Cache cleanup completed');
       await self.clients.claim();
 
-      // 🔔 Notify clients that a fresh SW is active (auto-refresh)
+      // ًں”” Notify clients that a fresh SW is active (auto-refresh)
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       clients.forEach(client => {
         client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION });
@@ -167,61 +167,61 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 🌐 Fetch Event (Smart Caching)
+// ًںŒگ Fetch Event (Smart Caching)
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
   
-  // 🚫 Skip non-GET requests and external resources
+  // ًںڑ« Skip non-GET requests and external resources
   if (request.method !== 'GET' || !url.origin.includes(self.location.origin)) {
     return;
   }
   
-  // 🔥 Skip Firebase requests (let them handle their own caching)
+  // ًں”¥ Skip Firebase requests (let them handle their own caching)
   if (url.hostname.includes('firebase') || url.hostname.includes('googleapis')) {
     return;
   }
   
-  // 🎯 Smart Route Based on Request Type
+  // ًںژ¯ Smart Route Based on Request Type
   event.respondWith(
     (async () => {
-      // 🧠 JavaScript should be fresh first to avoid stale logic on mobile
+      // ًں§  JavaScript should be fresh first to avoid stale logic on mobile
       if (url.pathname.match(/\.js$/)) {
         return CacheStrategies.networkFirst(request, STATIC_CACHE, 4000);
       }
 
-      // 📦 CSS/Fonts (fast cached + background refresh)
+      // ًں“¦ CSS/Fonts (fast cached + background refresh)
       if (url.pathname.match(/\.(css|woff|woff2|ttf|otf)$/)) {
         return CacheStrategies.staleWhileRevalidate(request, STATIC_CACHE);
       }
       
-      // 🖼️ Images (Optimized for performance)
+      // ًں–¼ï¸ڈ Images (Optimized for performance)
       if (url.pathname.match(/\.(png|jpg|jpeg|gif|webp|svg)$/)) {
         return CacheStrategies.staleWhileRevalidate(request);
       }
       
-      // 📄 HTML Pages (Fresh content)
+      // ًں“„ HTML Pages (Fresh content)
       if (url.pathname.match(/\.html$/)) {
         return CacheStrategies.networkFirst(request, DYNAMIC_CACHE, 5000);
       }
 
-      // 📄 JSON files (version/config)
+      // ًں“„ JSON files (version/config)
       if (url.pathname.match(/\.json$/)) {
         return CacheStrategies.networkFirst(request, DYNAMIC_CACHE, 5000);
       }
       
-      // 🌐 API Requests (Always fresh)
+      // ًںŒگ API Requests (Always fresh)
       if (url.pathname.includes('/api/')) {
         return CacheStrategies.networkFirst(request);
       }
       
-      // 🔄 Default: Network First with fallback
+      // ًں”„ Default: Network First with fallback
       return CacheStrategies.networkFirst(request);
     })()
   );
 });
 
-// 📨 Message Event (Communication with Main App)
+// ًں“¨ Message Event (Communication with Main App)
 self.addEventListener('message', (event) => {
   const { type, data } = event.data;
   
@@ -238,28 +238,28 @@ self.addEventListener('message', (event) => {
       (async () => {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map(name => caches.delete(name)));
-        console.log('🗑️ All caches cleared');
+        console.log('ًں—‘ï¸ڈ All caches cleared');
       })();
       break;
       
     default:
-      console.log(`📨 Unknown message type: ${type}`);
+      console.log(`ًں“¨ Unknown message type: ${type}`);
   }
 });
 
-// 🔄 Background Sync (Offline Support)
+// ًں”„ Background Sync (Offline Support)
 self.addEventListener('sync', (event) => {
   if (event.tag === 'background-sync') {
     event.waitUntil(
       (async () => {
-        console.log('🔄 Background sync triggered');
+        console.log('ًں”„ Background sync triggered');
         // Handle offline actions here
       })()
     );
   }
 });
 
-// 📱 Push Notifications (PWA Feature)
+// ًں“± Push Notifications (PWA Feature)
 self.addEventListener('push', (event) => {
   const options = {
     body: event.data.text(),
@@ -274,4 +274,5 @@ self.addEventListener('push', (event) => {
   );
 });
 
-console.log('🚀 Professional ServiceWorker ready - PWA Enabled');
+console.log('ًںڑ€ Professional ServiceWorker ready - PWA Enabled');
+
