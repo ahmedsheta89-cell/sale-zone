@@ -1023,6 +1023,34 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="section-card" style="margin-top: 20px;">
+                    <div class="section-header">
+                        <h3 class="section-title">📱 سجل أخطاء الأجهزة</h3>
+                        <div class="header-actions">
+                            <button class="btn btn-gold" onclick="refreshClientErrorLogs()">🔄 تحديث</button>
+                            <button class="btn btn-success" onclick="exportClientErrorsExcel()">📤 Excel</button>
+                        </div>
+                    </div>
+                    <div class="section-body">
+                        <p id="clientErrorsMeta" style="color: #666; margin-bottom: 12px; font-size: 13px;">آخر 50 خطأ من الموبايل/التابلت/المتصفح</p>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>الوقت</th>
+                                        <th>النوع</th>
+                                        <th>الرسالة</th>
+                                        <th>الصفحة</th>
+                                        <th>الجهاز</th>
+                                        <th>الحالة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientErrorLogsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- Store Settings -->
@@ -1437,6 +1465,7 @@
         let coupons = [];
         let banners = [];
         let users = [];
+        let clientErrorLogs = [];
         // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
         // ⚠️ يُنصح بتغييرها فوراً بعد أول تسجيل دخول
         let adminPassword = null;
@@ -1577,6 +1606,9 @@
                     
                     const settings = await getSettings();
                     if (settings) storeSettings = { ...storeSettings, ...settings };
+                    clientErrorLogs = (typeof getClientErrorLogs === 'function')
+                        ? (await getClientErrorLogs(50) || [])
+                        : [];
                     
                     console.log('✅ Admin data loaded from Firebase');
                     console.log('📦 Products:', products.length);
@@ -1593,6 +1625,24 @@
                 coupons = getStorageData('COUPONS') || [];
                 banners = getStorageData('BANNERS') || [];
                 users = getStorageData('CUSTOMERS') || [];
+                try {
+                    const localErrors = JSON.parse(localStorage.getItem('adminErrors') || '[]');
+                    clientErrorLogs = localErrors.slice(-50).reverse().map((err, idx) => ({
+                        id: `local_${idx}`,
+                        type: err.type || 'CLIENT_ERROR',
+                        message: err.message || 'Unknown error',
+                        source: err.filename || err.url || '',
+                        timestamp: err.timestamp || new Date().toISOString(),
+                        context: {
+                            page: err.url || '',
+                            userAgent: err.userAgent || '',
+                            online: navigator.onLine,
+                            viewport: { width: window.innerWidth || 0, height: window.innerHeight || 0 }
+                        }
+                    }));
+                } catch (_) {
+                    clientErrorLogs = [];
+                }
             }
             
             // كلمة المرور دائماً من localStorage
@@ -1822,6 +1872,7 @@ function adminLogout(){
             renderUsersTable();
             renderRecentOrders();
             renderLoyaltySection();
+            renderClientErrorLogsTable();
             loadSettingsToForms();
             initCharts();
         }
@@ -2583,6 +2634,93 @@ function adminLogout(){
         }
 
         // ============================================
+        // Client Error Logs (Mobile / Tablet Monitoring)
+        // ============================================
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getDeviceLabel(userAgent = '') {
+            const ua = String(userAgent).toLowerCase();
+            if (ua.includes('ipad') || ua.includes('tablet')) return 'Tablet';
+            if (ua.includes('android') && !ua.includes('mobile')) return 'Tablet';
+            if (ua.includes('mobile') || ua.includes('iphone') || ua.includes('android')) return 'Mobile';
+            return 'Desktop';
+        }
+
+        function renderClientErrorLogsTable() {
+            const tbody = document.getElementById('clientErrorLogsTable');
+            const meta = document.getElementById('clientErrorsMeta');
+            if (!tbody || !meta) return;
+
+            if (!Array.isArray(clientErrorLogs) || clientErrorLogs.length === 0) {
+                meta.textContent = 'لا توجد أخطاء مسجلة حاليًا.';
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">✅</div><p>لا توجد أخطاء عملاء</p></div></td></tr>';
+                return;
+            }
+
+            meta.textContent = `عدد السجلات: ${clientErrorLogs.length}`;
+            tbody.innerHTML = clientErrorLogs.map(log => {
+                const context = log.context || {};
+                const device = getDeviceLabel(context.userAgent || '');
+                const online = context.online === false ? 'Offline' : 'Online';
+                return `
+                    <tr>
+                        <td>${formatDate(log.timestamp)}</td>
+                        <td><strong>${escapeHtml(log.type || '-')}</strong></td>
+                        <td style="max-width: 260px; white-space: normal; word-break: break-word;">${escapeHtml(log.message || '-')}</td>
+                        <td style="max-width: 220px; white-space: normal; word-break: break-word;">${escapeHtml(context.page || log.source || '-')}</td>
+                        <td>${escapeHtml(device)}</td>
+                        <td>${escapeHtml(online)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function refreshClientErrorLogs() {
+            try {
+                if (typeof requireAdminPermission === 'function') {
+                    await requireAdminPermission();
+                }
+
+                if (typeof getClientErrorLogs === 'function') {
+                    clientErrorLogs = await getClientErrorLogs(50) || [];
+                } else {
+                    const localErrors = JSON.parse(localStorage.getItem('adminErrors') || '[]');
+                    clientErrorLogs = localErrors.slice(-50).reverse();
+                }
+
+                renderClientErrorLogsTable();
+                showNotification('success', 'تم تحديث سجل الأخطاء');
+            } catch (error) {
+                console.error('refreshClientErrorLogs error:', error);
+                showNotification('error', 'فشل تحديث سجل الأخطاء');
+            }
+        }
+
+        function exportClientErrorsExcel() {
+            const rows = (clientErrorLogs || []).map(log => {
+                const context = log.context || {};
+                return {
+                    'الوقت': formatDate(log.timestamp),
+                    'النوع': log.type || '',
+                    'الرسالة': log.message || '',
+                    'المصدر': log.source || '',
+                    'الصفحة': context.page || '',
+                    'الحالة': context.online === false ? 'Offline' : 'Online',
+                    'الجهاز': getDeviceLabel(context.userAgent || ''),
+                    'المتصفح': context.userAgent || ''
+                };
+            });
+            exportToExcel(rows, 'client-errors');
+        }
+
+        // ============================================
         // Excel Export/Import
         // ============================================
         function exportProductsExcel() {
@@ -2756,6 +2894,10 @@ function adminLogout(){
             document.getElementById('pageTitle').textContent = titles[name] || name;
             document.getElementById('sidebar').classList.remove('active');
             document.getElementById('overlay').classList.remove('active');
+            if (name === 'reports') {
+                renderClientErrorLogsTable();
+                refreshClientErrorLogs();
+            }
         }
 
         function toggleSidebar() {

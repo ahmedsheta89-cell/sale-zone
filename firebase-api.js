@@ -390,4 +390,20 @@ async function addClientErrorLog(payload) {
         return { ok: false, error: e && e.message ? e.message : String(e) };
     }
 }
+async function getClientErrorLogs(limitCount = 50) {
+    try {
+        const fireDB = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(200, Number(limitCount) || 50));
+        const snapshot = await fireDB
+            .collection('client_error_logs')
+            .orderBy('timestamp', 'desc')
+            .limit(safeLimit)
+            .get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.warn('getClientErrorLogs warning:', e && e.message ? e.message : e);
+        return [];
+    }
+}
+
 console.log('✅ Firebase API loaded');
