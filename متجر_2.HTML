@@ -1936,6 +1936,10 @@
             return (list || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === target);
         }
 
+        function isOnlineMode() {
+            return navigator.onLine !== false;
+        }
+
         async function syncUsersFromFirebase() {
             if (typeof getAllUsers !== 'function') return null;
             const fbUsers = await getAllUsers();
@@ -1972,6 +1976,13 @@
             const phone = document.getElementById('loginPhone').value.trim();
             const password = document.getElementById('loginPassword').value;
             await syncUsersFromFirebase().catch(() => null);
+            const phoneMatchedUser = (users || []).find(
+                u => normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone)
+            );
+            if (phoneMatchedUser && !String(phoneMatchedUser.password || '').trim()) {
+                showNotification('warning', 'الحساب يحتاج استكمال', 'هذا رقم قديم بدون كلمة مرور. أعد التسجيل بنفس الرقم لاستكمال الحساب.');
+                return;
+            }
             const user = (users || []).find(
                 u => normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone) && String(u.password || '') === String(password || '')
             );
@@ -2000,6 +2011,36 @@
                 : null;
             const existsLocal = findUserByPhone(phone);
 
+            // Legacy recovery: account exists in Firebase without password from old versions
+            if (existsInCloud && !String(existsInCloud.password || '').trim()) {
+                try {
+                    if (typeof updateCustomer === 'function') {
+                        await updateCustomer(existsInCloud.id, {
+                            name,
+                            phone,
+                            phoneNormalized,
+                            email,
+                            address,
+                            password
+                        });
+                    }
+                    await syncUsersFromFirebase().catch(() => null);
+                    const recoveredUser = findUserByPhone(phone);
+                    if (recoveredUser) {
+                        currentUser = recoveredUser;
+                        localStorage.setItem('currentUser', JSON.stringify(recoveredUser));
+                        updateUserUI();
+                    }
+                    closeModal('authModal');
+                    showNotification('success', 'تم استكمال الحساب', 'تم تحديث حسابك القديم ويمكنك الدخول الآن.');
+                    return;
+                } catch (error) {
+                    console.error('legacy recovery error:', error);
+                    showNotification('error', 'فشل استكمال الحساب', 'تعذر تحديث الحساب القديم. حاول مرة أخرى.');
+                    return;
+                }
+            }
+
             // If cloud is authoritative and phone was deleted there, clear stale local copy.
             if (Array.isArray(cloudUsers) && !existsInCloud && existsLocal) {
                 users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
@@ -2027,13 +2068,17 @@
                 showNotification('success', 'مرحباً', 'تم إنشاء حسابك بنجاح!');
             } catch (error) {
                 console.error('addCustomer error:', error);
-                users.push(newUser);
-                saveUsers();
-                currentUser = newUser;
-                localStorage.setItem('currentUser', JSON.stringify(newUser));
-                updateUserUI();
-                closeModal('authModal');
-                showNotification('info', 'تم التسجيل محليًا', 'سيتم المزامنة لاحقًا عند توفر الاتصال.');
+                if (!isOnlineMode()) {
+                    users.push(newUser);
+                    saveUsers();
+                    currentUser = newUser;
+                    localStorage.setItem('currentUser', JSON.stringify(newUser));
+                    updateUserUI();
+                    closeModal('authModal');
+                    showNotification('info', 'تم التسجيل محليًا', 'لا يوجد إنترنت. سيتم رفع الحساب تلقائيًا عند عودة الاتصال.');
+                    return;
+                }
+                showNotification('error', 'فشل التسجيل', 'لم يتم حفظ الحساب على الخادم. حاول مرة أخرى.');
             }
         }
 
