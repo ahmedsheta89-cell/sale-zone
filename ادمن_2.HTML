@@ -2071,7 +2071,7 @@ function adminLogout(){
                     <td>${formatDate(o.createdAt)}</td>
                     <td>
                         <div class="action-btns">
-                            <button class="action-btn view" onclick="viewOrder(${o.id})">👁️</button>
+                            <button class="action-btn view" onclick="viewOrder('${o.id}')">👁️</button>
                             <button class="action-btn delete" onclick="deleteOrder('${o.id}')">🗑️</button>
                         </div>
                     </td>
@@ -2124,7 +2124,7 @@ function adminLogout(){
                     <p><strong>رقم:</strong> ${o.orderNumber || o.id}</p>
                     <p><strong>التاريخ:</strong> ${formatDate(o.createdAt)}</p>
                     <p><strong>الحالة:</strong> 
-                        <select class="status-select" onchange="updateOrderStatus(${o.id}, this.value)">
+                        <select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">
                             <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>جديد</option>
                             <option value="confirmed" ${o.status === 'confirmed' ? 'selected' : ''}>مؤكد</option>
                             <option value="processing" ${o.status === 'processing' ? 'selected' : ''}>تجهيز</option>
@@ -2158,8 +2158,8 @@ function adminLogout(){
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button class="btn btn-navy" onclick="printOrder(${o.id})" style="flex: 1;">🖨️ طباعة</button>
-                    <button class="btn btn-success" onclick="sendWhatsAppUpdate(${o.id})" style="flex: 1;">💬 واتساب</button>
+                    <button class="btn btn-navy" onclick="printOrder('${o.id}')" style="flex: 1;">🖨️ طباعة</button>
+                    <button class="btn btn-success" onclick="sendWhatsAppUpdate('${o.id}')" style="flex: 1;">💬 واتساب</button>
                 </div>
             `;
             openModal('orderModal');
@@ -2385,8 +2385,8 @@ function adminLogout(){
                     </div>
                     <strong style="color: var(--gold-dark); font-size: 18px;">${u.loyaltyPoints || 0}</strong>
                     <div class="user-points-actions">
-                        <button class="points-btn add" onclick="quickAddPoints(${u.id})">➕</button>
-                        <button class="points-btn sub" onclick="quickSubPoints(${u.id})">➖</button>
+                        <button class="points-btn add" onclick="quickAddPoints('${u.id}')">➕</button>
+                        <button class="points-btn sub" onclick="quickSubPoints('${u.id}')">➖</button>
                     </div>
                 </div>
             `).join('');
@@ -2747,11 +2747,15 @@ function adminLogout(){
                     const text = new TextDecoder('utf-8').decode(buf);
 
                     if (!hasBom) issues.push(`${file}: لا يوجد BOM UTF-8`);
-                    if (!/<meta\\s+charset=[\"']?utf-8[\"']?/i.test(text)) {
+
+                    const parsed = new DOMParser().parseFromString(text, 'text/html');
+                    const metaCharset = parsed.querySelector('meta[charset]');
+                    if (!metaCharset) {
                         issues.push(`${file}: لا يوجد <meta charset="UTF-8">`);
                     }
-                    if (text.includes('�')) issues.push(`${file}: يحتوي على أحرف تالفة (�)`);
-                    if (text.includes('§')) issues.push(`${file}: يحتوي على الحرف غير المسموح (§)`);
+
+                    if (text.includes('\uFFFD')) issues.push(`${file}: يحتوي على أحرف تالفة (U+FFFD)`);
+                    if (text.includes('\u00A7')) issues.push(`${file}: يحتوي على الحرف غير المسموح (U+00A7)`);
 
                     // Check for unquoted Arabic keys inside <script> blocks
                     const scripts = [];
