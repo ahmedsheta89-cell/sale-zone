@@ -43,8 +43,12 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
+        const analyticsHost = (window.location && window.location.hostname) || '';
+        const analyticsCookieDomain = /(^|\.)github\.io$/i.test(analyticsHost)
+            ? 'ahmedsheta89-cell.github.io'
+            : 'auto';
         gtag('config', 'G-V3JC43VQBC', {
-            cookie_domain: 'ahmedsheta89-cell.github.io'
+            cookie_domain: analyticsCookieDomain
         });
     </script>
     
@@ -1131,65 +1135,78 @@
 
             // 📱 Register Professional ServiceWorker for PWA (Auto Update)
             if ('serviceWorker' in navigator) {
-                let swRefreshing = false;
-                const requestRefresh = () => {
-                    if (swRefreshing) return;
-                    swRefreshing = true;
-                    window.location.reload();
-                };
+                const swHost = (window.location && window.location.hostname) || '';
+                const isLocalDevHost = /^(localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|::1|\[::1\]|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})$/i.test(swHost) || swHost.endsWith('.local');
+                const disableServiceWorker = isLocalDevHost || new URLSearchParams(window.location.search).get('nosw') === '1';
 
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    requestRefresh();
-                });
+                if (disableServiceWorker) {
+                    navigator.serviceWorker.getRegistrations()
+                        .then(registrations => Promise.all(registrations.map(reg => reg.unregister())))
+                        .then(() => {
+                            console.log('Local dev mode - ServiceWorker disabled to prevent stale cache');
+                        })
+                        .catch(() => undefined);
+                } else {
+                    let swRefreshing = false;
+                    const requestRefresh = () => {
+                        if (swRefreshing) return;
+                        swRefreshing = true;
+                        window.location.reload();
+                    };
 
-                navigator.serviceWorker.addEventListener('message', (event) => {
-                    if (event.data && event.data.type === 'SW_UPDATED' && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
                         requestRefresh();
-                    }
-                });
-
-                navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
-                    .then(registration => {
-                        console.log('✅ Professional ServiceWorker registered:', registration.scope);
-                        console.log('🚀 PWA Features Enabled');
-
-                        const updateNow = () => registration.update().catch(() => undefined);
-                        updateNow();
-                        setInterval(updateNow, 60 * 60 * 1000);
-                        document.addEventListener('visibilitychange', () => {
-                            if (document.visibilityState === 'visible') updateNow();
-                        });
-
-                        if (registration.waiting) {
-                            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        }
-
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            if (!newWorker) return;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed') {
-                                    if (registration.waiting) {
-                                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                                    }
-                                    if (navigator.serviceWorker.controller) {
-                                        console.log('🔄 New version available! Refreshing...');
-                                        requestRefresh();
-                                    }
-                                }
-                            });
-                        });
-
-                        // 📨 Get ServiceWorker version
-                        if (registration.active) {
-                            registration.active.postMessage({ type: 'GET_VERSION' }, [new MessageChannel().port1]);
-                        }
-                    })
-                    .catch(err => {
-                        console.error('❌ ServiceWorker registration failed:', err);
-                        // Fallback to basic functionality
-                        console.log('🔄 Fallback: Running without ServiceWorker');
                     });
+
+                    navigator.serviceWorker.addEventListener('message', (event) => {
+                        if (event.data && event.data.type === 'SW_UPDATED' && navigator.serviceWorker.controller) {
+                            requestRefresh();
+                        }
+                    });
+
+                    navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
+                        .then(registration => {
+                            console.log('✅ Professional ServiceWorker registered:', registration.scope);
+                            console.log('🚀 PWA Features Enabled');
+
+                            const updateNow = () => registration.update().catch(() => undefined);
+                            updateNow();
+                            setInterval(updateNow, 60 * 60 * 1000);
+                            document.addEventListener('visibilitychange', () => {
+                                if (document.visibilityState === 'visible') updateNow();
+                            });
+
+                            if (registration.waiting) {
+                                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                            }
+
+                            registration.addEventListener('updatefound', () => {
+                                const newWorker = registration.installing;
+                                if (!newWorker) return;
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed') {
+                                        if (registration.waiting) {
+                                            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                        }
+                                        if (navigator.serviceWorker.controller) {
+                                            console.log('🔄 New version available! Refreshing...');
+                                            requestRefresh();
+                                        }
+                                    }
+                                });
+                            });
+
+                            // 📨 Get ServiceWorker version
+                            if (registration.active) {
+                                registration.active.postMessage({ type: 'GET_VERSION' }, [new MessageChannel().port1]);
+                            }
+                        })
+                        .catch(err => {
+                            console.error('❌ ServiceWorker registration failed:', err);
+                            // Fallback to basic functionality
+                            console.log('🔄 Fallback: Running without ServiceWorker');
+                        });
+                }
             } else {
                 console.log('📱 ServiceWorker not supported - PWA features disabled');
             }
@@ -2260,10 +2277,21 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
         }
 
-        // Request notification permission
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
+        // Request notification permission only after first user gesture
+        function setupNotificationPermissionRequest() {
+            if (!('Notification' in window) || Notification.permission !== 'default') return;
+
+            const requestPermission = (event) => {
+                if (!event || event.isTrusted !== true) return;
+                Notification.requestPermission().catch(() => undefined);
+            };
+
+            window.addEventListener('click', requestPermission, { once: true, passive: true });
+            window.addEventListener('touchstart', requestPermission, { once: true, passive: true });
+            window.addEventListener('keydown', requestPermission, { once: true });
         }
+
+        setupNotificationPermissionRequest();
 
         // ============================================
         // 🎛️ UI Helpers

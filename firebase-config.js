@@ -12,51 +12,62 @@ const firebaseConfig = {
     measurementId: "G-V3JC43VQBC"
 };
 
-// Initialize Firebase with CORS fix for GitHub Pages
+function isLocalLikeHost(hostname) {
+    const host = String(hostname || "").trim().toLowerCase();
+    if (!host) return false;
+
+    if (/^(localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|::1|\[::1\])$/.test(host)) return true;
+    if (/^10(?:\.\d{1,3}){3}$/.test(host)) return true;
+    if (/^192\.168(?:\.\d{1,3}){2}$/.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}$/.test(host)) return true;
+    return host.endsWith(".local");
+}
+
+const hostname = window.location.hostname || "";
+const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
+const isLocalDev = isLocalLikeHost(hostname);
+
+// Initialize Firebase
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-// Initialize Firestore with CORS settings
+// Initialize Firestore
 const db = firebase.firestore();
 
-const hostname = window.location.hostname || '';
-const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
-const isLocalDev = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(hostname);
-
-// Local dev networks can break WebChannel; this improves stability without disabling errors.
+// Local/dev networks can break WebChannel; this improves stability.
 if (isLocalDev) {
     try {
         db.settings({
             experimentalAutoDetectLongPolling: true,
-            useFetchStreams: false
+            useFetchStreams: false,
+            merge: true
         });
-        console.log('🧪 Local dev mode - Firestore long-polling auto-detect enabled');
+        console.log("Local/network dev mode - Firestore long-polling auto-detect enabled");
     } catch (e) {
-        console.warn('Firestore settings already initialized:', e);
+        console.warn("Firestore settings already initialized:", e);
     }
 }
 
 // Fix for GitHub Pages CORS issues
 if (isGithubPages) {
-    // Disable Firebase real-time features on GitHub Pages to avoid CORS errors
-    console.log('?? GitHub Pages detected - using localStorage fallback to avoid CORS errors');
+    console.log("GitHub Pages detected - using localStorage fallback to avoid CORS errors");
 
     // Override Firebase functions to use localStorage
     window.getAllProducts = async () => {
-        const products = localStorage.getItem('sale_zone_products');
+        const products = localStorage.getItem("sale_zone_products");
         return products ? JSON.parse(products) : [];
     };
 
     window.getCoupons = async () => {
-        const coupons = localStorage.getItem('sale_zone_coupons');
+        const coupons = localStorage.getItem("sale_zone_coupons");
         return coupons ? JSON.parse(coupons) : [];
     };
 
     window.getBanners = async () => {
-        const banners = localStorage.getItem('sale_zone_banners');
+        const banners = localStorage.getItem("sale_zone_banners");
         return banners ? JSON.parse(banners) : [];
     };
 } else {
-    console.log('? Firebase initialized');
+    console.log("Firebase initialized");
 }

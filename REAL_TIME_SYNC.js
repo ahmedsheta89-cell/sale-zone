@@ -16,10 +16,10 @@ function setupRealtimeSync() {
     
     // الاستماع للتحديثات من التابات الأخرى
     window.addEventListener('storage', function(e) {
-        if (e.key && e.key.startsWith('sale_zone_')) {
-            console.log('🔔 Cross-tab storage change:', e.key);
-            handleCrossTabUpdate(e.key);
-        }
+        if (!e.key || !e.key.startsWith('sale_zone_')) return;
+        if (e.key === 'sale_zone_last_update') return;
+        console.log('🔔 Cross-tab storage change:', e.key);
+        handleCrossTabUpdate(e.key);
     });
     
     // فحص دوري للتحديثات - معطل لحل مشكلة التحديث المستمر
@@ -79,6 +79,10 @@ function handleStorageUpdate(detail) {
 // 🔄 معالجة التحديثات بين التابات
 function handleCrossTabUpdate(storageKey) {
     console.log('🔄 Cross-tab update detected:', storageKey);
+
+    if (storageKey === 'sale_zone_last_update') {
+        return;
+    }
     
     // تحديث البيانات المحلية
     switch(storageKey) {

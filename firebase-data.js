@@ -4,21 +4,36 @@
 // Initialize Firebase (sample data seeding disabled in production)
 const ENABLE_SAMPLE_DATA = false; // set true فقط في بيئة التطوير
 
+function isLocalLikeHost(hostname) {
+    const host = String(hostname || '').trim().toLowerCase();
+    if (!host) return false;
+    if (/^(localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|::1|\[::1\])$/.test(host)) return true;
+    if (/^10(?:\.\d{1,3}){3}$/.test(host)) return true;
+    if (/^192\.168(?:\.\d{1,3}){2}$/.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}$/.test(host)) return true;
+    return host.endsWith('.local');
+}
+
 function shouldEnableRealtimeListeners() {
     const hostname = window.location.hostname || '';
     const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
-    const isLocalDev = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(hostname);
+    const isLocalDev = isLocalLikeHost(hostname);
+    const isInsecureRemoteHttp = window.location.protocol === 'http:' && !isLocalDev;
     const forceRealtime = new URLSearchParams(window.location.search).get('realtime') === '1' ||
         window.FORCE_FIREBASE_REALTIME === true;
 
     if (isGithubPages) {
-        console.log('🔥 GitHub Pages detected - skipping Firestore real-time listeners');
+        console.log('GitHub Pages detected - skipping Firestore real-time listeners');
         return false;
     }
 
-    // Local live-server often runs without stable Firestore channel; keep it opt-in.
     if (isLocalDev && !forceRealtime) {
-        console.log('🧪 Local dev detected - skipping Firestore real-time listeners (add ?realtime=1 to enable)');
+        console.log('Local/network dev detected - skipping Firestore real-time listeners (add ?realtime=1 to enable)');
+        return false;
+    }
+
+    if (isInsecureRemoteHttp && !forceRealtime) {
+        console.log('Non-HTTPS host detected - skipping Firestore real-time listeners (add ?realtime=1 to enable)');
         return false;
     }
 

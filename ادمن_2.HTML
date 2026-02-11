@@ -1483,6 +1483,20 @@
                 return;
             }
 
+            const swHost = (window.location && window.location.hostname) || '';
+            const isLocalDevHost = /^(localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|::1|\[::1\]|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})$/i.test(swHost) || swHost.endsWith('.local');
+            const disableServiceWorker = isLocalDevHost || new URLSearchParams(window.location.search).get('nosw') === '1';
+
+            if (disableServiceWorker) {
+                navigator.serviceWorker.getRegistrations()
+                    .then(registrations => Promise.all(registrations.map(reg => reg.unregister())))
+                    .then(() => {
+                        console.log('Local dev mode - ServiceWorker disabled in admin to prevent stale cache');
+                    })
+                    .catch(() => undefined);
+                return;
+            }
+
             let swRefreshing = false;
             const requestRefresh = () => {
                 if (swRefreshing) return;
