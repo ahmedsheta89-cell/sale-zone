@@ -4,6 +4,27 @@
 // Initialize Firebase (sample data seeding disabled in production)
 const ENABLE_SAMPLE_DATA = false; // set true فقط في بيئة التطوير
 
+function shouldEnableRealtimeListeners() {
+    const hostname = window.location.hostname || '';
+    const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
+    const isLocalDev = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(hostname);
+    const forceRealtime = new URLSearchParams(window.location.search).get('realtime') === '1' ||
+        window.FORCE_FIREBASE_REALTIME === true;
+
+    if (isGithubPages) {
+        console.log('🔥 GitHub Pages detected - skipping Firestore real-time listeners');
+        return false;
+    }
+
+    // Local live-server often runs without stable Firestore channel; keep it opt-in.
+    if (isLocalDev && !forceRealtime) {
+        console.log('🧪 Local dev detected - skipping Firestore real-time listeners (add ?realtime=1 to enable)');
+        return false;
+    }
+
+    return true;
+}
+
 async function initializeFirebaseData() {
     try {
         // Check if products collection exists
@@ -200,12 +221,8 @@ async function initializeFirebaseData() {
         
         // Setup real-time listeners for live updates
         // GitHub Pages can block Firestore listen channel (CORS). Skip to avoid spam.
-        const hostname = window.location.hostname || '';
-        const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
-        if (!isGithubPages) {
+        if (shouldEnableRealtimeListeners()) {
             setupRealtimeListeners();
-        } else {
-            console.log('🔥 GitHub Pages detected - skipping Firestore real-time listeners');
         }
         
     } catch (error) {
@@ -215,10 +232,7 @@ async function initializeFirebaseData() {
 
 // Real-time listeners for live updates
 function setupRealtimeListeners() {
-    const hostname = window.location.hostname || '';
-    const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
-    if (isGithubPages) {
-        console.log('🔥 GitHub Pages detected - skipping Firestore real-time listeners');
+    if (!shouldEnableRealtimeListeners()) {
         return;
     }
 

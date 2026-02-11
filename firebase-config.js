@@ -20,8 +20,25 @@ if (!firebase.apps.length) {
 // Initialize Firestore with CORS settings
 const db = firebase.firestore();
 
+const hostname = window.location.hostname || '';
+const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
+const isLocalDev = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(hostname);
+
+// Local dev networks can break WebChannel; this improves stability without disabling errors.
+if (isLocalDev) {
+    try {
+        db.settings({
+            experimentalAutoDetectLongPolling: true,
+            useFetchStreams: false
+        });
+        console.log('🧪 Local dev mode - Firestore long-polling auto-detect enabled');
+    } catch (e) {
+        console.warn('Firestore settings already initialized:', e);
+    }
+}
+
 // Fix for GitHub Pages CORS issues
-if (window.location.hostname === 'ahmedsheta89-cell.github.io') {
+if (isGithubPages) {
     // Disable Firebase real-time features on GitHub Pages to avoid CORS errors
     console.log('?? GitHub Pages detected - using localStorage fallback to avoid CORS errors');
 
