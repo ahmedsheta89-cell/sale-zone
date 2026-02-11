@@ -1326,11 +1326,39 @@
                 console.log('📦 Data saved to localStorage from fallback');
             }
             
+            // تحميل العملاء من Firebase إن أمكن، ثم fallback إلى localStorage
+            try {
+                if (typeof getAllUsers === 'function') {
+                    const fbUsers = await getAllUsers();
+                    if (Array.isArray(fbUsers)) {
+                        const localUsers = getStorageData('CUSTOMERS') || [];
+                        const localByPhone = new Map(
+                            localUsers.map(u => [normalizePhone(u.phone), u])
+                        );
+                        users = fbUsers.map(u => {
+                            const localMatch = localByPhone.get(normalizePhone(u.phone));
+                            return {
+                                ...u,
+                                phoneNormalized: normalizePhone(u.phone),
+                                // Preserve local password if Firebase record is legacy
+                                password: (u.password || (localMatch && localMatch.password) || '')
+                            };
+                        });
+                        setStorageData('CUSTOMERS', users);
+                        console.log('✅ Customers loaded from Firebase:', users.length);
+                    }
+                }
+            } catch (e) {
+                console.warn('Customers sync fallback to localStorage:', e);
+            }
+
             // هذه البيانات دائماً من localStorage (السلة، المفضلات، إلخ)
             cart = getStorageData('CART') || [];
             favorites = (getStorageData('WISHLIST') || []).map(id => String(id));
             orders = getStorageData('ORDERS') || [];
-            users = getStorageData('CUSTOMERS') || [];
+            if (!Array.isArray(users) || users.length === 0) {
+                users = getStorageData('CUSTOMERS') || [];
+            }
             
             const savedSettings = getStorageData('SETTINGS');
             if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
@@ -1896,6 +1924,37 @@
         // ============================================
         // 🔐 Auth
         // ============================================
+        function normalizePhone(phone) {
+            const raw = String(phone || '').trim();
+            const digits = raw.replace(/[^\d]/g, '');
+            if (digits.startsWith('20') && digits.length === 12) return `0${digits.slice(2)}`;
+            return digits;
+        }
+
+        function findUserByPhone(phone, list = users) {
+            const target = normalizePhone(phone);
+            return (list || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === target);
+        }
+
+        async function syncUsersFromFirebase() {
+            if (typeof getAllUsers !== 'function') return null;
+            const fbUsers = await getAllUsers();
+            if (!Array.isArray(fbUsers)) return null;
+
+            const localUsers = getStorageData('CUSTOMERS') || [];
+            const localByPhone = new Map(localUsers.map(u => [normalizePhone(u.phone), u]));
+            users = fbUsers.map(u => {
+                const localMatch = localByPhone.get(normalizePhone(u.phone));
+                return {
+                    ...u,
+                    phoneNormalized: normalizePhone(u.phone),
+                    password: (u.password || (localMatch && localMatch.password) || '')
+                };
+            });
+            saveUsers();
+            return users;
+        }
+
         function showAuthModal(tab = 'login') {
             openModal('authModal');
             switchAuthTab(tab);
@@ -1908,11 +1967,14 @@
             document.getElementById('authModalTitle').textContent = tab === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب';
         }
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
             const phone = document.getElementById('loginPhone').value.trim();
             const password = document.getElementById('loginPassword').value;
-            const user = users.find(u => u.phone === phone && u.password === password);
+            await syncUsersFromFirebase().catch(() => null);
+            const user = (users || []).find(
+                u => normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone) && String(u.password || '') === String(password || '')
+            );
             if (!user) { showNotification('error', 'خطأ', 'بيانات غير صحيحة'); return; }
             currentUser = user;
             localStorage.setItem('currentUser', JSON.stringify(user));
@@ -1925,16 +1987,32 @@
             e.preventDefault();
             const name = document.getElementById('registerName').value.trim();
             const phone = document.getElementById('registerPhone').value.trim();
+            const phoneNormalized = normalizePhone(phone);
             const email = document.getElementById('registerEmail').value.trim();
             const address = document.getElementById('registerAddress').value.trim();
             const password = document.getElementById('registerPassword').value;
             const confirm = document.getElementById('registerPasswordConfirm').value;
 
             if (password !== confirm) { showNotification('error', 'خطأ', 'كلمات المرور غير متطابقة'); return; }
-            if (users.find(u => u.phone === phone)) { showNotification('error', 'خطأ', 'الرقم مسجل'); return; }
+            const cloudUsers = await syncUsersFromFirebase().catch(() => null);
+            const existsInCloud = Array.isArray(cloudUsers)
+                ? cloudUsers.find(u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
+                : null;
+            const existsLocal = findUserByPhone(phone);
 
-            const newUser = { id: Date.now().toString(), name, phone, email, address, password, loyaltyPoints: 0, createdAt: new Date().toISOString() };
-            const customerPayload = { name, phone, email, address, loyaltyPoints: 0, createdAt: newUser.createdAt };
+            // If cloud is authoritative and phone was deleted there, clear stale local copy.
+            if (Array.isArray(cloudUsers) && !existsInCloud && existsLocal) {
+                users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
+                saveUsers();
+            }
+
+            if (existsInCloud || (!Array.isArray(cloudUsers) && existsLocal)) {
+                showNotification('error', 'خطأ', 'الرقم مسجل');
+                return;
+            }
+
+            const newUser = { id: Date.now().toString(), name, phone, phoneNormalized, email, address, password, loyaltyPoints: 0, createdAt: new Date().toISOString() };
+            const customerPayload = { name, phone, phoneNormalized, email, address, password, loyaltyPoints: 0, createdAt: newUser.createdAt };
             try {
                 if (typeof addCustomer === 'function') {
                     const firebaseId = await addCustomer(customerPayload);
