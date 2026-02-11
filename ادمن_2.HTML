@@ -1189,6 +1189,14 @@
                         <button class="btn btn-info" onclick="runPreflightCheck()" style="width: 100%;">🔍 تشغيل الفحص</button>
                     </div>
 
+                    <div class="settings-card">
+                        <h3>🧨 حذف البيانات التجريبية</h3>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 12px;">
+                            يحذف فقط العناصر التي تم إنشاؤها افتراضيًا (صور Placeholder + أسماء/أكواد معروفة).
+                        </p>
+                        <button class="btn btn-danger" onclick="purgeSampleData()" style="width: 100%;">🗑️ حذف التجريبية الآن</button>
+                    </div>
+
                     <div class="settings-card danger-zone">
                         <h3>⚠️ منطقة الخطر</h3>
                         <p style="color: #666; margin-bottom: 15px; font-size: 12px;">لا يمكن التراجع عن هذه الإجراءات!</p>
@@ -1721,7 +1729,10 @@ async function sendPasswordReset() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').classList.add('active');
         if (!products.length) {
-          loadAllData().then(initDashboard);
+          loadAllData().then(() => {
+            initDashboard();
+            autoPurgeSamplesOnce();
+          });
         }
       } else {
         await firebase.auth().signOut();
@@ -2729,6 +2740,118 @@ function adminLogout(){
             n.innerHTML = `<div class="notification-icon">${type === 'success' ? '✓' : '✕'}</div><div class="notification-content"><div class="notification-title">${type === 'success' ? 'نجاح' : 'خطأ'}</div><div class="notification-message">${message}</div></div><button class="notification-close" onclick="this.parentElement.remove()">✕</button>`;
             container.appendChild(n);
             setTimeout(() => n.remove(), 4000);
+        }
+
+        // ============================================
+        // Purge Sample Data (Auto + Manual)
+        // ============================================
+        const SAMPLE_PURGE_FLAG = 'salezone_sample_purge_done';
+
+        function getSamplePurgeTargets() {
+            const placeholderProductNames = new Set([
+                'شامبو كيراتين فاخر',
+                'سيروم فيتامين C',
+                'حليب الأطفال المخصص',
+                'فيتامينات متعددة',
+                'كريم مرطب للوجه',
+                'بلسم الشعر المعالج',
+                'زيت الأطفال اللطيف'
+            ]);
+            const placeholderBannerTitles = new Set(['خصم 30%', 'جديدنا']);
+            const placeholderCouponCodes = new Set(['WELCOME20', 'SALE50']);
+
+            const isProductPlaceholder = (p) => {
+                const name = String(p?.name || '').trim();
+                const img = String(p?.image || '').trim();
+                return placeholderProductNames.has(name) && /placeholder\.svg$/i.test(img);
+            };
+            const isBannerPlaceholder = (b) => {
+                const title = String(b?.title || '').trim();
+                const img = String(b?.image || '').trim();
+                return placeholderBannerTitles.has(title) && /banner-placeholder\.svg$/i.test(img);
+            };
+            const isCouponPlaceholder = (c) => {
+                const code = String(c?.code || '').trim().toUpperCase();
+                return placeholderCouponCodes.has(code);
+            };
+
+            const productsToDelete = (products || []).filter(isProductPlaceholder);
+            const bannersToDelete = (banners || []).filter(isBannerPlaceholder);
+            const couponsToDelete = (coupons || []).filter(isCouponPlaceholder);
+            return { productsToDelete, bannersToDelete, couponsToDelete };
+        }
+
+        async function purgeSampleData(auto = false) {
+            try {
+                if (typeof requireAdminPermission === 'function') {
+                    await requireAdminPermission();
+                }
+            } catch (error) {
+                if (!auto) showNotification('error', 'لا يمكن حذف التجريبية بدون صلاحيات');
+                return false;
+            }
+
+            const { productsToDelete, bannersToDelete, couponsToDelete } = getSamplePurgeTargets();
+            const total = productsToDelete.length + bannersToDelete.length + couponsToDelete.length;
+
+            if (!total) {
+                if (!auto) showNotification('success', 'لا توجد بيانات تجريبية');
+                return true;
+            }
+
+            if (!auto) {
+                const msg = `سيتم حذف ${productsToDelete.length} منتج، ${bannersToDelete.length} بانر، ${couponsToDelete.length} كوبون تجريبي. هل أنت متأكد؟`;
+                if (!confirm(msg)) return false;
+            }
+
+            const deletedIds = {
+                products: new Set(productsToDelete.map(p => String(p.id))),
+                banners: new Set(bannersToDelete.map(b => String(b.id))),
+                coupons: new Set(couponsToDelete.map(c => String(c.id)))
+            };
+
+            for (const p of productsToDelete) {
+                try {
+                    if (typeof deleteProductFromFirebase === 'function') {
+                        await deleteProductFromFirebase(p.id);
+                    }
+                } catch (e) { console.error('Delete product failed:', e); }
+            }
+            for (const b of bannersToDelete) {
+                try {
+                    if (typeof deleteBannerFromFirebase === 'function') {
+                        await deleteBannerFromFirebase(b.id);
+                    }
+                } catch (e) { console.error('Delete banner failed:', e); }
+            }
+            for (const c of couponsToDelete) {
+                try {
+                    if (typeof deleteCouponFromFirebase === 'function') {
+                        await deleteCouponFromFirebase(c.id);
+                    }
+                } catch (e) { console.error('Delete coupon failed:', e); }
+            }
+
+            products = (products || []).filter(p => !deletedIds.products.has(String(p.id)));
+            banners = (banners || []).filter(b => !deletedIds.banners.has(String(b.id)));
+            coupons = (coupons || []).filter(c => !deletedIds.coupons.has(String(c.id)));
+
+            saveProducts();
+            saveBanners();
+            saveCoupons();
+            renderProductsTable();
+            renderBannersTable();
+            renderCouponsTable();
+            updateStats();
+
+            showNotification('success', `تم حذف ${total} عنصر تجريبي`);
+            return true;
+        }
+
+        async function autoPurgeSamplesOnce() {
+            if (localStorage.getItem(SAMPLE_PURGE_FLAG) === '1') return;
+            const ok = await purgeSampleData(true);
+            if (ok) localStorage.setItem(SAMPLE_PURGE_FLAG, '1');
         }
 
         async function runPreflightCheck() {
