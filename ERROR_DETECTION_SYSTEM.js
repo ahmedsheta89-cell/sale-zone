@@ -19,6 +19,7 @@ class ErrorDetectionSystem {
         this.lastRemoteErrorLogAt = 0;
         this.lastRemoteErrorFingerprint = '';
         this.remoteErrorThrottleMs = 8000;
+        this.networkOfflineSince = null;
         
         this.initialize();
     }
@@ -309,15 +310,26 @@ class ErrorDetectionSystem {
 
     // 🌐 فحص صحة الشبكة
     checkNetworkHealth() {
-        if (navigator.onLine === false) {
+        const isOnline = navigator.onLine !== false;
+        if (isOnline) {
+            this.networkOfflineSince = null;
+            this.systemHealth.network = true;
+            return;
+        }
+
+        if (!this.networkOfflineSince) {
+            this.networkOfflineSince = Date.now();
             this.logWarning({
                 type: 'NETWORK_OFFLINE',
                 message: 'User is offline',
                 timestamp: new Date().toISOString()
             });
+            return;
         }
-        
-        this.systemHealth.network = navigator.onLine;
+
+        // Grace period to avoid false 75% health dips from short mobile hiccups.
+        const offlineForMs = Date.now() - this.networkOfflineSince;
+        this.systemHealth.network = offlineForMs >= 20000 ? false : true;
     }
 
     // 📝 تسجيل الخطأ

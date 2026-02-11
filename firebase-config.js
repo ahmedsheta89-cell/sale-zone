@@ -49,25 +49,10 @@ if (isLocalDev) {
     }
 }
 
-// Fix for GitHub Pages CORS issues
+// GitHub Pages mode
 if (isGithubPages) {
-    console.log("GitHub Pages detected - using localStorage fallback to avoid CORS errors");
-
-    // Override Firebase functions to use localStorage
-    window.getAllProducts = async () => {
-        const products = localStorage.getItem("sale_zone_products");
-        return products ? JSON.parse(products) : [];
-    };
-
-    window.getCoupons = async () => {
-        const coupons = localStorage.getItem("sale_zone_coupons");
-        return coupons ? JSON.parse(coupons) : [];
-    };
-
-    window.getBanners = async () => {
-        const banners = localStorage.getItem("sale_zone_banners");
-        return banners ? JSON.parse(banners) : [];
-    };
+    // Keep Firebase online mode on production; realtime listeners are gated in firebase-data.js.
+    console.log("GitHub Pages detected - Firebase online mode enabled");
 } else {
     console.log("Firebase initialized");
 }

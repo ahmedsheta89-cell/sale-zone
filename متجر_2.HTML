@@ -1019,6 +1019,28 @@
             { id: 3, icon: '💎', title: 'نقاط الولاء', text: 'اجمع نقاط واستبدلها بخصومات', btn: 'سجل الآن', category: 'all' }
         ];
 
+        // For emergency/dev only: add ?seed=1 to allow local demo defaults.
+        const allowLocalSeedDefaults = new URLSearchParams(window.location.search).get('seed') === '1';
+
+        function isSeedProduct(p) {
+            const seedNames = new Set([
+                'شامبو كيراتين فاخر', 'سيروم فيتامين C', 'زيت جوز الهند', 'كريم الترطيب المكثف',
+                'غسول الوجه اللطيف', 'شامبو أطفال', 'كريم حفاضات', 'لوشن ترطيب الأطفال',
+                'فيتامين د3', 'أوميغا 3', 'مالتي فيتامين', 'جهاز قياس الضغط',
+                'جهاز قياس السكر', 'ترمومتر رقمي'
+            ]);
+            const name = String(p?.name || '').trim();
+            const image = String(p?.image || '').trim();
+            return seedNames.has(name) && /placeholder\.svg$/i.test(image);
+        }
+
+        function removeSeedDataIfNeeded() {
+            if (allowLocalSeedDefaults) return;
+            products = (products || []).filter(p => !isSeedProduct(p));
+            coupons = (coupons || []).filter(c => !['WELCOME20', 'SAVE50', 'HEALTH15'].includes(String(c?.code || '').toUpperCase()));
+            banners = (banners || []).filter(b => !['خصومات تصل إلى 50%', 'توصيل مجاني', 'نقاط الولاء'].includes(String(b?.title || '').trim()));
+        }
+
         // ============================================
         // 🚀 Initialize
         // ============================================
@@ -1258,7 +1280,7 @@
                         console.log('✅ Products loaded from Firebase:', products.length);
                     } else {
                         // Fallback to localStorage
-                        products = getStorageData('PRODUCTS') || [...defaultProducts];
+                        products = getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []);
                         setStorageData('PRODUCTS', products); // حفظ في localStorage
                         console.log('📦 Products loaded from localStorage:', products.length);
                     }
@@ -1270,7 +1292,7 @@
                         setStorageData('COUPONS', coupons); // حفظ في localStorage
                         console.log('✅ Coupons loaded from Firebase:', coupons.length);
                     } else {
-                        coupons = getStorageData('COUPONS') || [...defaultCoupons];
+                        coupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
                         setStorageData('COUPONS', coupons); // حفظ في localStorage
                         console.log('📦 Coupons loaded from localStorage:', coupons.length);
                     }
@@ -1282,7 +1304,7 @@
                         setStorageData('BANNERS', banners); // حفظ في localStorage
                         console.log('✅ Banners loaded from Firebase:', banners.length);
                     } else {
-                        banners = getStorageData('BANNERS') || [...defaultBanners];
+                        banners = getStorageData('BANNERS') || (allowLocalSeedDefaults ? [...defaultBanners] : []);
                         setStorageData('BANNERS', banners); // حفظ في localStorage
                         console.log('📦 Banners loaded from localStorage:', banners.length);
                     }
@@ -1293,9 +1315,9 @@
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
                 // Fallback to localStorage
-                products = getStorageData('PRODUCTS') || [...defaultProducts];
-                coupons = getStorageData('COUPONS') || [...defaultCoupons];
-                banners = getStorageData('BANNERS') || [...defaultBanners];
+                products = getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []);
+                coupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
+                banners = getStorageData('BANNERS') || (allowLocalSeedDefaults ? [...defaultBanners] : []);
                 
                 // حفظ في localStorage دائماً
                 setStorageData('PRODUCTS', products);
@@ -1313,6 +1335,8 @@
             const savedSettings = getStorageData('SETTINGS');
             if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
             
+            removeSeedDataIfNeeded();
+
             // حفظ في localStorage دائماً لضمان الاستمرارية
             setStorageData('PRODUCTS', products);
             setStorageData('COUPONS', coupons);
