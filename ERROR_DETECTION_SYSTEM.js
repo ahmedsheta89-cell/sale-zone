@@ -16,6 +16,9 @@ class ErrorDetectionSystem {
             dom: true,
             network: true
         };
+        this.lastRemoteErrorLogAt = 0;
+        this.lastRemoteErrorFingerprint = '';
+        this.remoteErrorThrottleMs = 8000;
         
         this.initialize();
     }
@@ -589,6 +592,70 @@ class ErrorDetectionSystem {
         }
         
         localStorage.setItem('adminErrors', JSON.stringify(adminErrors));
+
+        // إرسال نسخة مضغوطة إلى Firebase لرصد مشاكل الموبايل/التابلت
+        this.pushClientErrorLog(error);
+    }
+
+    buildClientErrorContext() {
+        return {
+            page: window.location.pathname || '',
+            href: window.location.href || '',
+            userAgent: navigator.userAgent || '',
+            language: navigator.language || '',
+            platform: navigator.platform || '',
+            online: navigator.onLine,
+            viewport: {
+                width: window.innerWidth || 0,
+                height: window.innerHeight || 0
+            },
+            screen: {
+                width: (window.screen && window.screen.width) || 0,
+                height: (window.screen && window.screen.height) || 0
+            },
+            connection: (navigator.connection && navigator.connection.effectiveType) || ''
+        };
+    }
+
+    shouldPushClientError(error) {
+        const message = (error && error.message ? String(error.message) : '').slice(0, 240);
+        const type = error && error.type ? String(error.type) : 'CLIENT_ERROR';
+        const fingerprint = `${type}|${message}`;
+        const now = Date.now();
+        const duplicate = this.lastRemoteErrorFingerprint === fingerprint;
+        const throttled = (now - this.lastRemoteErrorLogAt) < this.remoteErrorThrottleMs;
+
+        if (duplicate && throttled) {
+            return false;
+        }
+
+        this.lastRemoteErrorFingerprint = fingerprint;
+        this.lastRemoteErrorLogAt = now;
+        return true;
+    }
+
+    async pushClientErrorLog(error) {
+        try {
+            if (typeof window.addClientErrorLog !== 'function') {
+                return;
+            }
+            if (!this.shouldPushClientError(error)) {
+                return;
+            }
+
+            await window.addClientErrorLog({
+                error: {
+                    type: error && error.type ? error.type : 'CLIENT_ERROR',
+                    message: error && error.message ? error.message : 'Unknown error',
+                    stack: error && error.stack ? error.stack : '',
+                    source: error && (error.filename || error.url || '') ? (error.filename || error.url) : '',
+                    timestamp: error && error.timestamp ? error.timestamp : new Date().toISOString()
+                },
+                context: this.buildClientErrorContext()
+            });
+        } catch (e) {
+            console.warn('pushClientErrorLog warning:', e && e.message ? e.message : e);
+        }
     }
 
     // 🚀 بدء فحص الصحة - FIXED to prevent spam

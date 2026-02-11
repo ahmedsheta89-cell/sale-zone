@@ -38,6 +38,49 @@ service cloud.firestore {
       && !request.resource.data.keys().hasAny(["password"]);
     }
 
+    function isValidClientErrorCreate() {
+      return request.resource.data.keys().hasOnly([
+        "type",
+        "message",
+        "stack",
+        "source",
+        "timestamp",
+        "context"
+      ])
+      && request.resource.data.keys().hasAll([
+        "type",
+        "message",
+        "timestamp",
+        "context"
+      ])
+      && request.resource.data.type is string
+      && request.resource.data.type.size() > 0
+      && request.resource.data.type.size() <= 100
+      && request.resource.data.message is string
+      && request.resource.data.message.size() > 0
+      && request.resource.data.message.size() <= 500
+      && (!("stack" in request.resource.data) || (request.resource.data.stack is string && request.resource.data.stack.size() <= 6000))
+      && (!("source" in request.resource.data) || (request.resource.data.source is string && request.resource.data.source.size() <= 300))
+      && request.resource.data.timestamp is string
+      && request.resource.data.context is map
+      && request.resource.data.context.keys().hasAll([
+        "page",
+        "href",
+        "userAgent",
+        "language",
+        "platform",
+        "online",
+        "viewport"
+      ])
+      && request.resource.data.context.page is string
+      && request.resource.data.context.href is string
+      && request.resource.data.context.userAgent is string
+      && request.resource.data.context.language is string
+      && request.resource.data.context.platform is string
+      && request.resource.data.context.online is bool
+      && request.resource.data.context.viewport is map;
+    }
+
     // Public readable content
     match /products/{productId} {
       allow read: if true;
@@ -84,6 +127,11 @@ service cloud.firestore {
 
     match /errors/{errorId} {
       allow read, create, update, delete: if isAdmin() || isAdminEmail();
+    }
+
+    match /client_error_logs/{logId} {
+      allow read, update, delete: if isAdmin() || isAdminEmail();
+      allow create: if isValidClientErrorCreate();
     }
 
     match /sessions/{sessionId} {

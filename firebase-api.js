@@ -347,4 +347,47 @@ async function saveSettings(settings) {
     }
 }
 
+// ==========================================
+// CLIENT ERROR LOGGING (Mobile/Tablet First)
+// ==========================================
+function normalizeClientErrorPayload(payload) {
+    const now = new Date().toISOString();
+    const safe = payload && typeof payload === 'object' ? payload : {};
+    const error = safe.error && typeof safe.error === 'object' ? safe.error : {};
+    const context = safe.context && typeof safe.context === 'object' ? safe.context : {};
+
+    return {
+        type: String(error.type || 'CLIENT_ERROR'),
+        message: String(error.message || 'Unknown client error'),
+        stack: error.stack ? String(error.stack).slice(0, 4000) : '',
+        source: String(error.source || context.page || window.location.pathname || ''),
+        timestamp: error.timestamp || now,
+        context: {
+            page: String(context.page || window.location.pathname || ''),
+            href: String(context.href || window.location.href || ''),
+            userAgent: String(context.userAgent || navigator.userAgent || ''),
+            language: String(context.language || navigator.language || ''),
+            platform: String(context.platform || navigator.platform || ''),
+            online: typeof context.online === 'boolean' ? context.online : navigator.onLine,
+            viewport: context.viewport || {
+                width: window.innerWidth || 0,
+                height: window.innerHeight || 0
+            },
+            deviceMemory: typeof navigator.deviceMemory === 'number' ? navigator.deviceMemory : null,
+            hardwareConcurrency: typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : null
+        }
+    };
+}
+
+async function addClientErrorLog(payload) {
+    try {
+        const fireDB = getFirebaseDB();
+        const normalized = normalizeClientErrorPayload(payload);
+        const docRef = await fireDB.collection('client_error_logs').add(normalized);
+        return { ok: true, id: docRef.id };
+    } catch (e) {
+        console.warn('addClientErrorLog warning:', e && e.message ? e.message : e);
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+    }
+}
 console.log('✅ Firebase API loaded');
