@@ -3026,9 +3026,11 @@ function adminLogout(){
 
             const now = Date.now();
             const sessions = Array.isArray(liveSessions) ? liveSessions : [];
+            // Session heartbeats can be ~45s on mobile; keep a generous window to avoid false "Idle".
+            const ACTIVE_SESSION_WINDOW_MS = 90000;
             const active = sessions.filter((s) => {
                 const ts = Date.parse(String(s.updatedAt || ''));
-                return Number.isFinite(ts) && (now - ts) <= 35000;
+                return Number.isFinite(ts) && (now - ts) <= ACTIVE_SESSION_WINDOW_MS;
             });
             countEl.textContent = String(active.length);
 
@@ -3041,7 +3043,7 @@ function adminLogout(){
             meta.textContent = `جلسات نشطة: ${active.length} / إجمالي مرصود: ${sessions.length}`;
             tbody.innerHTML = sessions.map((s) => {
                 const ts = Date.parse(String(s.updatedAt || ''));
-                const isActive = Number.isFinite(ts) && (now - ts) <= 35000;
+                const isActive = Number.isFinite(ts) && (now - ts) <= ACTIVE_SESSION_WINDOW_MS;
                 const device = getDeviceLabel(s.userAgent || s.device || '');
                 return `
                     <tr>
