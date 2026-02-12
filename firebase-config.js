@@ -45,13 +45,15 @@ if (shouldApplyStableTransport) {
     try {
         if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
             const settings = {
-                experimentalAutoDetectLongPolling: true,
                 useFetchStreams: false,
                 merge: true
             };
 
+            // Firestore does not allow force + autoDetect together.
             if (shouldForceLongPolling) {
                 settings.experimentalForceLongPolling = true;
+            } else {
+                settings.experimentalAutoDetectLongPolling = true;
             }
 
             db.settings(settings);

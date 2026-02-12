@@ -18,6 +18,7 @@ function setupRealtimeSync() {
     window.addEventListener('storage', function(e) {
         if (!e.key || !e.key.startsWith('sale_zone_')) return;
         if (e.key === 'sale_zone_last_update') return;
+        if (e.key === 'sale_zone_storage_schema_version') return;
         console.log('🔔 Cross-tab storage change:', e.key);
         handleCrossTabUpdate(e.key);
     });
@@ -81,6 +82,9 @@ function handleCrossTabUpdate(storageKey) {
     console.log('🔄 Cross-tab update detected:', storageKey);
 
     if (storageKey === 'sale_zone_last_update') {
+        return;
+    }
+    if (storageKey === 'sale_zone_storage_schema_version') {
         return;
     }
     

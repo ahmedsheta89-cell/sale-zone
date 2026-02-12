@@ -293,6 +293,8 @@ function debugStorage() {
 // ================================================
 const STORAGE_SCHEMA_VERSION_KEY = 'sale_zone_storage_schema_version';
 const STORAGE_SCHEMA_VERSION = '2026.02.12.01';
+const SESSION_SCHEMA_VERSION_KEY = 'sale_zone_session_schema_version';
+const SESSION_SCHEMA_VERSION = '2026.02.12.01';
 
 (function migrateAndCleanupStorage() {
   const currentSchema = localStorage.getItem(STORAGE_SCHEMA_VERSION_KEY) || '';
@@ -335,6 +337,35 @@ const STORAGE_SCHEMA_VERSION = '2026.02.12.01';
   localStorage.setItem(STORAGE_SCHEMA_VERSION_KEY, STORAGE_SCHEMA_VERSION);
   if (removed > 0) {
     console.log(`[OK] Storage migration removed ${removed} old key(s).`);
+  }
+})();
+
+(function migrateAndCleanupSessionStorage() {
+  const currentSchema = sessionStorage.getItem(SESSION_SCHEMA_VERSION_KEY) || '';
+  if (currentSchema === SESSION_SCHEMA_VERSION) return;
+
+  const keepSet = new Set([
+    'sale_zone_live_session_id',
+    SESSION_SCHEMA_VERSION_KEY
+  ]);
+
+  let removed = 0;
+  Object.keys(sessionStorage).forEach((key) => {
+    if (keepSet.has(key)) return;
+    if (
+      key.startsWith('sale_zone_') ||
+      key.startsWith('salezone_') ||
+      key === 'currentUser' ||
+      key.endsWith('_tmp')
+    ) {
+      sessionStorage.removeItem(key);
+      removed++;
+    }
+  });
+
+  sessionStorage.setItem(SESSION_SCHEMA_VERSION_KEY, SESSION_SCHEMA_VERSION);
+  if (removed > 0) {
+    console.log(`[OK] Session migration removed ${removed} old key(s).`);
   }
 })();
 
