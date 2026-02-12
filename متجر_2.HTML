@@ -1098,6 +1098,16 @@
                     }
                     if (currentVersion !== incomingVersion) {
                         localStorage.setItem(storageKey, incomingVersion);
+                        // Hard refresh on version change: clear SW caches + stale synced data.
+                        try {
+                            ['sale_zone_products', 'sale_zone_coupons', 'sale_zone_banners', 'sale_zone_settings', 'sale_zone_last_update']
+                                .forEach((k) => localStorage.removeItem(k));
+                        } catch (_) {}
+                        try {
+                            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                                navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+                            }
+                        } catch (_) {}
                         window.location.reload();
                     }
                 } catch (_) {}
