@@ -2262,7 +2262,7 @@ function adminLogout(){
                     <td>${o.customer?.phone || '-'}</td>
                     <td><strong>${o.total || 0} ج.م</strong></td>
                     <td><span class="status-badge status-${o.status}">${getStatusName(o.status)}</span></td>
-                    <td>${formatDate(o.createdAt)}</td>
+                    <td>${formatDateTime(o.createdAt)}</td>
                     <td>
                         <div class="action-btns">
                             <button class="action-btn view" onclick="viewOrder('${o.id}')">👁️</button>
@@ -2286,7 +2286,7 @@ function adminLogout(){
                     <td>${o.customer?.name || '-'}</td>
                     <td><strong>${o.total || 0} ج.م</strong></td>
                     <td><span class="status-badge status-${o.status}">${getStatusName(o.status)}</span></td>
-                    <td>${formatDate(o.createdAt)}</td>
+                    <td>${formatDateTime(o.createdAt)}</td>
                 </tr>
             `).join('');
         }
@@ -2323,7 +2323,7 @@ function adminLogout(){
                 <div class="order-detail-section">
                     <h4>📋 الطلب</h4>
                     <p><strong>رقم:</strong> ${o.orderNumber || o.id}</p>
-                    <p><strong>التاريخ:</strong> ${formatDate(o.createdAt)}</p>
+                    <p><strong>التاريخ:</strong> ${formatDateTime(o.createdAt)}</p>
                     <p><strong>الحالة:</strong> 
                         <select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">
                             <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>جديد</option>
@@ -2398,7 +2398,7 @@ function adminLogout(){
                 <body>
                 <h1>Sale Zone Store</h1>
                 <h2>فاتورة: ${o.orderNumber}</h2>
-                <p><strong>التاريخ:</strong> ${formatDate(o.createdAt)}</p>
+                <p><strong>التاريخ:</strong> ${formatDateTime(o.createdAt)}</p>
                 <p><strong>العميل:</strong> ${o.customer?.name}</p>
                 <p><strong>الهاتف:</strong> ${o.customer?.phone}</p>
                 <p><strong>العنوان:</strong> ${o.customer?.address}</p>
@@ -3111,12 +3111,12 @@ function adminLogout(){
         }
 
         function exportOrdersExcel() {
-            const data = orders.map(o => ({ 'رقم': o.orderNumber, 'العميل': o.customer?.name, 'الهاتف': o.customer?.phone, 'العنوان': o.customer?.address, 'المبلغ': o.total, 'الكوبون': o.couponCode || '', 'الخصم': o.discount || 0, 'الحالة': getStatusName(o.status), 'التاريخ': formatDate(o.createdAt) }));
+            const data = orders.map(o => ({ 'رقم': o.orderNumber, 'العميل': o.customer?.name, 'الهاتف': o.customer?.phone, 'العنوان': o.customer?.address, 'المبلغ': o.total, 'الكوبون': o.couponCode || '', 'الخصم': o.discount || 0, 'الحالة': getStatusName(o.status), 'التاريخ': formatDateTime(o.createdAt) }));
             exportToExcel(data, 'orders');
         }
 
         function exportUsersExcel() {
-            const data = users.map(u => ({ 'الاسم': u.name, 'الهاتف': u.phone, 'البريد': u.email || '', 'العنوان': u.address, 'النقاط': u.loyaltyPoints || 0, 'التسجيل': formatDate(u.createdAt) }));
+            const data = users.map(u => ({ 'الاسم': u.name, 'الهاتف': u.phone, 'البريد': u.email || '', 'العنوان': u.address, 'النقاط': u.loyaltyPoints || 0, 'التسجيل': formatDateTime(u.createdAt) }));
             exportToExcel(data, 'users');
         }
 
