@@ -213,12 +213,16 @@ class ErrorDetectionSystem {
         }
     }
     setupLocalStorageMonitoring() {
-        const originalSetItem = localStorage.setItem;
-        const originalGetItem = localStorage.getItem;
+        // Bind to the real Storage instance; calling Storage methods with the wrong `this`
+        // can throw "Illegal invocation" on some mobile browsers.
+        const storage = localStorage;
+        const originalSetItem = storage.setItem.bind(storage);
+        const originalGetItem = storage.getItem.bind(storage);
+        const originalRemoveItem = storage.removeItem.bind(storage);
         
-        localStorage.setItem = (key, value) => {
+        storage.setItem = (key, value) => {
             try {
-                originalSetItem.call(this, key, value);
+                originalSetItem(key, value);
                 this.logStorageOperation({
                     type: 'SET',
                     key: key,
@@ -234,9 +238,9 @@ class ErrorDetectionSystem {
             }
         };
         
-        localStorage.getItem = (key) => {
+        storage.getItem = (key) => {
             try {
-                const value = originalGetItem.call(this, key);
+                const value = originalGetItem(key);
                 this.logStorageOperation({
                     type: 'GET',
                     key: key,
@@ -251,6 +255,25 @@ class ErrorDetectionSystem {
                     timestamp: new Date().toISOString()
                 });
                 return null;
+            }
+        };
+
+        // Optional but helps monitoring without breaking callers.
+        storage.removeItem = (key) => {
+            try {
+                originalRemoveItem(key);
+                this.logStorageOperation({
+                    type: 'REMOVE',
+                    key: key,
+                    size: 0,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (error) {
+                this.logError({
+                    type: 'LOCALSTORAGE_ERROR',
+                    message: `Failed to remove ${key}: ${error.message}`,
+                    timestamp: new Date().toISOString()
+                });
             }
         };
     }
