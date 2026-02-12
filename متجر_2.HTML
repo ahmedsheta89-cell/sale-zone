@@ -1110,6 +1110,11 @@
             });
 
             checkAppVersionAndRefresh();
+            // Periodic version check to keep mobile/PWA clients aligned without manual cache clearing.
+            setInterval(checkAppVersionAndRefresh, 10 * 60 * 1000);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') checkAppVersionAndRefresh();
+            });
             startLiveSessionHeartbeat();
             trackStoreEvent('STORE_BOOT', 'Store boot sequence started', 'info');
             const safeRun = (label, fn) => {
