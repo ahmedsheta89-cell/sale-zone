@@ -2037,6 +2037,22 @@
             return (list || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === target);
         }
 
+        function buildCustomerAuthEmail(phone) {
+            return `customer_${normalizePhone(phone)}@salezone.customer`;
+        }
+
+        async function signInCustomerAuth(phone, password) {
+            if (!(firebase && firebase.auth)) return null;
+            const email = buildCustomerAuthEmail(phone);
+            return firebase.auth().signInWithEmailAndPassword(email, password);
+        }
+
+        async function registerCustomerAuth(phone, password) {
+            if (!(firebase && firebase.auth)) return null;
+            const email = buildCustomerAuthEmail(phone);
+            return firebase.auth().createUserWithEmailAndPassword(email, password);
+        }
+
         function isOnlineMode() {
             return navigator.onLine !== false;
         }
@@ -2080,16 +2096,32 @@
             const phoneMatchedUser = (users || []).find(
                 u => normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone)
             );
-            if (phoneMatchedUser && !String(phoneMatchedUser.password || '').trim()) {
+            let authUid = '';
+            let authSignInSucceeded = false;
+            try {
+                const authCred = await signInCustomerAuth(phone, password);
+                authUid = authCred && authCred.user && authCred.user.uid ? String(authCred.user.uid) : '';
+                authSignInSucceeded = !!authUid;
+            } catch (authError) {
+                const code = authError && authError.code ? String(authError.code) : '';
+                if (code && code !== 'auth/user-not-found' && code !== 'auth/wrong-password' && code !== 'auth/invalid-credential' && code !== 'auth/invalid-login-credentials') {
+                    console.warn('Customer auth sign-in warning:', authError);
+                }
+            }
+
+            if (!authSignInSucceeded && phoneMatchedUser && !String(phoneMatchedUser.password || '').trim()) {
                 showNotification('warning', 'الحساب يحتاج استكمال', 'هذا رقم قديم بدون كلمة مرور. أعد التسجيل بنفس الرقم لاستكمال الحساب.');
                 trackStoreEvent('LOGIN_BLOCKED_LEGACY', 'Legacy account requires password completion', 'warning', {
                     phoneNormalized: normalizePhone(phone)
                 });
                 return;
             }
-            const user = (users || []).find(
-                u => normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone) && String(u.password || '') === String(password || '')
-            );
+
+            const user = (users || []).find((u) => {
+                if (authUid && String(u.uid || '') === authUid) return true;
+                return normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone)
+                    && String(u.password || '') === String(password || '');
+            });
             if (!user) {
                 showNotification('error', 'خطأ', 'بيانات غير صحيحة');
                 trackStoreEvent('LOGIN_FAILED', 'Customer login failed', 'warning', {
@@ -2132,23 +2164,35 @@
             // Legacy recovery: account exists in Firebase without password from old versions
             if (existsInCloud && !String(existsInCloud.password || '').trim()) {
                 try {
-                    if (typeof updateCustomer === 'function') {
-                        await updateCustomer(existsInCloud.id, {
-                            name,
-                            phone,
-                            phoneNormalized,
-                            email,
-                            address,
-                            password
-                        });
+                    let authUid = '';
+                    try {
+                        const authCred = await registerCustomerAuth(phone, password);
+                        authUid = authCred && authCred.user && authCred.user.uid ? String(authCred.user.uid) : '';
+                    } catch (authError) {
+                        const code = authError && authError.code ? String(authError.code) : '';
+                        if (code === 'auth/email-already-in-use') {
+                            const signInCred = await signInCustomerAuth(phone, password);
+                            authUid = signInCred && signInCred.user && signInCred.user.uid ? String(signInCred.user.uid) : '';
+                        } else {
+                            throw authError;
+                        }
                     }
-                    await syncUsersFromFirebase().catch(() => null);
-                    const recoveredUser = findUserByPhone(phone);
-                    if (recoveredUser) {
-                        currentUser = recoveredUser;
-                        localStorage.setItem('currentUser', JSON.stringify(recoveredUser));
-                        updateUserUI();
-                    }
+
+                    const recoveredUser = {
+                        ...existsInCloud,
+                        uid: authUid,
+                        phone,
+                        phoneNormalized,
+                        email: email || existsInCloud.email || '',
+                        address: address || existsInCloud.address || '',
+                        password
+                    };
+                    users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
+                    users.push(recoveredUser);
+                    saveUsers();
+                    currentUser = recoveredUser;
+                    localStorage.setItem('currentUser', JSON.stringify(recoveredUser));
+                    updateUserUI();
                     closeModal('authModal');
                     showNotification('success', 'تم استكمال الحساب', 'تم تحديث حسابك القديم ويمكنك الدخول الآن.');
                     updateLiveSessionState({
@@ -2161,15 +2205,7 @@
                     return;
                 } catch (error) {
                     console.error('legacy recovery error:', error);
-                    const msg = error && error.message ? String(error.message) : '';
-                    if (msg.includes('insufficient permissions') || msg.includes('Missing or insufficient permissions')) {
-                        showNotification('warning', 'الحساب يحتاج تفعيل', 'هذا الحساب القديم يحتاج تفعيل كلمة المرور من لوحة الأدمن.');
-                        trackStoreEvent('REGISTER_RECOVER_NEEDS_ADMIN', 'Legacy account requires admin password reset', 'warning', {
-                            phoneNormalized
-                        });
-                    } else {
-                        showNotification('error', 'فشل استكمال الحساب', 'تعذر تحديث الحساب القديم. حاول مرة أخرى.');
-                    }
+                    showNotification('error', 'فشل استكمال الحساب', 'تعذر تحديث الحساب القديم. حاول مرة أخرى.');
                     trackStoreEvent('REGISTER_RECOVER_FAILED', 'Legacy customer profile completion failed', 'error', {
                         phoneNormalized,
                         error: error && error.message ? String(error.message) : String(error)
@@ -2192,13 +2228,49 @@
                 return;
             }
 
-            const newUser = { id: Date.now().toString(), name, phone, phoneNormalized, email, address, password, loyaltyPoints: 0, createdAt: new Date().toISOString() };
-            const customerPayload = { name, phone, phoneNormalized, email, address, password, loyaltyPoints: 0, createdAt: newUser.createdAt };
+            let authUid = '';
+            try {
+                const authCred = await registerCustomerAuth(phone, password);
+                authUid = authCred && authCred.user && authCred.user.uid ? String(authCred.user.uid) : '';
+            } catch (authError) {
+                const code = authError && authError.code ? String(authError.code) : '';
+                if (code === 'auth/email-already-in-use') {
+                    try {
+                        const signInCred = await signInCustomerAuth(phone, password);
+                        authUid = signInCred && signInCred.user && signInCred.user.uid ? String(signInCred.user.uid) : '';
+                    } catch (signInError) {
+                        showNotification('error', 'فشل التسجيل', 'الرقم مسجل مسبقًا بكلمة مرور مختلفة. استخدم نسيت كلمة المرور.');
+                        trackStoreEvent('REGISTER_FAILED_AUTH_MISMATCH', 'Firebase Auth account exists with different password', 'warning', {
+                            phoneNormalized
+                        });
+                        return;
+                    }
+                } else {
+                    showNotification('error', 'فشل التسجيل', 'تعذر إنشاء حساب الدخول. حاول مرة أخرى.');
+                    trackStoreEvent('REGISTER_FAILED_AUTH', 'Firebase Auth registration failed', 'error', {
+                        phoneNormalized,
+                        error: authError && authError.message ? String(authError.message) : String(authError)
+                    });
+                    return;
+                }
+            }
+
+            const newUser = { id: Date.now().toString(), uid: authUid, name, phone, phoneNormalized, email, address, loyaltyPoints: 0, createdAt: new Date().toISOString() };
+            const customerPayload = { uid: authUid, name, phone, phoneNormalized, email, address, loyaltyPoints: 0, createdAt: newUser.createdAt };
             try {
                 if (typeof addCustomer === 'function') {
-                    const firebaseId = await addCustomer(customerPayload);
-                    if (firebaseId) newUser.id = firebaseId;
+                    if (existsInCloud) {
+                        const mergedPayload = { ...existsInCloud, ...customerPayload };
+                        if (typeof updateCustomer === 'function') {
+                            await updateCustomer(existsInCloud.id, mergedPayload);
+                        }
+                        newUser.id = existsInCloud.id;
+                    } else {
+                        const firebaseId = await addCustomer(customerPayload);
+                        if (firebaseId) newUser.id = firebaseId;
+                    }
                 }
+                users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
                 users.push(newUser);
                 saveUsers();
                 currentUser = newUser;
@@ -2274,6 +2346,9 @@
             }
             currentUser = null;
             localStorage.removeItem('currentUser');
+            if (firebase && firebase.auth) {
+                firebase.auth().signOut().catch(() => null);
+            }
             updateUserUI();
             updateLiveSessionState({ customerId: '', customerPhone: '' });
             showNotification('info', 'تم', 'تسجيل الخروج');
@@ -2291,13 +2366,23 @@
             const newPass = document.getElementById('newPassword').value;
             const confirm = document.getElementById('confirmNewPassword').value;
 
-            if (current !== currentUser.password) { showNotification('error', 'خطأ', 'كلمة المرور الحالية غير صحيحة'); return; }
+            try {
+                await signInCustomerAuth(currentUser.phone || '', current);
+            } catch (_) {
+                if (current !== currentUser.password) {
+                    showNotification('error', 'خطأ', 'كلمة المرور الحالية غير صحيحة');
+                    return;
+                }
+            }
             if (newPass !== confirm) { showNotification('error', 'خطأ', 'غير متطابقة'); return; }
 
             const idx = users.findIndex(u => u.id === currentUser.id);
             if (idx !== -1) {
                 try {
-                    if (typeof updateCustomer === 'function') {
+                    if (firebase && firebase.auth && firebase.auth().currentUser) {
+                        await firebase.auth().currentUser.updatePassword(newPass);
+                    } else if (typeof updateCustomer === 'function') {
+                        // Legacy fallback only
                         await updateCustomer(currentUser.id, { password: newPass });
                     }
                 } catch (error) {

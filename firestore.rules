@@ -34,6 +34,7 @@ service cloud.firestore {
         "createdAt"
       ])
       && request.resource.data.keys().hasOnly([
+        "uid",
         "name",
         "phone",
         "phoneNormalized",
@@ -43,6 +44,7 @@ service cloud.firestore {
         "loyaltyPoints",
         "createdAt"
       ])
+      && (!("uid" in request.resource.data) || request.resource.data.uid is string)
       && request.resource.data.name is string
       && request.resource.data.phone is string
       && request.resource.data.name.size() > 0

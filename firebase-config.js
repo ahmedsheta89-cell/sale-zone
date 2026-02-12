@@ -38,11 +38,13 @@ const db = firebase.firestore();
 // Local/dev networks can break WebChannel; this improves stability.
 if (isLocalDev) {
     try {
-        db.settings({
-            experimentalAutoDetectLongPolling: true,
-            useFetchStreams: false,
-            merge: true
-        });
+        if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
+            db.settings({
+                experimentalAutoDetectLongPolling: true,
+                useFetchStreams: false
+            });
+            window.__FIRESTORE_SETTINGS_APPLIED__ = true;
+        }
         console.log("Local/network dev mode - Firestore long-polling auto-detect enabled");
     } catch (e) {
         console.warn("Firestore settings already initialized:", e);
