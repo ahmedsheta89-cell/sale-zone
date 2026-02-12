@@ -302,7 +302,20 @@ async function addCustomer(customer) {
 
             if (!existingSnapshot.empty) {
                 const existingDoc = existingSnapshot.docs[0];
-                await db.collection('customers').doc(existingDoc.id).set(payload, { merge: true });
+
+                // When upserting an existing customer from the store client, we must not
+                // accidentally change system fields (createdAt / loyaltyPoints / password).
+                // This also keeps Firestore rules self-update checks happy.
+                const existingData = existingDoc.data() || {};
+                const safePayload = { ...payload };
+                if ('createdAt' in existingData) safePayload.createdAt = existingData.createdAt;
+                else delete safePayload.createdAt;
+                if ('loyaltyPoints' in existingData) safePayload.loyaltyPoints = existingData.loyaltyPoints;
+                else delete safePayload.loyaltyPoints;
+                if ('password' in existingData) safePayload.password = existingData.password;
+                else delete safePayload.password;
+
+                await db.collection('customers').doc(existingDoc.id).set(safePayload, { merge: true });
                 console.log('✅ Customer upserted in Firebase:', existingDoc.id);
                 return existingDoc.id;
             }

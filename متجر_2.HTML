@@ -2350,6 +2350,21 @@
                         address: address || existsInCloud.address || '',
                         password
                     };
+
+                    // Best-effort: attach the auth uid (and normalized phone) back to the legacy Firebase profile.
+                    // If Firestore rules block this write, we still continue locally so the customer can proceed.
+                    try {
+                        if (typeof updateCustomer === 'function' && existsInCloud && existsInCloud.id) {
+                            await updateCustomer(String(existsInCloud.id), {
+                                uid: authUid,
+                                phoneNormalized,
+                                ...(email ? { email } : {}),
+                                ...(address ? { address } : {})
+                            });
+                        }
+                    } catch (syncError) {
+                        console.warn('legacy recovery profile sync warning:', syncError && syncError.message ? syncError.message : syncError);
+                    }
                     users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
                     users.push(recoveredUser);
                     saveUsers();

@@ -255,7 +255,19 @@ function setupRealtimeListeners() {
     db.collection('banners').onSnapshot((snapshot) => {
         banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('🎨 Banners updated in real-time:', banners.length);
-        updateBannersDisplay();
+        let persisted = false;
+        try {
+            if (typeof setStorageData === 'function') {
+                persisted = setStorageData('BANNERS', banners) !== false;
+            }
+        } catch (_) {}
+        if (!persisted) {
+            if (typeof renderBanners === 'function') {
+                try { renderBanners(); } catch (_) {}
+            } else {
+                updateBannersDisplay();
+            }
+        }
     }, (error) => {
         console.error('Banners listener error:', error);
     });
@@ -264,7 +276,19 @@ function setupRealtimeListeners() {
     db.collection('coupons').onSnapshot((snapshot) => {
         coupons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('🎫 Coupons updated in real-time:', coupons.length);
-        updateCouponsDisplay();
+        let persisted = false;
+        try {
+            if (typeof setStorageData === 'function') {
+                persisted = setStorageData('COUPONS', coupons) !== false;
+            }
+        } catch (_) {}
+        if (!persisted) {
+            if (typeof renderCoupons === 'function') {
+                try { renderCoupons(); } catch (_) {}
+            } else {
+                updateCouponsDisplay();
+            }
+        }
     }, (error) => {
         console.error('Coupons listener error:', error);
     });
@@ -273,8 +297,21 @@ function setupRealtimeListeners() {
     db.collection('products').onSnapshot((snapshot) => {
         products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('🛍️ Products updated in real-time:', products.length);
-        if (typeof updateProductsDisplay === 'function') {
-            updateProductsDisplay();
+        let persisted = false;
+        try {
+            if (typeof setStorageData === 'function') {
+                persisted = setStorageData('PRODUCTS', products) !== false;
+            }
+        } catch (_) {}
+        if (!persisted) {
+            if (typeof renderProducts === 'function') {
+                try {
+                    renderProducts();
+                    if (typeof updateCategoryCounts === 'function') updateCategoryCounts();
+                } catch (_) {}
+            } else if (typeof updateProductsDisplay === 'function') {
+                updateProductsDisplay();
+            }
         }
     }, (error) => {
         console.error('Products listener error:', error);

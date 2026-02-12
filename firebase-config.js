@@ -46,18 +46,24 @@ if (shouldApplyStableTransport) {
         if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
             const settings = {
                 useFetchStreams: false,
+                // Keep merge on to avoid clobbering other settings, but always
+                // explicitly disable the opposite long-polling flag. This
+                // prevents "experimentalForceLongPolling and experimentalAutoDetectLongPolling cannot be used together"
+                // when cached older settings exist.
                 merge: true
             };
 
-            // Firestore does not allow force + autoDetect together.
             if (shouldForceLongPolling) {
                 settings.experimentalForceLongPolling = true;
+                settings.experimentalAutoDetectLongPolling = false;
             } else {
                 settings.experimentalAutoDetectLongPolling = true;
+                settings.experimentalForceLongPolling = false;
             }
 
             db.settings(settings);
             window.__FIRESTORE_SETTINGS_APPLIED__ = true;
+            window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = shouldForceLongPolling ? 'force' : 'auto';
         }
         if (shouldForceLongPolling) {
             console.log("Firestore stable transport enabled (force long-polling)");
@@ -65,7 +71,11 @@ if (shouldApplyStableTransport) {
             console.log("Firestore stable transport enabled (auto long-polling)");
         }
     } catch (e) {
-        console.warn("Firestore settings already initialized:", e);
+        // Most common causes:
+        // - settings already applied (cannot be changed after first use)
+        // - conflicting long-polling flags from older cached code (now mitigated by explicit false)
+        console.warn("Firestore transport settings could not be applied:", e);
+        window.__FIRESTORE_SETTINGS_APPLIED__ = true;
     }
 }
 
