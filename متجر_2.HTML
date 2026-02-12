@@ -985,6 +985,7 @@
             STORE_BOOT: 30000,
             STORE_DATA_SYNC: 15000
         };
+        const LIVE_SESSION_HEARTBEAT_MS = 45000;
         const STORE_SESSION_KEY = 'sale_zone_live_session_id';
         const STORE_SESSION_ID = (() => {
             let existing = '';
@@ -2012,10 +2013,14 @@
 
         function startLiveSessionHeartbeat() {
             if (liveSessionHeartbeatTimer) return;
-            updateLiveSessionState();
-            liveSessionHeartbeatTimer = setInterval(() => {
+            if (navigator.onLine) {
                 updateLiveSessionState();
-            }, 10000);
+            }
+            liveSessionHeartbeatTimer = setInterval(() => {
+                if (!navigator.onLine) return;
+                if (document.visibilityState !== 'visible') return;
+                updateLiveSessionState();
+            }, LIVE_SESSION_HEARTBEAT_MS);
 
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') updateLiveSessionState();

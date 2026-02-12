@@ -26,6 +26,11 @@ function isLocalLikeHost(hostname) {
 const hostname = window.location.hostname || "";
 const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
 const isLocalDev = isLocalLikeHost(hostname);
+const urlParams = new URLSearchParams(window.location.search || "");
+const forceLongPollingParam = urlParams.get("lp") === "1";
+const isFirefoxFamily = /firefox|fxios/i.test(navigator.userAgent || "");
+const shouldApplyStableTransport = isLocalDev || isGithubPages;
+const shouldForceLongPolling = forceLongPollingParam || isFirefoxFamily;
 
 // Initialize Firebase
 if (!firebase.apps.length) {
@@ -35,17 +40,28 @@ if (!firebase.apps.length) {
 // Initialize Firestore
 const db = firebase.firestore();
 
-// Local/dev networks can break WebChannel; this improves stability.
-if (isLocalDev) {
+// Some networks/browsers break WebChannel. Stabilize transport consistently.
+if (shouldApplyStableTransport) {
     try {
         if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
-            db.settings({
+            const settings = {
                 experimentalAutoDetectLongPolling: true,
-                useFetchStreams: false
-            });
+                useFetchStreams: false,
+                merge: true
+            };
+
+            if (shouldForceLongPolling) {
+                settings.experimentalForceLongPolling = true;
+            }
+
+            db.settings(settings);
             window.__FIRESTORE_SETTINGS_APPLIED__ = true;
         }
-        console.log("Local/network dev mode - Firestore long-polling auto-detect enabled");
+        if (shouldForceLongPolling) {
+            console.log("Firestore stable transport enabled (force long-polling)");
+        } else {
+            console.log("Firestore stable transport enabled (auto long-polling)");
+        }
     } catch (e) {
         console.warn("Firestore settings already initialized:", e);
     }

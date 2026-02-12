@@ -157,7 +157,7 @@ class ErrorDetectionSystem {
         };
     }
 
-    // � مراقبة خاصة بالتليفون
+    // مراقبة خاصة بالتليفون
     setupMobileSpecificMonitoring() {
         // كشف مشاكل iOS/Safari
         if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {

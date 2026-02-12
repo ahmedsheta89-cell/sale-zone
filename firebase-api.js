@@ -2,7 +2,7 @@
 // ==========================================
 // Note: db is already declared in firebase-config.js
 
-// ًں”¥ Global Firebase DB Check
+// Global Firebase DB Check
 function getFirebaseDB() {
     if (typeof db !== 'undefined') {
         return db;
@@ -48,7 +48,7 @@ async function getCoupons() {
 async function addCoupon(coupon) {
     try {
         const docRef = await db.collection('coupons').add(coupon);
-        console.log('âœ… Coupon added to Firebase:', docRef.id);
+        console.log('[OK] Coupon added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addCoupon error:', e);
@@ -59,7 +59,7 @@ async function addCoupon(coupon) {
 async function updateCoupon(id, data) {
     try {
         await db.collection('coupons').doc(id).set(data, { merge: true });
-        console.log('âœ… Coupon updated in Firebase:', id);
+        console.log('[OK] Coupon updated in Firebase:', id);
     } catch (e) {
         console.error('updateCoupon error:', e);
         throw e;
@@ -69,7 +69,7 @@ async function updateCoupon(id, data) {
 async function deleteCoupon(id) {
     try {
         await db.collection('coupons').doc(id).delete();
-        console.log('âœ… Coupon deleted from Firebase:', id);
+        console.log('[OK] Coupon deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -87,10 +87,10 @@ async function getBanners() {
             const data = doc.data();
             return { 
                 id: doc.id, 
-                icon: data.icon || 'ًںژ‰',
+                icon: data.icon || '🛍️',
                 title: data.title || '',
                 text: data.text || '',
-                btn: data.btn || 'طھط³ظˆظ‚ ط§ظ„ط¢ظ†',
+                btn: data.btn || 'تسوق الآن',
                 category: data.category || 'all'
             };
         });
@@ -104,7 +104,7 @@ async function getBanners() {
 async function addBanner(banner) {
     try {
         const docRef = await db.collection('banners').add(banner);
-        console.log('âœ… Banner added to Firebase:', docRef.id);
+        console.log('[OK] Banner added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addBanner error:', e);
@@ -115,7 +115,7 @@ async function addBanner(banner) {
 async function updateBanner(id, data) {
     try {
         await db.collection('banners').doc(id).set(data, { merge: true });
-        console.log('âœ… Banner updated in Firebase:', id);
+        console.log('[OK] Banner updated in Firebase:', id);
     } catch (e) {
         console.error('updateBanner error:', e);
         throw e;
@@ -125,7 +125,7 @@ async function updateBanner(id, data) {
 async function deleteBanner(id) {
     try {
         await db.collection('banners').doc(id).delete();
-        console.log('âœ… Banner deleted from Firebase:', id);
+        console.log('[OK] Banner deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
@@ -163,7 +163,7 @@ async function getAllProducts() {
 async function addProduct(product) {
     try {
         const docRef = await db.collection('products').add(product);
-        console.log('âœ… Product added to Firebase:', docRef.id);
+        console.log('[OK] Product added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addProduct error:', e);
@@ -174,7 +174,7 @@ async function addProduct(product) {
 async function updateProduct(id, data) {
     try {
         await db.collection('products').doc(id).set(data, { merge: true });
-        console.log('âœ… Product updated in Firebase:', id);
+        console.log('[OK] Product updated in Firebase:', id);
     } catch (e) {
         console.error('updateProduct error:', e);
         throw e;
@@ -184,7 +184,7 @@ async function updateProduct(id, data) {
 async function deleteProductFromFirebase(id) {
     try {
         await db.collection('products').doc(id).delete();
-        console.log('âœ… Product deleted from Firebase:', id);
+        console.log('[OK] Product deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteProduct error:', e);
         throw e;
@@ -208,7 +208,7 @@ async function getAllOrders() {
 async function addOrder(order) {
     try {
         const docRef = await db.collection('orders').add(order);
-        console.log('âœ… Order added to Firebase:', docRef.id);
+        console.log('[OK] Order added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addOrder error:', e);
@@ -219,7 +219,7 @@ async function addOrder(order) {
 async function updateOrderStatus(id, status) {
     try {
         await db.collection('orders').doc(id).update({ status: status });
-        console.log('âœ… Order status updated:', id);
+        console.log('[OK] Order status updated:', id);
     } catch (e) {
         console.error('updateOrderStatus error:', e);
         throw e;
@@ -237,6 +237,43 @@ async function getAllUsers() {
     } catch (e) {
         console.error('getAllUsers error:', e);
         return null;
+    }
+}
+
+// Reduce noisy write retries when transport is unstable.
+let telemetryWriteBackoffUntil = 0;
+let telemetryBackoffLastReason = "";
+
+function getErrorMessage(error) {
+    if (!error) return "";
+    if (typeof error.message === "string") return error.message;
+    return String(error);
+}
+
+function isTransientTransportError(error) {
+    const message = getErrorMessage(error).toLowerCase();
+    return (
+        message.includes("failed to fetch") ||
+        message.includes("cors request did not succeed") ||
+        message.includes("network request failed") ||
+        message.includes("transport errored") ||
+        message.includes("code=unavailable") ||
+        message.includes("unavailable")
+    );
+}
+
+function isTelemetryWriteSuspended() {
+    return Date.now() < telemetryWriteBackoffUntil;
+}
+
+function suspendTelemetryWrites(reason, ms = 30000) {
+    const until = Date.now() + Math.max(5000, Number(ms) || 30000);
+    if (until <= telemetryWriteBackoffUntil) return;
+    telemetryWriteBackoffUntil = until;
+    const normalizedReason = String(reason || "transport error");
+    if (normalizedReason !== telemetryBackoffLastReason) {
+        telemetryBackoffLastReason = normalizedReason;
+        console.warn(`[WARN] Telemetry writes paused for ${Math.round((telemetryWriteBackoffUntil - Date.now()) / 1000)}s: ${normalizedReason}`);
     }
 }
 
@@ -324,7 +361,7 @@ async function getAllCoupons() {
 async function addCoupon(coupon) {
     try {
         const docRef = await db.collection('coupons').add(coupon);
-        console.log('âœ… Coupon added to Firebase:', docRef.id);
+        console.log('[OK] Coupon added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addCoupon error:', e);
@@ -335,7 +372,7 @@ async function addCoupon(coupon) {
 async function deleteCouponFromFirebase(id) {
     try {
         await db.collection('coupons').doc(id).delete();
-        console.log('âœ… Coupon deleted from Firebase:', id);
+        console.log('[OK] Coupon deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -359,7 +396,7 @@ async function getAllBanners() {
 async function addBanner(banner) {
     try {
         const docRef = await db.collection('banners').add(banner);
-        console.log('âœ… Banner added to Firebase:', docRef.id);
+        console.log('[OK] Banner added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addBanner error:', e);
@@ -370,7 +407,7 @@ async function addBanner(banner) {
 async function deleteBannerFromFirebase(id) {
     try {
         await db.collection('banners').doc(id).delete();
-        console.log('âœ… Banner deleted from Firebase:', id);
+        console.log('[OK] Banner deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
@@ -395,7 +432,7 @@ async function saveSettings(settings) {
     try {
         const db = getFirebaseDB();
         await db.collection('settings').doc('store').set(settings, { merge: true });
-        console.log('âœ… Settings saved to Firebase');
+        console.log('[OK] Settings saved to Firebase');
     } catch (e) {
         console.error('saveSettings error:', e);
         throw e;
@@ -436,11 +473,17 @@ function normalizeClientErrorPayload(payload) {
 
 async function addClientErrorLog(payload) {
     try {
+        if (isTelemetryWriteSuspended()) {
+            return { ok: false, error: "telemetry-write-paused" };
+        }
         const fireDB = getFirebaseDB();
         const normalized = normalizeClientErrorPayload(payload);
         const docRef = await fireDB.collection('client_error_logs').add(normalized);
         return { ok: true, id: docRef.id };
     } catch (e) {
+        if (isTransientTransportError(e)) {
+            suspendTelemetryWrites(getErrorMessage(e), 45000);
+        }
         console.warn('addClientErrorLog warning:', e && e.message ? e.message : e);
         return { ok: false, error: e && e.message ? e.message : String(e) };
     }
@@ -492,11 +535,17 @@ function normalizeStoreEventPayload(payload) {
 
 async function addStoreEvent(payload) {
     try {
+        if (isTelemetryWriteSuspended()) {
+            return { ok: false, error: "telemetry-write-paused" };
+        }
         const fireDB = getFirebaseDB();
         const normalized = normalizeStoreEventPayload(payload);
         const docRef = await fireDB.collection('store_events').add(normalized);
         return { ok: true, id: docRef.id };
     } catch (e) {
+        if (isTransientTransportError(e)) {
+            suspendTelemetryWrites(getErrorMessage(e), 45000);
+        }
         console.warn('addStoreEvent warning:', e && e.message ? e.message : e);
         return { ok: false, error: e && e.message ? e.message : String(e) };
     }
@@ -560,12 +609,18 @@ function normalizeLiveSessionPayload(payload) {
 
 async function upsertLiveSession(payload) {
     try {
+        if (isTelemetryWriteSuspended()) {
+            return { ok: false, error: "telemetry-write-paused" };
+        }
         const fireDB = getFirebaseDB();
         const normalized = normalizeLiveSessionPayload(payload);
         if (!normalized.sessionId) throw new Error('sessionId required');
         await fireDB.collection('store_live_sessions').doc(normalized.sessionId).set(normalized, { merge: true });
         return { ok: true, id: normalized.sessionId };
     } catch (e) {
+        if (isTransientTransportError(e)) {
+            suspendTelemetryWrites(getErrorMessage(e), 45000);
+        }
         console.warn('upsertLiveSession warning:', e && e.message ? e.message : e);
         return { ok: false, error: e && e.message ? e.message : String(e) };
     }
@@ -610,4 +665,4 @@ function subscribeLiveSessions(onData, onError, limitCount = 200) {
     }
 }
 
-console.log('âœ… Firebase API loaded');
+console.log('[OK] Firebase API loaded');

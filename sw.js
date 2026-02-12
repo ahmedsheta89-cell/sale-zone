@@ -1,29 +1,25 @@
-﻿// ًںڑ€ PROFESSIONAL SERVICEWORKER - 2025 Standards
-// ==========================================
-// Modern ServiceWorker implementation following best practices
-// Progressive Web App (PWA) ready with offline support
+﻿// PROFESSIONAL SERVICE WORKER - 2025 standards
+// Progressive Web App (PWA) with offline-first safeguards
 
-// ًں“‹ Cache Management - Version Control
-const CACHE_VERSION = 'v6.0.5';
+const CACHE_VERSION = 'v6.0.6';
 const CACHE_PREFIX = 'salezone';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `${CACHE_PREFIX}-images-${CACHE_VERSION}`;
 
-// ًںŒگ GitHub Pages Path Detection
 const BASE_PATH = self.location.pathname.replace(/\/[^\/]*$/, '') || '/';
 const NORMALIZED_BASE = BASE_PATH.endsWith('/') ? BASE_PATH.slice(0, -1) : BASE_PATH;
 const withBase = (assetPath) => `${NORMALIZED_BASE}${assetPath}`;
 const OFFLINE_URL = withBase('/offline.html');
-console.log(`ًںڑ€ ServiceWorker initialized - Version ${CACHE_VERSION}`);
-console.log(`ًں“پ Base path: ${BASE_PATH}`);
 
-// ًں“¦ Critical Assets to Cache (LCP Optimization)
+console.log(`[SW] initialized - version ${CACHE_VERSION}`);
+console.log(`[SW] base path: ${BASE_PATH}`);
+
 const CRITICAL_ASSETS = [
   '/',
   '/index.html',
-  '/ظ…طھط¬ط±_2.HTML',
-  '/ط§ط¯ظ…ظ†_2.HTML',
+  '/متجر_2.HTML',
+  '/ادمن_2.HTML',
   '/version.json',
   '/manifest.json',
   '/favicon.ico',
@@ -36,19 +32,16 @@ const CRITICAL_ASSETS = [
   '/offline.html'
 ];
 
-// ًںژ¨ Admin Assets (Separate Cache)
 const ADMIN_ASSETS = [
-  '/ط§ط¯ظ…ظ†_2.HTML'
+  '/ادمن_2.HTML'
 ];
 
-// ًںژ¯ Modern Cache Strategies (2025 Standards)
 const CacheStrategies = {
-  // ًںڑ€ Cache First for Static Assets (Performance)
   cacheFirst: async (request) => {
     try {
       const cached = await caches.match(request);
       if (cached) return cached;
-      
+
       const network = await fetch(request);
       if (network.ok) {
         const cache = await caches.open(STATIC_CACHE);
@@ -56,12 +49,11 @@ const CacheStrategies = {
       }
       return network;
     } catch (error) {
-      console.warn(`âڑ ï¸ڈ CacheFirst failed for ${request.url}:`, error);
+      console.warn(`[WARN] cacheFirst failed for ${request.url}:`, error);
       return (await caches.match(OFFLINE_URL)) || Response.error();
     }
   },
 
-  // ًںŒگ Network First for Fresh Assets with timeout fallback
   networkFirst: async (request, cacheName = DYNAMIC_CACHE, timeoutMs = 5000) => {
     try {
       const cache = await caches.open(cacheName);
@@ -90,20 +82,19 @@ const CacheStrategies = {
 
       return (await caches.match(OFFLINE_URL)) || Response.error();
     } catch (error) {
-      console.warn(`âڑ ï¸ڈ NetworkFirst failed for ${request.url}:`, error);
+      console.warn(`[WARN] networkFirst failed for ${request.url}:`, error);
       const cached = await caches.match(request);
       return cached || (await caches.match(OFFLINE_URL)) || Response.error();
     }
   },
 
-  // ًں–¼ï¸ڈ Stale While Revalidate for Images (Performance + Freshness)
   staleWhileRevalidate: async (request, cacheName = IMAGE_CACHE) => {
     try {
       const cache = await caches.open(cacheName);
       const cached = await cache.match(request);
-      
+
       const networkPromise = fetch(request)
-        .then(response => {
+        .then((response) => {
           if (response.ok) {
             cache.put(request, response.clone());
           }
@@ -113,166 +104,150 @@ const CacheStrategies = {
 
       return cached || (await networkPromise) || (await caches.match(OFFLINE_URL)) || Response.error();
     } catch (error) {
-      console.warn(`âڑ ï¸ڈ StaleWhileRevalidate failed for ${request.url}:`, error);
+      console.warn(`[WARN] staleWhileRevalidate failed for ${request.url}:`, error);
       return (await caches.match(OFFLINE_URL)) || Response.error();
     }
   }
 };
 
-// ًں“± Install Event (PWA Installation)
 self.addEventListener('install', (event) => {
-  console.log('ًںڑ€ ServiceWorker installing...');
-  
+  console.log('[SW] installing...');
+
   event.waitUntil(
     (async () => {
       const cache = await caches.open(STATIC_CACHE);
-      await cache.addAll(CRITICAL_ASSETS.map(asset => withBase(asset)));
-      console.log('âœ… Critical assets cached');
-      
-      // Preload admin assets separately
+      await cache.addAll(CRITICAL_ASSETS.map((asset) => withBase(asset)));
+      console.log('[SW] critical assets cached');
+
       const adminCache = await caches.open(DYNAMIC_CACHE);
-      await adminCache.addAll(ADMIN_ASSETS.map(asset => withBase(asset)));
-      console.log('âœ… Admin assets cached');
-      
+      await adminCache.addAll(ADMIN_ASSETS.map((asset) => withBase(asset)));
+      console.log('[SW] admin assets cached');
+
       return self.skipWaiting();
     })()
   );
 });
 
-// ًں”„ Activate Event (Cache Cleanup)
 self.addEventListener('activate', (event) => {
-  console.log('ًں”„ ServiceWorker activating...');
-  
+  console.log('[SW] activating...');
+
   event.waitUntil(
     (async () => {
       const cacheNames = await caches.keys();
-      const oldCaches = cacheNames.filter(name => 
+      const oldCaches = cacheNames.filter((name) =>
         name.startsWith(CACHE_PREFIX) && !name.includes(CACHE_VERSION)
       );
-      
-      await Promise.all(oldCaches.map(name => {
-        console.log(`ًں—‘ï¸ڈ Deleting old cache: ${name}`);
+
+      await Promise.all(oldCaches.map((name) => {
+        console.log(`[SW] deleting old cache: ${name}`);
         return caches.delete(name);
       }));
-      
-      console.log('âœ… Cache cleanup completed');
+
+      console.log('[SW] cache cleanup completed');
       await self.clients.claim();
 
-      // ًں”” Notify clients that a fresh SW is active (auto-refresh)
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      clients.forEach(client => {
+      clients.forEach((client) => {
         client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION });
       });
     })()
   );
 });
 
-// ًںŒگ Fetch Event (Smart Caching)
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  
-  // ًںڑ« Skip non-GET requests and external resources
-  if (request.method !== 'GET' || !url.origin.includes(self.location.origin)) {
+
+  if (request.method !== 'GET' || url.origin !== self.location.origin) {
     return;
   }
-  
-  // ًں”¥ Skip Firebase requests (let them handle their own caching)
+
   if (url.hostname.includes('firebase') || url.hostname.includes('googleapis')) {
     return;
   }
-  
-  // ًںژ¯ Smart Route Based on Request Type
+
   event.respondWith(
     (async () => {
-      // ًں§  JavaScript should be fresh first to avoid stale logic on mobile
       if (url.pathname.match(/\.js$/)) {
         return CacheStrategies.networkFirst(request, STATIC_CACHE, 4000);
       }
 
-      // ًں“¦ CSS/Fonts (fast cached + background refresh)
       if (url.pathname.match(/\.(css|woff|woff2|ttf|otf)$/)) {
         return CacheStrategies.staleWhileRevalidate(request, STATIC_CACHE);
       }
-      
-      // ًں–¼ï¸ڈ Images (Optimized for performance)
+
       if (url.pathname.match(/\.(png|jpg|jpeg|gif|webp|svg)$/)) {
         return CacheStrategies.staleWhileRevalidate(request);
       }
-      
-      // ًں“„ HTML Pages (Fresh content)
-      if (url.pathname.match(/\.html$/)) {
+
+      if (url.pathname.match(/\.html$/i)) {
         return CacheStrategies.networkFirst(request, DYNAMIC_CACHE, 5000);
       }
 
-      // ًں“„ JSON files (version/config)
       if (url.pathname.match(/\.json$/)) {
         return CacheStrategies.networkFirst(request, DYNAMIC_CACHE, 5000);
       }
-      
-      // ًںŒگ API Requests (Always fresh)
+
       if (url.pathname.includes('/api/')) {
         return CacheStrategies.networkFirst(request);
       }
-      
-      // ًں”„ Default: Network First with fallback
+
       return CacheStrategies.networkFirst(request);
     })()
   );
 });
 
-// ًں“¨ Message Event (Communication with Main App)
 self.addEventListener('message', (event) => {
-  const { type, data } = event.data;
-  
+  const payload = event.data || {};
+  const { type } = payload;
+
   switch (type) {
     case 'SKIP_WAITING':
       self.skipWaiting();
       break;
-      
+
     case 'GET_VERSION':
-      event.ports[0].postMessage({ version: CACHE_VERSION });
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage({ version: CACHE_VERSION });
+      }
       break;
-      
+
     case 'CLEAR_CACHE':
       (async () => {
         const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
-        console.log('ًں—‘ï¸ڈ All caches cleared');
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+        console.log('[SW] all caches cleared');
       })();
       break;
-      
+
     default:
-      console.log(`ًں“¨ Unknown message type: ${type}`);
+      console.log(`[SW] unknown message type: ${type}`);
   }
 });
 
-// ًں”„ Background Sync (Offline Support)
 self.addEventListener('sync', (event) => {
   if (event.tag === 'background-sync') {
     event.waitUntil(
       (async () => {
-        console.log('ًں”„ Background sync triggered');
-        // Handle offline actions here
+        console.log('[SW] background sync triggered');
       })()
     );
   }
 });
 
-// ًں“± Push Notifications (PWA Feature)
 self.addEventListener('push', (event) => {
+  const body = (event.data && event.data.text && event.data.text()) || 'New update available';
   const options = {
-    body: event.data.text(),
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    body,
+    icon: withBase('/icon-192.png'),
+    badge: withBase('/icon-192.png'),
     vibrate: [200, 100, 200],
-    data: { url: '/' }
+    data: { url: withBase('/') }
   };
-  
+
   event.waitUntil(
     self.registration.showNotification('Sale Zone', options)
   );
 });
 
-console.log('ًںڑ€ Professional ServiceWorker ready - PWA Enabled');
-
+console.log('[SW] ready - PWA enabled');
