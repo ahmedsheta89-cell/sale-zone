@@ -40,6 +40,169 @@ function shouldEnableRealtimeListeners() {
     return true;
 }
 
+const REALTIME_LISTENERS_ENABLED = shouldEnableRealtimeListeners();
+
+const FIREBASE_SYNC_POLL_INTERVAL_MS = 15000;
+const FIREBASE_SYNC_STALE_MS = 45000;
+const FIREBASE_SYNC_STATUS = window.__FIREBASE_SYNC_STATUS__ || {
+    realtimeEnabled: false,
+    pollingEnabled: false,
+    lastSuccessAt: 0,
+    lastErrorAt: 0,
+    consecutiveErrors: 0,
+    lastSource: '',
+    lastError: '',
+    lastDetails: null
+};
+window.__FIREBASE_SYNC_STATUS__ = FIREBASE_SYNC_STATUS;
+
+let firebasePollingTimer = null;
+let firebasePollingInFlight = false;
+
+function setFirebaseSyncStatus(patch) {
+    Object.assign(FIREBASE_SYNC_STATUS, patch || {});
+    window.__FIREBASE_SYNC_STATUS__ = FIREBASE_SYNC_STATUS;
+}
+
+function markFirebaseSyncSuccess(source, details = null) {
+    const now = Date.now();
+    setFirebaseSyncStatus({
+        lastSuccessAt: now,
+        consecutiveErrors: 0,
+        lastSource: String(source || ''),
+        lastError: '',
+        lastDetails: details && typeof details === 'object' ? details : null
+    });
+    window.__STORE_LAST_FIREBASE_SYNC_AT__ = new Date(now).toISOString();
+}
+
+function markFirebaseSyncError(source, error) {
+    const message = error && error.message ? String(error.message) : String(error || 'unknown');
+    setFirebaseSyncStatus({
+        lastErrorAt: Date.now(),
+        consecutiveErrors: (Number(FIREBASE_SYNC_STATUS.consecutiveErrors) || 0) + 1,
+        lastSource: String(source || ''),
+        lastError: message
+    });
+}
+
+function persistSyncedCollection(storageKey, list, fallbackRender) {
+    let persisted = false;
+    try {
+        if (typeof setStorageData === 'function') {
+            persisted = setStorageData(storageKey, list) !== false;
+        }
+    } catch (_) {}
+
+    if (!persisted && typeof fallbackRender === 'function') {
+        try { fallbackRender(); } catch (_) {}
+    }
+}
+
+async function pullStoreCollectionsFromFirebase(source = 'poll') {
+    const tasks = [
+        typeof getAllProducts === 'function' ? getAllProducts() : Promise.resolve(null),
+        typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null),
+        typeof getBanners === 'function' ? getBanners() : Promise.resolve(null)
+    ];
+
+    const [productsResult, couponsResult, bannersResult] = await Promise.allSettled(tasks);
+    let syncedCollections = 0;
+    const details = { products: null, coupons: null, banners: null };
+
+    if (productsResult.status === 'fulfilled' && Array.isArray(productsResult.value)) {
+        products = productsResult.value;
+        details.products = products.length;
+        syncedCollections++;
+        persistSyncedCollection('PRODUCTS', products, () => {
+            if (typeof renderProducts === 'function') renderProducts();
+            if (typeof updateCategoryCounts === 'function') updateCategoryCounts();
+            if (typeof updateProductsDisplay === 'function') updateProductsDisplay();
+        });
+    }
+
+    if (couponsResult.status === 'fulfilled' && Array.isArray(couponsResult.value)) {
+        coupons = couponsResult.value;
+        details.coupons = coupons.length;
+        syncedCollections++;
+        persistSyncedCollection('COUPONS', coupons, () => {
+            if (typeof renderCoupons === 'function') renderCoupons();
+            if (typeof updateCouponsDisplay === 'function') updateCouponsDisplay();
+        });
+    }
+
+    if (bannersResult.status === 'fulfilled' && Array.isArray(bannersResult.value)) {
+        banners = bannersResult.value;
+        details.banners = banners.length;
+        syncedCollections++;
+        persistSyncedCollection('BANNERS', banners, () => {
+            if (typeof renderBanners === 'function') renderBanners();
+            if (typeof updateBannersDisplay === 'function') updateBannersDisplay();
+        });
+    }
+
+    if (syncedCollections === 0) {
+        throw new Error('No Firebase collections could be synchronized.');
+    }
+
+    markFirebaseSyncSuccess(source, details);
+    return details;
+}
+
+function shouldRunPollingSync(force = false) {
+    if (force) return true;
+    if (!REALTIME_LISTENERS_ENABLED) return true;
+    if ((Number(FIREBASE_SYNC_STATUS.consecutiveErrors) || 0) > 0) return true;
+
+    const lastSuccessAt = Number(FIREBASE_SYNC_STATUS.lastSuccessAt) || 0;
+    if (!lastSuccessAt) return true;
+
+    return (Date.now() - lastSuccessAt) >= FIREBASE_SYNC_STALE_MS;
+}
+
+async function runPollingSync({ force = false, reason = 'interval' } = {}) {
+    if (firebasePollingInFlight) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (!shouldRunPollingSync(force)) return;
+
+    firebasePollingInFlight = true;
+    try {
+        const details = await pullStoreCollectionsFromFirebase(`poll:${reason}`);
+        if (force || (Number(FIREBASE_SYNC_STATUS.consecutiveErrors) || 0) > 0) {
+            console.log('[OK] Firebase polling sync completed:', details);
+        }
+    } catch (error) {
+        markFirebaseSyncError(`poll:${reason}`, error);
+        console.warn('Firebase polling sync warning:', error && error.message ? error.message : error);
+    } finally {
+        firebasePollingInFlight = false;
+    }
+}
+
+function startPollingSyncFallback() {
+    if (firebasePollingTimer) return;
+
+    setFirebaseSyncStatus({ pollingEnabled: true });
+    runPollingSync({ force: true, reason: 'boot' });
+
+    firebasePollingTimer = setInterval(() => {
+        runPollingSync({ force: false, reason: 'interval' });
+    }, FIREBASE_SYNC_POLL_INTERVAL_MS);
+
+    window.addEventListener('online', () => {
+        runPollingSync({ force: true, reason: 'online' });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            runPollingSync({ force: true, reason: 'visible' });
+        }
+    });
+
+    console.log(`[OK] Firebase polling fallback enabled (${FIREBASE_SYNC_POLL_INTERVAL_MS / 1000}s interval)`);
+}
+
 async function initializeFirebaseData() {
     try {
         // Check if products collection exists
@@ -236,9 +399,10 @@ async function initializeFirebaseData() {
         
         // Setup real-time listeners for live updates
         // GitHub Pages can block Firestore listen channel (CORS). Skip to avoid spam.
-        if (shouldEnableRealtimeListeners()) {
+        if (REALTIME_LISTENERS_ENABLED) {
             setupRealtimeListeners();
         }
+        startPollingSyncFallback();
         
     } catch (error) {
         console.error('❌ Firebase initialization error:', error);
@@ -247,9 +411,11 @@ async function initializeFirebaseData() {
 
 // Real-time listeners for live updates
 function setupRealtimeListeners() {
-    if (!shouldEnableRealtimeListeners()) {
+    if (!REALTIME_LISTENERS_ENABLED) {
+        setFirebaseSyncStatus({ realtimeEnabled: false });
         return;
     }
+    setFirebaseSyncStatus({ realtimeEnabled: true });
 
     // Listen for banners changes
     db.collection('banners').onSnapshot((snapshot) => {
@@ -268,7 +434,9 @@ function setupRealtimeListeners() {
                 updateBannersDisplay();
             }
         }
+        markFirebaseSyncSuccess('realtime:banners', { banners: banners.length });
     }, (error) => {
+        markFirebaseSyncError('realtime:banners', error);
         console.error('Banners listener error:', error);
     });
 
@@ -289,7 +457,9 @@ function setupRealtimeListeners() {
                 updateCouponsDisplay();
             }
         }
+        markFirebaseSyncSuccess('realtime:coupons', { coupons: coupons.length });
     }, (error) => {
+        markFirebaseSyncError('realtime:coupons', error);
         console.error('Coupons listener error:', error);
     });
 
@@ -313,7 +483,9 @@ function setupRealtimeListeners() {
                 updateProductsDisplay();
             }
         }
+        markFirebaseSyncSuccess('realtime:products', { products: products.length });
     }, (error) => {
+        markFirebaseSyncError('realtime:products', error);
         console.error('Products listener error:', error);
     });
 

@@ -1341,13 +1341,13 @@
                 if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
                     const localByPhone = new Map(localUsers.map(u => [normalizePhone(u.phone), u]));
                     users = usersResult.value.map(u => {
-                        const localMatch = localByPhone.get(normalizePhone(u.phone));
-                        return {
-                            ...u,
-                            uid: (u.uid || (localMatch && localMatch.uid) || ''),
-                            phoneNormalized: normalizePhone(u.phone),
-                            password: (u.password || (localMatch && localMatch.password) || '')
-                        };
+                        const sourcePhone = normalizePhone((u && (u.phone || u.phoneNormalized)) || '');
+                        const localMatch = localByPhone.get(sourcePhone);
+                        return sanitizeCustomerRecord(u, {
+                            uid: (u && u.uid) || (localMatch && localMatch.uid) || '',
+                            phoneNormalized: sourcePhone,
+                            password: (u && u.password) || (localMatch && localMatch.password) || ''
+                        });
                     });
                     setStorageData('CUSTOMERS', users);
                     console.log('✅ Customers loaded from Firebase:', users.length);
@@ -1426,7 +1426,17 @@
         function saveCart() { setStorageData('CART', cart); }
         function saveFavorites() { setStorageData('WISHLIST', favorites); }
         function saveOrders() { setStorageData('ORDERS', orders); }
-        function saveUsers() { setStorageData('CUSTOMERS', users); }
+        function saveUsers() {
+            const deduped = new Map();
+            (users || []).forEach((entry) => {
+                const safe = sanitizeCustomerRecord(entry, { id: entry && entry.id ? entry.id : '' });
+                const key = safe.phoneNormalized || safe.id;
+                if (!key) return;
+                deduped.set(key, safe);
+            });
+            users = Array.from(deduped.values());
+            setStorageData('CUSTOMERS', users);
+        }
         function saveProducts() { setStorageData('PRODUCTS', products); }
 
         function showToast(message, type = 'info') {
@@ -2062,6 +2072,46 @@
             return digits;
         }
 
+        function normalizeCustomerCreatedAt(value) {
+            if (!value) return '';
+            if (typeof value === 'string') return value;
+            if (value && typeof value.toDate === 'function') {
+                try {
+                    return value.toDate().toISOString();
+                } catch (_) {
+                    return '';
+                }
+            }
+            if (value && typeof value.seconds === 'number') {
+                const date = new Date(value.seconds * 1000);
+                return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+            }
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+        }
+
+        function sanitizeCustomerRecord(raw, overrides = {}) {
+            const source = raw && typeof raw === 'object' ? raw : {};
+            const patch = overrides && typeof overrides === 'object' ? overrides : {};
+            const pick = (key, fallback = '') => (key in patch ? patch[key] : source[key]) ?? fallback;
+            const toText = (value, max = 300) => String(value == null ? '' : value).trim().slice(0, max);
+            const normalizedPhone = normalizePhone(pick('phoneNormalized', pick('phone', '')));
+            const createdAt = normalizeCustomerCreatedAt(pick('createdAt', '')) || new Date().toISOString();
+
+            return {
+                id: toText(pick('id', ''), 120),
+                uid: toText(pick('uid', ''), 200),
+                name: toText(pick('name', ''), 200),
+                phone: toText(pick('phone', normalizedPhone), 50),
+                phoneNormalized: normalizedPhone,
+                email: toText(pick('email', ''), 200),
+                address: toText(pick('address', ''), 500),
+                loyaltyPoints: Number.isFinite(Number(pick('loyaltyPoints', 0))) ? Number(pick('loyaltyPoints', 0)) : 0,
+                createdAt,
+                password: toText(pick('password', ''), 200)
+            };
+        }
+
         function findUserByPhone(phone, list = users) {
             const target = normalizePhone(phone);
             return (list || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === target);
@@ -2140,14 +2190,14 @@
             const localUsers = getStorageData('CUSTOMERS') || [];
             const localByPhone = new Map(localUsers.map(u => [normalizePhone(u.phone), u]));
             users = fbUsers.map(u => {
-                const localMatch = localByPhone.get(normalizePhone(u.phone));
-                return {
-                    ...u,
-                    uid: (u.uid || (localMatch && localMatch.uid) || ''),
-                    phoneNormalized: normalizePhone(u.phone),
-                    password: (u.password || (localMatch && localMatch.password) || '')
-                };
-            });
+                const sourcePhone = normalizePhone((u && (u.phone || u.phoneNormalized)) || '');
+                const localMatch = localByPhone.get(sourcePhone);
+                return sanitizeCustomerRecord(u, {
+                    uid: (u && u.uid) || (localMatch && localMatch.uid) || '',
+                    phoneNormalized: sourcePhone,
+                    password: (u && u.password) || (localMatch && localMatch.password) || ''
+                });
+            }).sort((a, b) => String(a.phoneNormalized || '').localeCompare(String(b.phoneNormalized || '')));
             saveUsers();
             return users;
         }
@@ -2218,7 +2268,7 @@
                     || null;
 
                 if (!user) {
-                    const fallbackProfile = {
+                    const fallbackProfile = sanitizeCustomerRecord({
                         id: `auth_${authUid}`,
                         uid: authUid,
                         name: buildFallbackCustomerName(phoneNormalized),
@@ -2229,7 +2279,7 @@
                         loyaltyPoints: 0,
                         createdAt: new Date().toISOString(),
                         password
-                    };
+                    });
 
                     try {
                         if (typeof addCustomer === 'function') {
@@ -2273,7 +2323,8 @@
                         user.password = password;
                     }
                     if (needsSave) {
-                        users = (users || []).map(u => String(u.id) === String(user.id) ? { ...u, ...user } : u);
+                        user = sanitizeCustomerRecord(user, { id: user.id });
+                        users = (users || []).map(u => String(u.id) === String(user.id) ? user : sanitizeCustomerRecord(u, { id: u.id }));
                         saveUsers();
                     }
                 }
@@ -2291,18 +2342,18 @@
                 });
                 return;
             }
-            currentUser = user;
-            localStorage.setItem('currentUser', JSON.stringify(user));
+            currentUser = sanitizeCustomerRecord(user, { id: user && user.id ? user.id : '' });
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
             updateUserUI();
             closeModal('authModal');
-            showNotification('success', 'مرحباً', `أهلاً ${user.name}!`);
+            showNotification('success', 'مرحباً', `أهلاً ${currentUser.name}!`);
             updateLiveSessionState({
-                customerId: String(user.id || ''),
-                customerPhone: String(user.phone || '')
+                customerId: String(currentUser.id || ''),
+                customerPhone: String(currentUser.phone || '')
             });
             trackStoreEvent('LOGIN_SUCCESS', 'Customer login success', 'info', {
-                customerId: String(user.id || ''),
-                phoneNormalized: normalizePhone(user.phone || '')
+                customerId: String(currentUser.id || ''),
+                phoneNormalized: normalizePhone(currentUser.phone || '')
             });
             } finally {
                 authSubmitLock = false;
@@ -2356,15 +2407,15 @@
                         throw authError;
                     }
 
-                    const recoveredUser = {
-                        ...existsInCloud,
+                    const recoveredUser = sanitizeCustomerRecord(existsInCloud, {
+                        id: String(existsInCloud && existsInCloud.id ? existsInCloud.id : ''),
                         uid: authUid,
                         phone,
                         phoneNormalized,
-                        email: email || existsInCloud.email || '',
-                        address: address || existsInCloud.address || '',
+                        email: email || (existsInCloud && existsInCloud.email) || '',
+                        address: address || (existsInCloud && existsInCloud.address) || '',
                         password
-                    };
+                    });
 
                     // Best-effort: attach the auth uid (and normalized phone) back to the legacy Firebase profile.
                     // If Firestore rules block this write, we still continue locally so the customer can proceed.
@@ -2383,8 +2434,8 @@
                     users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
                     users.push(recoveredUser);
                     saveUsers();
-                    currentUser = recoveredUser;
-                    localStorage.setItem('currentUser', JSON.stringify(recoveredUser));
+                    currentUser = sanitizeCustomerRecord(recoveredUser, { id: recoveredUser.id });
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     updateUserUI();
                     closeModal('authModal');
                     showNotification('success', 'تم استكمال الحساب', 'تم تحديث حسابك القديم ويمكنك الدخول الآن.');
@@ -2447,7 +2498,7 @@
                 return;
             }
 
-            const newUser = {
+            const newUser = sanitizeCustomerRecord({
                 id: Date.now().toString(),
                 uid: authUid,
                 name,
@@ -2458,7 +2509,7 @@
                 loyaltyPoints: 0,
                 createdAt: new Date().toISOString(),
                 password
-            };
+            });
             const customerPayload = { uid: authUid, name, phone, phoneNormalized, email, address, loyaltyPoints: 0, createdAt: newUser.createdAt };
             try {
                 if (typeof addCustomer === 'function') {
@@ -2468,8 +2519,8 @@
                 users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
                 users.push(newUser);
                 saveUsers();
-                currentUser = newUser;
-                localStorage.setItem('currentUser', JSON.stringify(newUser));
+                currentUser = sanitizeCustomerRecord(newUser, { id: newUser.id });
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 updateUserUI();
                 closeModal('authModal');
                 showNotification('success', 'مرحباً', 'تم إنشاء حسابك بنجاح!');
@@ -2487,8 +2538,8 @@
                     users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
                     users.push(newUser);
                     saveUsers();
-                    currentUser = newUser;
-                    localStorage.setItem('currentUser', JSON.stringify(newUser));
+                    currentUser = sanitizeCustomerRecord(newUser, { id: newUser.id });
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     updateUserUI();
                     closeModal('authModal');
                     showNotification('info', 'تم التسجيل محليًا', 'لا يوجد إنترنت. سيتم رفع الحساب تلقائيًا عند عودة الاتصال.');
@@ -2511,10 +2562,10 @@
         function checkLoggedInUser() {
             const saved = localStorage.getItem('currentUser');
             if (saved) {
-                currentUser = JSON.parse(saved);
-                const freshUser = users.find(u => u.id === currentUser.id);
+                currentUser = sanitizeCustomerRecord(JSON.parse(saved));
+                const freshUser = users.find(u => String(u.id) === String(currentUser.id));
                 if (freshUser) {
-                    currentUser = freshUser;
+                    currentUser = sanitizeCustomerRecord(freshUser, { id: freshUser.id });
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 }
                 updateUserUI();

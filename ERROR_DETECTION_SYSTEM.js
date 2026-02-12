@@ -110,6 +110,7 @@ class ErrorDetectionSystem {
         setInterval(() => {
             this.checkDOMHealth();
             this.checkNetworkHealth();
+            this.checkLocalStorageHealth();
         }, 5000);
     }
 
@@ -223,6 +224,7 @@ class ErrorDetectionSystem {
         storage.setItem = (key, value) => {
             try {
                 originalSetItem(key, value);
+                this.systemHealth.localStorage = true;
                 this.logStorageOperation({
                     type: 'SET',
                     key: key,
@@ -241,6 +243,7 @@ class ErrorDetectionSystem {
         storage.getItem = (key) => {
             try {
                 const value = originalGetItem(key);
+                this.systemHealth.localStorage = true;
                 this.logStorageOperation({
                     type: 'GET',
                     key: key,
@@ -262,6 +265,7 @@ class ErrorDetectionSystem {
         storage.removeItem = (key) => {
             try {
                 originalRemoveItem(key);
+                this.systemHealth.localStorage = true;
                 this.logStorageOperation({
                     type: 'REMOVE',
                     key: key,
@@ -353,6 +357,25 @@ class ErrorDetectionSystem {
         // Grace period to avoid false 75% health dips from short mobile hiccups.
         const offlineForMs = Date.now() - this.networkOfflineSince;
         this.systemHealth.network = offlineForMs >= 20000 ? false : true;
+    }
+
+    checkLocalStorageHealth() {
+        const wasHealthy = this.systemHealth.localStorage;
+        try {
+            const probeKey = '__sz_storage_probe__';
+            localStorage.setItem(probeKey, '1');
+            localStorage.removeItem(probeKey);
+            this.systemHealth.localStorage = true;
+        } catch (error) {
+            this.systemHealth.localStorage = false;
+            if (wasHealthy) {
+                this.logWarning({
+                    type: 'LOCALSTORAGE_HEALTH_CHECK_FAILED',
+                    message: error && error.message ? error.message : String(error),
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
     }
 
     // 📝 تسجيل الخطأ
@@ -600,7 +623,12 @@ class ErrorDetectionSystem {
             document.body.appendChild(indicator);
         }
         
-        indicator.textContent = `🏥 ${percentage.toFixed(1)}%`;
+        const issues = Object.entries(this.systemHealth)
+            .filter(([_, healthy]) => !healthy)
+            .map(([key]) => key);
+        const suffix = issues.length ? ` (${issues.join(', ')})` : '';
+        indicator.textContent = `🏥 ${percentage.toFixed(1)}%${suffix}`;
+        indicator.title = issues.length ? `Issues: ${issues.join(', ')}` : 'All checks OK';
         
         // تغيير اللون حسب الصحة
         if (percentage >= 90) {

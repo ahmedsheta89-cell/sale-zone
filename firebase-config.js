@@ -45,20 +45,13 @@ if (shouldApplyStableTransport) {
     try {
         if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
             const settings = {
-                useFetchStreams: false,
-                // Keep merge on to avoid clobbering other settings, but always
-                // explicitly disable the opposite long-polling flag. This
-                // prevents "experimentalForceLongPolling and experimentalAutoDetectLongPolling cannot be used together"
-                // when cached older settings exist.
-                merge: true
+                useFetchStreams: false
             };
 
             if (shouldForceLongPolling) {
                 settings.experimentalForceLongPolling = true;
-                settings.experimentalAutoDetectLongPolling = false;
             } else {
                 settings.experimentalAutoDetectLongPolling = true;
-                settings.experimentalForceLongPolling = false;
             }
 
             db.settings(settings);
@@ -71,11 +64,13 @@ if (shouldApplyStableTransport) {
             console.log("Firestore stable transport enabled (auto long-polling)");
         }
     } catch (e) {
-        // Most common causes:
-        // - settings already applied (cannot be changed after first use)
-        // - conflicting long-polling flags from older cached code (now mitigated by explicit false)
-        console.warn("Firestore transport settings could not be applied:", e);
+        // Non-fatal:
+        // - settings already applied in this page lifecycle
+        // - stale cached client executed an old conflicting config before this script
+        const reason = e && e.message ? e.message : String(e);
+        console.warn("Firestore transport settings could not be applied (non-fatal):", reason);
         window.__FIRESTORE_SETTINGS_APPLIED__ = true;
+        window.__FIRESTORE_STABLE_TRANSPORT_ERROR__ = reason;
     }
 }
 
