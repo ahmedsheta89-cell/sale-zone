@@ -2161,7 +2161,15 @@
                     return;
                 } catch (error) {
                     console.error('legacy recovery error:', error);
-                    showNotification('error', 'فشل استكمال الحساب', 'تعذر تحديث الحساب القديم. حاول مرة أخرى.');
+                    const msg = error && error.message ? String(error.message) : '';
+                    if (msg.includes('insufficient permissions') || msg.includes('Missing or insufficient permissions')) {
+                        showNotification('warning', 'الحساب يحتاج تفعيل', 'هذا الحساب القديم يحتاج تفعيل كلمة المرور من لوحة الأدمن.');
+                        trackStoreEvent('REGISTER_RECOVER_NEEDS_ADMIN', 'Legacy account requires admin password reset', 'warning', {
+                            phoneNormalized
+                        });
+                    } else {
+                        showNotification('error', 'فشل استكمال الحساب', 'تعذر تحديث الحساب القديم. حاول مرة أخرى.');
+                    }
                     trackStoreEvent('REGISTER_RECOVER_FAILED', 'Legacy customer profile completion failed', 'error', {
                         phoneNormalized,
                         error: error && error.message ? String(error.message) : String(error)

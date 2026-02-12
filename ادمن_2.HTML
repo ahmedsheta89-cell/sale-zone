@@ -2549,6 +2549,7 @@ function adminLogout(){
                     <td><strong style="color: var(--gold-dark);">${u.loyaltyPoints || 0}</strong></td>
                     <td>${formatDate(u.createdAt)}</td>
                     <td>
+                        <button class="action-btn" onclick="resetCustomerPassword('${u.id}')" title="تعيين كلمة مرور">🔑</button>
                         <button class="action-btn edit" onclick="editCustomer('${u.id}')">✏️</button>
                         <button class="action-btn delete" onclick="deleteCustomer('${u.id}')">🗑️</button>
                     </td>
@@ -2650,6 +2651,31 @@ function adminLogout(){
             } catch (error) {
                 console.error('deleteCustomer error:', error);
                 showNotification('error', 'فشل حذف العميل');
+            }
+        }
+
+        async function resetCustomerPassword(userId) {
+            const user = users.find(u => String(u.id) === String(userId));
+            if (!user) return;
+            const newPassword = prompt(`كلمة مرور جديدة للعميل ${user.name}:`);
+            if (newPassword === null) return;
+            const pass = String(newPassword).trim();
+            if (pass.length < 4) {
+                showNotification('error', 'كلمة المرور قصيرة (4 أحرف على الأقل)');
+                return;
+            }
+
+            try {
+                if (typeof updateCustomer === 'function') {
+                    await updateCustomer(user.id, { password: pass });
+                }
+                users = users.map(u => String(u.id) === String(user.id) ? { ...u, password: pass } : u);
+                saveUsers();
+                renderUsersTable();
+                showNotification('success', 'تم تعيين كلمة المرور للعميل');
+            } catch (error) {
+                console.error('resetCustomerPassword error:', error);
+                showNotification('error', 'فشل تعيين كلمة المرور');
             }
         }
 
