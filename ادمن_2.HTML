@@ -2301,6 +2301,13 @@ function adminLogout(){
             return new Date(d).toLocaleDateString('ar-EG');
         }
 
+        function formatDateTime(d) {
+            if (!d) return '-';
+            const date = new Date(d);
+            if (Number.isNaN(date.getTime())) return '-';
+            return `${date.toLocaleDateString('ar-EG')} ${date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        }
+
         function viewOrder(id) {
             const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
@@ -2907,7 +2914,7 @@ function adminLogout(){
                 const online = context.online === false ? 'Offline' : 'Online';
                 return `
                     <tr>
-                        <td>${formatDate(log.timestamp)}</td>
+                        <td>${formatDateTime(log.timestamp)}</td>
                         <td><strong>${escapeHtml(log.type || '-')}</strong></td>
                         <td style="max-width: 260px; white-space: normal; word-break: break-word;">${escapeHtml(log.message || '-')}</td>
                         <td style="max-width: 220px; white-space: normal; word-break: break-word;">${escapeHtml(context.page || log.source || '-')}</td>
@@ -2943,7 +2950,7 @@ function adminLogout(){
             const rows = (clientErrorLogs || []).map(log => {
                 const context = log.context || {};
                 return {
-                    'الوقت': formatDate(log.timestamp),
+                    'الوقت': formatDateTime(log.timestamp),
                     'النوع': log.type || '',
                     'الرسالة': log.message || '',
                     'المصدر': log.source || '',
@@ -2985,7 +2992,7 @@ function adminLogout(){
 
             const rows = Array.isArray(storeEvents) ? storeEvents : [];
             countEl.textContent = String(rows.length);
-            lastEl.textContent = rows.length ? formatDate(rows[0].timestamp) : '-';
+            lastEl.textContent = rows.length ? formatDateTime(rows[0].timestamp) : '-';
 
             if (!rows.length) {
                 meta.textContent = 'لا توجد أحداث تشغيلية حتى الآن.';
@@ -2996,7 +3003,7 @@ function adminLogout(){
             meta.textContent = `عدد الأحداث: ${rows.length}`;
             tbody.innerHTML = rows.map((ev) => `
                 <tr>
-                    <td>${formatDate(ev.timestamp)}</td>
+                    <td>${formatDateTime(ev.timestamp)}</td>
                     <td><span class="status-badge ${levelClass(ev.level)}">${escapeHtml(ev.level || 'info')}</span></td>
                     <td><strong>${escapeHtml(ev.type || '-')}</strong></td>
                     <td style="max-width: 260px; white-space: normal; word-break: break-word;">${escapeHtml(ev.message || '-')}</td>
@@ -3037,7 +3044,7 @@ function adminLogout(){
                         <td>${escapeHtml(device)}</td>
                         <td>${escapeHtml(s.customerPhone || s.customerId || '-')}</td>
                         <td style="max-width: 220px; white-space: normal; word-break: break-word;">${escapeHtml(s.page || '-')}</td>
-                        <td>${formatDate(s.updatedAt)}</td>
+                        <td>${formatDateTime(s.updatedAt)}</td>
                         <td><span class="status-badge ${isActive ? 'status-confirmed' : 'status-pending'}">${isActive ? 'Online' : 'Idle'}</span></td>
                     </tr>
                 `;

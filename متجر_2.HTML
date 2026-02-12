@@ -979,6 +979,12 @@
         let currentBanner = 0;
         let bannerInterval;
         let liveSessionHeartbeatTimer = null;
+        let authSubmitLock = false;
+        const recentStoreEventLog = Object.create(null);
+        const STORE_EVENT_THROTTLE_MS = {
+            STORE_BOOT: 30000,
+            STORE_DATA_SYNC: 15000
+        };
         const STORE_SESSION_KEY = 'sale_zone_live_session_id';
         const STORE_SESSION_ID = (() => {
             let existing = '';
@@ -1953,8 +1959,18 @@
         async function trackStoreEvent(type, message, level = 'info', meta = {}) {
             try {
                 if (typeof addStoreEvent !== 'function') return;
+                const eventType = String(type || 'STORE_EVENT');
+                const throttleMs = STORE_EVENT_THROTTLE_MS[eventType] || 0;
+                if (throttleMs > 0) {
+                    const now = Date.now();
+                    const previous = recentStoreEventLog[eventType] || 0;
+                    if ((now - previous) < throttleMs) {
+                        return;
+                    }
+                    recentStoreEventLog[eventType] = now;
+                }
                 await addStoreEvent({
-                    type: String(type || 'STORE_EVENT'),
+                    type: eventType,
                     message: String(message || ''),
                     level: String(level || 'info'),
                     source: 'store',
@@ -2060,6 +2076,38 @@
             return firebase.auth().createUserWithEmailAndPassword(email, password);
         }
 
+        async function ensureCustomerAuthIdentity(phone, password, options = {}) {
+            const settings = { allowCreate: true, allowSignIn: true, ...options };
+            if (!(firebase && firebase.auth)) {
+                return { uid: '', mode: 'auth-unavailable' };
+            }
+
+            if (settings.allowCreate) {
+                try {
+                    const created = await registerCustomerAuth(phone, password);
+                    return {
+                        uid: created && created.user && created.user.uid ? String(created.user.uid) : '',
+                        mode: 'created'
+                    };
+                } catch (error) {
+                    const code = error && error.code ? String(error.code) : '';
+                    if (code !== 'auth/email-already-in-use') throw error;
+                }
+            }
+
+            if (settings.allowSignIn) {
+                const signed = await signInCustomerAuth(phone, password);
+                return {
+                    uid: signed && signed.user && signed.user.uid ? String(signed.user.uid) : '',
+                    mode: 'signed-in'
+                };
+            }
+
+            const mismatchError = new Error('Auth account exists but sign-in was not allowed.');
+            mismatchError.code = 'auth/password-mismatch';
+            throw mismatchError;
+        }
+
         function isOnlineMode() {
             return navigator.onLine !== false;
         }
@@ -2098,6 +2146,9 @@
 
         async function handleLogin(e) {
             e.preventDefault();
+            if (authSubmitLock) return;
+            authSubmitLock = true;
+            try {
             const phone = document.getElementById('loginPhone').value.trim();
             const password = document.getElementById('loginPassword').value;
             const phoneNormalized = normalizePhone(phone);
@@ -2233,10 +2284,16 @@
                 customerId: String(user.id || ''),
                 phoneNormalized: normalizePhone(user.phone || '')
             });
+            } finally {
+                authSubmitLock = false;
+            }
         }
 
         async function handleRegister(e) {
             e.preventDefault();
+            if (authSubmitLock) return;
+            authSubmitLock = true;
+            try {
             const name = document.getElementById('registerName').value.trim();
             const phone = document.getElementById('registerPhone').value.trim();
             const phoneNormalized = normalizePhone(phone);
@@ -2262,16 +2319,21 @@
                 try {
                     let authUid = '';
                     try {
-                        const authCred = await registerCustomerAuth(phone, password);
-                        authUid = authCred && authCred.user && authCred.user.uid ? String(authCred.user.uid) : '';
+                        const authState = await ensureCustomerAuthIdentity(phone, password, { allowCreate: true, allowSignIn: true });
+                        authUid = authState.uid || '';
                     } catch (authError) {
                         const code = authError && authError.code ? String(authError.code) : '';
-                        if (code === 'auth/email-already-in-use') {
-                            const signInCred = await signInCustomerAuth(phone, password);
-                            authUid = signInCred && signInCred.user && signInCred.user.uid ? String(signInCred.user.uid) : '';
-                        } else {
-                            throw authError;
+                        const isPasswordMismatch = code === 'auth/wrong-password'
+                            || code === 'auth/invalid-login-credentials'
+                            || code === 'auth/invalid-credential';
+                        if (isPasswordMismatch) {
+                            showNotification('warning', 'الحساب يحتاج تفعيل', 'هذا الرقم مرتبط بحساب قديم. اطلب من الأدمن تعيين كلمة مرور للعميل.');
+                            trackStoreEvent('REGISTER_RECOVER_NEEDS_ADMIN', 'Legacy customer profile requires admin password reset', 'warning', {
+                                phoneNormalized
+                            });
+                            return;
                         }
+                        throw authError;
                     }
 
                     const recoveredUser = {
@@ -2326,29 +2388,28 @@
 
             let authUid = '';
             try {
-                const authCred = await registerCustomerAuth(phone, password);
-                authUid = authCred && authCred.user && authCred.user.uid ? String(authCred.user.uid) : '';
+                const authState = await ensureCustomerAuthIdentity(phone, password, { allowCreate: true, allowSignIn: true });
+                authUid = authState.uid || '';
             } catch (authError) {
                 const code = authError && authError.code ? String(authError.code) : '';
-                if (code === 'auth/email-already-in-use') {
-                    try {
-                        const signInCred = await signInCustomerAuth(phone, password);
-                        authUid = signInCred && signInCred.user && signInCred.user.uid ? String(signInCred.user.uid) : '';
-                    } catch (signInError) {
-                        showNotification('error', 'فشل التسجيل', 'الرقم مسجل مسبقًا بكلمة مرور مختلفة. استخدم نسيت كلمة المرور.');
-                        trackStoreEvent('REGISTER_FAILED_AUTH_MISMATCH', 'Firebase Auth account exists with different password', 'warning', {
-                            phoneNormalized
-                        });
-                        return;
-                    }
-                } else {
-                    showNotification('error', 'فشل التسجيل', 'تعذر إنشاء حساب الدخول. حاول مرة أخرى.');
-                    trackStoreEvent('REGISTER_FAILED_AUTH', 'Firebase Auth registration failed', 'error', {
-                        phoneNormalized,
-                        error: authError && authError.message ? String(authError.message) : String(authError)
+                const isPasswordMismatch = code === 'auth/wrong-password'
+                    || code === 'auth/invalid-login-credentials'
+                    || code === 'auth/invalid-credential';
+
+                if (isPasswordMismatch) {
+                    showNotification('error', 'فشل التسجيل', 'الرقم مسجل مسبقًا بكلمة مرور مختلفة. استخدم نسيت كلمة المرور.');
+                    trackStoreEvent('REGISTER_FAILED_AUTH_MISMATCH', 'Firebase Auth account exists with different password', 'warning', {
+                        phoneNormalized
                     });
                     return;
                 }
+
+                showNotification('error', 'فشل التسجيل', 'تعذر إنشاء حساب الدخول. حاول مرة أخرى.');
+                trackStoreEvent('REGISTER_FAILED_AUTH', 'Firebase Auth registration failed', 'error', {
+                    phoneNormalized,
+                    error: authError && authError.message ? String(authError.message) : String(authError)
+                });
+                return;
             }
 
             const newUser = {
@@ -2406,6 +2467,9 @@
                     phoneNormalized,
                     error: error && error.message ? String(error.message) : String(error)
                 });
+            }
+            } finally {
+                authSubmitLock = false;
             }
         }
 
