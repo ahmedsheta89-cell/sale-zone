@@ -92,7 +92,12 @@ function setStorageData(key, data) {
     }
     
     // حفظ البيانات
-    localStorage.setItem(storageKey, JSON.stringify(data));
+    const serialized = JSON.stringify(data);
+    const previous = localStorage.getItem(storageKey);
+    if (previous === serialized) {
+      return true;
+    }
+    localStorage.setItem(storageKey, serialized);
     
     // تحديث تاريخ آخر تحديث
     localStorage.setItem(STORAGE_KEYS.LAST_UPDATE, Date.now().toString());

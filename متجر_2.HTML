@@ -1279,92 +1279,76 @@
         // 🔥 Firebase + LocalStorage Hybrid Data Loading
         // ============================================
         async function loadData() {
+            const localProducts = getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []);
+            const localCoupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
+            const localBanners = getStorageData('BANNERS') || (allowLocalSeedDefaults ? [...defaultBanners] : []);
+            const localUsers = getStorageData('CUSTOMERS') || [];
+
+            const resolveList = (result, storageKey, localFallback, label) => {
+                if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+                    const list = result.value;
+                    setStorageData(storageKey, list);
+                    console.log(`✅ ${label} loaded from Firebase:`, list.length);
+                    return list;
+                }
+                if (result.status === 'rejected') {
+                    console.warn(`${label} firebase read failed, fallback to localStorage:`, result.reason);
+                }
+                setStorageData(storageKey, localFallback);
+                console.log(`📦 ${label} loaded from localStorage:`, localFallback.length);
+                return localFallback;
+            };
+
             try {
-                // محاولة تحميل من Firebase أولاً
-                if (typeof getAllProducts === 'function') {
-                    console.log('🔥 Loading from Firebase...');
-                    
-                    // تحميل المنتجات
-                    const fbProducts = await getAllProducts();
-                    if (Array.isArray(fbProducts)) {
-                        products = fbProducts;
-                        setStorageData('PRODUCTS', products); // حفظ في localStorage
-                        console.log('✅ Products loaded from Firebase:', products.length);
-                    } else {
-                        // Fallback to localStorage only when Firebase read fails
-                        products = getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []);
-                        setStorageData('PRODUCTS', products); // حفظ في localStorage
-                        console.log('📦 Products loaded from localStorage:', products.length);
-                    }
-                    
-                    // تحميل الكوبونات
-                    const fbCoupons = await getCoupons();
-                    if (Array.isArray(fbCoupons)) {
-                        coupons = fbCoupons;
-                        setStorageData('COUPONS', coupons); // حفظ في localStorage
-                        console.log('✅ Coupons loaded from Firebase:', coupons.length);
-                    } else {
-                        coupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
-                        setStorageData('COUPONS', coupons); // حفظ في localStorage
-                        console.log('📦 Coupons loaded from localStorage:', coupons.length);
-                    }
-                    
-                    // تحميل البانرات
-                    const fbBanners = await getBanners();
-                    if (Array.isArray(fbBanners)) {
-                        banners = fbBanners;
-                        setStorageData('BANNERS', banners); // حفظ في localStorage
-                        console.log('✅ Banners loaded from Firebase:', banners.length);
-                    } else {
-                        banners = getStorageData('BANNERS') || (allowLocalSeedDefaults ? [...defaultBanners] : []);
-                        setStorageData('BANNERS', banners); // حفظ في localStorage
-                        console.log('📦 Banners loaded from localStorage:', banners.length);
-                    }
-                    
-                } else {
+                if (typeof getAllProducts !== 'function') {
                     throw new Error('Firebase not available');
+                }
+
+                console.log('🔥 Loading from Firebase...');
+                const [productsResult, couponsResult, bannersResult, usersResult] = await Promise.allSettled([
+                    getAllProducts(),
+                    (typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null)),
+                    (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null)),
+                    (typeof getAllUsers === 'function' ? getAllUsers() : Promise.resolve(null))
+                ]);
+
+                products = resolveList(productsResult, 'PRODUCTS', localProducts, 'Products');
+                coupons = resolveList(couponsResult, 'COUPONS', localCoupons, 'Coupons');
+                banners = resolveList(bannersResult, 'BANNERS', localBanners, 'Banners');
+
+                if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
+                    const localByPhone = new Map(localUsers.map(u => [normalizePhone(u.phone), u]));
+                    users = usersResult.value.map(u => {
+                        const localMatch = localByPhone.get(normalizePhone(u.phone));
+                        return {
+                            ...u,
+                            uid: (u.uid || (localMatch && localMatch.uid) || ''),
+                            phoneNormalized: normalizePhone(u.phone),
+                            password: (u.password || (localMatch && localMatch.password) || '')
+                        };
+                    });
+                    setStorageData('CUSTOMERS', users);
+                    console.log('✅ Customers loaded from Firebase:', users.length);
+                } else {
+                    if (usersResult.status === 'rejected') {
+                        console.warn('Customers firebase read failed, fallback to localStorage:', usersResult.reason);
+                    }
+                    users = localUsers;
                 }
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
                 trackStoreEvent('DATA_SYNC_FALLBACK', 'Firebase read failed, fallback to localStorage', 'warning', {
                     error: error && error.message ? String(error.message) : String(error)
                 });
-                // Fallback to localStorage
-                products = getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []);
-                coupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
-                banners = getStorageData('BANNERS') || (allowLocalSeedDefaults ? [...defaultBanners] : []);
-                
-                // حفظ في localStorage دائماً
+                products = localProducts;
+                coupons = localCoupons;
+                banners = localBanners;
+                users = localUsers;
+
                 setStorageData('PRODUCTS', products);
                 setStorageData('COUPONS', coupons);
                 setStorageData('BANNERS', banners);
                 console.log('📦 Data saved to localStorage from fallback');
-            }
-            
-            // تحميل العملاء من Firebase إن أمكن، ثم fallback إلى localStorage
-            try {
-                if (typeof getAllUsers === 'function') {
-                    const fbUsers = await getAllUsers();
-                    if (Array.isArray(fbUsers)) {
-                        const localUsers = getStorageData('CUSTOMERS') || [];
-                        const localByPhone = new Map(
-                            localUsers.map(u => [normalizePhone(u.phone), u])
-                        );
-                        users = fbUsers.map(u => {
-                            const localMatch = localByPhone.get(normalizePhone(u.phone));
-                            return {
-                                ...u,
-                                phoneNormalized: normalizePhone(u.phone),
-                                // Preserve local password if Firebase record is legacy
-                                password: (u.password || (localMatch && localMatch.password) || '')
-                            };
-                        });
-                        setStorageData('CUSTOMERS', users);
-                        console.log('✅ Customers loaded from Firebase:', users.length);
-                    }
-                }
-            } catch (e) {
-                console.warn('Customers sync fallback to localStorage:', e);
             }
 
             // هذه البيانات دائماً من localStorage (السلة، المفضلات، إلخ)
@@ -1396,14 +1380,24 @@
             });
         }
 
-        async function loadDataWithTimeout(ms = 6000) {
-            const timeout = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('loadData timeout')), ms);
-            });
+        async function loadDataWithTimeout(ms = 9000) {
+            let timedOut = false;
+            const timer = setTimeout(() => {
+                timedOut = true;
+                console.warn('⏱️ loadData is taking longer than expected...');
+                trackStoreEvent('DATA_SYNC_SLOW', 'loadData exceeded expected time budget', 'warning', {
+                    thresholdMs: ms
+                });
+            }, ms);
+
             try {
-                await Promise.race([loadData(), timeout]);
-            } catch (error) {
-                console.warn('?? loadData timed out, continuing with fallback data:', error);
+                await loadData();
+            } finally {
+                clearTimeout(timer);
+            }
+
+            if (timedOut) {
+                console.log('✅ loadData completed after slow start');
             }
         }
 
