@@ -240,11 +240,44 @@ async function getAllUsers() {
     }
 }
 
+function normalizePhoneForCustomer(value) {
+    const raw = String(value || '').trim();
+    const digits = raw.replace(/[^\d]/g, '');
+    if (digits.startsWith('20') && digits.length === 12) return `0${digits.slice(2)}`;
+    return digits;
+}
+
 async function addCustomer(customer) {
     try {
         const db = getFirebaseDB();
-        const docRef = await db.collection('customers').add(customer);
-        console.log('âœ… Customer added to Firebase:', docRef.id);
+        const normalizedPhone = normalizePhoneForCustomer(customer && (customer.phoneNormalized || customer.phone));
+        const payload = {
+            ...(customer || {}),
+            phoneNormalized: normalizedPhone || String(customer && customer.phoneNormalized || '')
+        };
+
+        if (normalizedPhone) {
+            const existingSnapshot = await db
+                .collection('customers')
+                .where('phoneNormalized', '==', normalizedPhone)
+                .limit(1)
+                .get();
+
+            if (!existingSnapshot.empty) {
+                const existingDoc = existingSnapshot.docs[0];
+                await db.collection('customers').doc(existingDoc.id).set(payload, { merge: true });
+                console.log('✅ Customer upserted in Firebase:', existingDoc.id);
+                return existingDoc.id;
+            }
+
+            const deterministicId = `phone_${normalizedPhone}`;
+            await db.collection('customers').doc(deterministicId).set(payload, { merge: true });
+            console.log('✅ Customer added to Firebase:', deterministicId);
+            return deterministicId;
+        }
+
+        const docRef = await db.collection('customers').add(payload);
+        console.log('✅ Customer added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addCustomer error:', e);
@@ -542,9 +575,12 @@ async function removeLiveSession(sessionId) {
     try {
         const id = String(sessionId || '').trim();
         if (!id) return { ok: false, error: 'sessionId required' };
-        const fireDB = getFirebaseDB();
-        await fireDB.collection('store_live_sessions').doc(id).delete();
-        return { ok: true };
+        // Soft-close instead of delete because delete is admin-only in Firestore rules.
+        return await upsertLiveSession({
+            sessionId: id,
+            online: false,
+            updatedAt: new Date().toISOString()
+        });
     } catch (e) {
         console.warn('removeLiveSession warning:', e && e.message ? e.message : e);
         return { ok: false, error: e && e.message ? e.message : String(e) };

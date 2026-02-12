@@ -2037,6 +2037,19 @@
             return (list || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === target);
         }
 
+        function isValidCustomerPhone(phoneNormalized) {
+            return /^\d{10,15}$/.test(String(phoneNormalized || ''));
+        }
+
+        function isValidCustomerPassword(password) {
+            return String(password || '').trim().length >= 4;
+        }
+
+        function buildFallbackCustomerName(phoneNormalized) {
+            const suffix = String(phoneNormalized || '').slice(-4) || '0000';
+            return `عميل ${suffix}`;
+        }
+
         function buildCustomerAuthEmail(phone) {
             return `customer_${normalizePhone(phone)}@salezone.customer`;
         }
@@ -2068,6 +2081,7 @@
                 const localMatch = localByPhone.get(normalizePhone(u.phone));
                 return {
                     ...u,
+                    uid: (u.uid || (localMatch && localMatch.uid) || ''),
                     phoneNormalized: normalizePhone(u.phone),
                     password: (u.password || (localMatch && localMatch.password) || '')
                 };
@@ -2092,16 +2106,30 @@
             e.preventDefault();
             const phone = document.getElementById('loginPhone').value.trim();
             const password = document.getElementById('loginPassword').value;
+            const phoneNormalized = normalizePhone(phone);
+
+            if (!isValidCustomerPhone(phoneNormalized)) {
+                showNotification('error', 'خطأ', 'رقم الهاتف غير صالح');
+                return;
+            }
+
+            if (!isValidCustomerPassword(password)) {
+                showNotification('error', 'خطأ', 'كلمة المرور يجب أن تكون 4 أحرف على الأقل');
+                return;
+            }
+
             await syncUsersFromFirebase().catch(() => null);
             const phoneMatchedUser = (users || []).find(
-                u => normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone)
+                u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized
             );
             let authUid = '';
             let authSignInSucceeded = false;
+            let authUser = null;
             try {
                 const authCred = await signInCustomerAuth(phone, password);
-                authUid = authCred && authCred.user && authCred.user.uid ? String(authCred.user.uid) : '';
-                authSignInSucceeded = !!authUid;
+                authUser = authCred && authCred.user ? authCred.user : null;
+                authUid = authUser && authUser.uid ? String(authUser.uid) : '';
+                authSignInSucceeded = !!authUser;
             } catch (authError) {
                 const code = authError && authError.code ? String(authError.code) : '';
                 if (code && code !== 'auth/user-not-found' && code !== 'auth/wrong-password' && code !== 'auth/invalid-credential' && code !== 'auth/invalid-login-credentials') {
@@ -2117,15 +2145,84 @@
                 return;
             }
 
-            const user = (users || []).find((u) => {
-                if (authUid && String(u.uid || '') === authUid) return true;
-                return normalizePhone(u.phone || u.phoneNormalized) === normalizePhone(phone)
-                    && String(u.password || '') === String(password || '');
-            });
+            let user = null;
+
+            if (authSignInSucceeded) {
+                user = (users || []).find(u => String(u.uid || '') === authUid)
+                    || (users || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
+                    || null;
+
+                if (!user) {
+                    const fallbackProfile = {
+                        id: `auth_${authUid}`,
+                        uid: authUid,
+                        name: buildFallbackCustomerName(phoneNormalized),
+                        phone,
+                        phoneNormalized,
+                        email: '',
+                        address: '',
+                        loyaltyPoints: 0,
+                        createdAt: new Date().toISOString(),
+                        password
+                    };
+
+                    try {
+                        if (typeof addCustomer === 'function') {
+                            const createdId = await addCustomer({
+                                uid: fallbackProfile.uid,
+                                name: fallbackProfile.name,
+                                phone: fallbackProfile.phone,
+                                phoneNormalized: fallbackProfile.phoneNormalized,
+                                email: fallbackProfile.email,
+                                address: fallbackProfile.address,
+                                loyaltyPoints: fallbackProfile.loyaltyPoints,
+                                createdAt: fallbackProfile.createdAt
+                            });
+                            if (createdId) fallbackProfile.id = createdId;
+                        }
+                    } catch (profileError) {
+                        console.warn('auth profile bootstrap warning:', profileError);
+                    }
+
+                    users = users || [];
+                    users.push(fallbackProfile);
+                    saveUsers();
+                    user = fallbackProfile;
+                    trackStoreEvent('LOGIN_PROFILE_BOOTSTRAP', 'Customer profile bootstrapped after auth login', 'warning', {
+                        customerId: String(fallbackProfile.id || ''),
+                        phoneNormalized
+                    });
+                } else {
+                    const needsSave = String(user.uid || '') !== authUid || String(user.password || '') !== String(password || '');
+                    if (String(user.uid || '') !== authUid) {
+                        user.uid = authUid;
+                        try {
+                            if (typeof updateCustomer === 'function') {
+                                await updateCustomer(user.id, { uid: authUid });
+                            }
+                        } catch (_) {
+                            // Client may not have update permission for customers; local self-heal is enough here.
+                        }
+                    }
+                    if (String(user.password || '') !== String(password || '')) {
+                        user.password = password;
+                    }
+                    if (needsSave) {
+                        users = (users || []).map(u => String(u.id) === String(user.id) ? { ...u, ...user } : u);
+                        saveUsers();
+                    }
+                }
+            } else {
+                user = (users || []).find((u) =>
+                    normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized
+                    && String(u.password || '') === String(password || '')
+                );
+            }
+
             if (!user) {
                 showNotification('error', 'خطأ', 'بيانات غير صحيحة');
                 trackStoreEvent('LOGIN_FAILED', 'Customer login failed', 'warning', {
-                    phoneNormalized: normalizePhone(phone)
+                    phoneNormalized
                 });
                 return;
             }
@@ -2154,7 +2251,12 @@
             const password = document.getElementById('registerPassword').value;
             const confirm = document.getElementById('registerPasswordConfirm').value;
 
+            if (!name) { showNotification('error', 'خطأ', 'الاسم مطلوب'); return; }
+            if (!address) { showNotification('error', 'خطأ', 'العنوان مطلوب'); return; }
+            if (!isValidCustomerPhone(phoneNormalized)) { showNotification('error', 'خطأ', 'رقم الهاتف غير صالح'); return; }
+            if (!isValidCustomerPassword(password)) { showNotification('error', 'خطأ', 'كلمة المرور يجب أن تكون 4 أحرف على الأقل'); return; }
             if (password !== confirm) { showNotification('error', 'خطأ', 'كلمات المرور غير متطابقة'); return; }
+
             const cloudUsers = await syncUsersFromFirebase().catch(() => null);
             const existsInCloud = Array.isArray(cloudUsers)
                 ? cloudUsers.find(u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
@@ -2255,20 +2357,23 @@
                 }
             }
 
-            const newUser = { id: Date.now().toString(), uid: authUid, name, phone, phoneNormalized, email, address, loyaltyPoints: 0, createdAt: new Date().toISOString() };
+            const newUser = {
+                id: Date.now().toString(),
+                uid: authUid,
+                name,
+                phone,
+                phoneNormalized,
+                email,
+                address,
+                loyaltyPoints: 0,
+                createdAt: new Date().toISOString(),
+                password
+            };
             const customerPayload = { uid: authUid, name, phone, phoneNormalized, email, address, loyaltyPoints: 0, createdAt: newUser.createdAt };
             try {
                 if (typeof addCustomer === 'function') {
-                    if (existsInCloud) {
-                        const mergedPayload = { ...existsInCloud, ...customerPayload };
-                        if (typeof updateCustomer === 'function') {
-                            await updateCustomer(existsInCloud.id, mergedPayload);
-                        }
-                        newUser.id = existsInCloud.id;
-                    } else {
-                        const firebaseId = await addCustomer(customerPayload);
-                        if (firebaseId) newUser.id = firebaseId;
-                    }
+                    const firebaseId = await addCustomer(customerPayload);
+                    if (firebaseId) newUser.id = firebaseId;
                 }
                 users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
                 users.push(newUser);
@@ -2289,6 +2394,7 @@
             } catch (error) {
                 console.error('addCustomer error:', error);
                 if (!isOnlineMode()) {
+                    users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
                     users.push(newUser);
                     saveUsers();
                     currentUser = newUser;
