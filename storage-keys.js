@@ -291,43 +291,69 @@ function debugStorage() {
 // ================================================
 // تنظيف المفاتيح القديمة (تشغيل تلقائي)
 // ================================================
-(function cleanupOldKeys() {
-  const oldKeys = [
+const STORAGE_SCHEMA_VERSION_KEY = 'sale_zone_storage_schema_version';
+const STORAGE_SCHEMA_VERSION = '2026.02.12.01';
+
+(function migrateAndCleanupStorage() {
+  const currentSchema = localStorage.getItem(STORAGE_SCHEMA_VERSION_KEY) || '';
+  if (currentSchema === STORAGE_SCHEMA_VERSION) return;
+
+  const deprecatedKeys = [
     'banners', 'customers', 'footer', 'products', 'orders',
     'coupons', 'settings', 'cart', 'wishlist', 'user',
-    // أضف أي مفاتيح قديمة أخرى
+    'salezone_products', 'salezone_orders', 'salezone_customers',
+    'salezone_banners', 'salezone_coupons', 'salezone_footer',
+    'salezone_settings', 'salezone_cart', 'salezone_wishlist',
+    'salezone_user_info', 'salezone_loyalty_points', 'salezone_last_update',
+    'salezone_sample_purge_done', 'sale_zone_bootstrap_admin',
+    'sale_zone_bootstrap_email'
   ];
-  
-  let cleaned = 0;
-  oldKeys.forEach(key => {
-    if (localStorage.getItem(key) && !key.startsWith('sale_zone_')) {
-      console.log(`🧹 Cleaning old key: ${key}`);
+
+  const keepSet = new Set([
+    ...Object.values(STORAGE_KEYS),
+    'currentUser',
+    'adminErrors',
+    'salezone_app_version',
+    STORAGE_SCHEMA_VERSION_KEY
+  ]);
+
+  let removed = 0;
+  for (const key of deprecatedKeys) {
+    if (!localStorage.getItem(key)) continue;
+    if (keepSet.has(key)) continue;
+    localStorage.removeItem(key);
+    removed++;
+  }
+
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith('sale_zone_tmp_') || key.startsWith('sale_zone_legacy_')) {
       localStorage.removeItem(key);
-      cleaned++;
+      removed++;
     }
   });
-  
-  if (cleaned > 0) {
-    console.log(`✅ Cleaned ${cleaned} old storage keys`);
+
+  localStorage.setItem(STORAGE_SCHEMA_VERSION_KEY, STORAGE_SCHEMA_VERSION);
+  if (removed > 0) {
+    console.log(`[OK] Storage migration removed ${removed} old key(s).`);
   }
 })();
 
 // ================================================
 // إعلام في Console
 // ================================================
-console.log('✅ storage-keys.js loaded successfully');
-console.log('📦 Available functions:', {
-  'getStorageData(key)': 'قراءة بيانات',
-  'setStorageData(key, data)': 'حفظ بيانات',
-  'removeStorageData(key)': 'حذف بيانات',
-  'exportAllData()': 'تصدير كل البيانات',
-  'importAllData(data)': 'استيراد البيانات',
-  'clearAllData(true)': 'مسح كل البيانات',
-  'getStorageSize()': 'حجم البيانات',
-  'debugStorage()': 'معلومات التخزين'
+console.log('[OK] storage-keys.js loaded successfully');
+console.log('Available functions:', {
+  'getStorageData(key)': 'Read data',
+  'setStorageData(key, data)': 'Write data',
+  'removeStorageData(key)': 'Delete data',
+  'exportAllData()': 'Export all data',
+  'importAllData(data)': 'Import all data',
+  'clearAllData(true)': 'Clear all data',
+  'getStorageSize()': 'Storage size',
+  'debugStorage()': 'Storage debug'
 });
 
-console.log('💡 Example usage:');
+console.log('Example usage:');
 console.log("  setStorageData('BANNERS', [{id: 1, title: 'Test'}])");
 console.log("  getStorageData('BANNERS')");
 console.log("  debugStorage()");
