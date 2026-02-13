@@ -27,11 +27,30 @@ const hostname = window.location.hostname || "";
 const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
 const isLocalDev = isLocalLikeHost(hostname);
 const urlParams = new URLSearchParams(window.location.search || "");
-const forceLongPollingParam = urlParams.get("lp") === "1";
+const longPollingParam = urlParams.get("lp");
 const isFirefoxFamily = /firefox|fxios/i.test(navigator.userAgent || "");
 const shouldApplyStableTransport = isLocalDev || isGithubPages;
-const shouldForceLongPolling = forceLongPollingParam || isFirefoxFamily;
-const desiredTransportMode = shouldForceLongPolling ? 'force' : 'auto';
+const transportModeStorageKey = "sale_zone_firestore_transport_mode";
+
+let desiredTransportMode = "";
+try {
+    const persistedMode = String(localStorage.getItem(transportModeStorageKey) || "");
+    if (longPollingParam === "1") {
+        desiredTransportMode = "force";
+    } else if (longPollingParam === "0") {
+        desiredTransportMode = "auto";
+    } else if (persistedMode === "force" || persistedMode === "auto") {
+        desiredTransportMode = persistedMode;
+    } else if (isGithubPages) {
+        desiredTransportMode = "force";
+    } else {
+        desiredTransportMode = isFirefoxFamily ? "force" : "auto";
+    }
+} catch (_) {
+    desiredTransportMode = (isGithubPages || isFirefoxFamily) ? "force" : "auto";
+}
+
+const shouldForceLongPolling = desiredTransportMode === "force";
 
 // Initialize Firebase
 if (!firebase.apps.length) {
@@ -52,8 +71,7 @@ if (shouldApplyStableTransport) {
             }
 
             const settings = {
-                useFetchStreams: false,
-                merge: true
+                useFetchStreams: false
             };
 
             if (shouldForceLongPolling) {
@@ -66,6 +84,9 @@ if (shouldApplyStableTransport) {
                 db.settings(settings);
                 window.__FIRESTORE_SETTINGS_APPLIED__ = true;
                 window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = desiredTransportMode;
+                try {
+                    localStorage.setItem(transportModeStorageKey, desiredTransportMode);
+                } catch (_) {}
             }
         }
         if (shouldForceLongPolling) {
