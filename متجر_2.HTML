@@ -1211,7 +1211,7 @@
 
             // ?? Load data with timeout, then re-render safely
             safeRun('loadDataWithTimeout', () => {
-                loadDataWithTimeout(6000).then(() => {
+                loadDataWithTimeout(25000).then(() => {
                     safeRun('applyStoreSettings', applyStoreSettings);
                     safeRun('renderBanners', renderBanners);
                     safeRun('renderProducts', renderProducts);
@@ -1343,14 +1343,12 @@
             const resolveList = (result, storageKey, localFallback, label) => {
                 if (result.status === 'fulfilled' && Array.isArray(result.value)) {
                     const list = result.value;
-                    setStorageData(storageKey, list);
                     console.log(`✅ ${label} loaded from Firebase:`, list.length);
                     return list;
                 }
                 if (result.status === 'rejected') {
                     console.warn(`${label} firebase read failed, fallback to localStorage:`, result.reason);
                 }
-                setStorageData(storageKey, localFallback);
                 console.log(`📦 ${label} loaded from localStorage:`, localFallback.length);
                 return localFallback;
             };
@@ -1400,11 +1398,6 @@
                 coupons = localCoupons;
                 banners = localBanners;
                 users = localUsers;
-
-                setStorageData('PRODUCTS', products);
-                setStorageData('COUPONS', coupons);
-                setStorageData('BANNERS', banners);
-                console.log('📦 Data saved to localStorage from fallback');
             }
 
             // هذه البيانات دائماً من localStorage (السلة، المفضلات، إلخ)
@@ -1421,7 +1414,7 @@
             removeSeedDataIfNeeded();
             products = normalizeStoreProducts(products);
 
-            // حفظ في localStorage دائماً لضمان الاستمرارية
+            // حفظ مرة واحدة فقط لتقليل تكلفة الكتابة مع أحجام البيانات الكبيرة.
             setStorageData('PRODUCTS', products);
             setStorageData('COUPONS', coupons);
             setStorageData('BANNERS', banners);

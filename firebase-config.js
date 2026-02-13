@@ -31,6 +31,7 @@ const forceLongPollingParam = urlParams.get("lp") === "1";
 const isFirefoxFamily = /firefox|fxios/i.test(navigator.userAgent || "");
 const shouldApplyStableTransport = isLocalDev || isGithubPages;
 const shouldForceLongPolling = forceLongPollingParam || isFirefoxFamily;
+const desiredTransportMode = shouldForceLongPolling ? 'force' : 'auto';
 
 // Initialize Firebase
 if (!firebase.apps.length) {
@@ -44,8 +45,15 @@ const db = firebase.firestore();
 if (shouldApplyStableTransport) {
     try {
         if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
+            const existingMode = String(window.__FIRESTORE_STABLE_TRANSPORT_MODE__ || '');
+            if (existingMode && existingMode !== desiredTransportMode) {
+                console.warn(`Firestore transport mode already set to "${existingMode}" in this page; keeping it.`);
+                window.__FIRESTORE_SETTINGS_APPLIED__ = true;
+            }
+
             const settings = {
-                useFetchStreams: false
+                useFetchStreams: false,
+                merge: true
             };
 
             if (shouldForceLongPolling) {
@@ -54,9 +62,11 @@ if (shouldApplyStableTransport) {
                 settings.experimentalAutoDetectLongPolling = true;
             }
 
-            db.settings(settings);
-            window.__FIRESTORE_SETTINGS_APPLIED__ = true;
-            window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = shouldForceLongPolling ? 'force' : 'auto';
+            if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
+                db.settings(settings);
+                window.__FIRESTORE_SETTINGS_APPLIED__ = true;
+                window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = desiredTransportMode;
+            }
         }
         if (shouldForceLongPolling) {
             console.log("Firestore stable transport enabled (force long-polling)");

@@ -1420,6 +1420,7 @@
             <select id="wizardSheetSelect" onchange="selectImportSheet(this.value)"></select>
           </div>
         </div>
+        <div class="wizard-report" id="wizardFileValidation" style="margin-bottom:12px;">سيتم اختبار الملف تلقائيًا بعد اختياره.</div>
         <div class="wizard-preview" id="wizardSheetPreview">اختر ملفًا لعرض المعاينة.</div>
       </div>
 
@@ -3904,6 +3905,7 @@ function adminLogout(){
                 workbook: null,
                 sheetName: '',
                 sheetRows: [],
+                sheetAnalyses: [],
                 headerRowIndex: 0,
                 detectedHeaderRowIndex: 0,
                 columns: [],
@@ -3941,6 +3943,7 @@ function adminLogout(){
             const headerHint = document.getElementById('wizardHeaderHint');
             const importSource = document.getElementById('wizardImportSource');
             const validationReport = document.getElementById('wizardValidationReport');
+            const fileValidation = document.getElementById('wizardFileValidation');
 
             if (sheetSelect) sheetSelect.innerHTML = '<option value="">اختر الشيت</option>';
             if (fileInput) fileInput.value = '';
@@ -3948,6 +3951,7 @@ function adminLogout(){
             if (headerHint) headerHint.value = '';
             if (importSource) importSource.value = '';
             if (validationReport) validationReport.textContent = 'لا يوجد تقرير بعد.';
+            if (fileValidation) fileValidation.textContent = 'سيتم اختبار الملف تلقائيًا بعد اختياره.';
 
             ['wizardSheetPreview', 'wizardHeaderPreview'].forEach((id) => {
                 const el = document.getElementById(id);
@@ -4089,6 +4093,148 @@ function adminLogout(){
             return bestIndex;
         }
 
+        function detectNumericCandidateColumns(rows, dataStartIndex = 0) {
+            const list = Array.isArray(rows) ? rows : [];
+            if (!list.length) return [];
+
+            const start = Math.max(0, Number(dataStartIndex) || 0);
+            const maxScanRows = Math.min(list.length, start + 40);
+            const maxCols = Math.max(1, ...list.slice(start, maxScanRows).map((row) => Array.isArray(row) ? row.length : 0));
+            const candidates = [];
+
+            for (let col = 0; col < maxCols; col += 1) {
+                let samples = 0;
+                let numericHits = 0;
+
+                for (let rowIdx = start; rowIdx < maxScanRows; rowIdx += 1) {
+                    const row = Array.isArray(list[rowIdx]) ? list[rowIdx] : [];
+                    const raw = String(row[col] == null ? '' : row[col]).trim();
+                    if (!raw) continue;
+                    samples += 1;
+                    if (Number.isFinite(parseMoney(raw))) numericHits += 1;
+                }
+
+                if (samples >= 3 && numericHits >= 3 && (numericHits / samples) >= 0.5) {
+                    candidates.push(col);
+                }
+            }
+
+            return candidates;
+        }
+
+        function analyzeSheetForImportCompatibility(rows, sheetName = '') {
+            const list = Array.isArray(rows) ? rows : [];
+            if (!list.length) {
+                return {
+                    sheetName,
+                    detectedHeaderRowIndex: 0,
+                    nameColumns: [],
+                    priceColumns: [],
+                    numericPriceCandidates: [],
+                    isCompatible: false
+                };
+            }
+
+            const detectedHeaderRowIndex = detectHeaderRow(list);
+            const headerRow = Array.isArray(list[detectedHeaderRowIndex]) ? list[detectedHeaderRowIndex] : [];
+            const maxCols = Math.max(
+                headerRow.length,
+                ...list.slice(detectedHeaderRowIndex, detectedHeaderRowIndex + 30).map((row) => Array.isArray(row) ? row.length : 0),
+                1
+            );
+
+            const columns = [];
+            for (let col = 0; col < maxCols; col += 1) {
+                const raw = String(headerRow[col] == null ? '' : headerRow[col]).trim();
+                columns.push({
+                    index: col,
+                    label: raw || `عمود ${col + 1}`,
+                    normalized: normalizeArabicHeader(raw || `عمود ${col + 1}`)
+                });
+            }
+
+            const nameColumns = columns.filter((col) => scoreHeaderCell(col.normalized, 'name') > 0).map((col) => col.index);
+            const priceColumns = columns.filter((col) => scoreHeaderCell(col.normalized, 'price') > 0).map((col) => col.index);
+            const numericPriceCandidates = detectNumericCandidateColumns(list, detectedHeaderRowIndex + 1);
+
+            const isCompatible = nameColumns.length > 0 && (priceColumns.length > 0 || numericPriceCandidates.length > 0);
+
+            return {
+                sheetName,
+                detectedHeaderRowIndex,
+                nameColumns,
+                priceColumns,
+                numericPriceCandidates,
+                isCompatible
+            };
+        }
+
+        function getCurrentSheetAnalysis() {
+            const analyses = importWizardState && Array.isArray(importWizardState.sheetAnalyses)
+                ? importWizardState.sheetAnalyses
+                : [];
+            const selectedSheet = String(importWizardState && importWizardState.sheetName || '');
+            return analyses.find((entry) => String(entry.sheetName) === selectedSheet) || null;
+        }
+
+        function renderWizardFileValidationReport() {
+            const container = document.getElementById('wizardFileValidation');
+            if (!container) return;
+
+            const analyses = importWizardState && Array.isArray(importWizardState.sheetAnalyses)
+                ? importWizardState.sheetAnalyses
+                : [];
+            const selectedSheet = String(importWizardState && importWizardState.sheetName || '');
+
+            if (!analyses.length) {
+                container.textContent = 'سيتم اختبار الملف تلقائيًا بعد اختياره.';
+                return;
+            }
+
+            const usableCount = analyses.filter((entry) => entry.isCompatible).length;
+            const rows = analyses.map((entry) => {
+                const passLabel = entry.isCompatible ? '✅ صالح' : '⚠️ يحتاج ضبط يدوي';
+                const headerLabel = `Header: ${Number(entry.detectedHeaderRowIndex) + 1}`;
+                const nameLabel = `Name: ${entry.nameColumns.length > 0 ? 'OK' : 'N/A'}`;
+                const priceLabel = entry.priceColumns.length > 0
+                    ? 'Price: OK'
+                    : (entry.numericPriceCandidates.length > 0
+                        ? `Price: يدوي (C${entry.numericPriceCandidates.map((x) => x + 1).slice(0, 4).join(', C')})`
+                        : 'Price: N/A');
+                const isSelected = String(entry.sheetName || '') === selectedSheet;
+                const selectedBadge = isSelected ? ' <span style="color:#0f7c33;font-weight:700;">(المحدد)</span>' : '';
+                return `<li><strong>${escapeHtml(entry.sheetName || 'Sheet')}</strong>${selectedBadge} — ${passLabel} — ${headerLabel} — ${nameLabel} — ${priceLabel}</li>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div><strong>نتيجة الاختبار التلقائي قبل الرفع:</strong> ${usableCount}/${analyses.length} شيت صالح</div>
+                <ul style="margin-top:8px;padding-inline-start:18px;">${rows}</ul>
+            `;
+        }
+
+        function getBestSheetForImport(analyses, fallbackSheet = '') {
+            const list = Array.isArray(analyses) ? analyses : [];
+            if (!list.length) return fallbackSheet || '';
+
+            let best = null;
+            let bestScore = -1;
+
+            list.forEach((entry, index) => {
+                const score = (entry.isCompatible ? 100 : 0)
+                    + ((entry.nameColumns || []).length * 12)
+                    + ((entry.priceColumns || []).length * 10)
+                    + ((entry.numericPriceCandidates || []).length * 6)
+                    - (Number(entry.detectedHeaderRowIndex) || 0)
+                    - (index * 0.01);
+                if (score > bestScore) {
+                    best = entry;
+                    bestScore = score;
+                }
+            });
+
+            return String((best && best.sheetName) || fallbackSheet || '');
+        }
+
         function selectImportSheet(sheetName) {
             importWizardState = importWizardState || createEmptyImportWizardState();
             if (!importWizardState.workbook) return;
@@ -4106,15 +4252,23 @@ function adminLogout(){
             importWizardState.sheetRows = Array.isArray(rows) ? rows : [];
             importWizardState.validatedProducts = [];
             importWizardState.invalidRows = [];
+            const selectedAnalysis = getCurrentSheetAnalysis() || analyzeSheetForImportCompatibility(importWizardState.sheetRows, targetSheet);
 
-            const detectedHeader = detectHeaderRow(importWizardState.sheetRows);
+            const detectedHeader = Number(selectedAnalysis.detectedHeaderRowIndex) || 0;
             importWizardState.detectedHeaderRowIndex = detectedHeader;
             importWizardState.headerRowIndex = detectedHeader;
 
             const headerInput = document.getElementById('wizardHeaderRowInput');
             if (headerInput) headerInput.value = String(detectedHeader + 1);
             const headerHint = document.getElementById('wizardHeaderHint');
-            if (headerHint) headerHint.value = `تم اكتشاف السطر ${detectedHeader + 1} كعناوين.`;
+            if (headerHint) {
+                const hint = selectedAnalysis.priceColumns && selectedAnalysis.priceColumns.length > 0
+                    ? `تم اكتشاف السطر ${detectedHeader + 1} كعناوين.`
+                    : `تم اكتشاف السطر ${detectedHeader + 1}. اختر عمود السعر يدويًا قبل التنفيذ.`;
+                headerHint.value = hint;
+            }
+
+            renderWizardFileValidationReport();
 
             renderWizardTable('wizardSheetPreview', importWizardState.sheetRows, {
                 limit: 20,
@@ -4237,12 +4391,32 @@ function adminLogout(){
                 return;
             }
 
+            const analyses = [];
+            for (const sheetName of sheetNames) {
+                const rows = XLSX.utils.sheet_to_json(importWizardState.workbook.Sheets[sheetName], {
+                    header: 1,
+                    defval: '',
+                    raw: false
+                });
+                analyses.push(analyzeSheetForImportCompatibility(rows, sheetName));
+            }
+            importWizardState.sheetAnalyses = analyses;
+
+            const preferredSheet = getBestSheetForImport(analyses, sheetNames[0]);
+
             if (sheetSelect) {
                 sheetSelect.innerHTML = sheetNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
-                sheetSelect.value = sheetNames[0];
+                sheetSelect.value = preferredSheet || sheetNames[0];
             }
 
-            selectImportSheet(sheetNames[0]);
+            selectImportSheet(preferredSheet || sheetNames[0]);
+
+            const usableCount = analyses.filter((entry) => entry.isCompatible).length;
+            if (usableCount > 0) {
+                showNotification('success', `تم اختبار الملف: ${usableCount}/${analyses.length} شيت جاهز للاستيراد`);
+            } else {
+                showNotification('warning', 'تم اختبار الملف لكن يحتاج ضبط يدوي للأعمدة قبل التنفيذ');
+            }
         }
 
         function readWizardMappingFromUI() {
@@ -4380,6 +4554,17 @@ function adminLogout(){
                     showNotification('error', 'اختر ملفًا وشيت صالحًا أولًا');
                     return;
                 }
+
+                const selectedAnalysis = getCurrentSheetAnalysis();
+                if (selectedAnalysis && !selectedAnalysis.isCompatible) {
+                    const canContinue = confirm(
+                        'نتيجة الاختبار: الشيت المحدد يحتاج ضبط يدوي (اسم/سعر).\n' +
+                        'يمكنك المتابعة وتحديد الأعمدة يدويًا في الخطوات القادمة.\n' +
+                        'هل تريد المتابعة؟'
+                    );
+                    if (!canContinue) return;
+                }
+
                 showImportWizardStep(2);
                 return;
             }

@@ -1,8 +1,8 @@
-// Firebase Data Initializer
+﻿// Firebase Data Initializer
 // ==========================
 
 // Initialize Firebase (sample data seeding disabled in production)
-const ENABLE_SAMPLE_DATA = false; // set true فقط في بيئة التطوير
+const ENABLE_SAMPLE_DATA = false; // set true only in local development
 
 function isLocalLikeHost(hostname) {
     const host = String(hostname || '').trim().toLowerCase();
@@ -58,6 +58,12 @@ window.__FIREBASE_SYNC_STATUS__ = FIREBASE_SYNC_STATUS;
 
 let firebasePollingTimer = null;
 let firebasePollingInFlight = false;
+let realtimeUnsubscribers = [];
+let realtimeErroredPermanently = false;
+let realtimeErrorWindowStart = 0;
+let realtimeErrorCount = 0;
+const FIREBASE_DATA_SIGNATURES = window.__FIREBASE_DATA_SIGNATURES__ || {};
+window.__FIREBASE_DATA_SIGNATURES__ = FIREBASE_DATA_SIGNATURES;
 
 function setFirebaseSyncStatus(patch) {
     Object.assign(FIREBASE_SYNC_STATUS, patch || {});
@@ -86,7 +92,56 @@ function markFirebaseSyncError(source, error) {
     });
 }
 
+function hashStringFNV1a(text) {
+    const input = String(text || '');
+    let hash = 2166136261;
+
+    for (let i = 0; i < input.length; i += 1) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+
+    return hash >>> 0;
+}
+
+function buildCollectionSignature(collectionKey, list) {
+    const key = String(collectionKey || '');
+    const items = Array.isArray(list) ? list : [];
+    let sumHash = 0;
+    let xorHash = 0;
+
+    for (const item of items) {
+        const row = item && typeof item === 'object' ? item : {};
+        const token = [
+            row.id || '',
+            row.updatedAt || '',
+            row.createdAt || '',
+            row.price || '',
+            row.stock || '',
+            row.isPublished === false ? '0' : '1'
+        ].join('|');
+
+        const h = hashStringFNV1a(token);
+        sumHash = (sumHash + h) >>> 0;
+        xorHash = (xorHash ^ h) >>> 0;
+    }
+
+    return `${key}:${items.length}:${sumHash.toString(16)}:${xorHash.toString(16)}`;
+}
+
+function isSameCollectionSnapshot(collectionKey, list) {
+    const key = String(collectionKey || '');
+    const signature = buildCollectionSignature(key, list);
+    const previous = FIREBASE_DATA_SIGNATURES[key] || '';
+    FIREBASE_DATA_SIGNATURES[key] = signature;
+    return previous === signature;
+}
+
 function persistSyncedCollection(storageKey, list, fallbackRender) {
+    if (isSameCollectionSnapshot(storageKey, list)) {
+        return;
+    }
+
     let persisted = false;
     try {
         if (typeof setStorageData === 'function') {
@@ -96,6 +151,43 @@ function persistSyncedCollection(storageKey, list, fallbackRender) {
 
     if (!persisted && typeof fallbackRender === 'function') {
         try { fallbackRender(); } catch (_) {}
+    }
+}
+
+function teardownRealtimeListeners(reason = '') {
+    if (!realtimeUnsubscribers.length) return;
+
+    realtimeUnsubscribers.forEach((unsubscribe) => {
+        try { unsubscribe(); } catch (_) {}
+    });
+
+    realtimeUnsubscribers = [];
+    realtimeErroredPermanently = true;
+    setFirebaseSyncStatus({ realtimeEnabled: false });
+
+    const reasonText = String(reason || 'unknown');
+    console.warn(`Realtime listeners disabled for this session (${reasonText}). Polling fallback remains active.`);
+}
+
+function handleRealtimeListenerError(source, error) {
+    markFirebaseSyncError(source, error);
+
+    const now = Date.now();
+    const windowMs = 60000;
+
+    if (!realtimeErrorWindowStart || (now - realtimeErrorWindowStart) > windowMs) {
+        realtimeErrorWindowStart = now;
+        realtimeErrorCount = 1;
+    } else {
+        realtimeErrorCount += 1;
+    }
+
+    const message = error && error.message ? String(error.message) : String(error || '');
+    const isTransportLike = /(unavailable|network|cors|webchannel|transport|listen\/channel)/i.test(message);
+    const threshold = isTransportLike ? 2 : 4;
+
+    if (realtimeErrorCount >= threshold) {
+        teardownRealtimeListeners(`${source}: ${message || 'repeated errors'}`);
     }
 }
 
@@ -184,7 +276,7 @@ function startPollingSyncFallback() {
     if (firebasePollingTimer) return;
 
     setFirebaseSyncStatus({ pollingEnabled: true });
-    runPollingSync({ force: true, reason: 'boot' });
+    runPollingSync({ force: !REALTIME_LISTENERS_ENABLED, reason: 'boot' });
 
     firebasePollingTimer = setInterval(() => {
         runPollingSync({ force: false, reason: 'interval' });
@@ -210,111 +302,57 @@ async function initializeFirebaseData() {
         
         if (productsSnapshot.empty) {
             if (!ENABLE_SAMPLE_DATA) {
-                console.log('ℹ️ Sample data seeding disabled (products).');
+                console.log('[INFO] Sample data seeding disabled (products).');
             } else {
-                console.log('🔥 Initializing Firebase with sample data...');
-            
-            // Sample Products
-            const sampleProducts = [
-                {
-                    name: 'شامبو كيراتين فاخر',
-                    desc: 'شامبو احترافي بالكيراتين لتنعيم الشعر',
-                    category: 'عناية بالشعر',
-                    price: 189,
-                    oldPrice: 249,
-                    image: './assets/placeholder.svg',
-                    rating: 4.8,
-                    ratingCount: 124,
-                    stock: 50,
-                    featured: true,
-                    createdAt: new Date()
-                },
-                {
-                    name: 'سيروم فيتامين C',
-                    desc: 'سيروم مضاد للأكسدة للبشرة المشرقة',
-                    category: 'عناية بالبشرة',
-                    price: 299,
-                    oldPrice: 399,
-                    image: './assets/placeholder.svg',
-                    rating: 4.9,
-                    ratingCount: 89,
-                    stock: 30,
-                    featured: true,
-                    createdAt: new Date()
-                },
-                {
-                    name: 'حليب الأطفال المخصص',
-                    desc: 'حليب طبيعي للأطفال من 0-6 أشهر',
-                    category: 'العناية بالطفل',
-                    price: 159,
-                    oldPrice: 199,
-                    image: './assets/placeholder.svg',
-                    rating: 4.7,
-                    ratingCount: 67,
-                    stock: 40,
-                    featured: false,
-                    createdAt: new Date()
-                },
-                {
-                    name: 'فيتامينات متعددة',
-                    desc: 'مجموعة فيتامينات شاملة للصحة',
-                    category: 'مكملات غذائية',
-                    price: 129,
-                    oldPrice: 169,
-                    image: './assets/placeholder.svg',
-                    rating: 4.6,
-                    ratingCount: 203,
-                    stock: 100,
-                    featured: false,
-                    createdAt: new Date()
-                },
-                {
-                    name: 'كريم مرطب للوجه',
-                    desc: 'كريم مرطب عميق للبشرة الجافة',
-                    category: 'عناية بالبشرة',
-                    price: 219,
-                    oldPrice: 279,
-                    image: './assets/placeholder.svg',
-                    rating: 4.8,
-                    ratingCount: 156,
-                    stock: 25,
-                    featured: true,
-                    createdAt: new Date()
-                },
-                {
-                    name: 'بلسم الشعر المعالج',
-                    desc: 'بلسم للشعر التالف والمجهد',
-                    category: 'عناية بالشعر',
-                    price: 139,
-                    oldPrice: 179,
-                    image: './assets/placeholder.svg',
-                    rating: 4.5,
-                    ratingCount: 98,
-                    stock: 60,
-                    featured: false,
-                    createdAt: new Date()
-                },
-                {
-                    name: 'زيت الأطفال اللطيف',
-                    desc: 'زيت طبيعي لتدليك الأطفال',
-                    category: 'العناية بالطفل',
-                    price: 89,
-                    oldPrice: 119,
-                    image: './assets/placeholder.svg',
-                    rating: 4.9,
-                    ratingCount: 45,
-                    stock: 80,
-                    featured: false,
-                    createdAt: new Date()
-                }
-            ];
-            
-                // Add products to Firestore
+                console.log('[INFO] Initializing Firebase with sample products...');
+
+                const sampleProducts = [
+                    {
+                        name: 'Keratin Shampoo',
+                        desc: 'Professional keratin shampoo',
+                        category: 'hair-care',
+                        price: 189,
+                        oldPrice: 249,
+                        image: './assets/placeholder.svg',
+                        rating: 4.8,
+                        ratingCount: 124,
+                        stock: 50,
+                        featured: true,
+                        createdAt: new Date()
+                    },
+                    {
+                        name: 'Vitamin C Serum',
+                        desc: 'Antioxidant facial serum',
+                        category: 'skin-care',
+                        price: 299,
+                        oldPrice: 399,
+                        image: './assets/placeholder.svg',
+                        rating: 4.9,
+                        ratingCount: 89,
+                        stock: 30,
+                        featured: true,
+                        createdAt: new Date()
+                    },
+                    {
+                        name: 'Baby Formula',
+                        desc: 'Nutrition formula for infants',
+                        category: 'baby-care',
+                        price: 159,
+                        oldPrice: 199,
+                        image: './assets/placeholder.svg',
+                        rating: 4.7,
+                        ratingCount: 67,
+                        stock: 40,
+                        featured: false,
+                        createdAt: new Date()
+                    }
+                ];
+
                 for (const product of sampleProducts) {
                     await db.collection('products').add(product);
                 }
-                
-                console.log('✅ Sample products added to Firebase');
+
+                console.log('[OK] Sample products added to Firebase');
             }
         }
         
@@ -323,12 +361,12 @@ async function initializeFirebaseData() {
         
         if (bannersSnapshot.empty) {
             if (!ENABLE_SAMPLE_DATA) {
-                console.log('ℹ️ Sample data seeding disabled (banners).');
+                console.log('[INFO] Sample data seeding disabled (banners).');
             } else {
                 const sampleBanners = [
                 {
-                    title: 'خصم 30%',
-                    subtitle: 'على جميع منتجات العناية بالشعر',
+                    title: '30% OFF',
+                    subtitle: 'On selected hair-care products',
                     image: './assets/banner-placeholder.svg',
                     link: '#hair-care',
                     active: true,
@@ -336,8 +374,8 @@ async function initializeFirebaseData() {
                     createdAt: new Date()
                 },
                 {
-                    title: 'جديدنا',
-                    subtitle: 'سيروم فيتامين C',
+                    title: 'New Arrival',
+                    subtitle: 'Vitamin C Serum',
                     image: './assets/banner-placeholder.svg',
                     link: '#skin-care',
                     active: true,
@@ -350,7 +388,7 @@ async function initializeFirebaseData() {
                     await db.collection('banners').add(banner);
                 }
                 
-                console.log('✅ Sample banners added to Firebase');
+                console.log('[OK] Sample banners added to Firebase');
             }
         }
         
@@ -359,7 +397,7 @@ async function initializeFirebaseData() {
         
         if (couponsSnapshot.empty) {
             if (!ENABLE_SAMPLE_DATA) {
-                console.log('ℹ️ Sample data seeding disabled (coupons).');
+                console.log('[INFO] Sample data seeding disabled (coupons).');
             } else {
                 const sampleCoupons = [
                 {
@@ -391,11 +429,11 @@ async function initializeFirebaseData() {
                     await db.collection('coupons').add(coupon);
                 }
                 
-                console.log('✅ Sample coupons added to Firebase');
+                console.log('[OK] Sample coupons added to Firebase');
             }
         }
         
-        console.log('🎉 Firebase initialization completed!');
+        console.log('[OK] Firebase initialization completed!');
         
         // Setup real-time listeners for live updates
         // GitHub Pages can block Firestore listen channel (CORS). Skip to avoid spam.
@@ -405,75 +443,54 @@ async function initializeFirebaseData() {
         startPollingSyncFallback();
         
     } catch (error) {
-        console.error('❌ Firebase initialization error:', error);
+        console.error('[ERROR] Firebase initialization error:', error);
     }
 }
 
 // Real-time listeners for live updates
 function setupRealtimeListeners() {
-    if (!REALTIME_LISTENERS_ENABLED) {
+    if (!REALTIME_LISTENERS_ENABLED || realtimeErroredPermanently) {
         setFirebaseSyncStatus({ realtimeEnabled: false });
         return;
     }
     setFirebaseSyncStatus({ realtimeEnabled: true });
 
-    // Listen for banners changes
-    db.collection('banners').onSnapshot((snapshot) => {
+    const unsubBanners = db.collection('banners').onSnapshot((snapshot) => {
         banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('🎨 Banners updated in real-time:', banners.length);
-        let persisted = false;
-        try {
-            if (typeof setStorageData === 'function') {
-                persisted = setStorageData('BANNERS', banners) !== false;
-            }
-        } catch (_) {}
-        if (!persisted) {
+        console.log('🟦 Banners updated in real-time:', banners.length);
+        persistSyncedCollection('BANNERS', banners, () => {
             if (typeof renderBanners === 'function') {
                 try { renderBanners(); } catch (_) {}
             } else {
                 updateBannersDisplay();
             }
-        }
+        });
         markFirebaseSyncSuccess('realtime:banners', { banners: banners.length });
     }, (error) => {
-        markFirebaseSyncError('realtime:banners', error);
+        handleRealtimeListenerError('realtime:banners', error);
         console.error('Banners listener error:', error);
     });
 
-    // Listen for coupons changes
-    db.collection('coupons').onSnapshot((snapshot) => {
+    const unsubCoupons = db.collection('coupons').onSnapshot((snapshot) => {
         coupons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('🎫 Coupons updated in real-time:', coupons.length);
-        let persisted = false;
-        try {
-            if (typeof setStorageData === 'function') {
-                persisted = setStorageData('COUPONS', coupons) !== false;
-            }
-        } catch (_) {}
-        if (!persisted) {
+        console.log('🟨 Coupons updated in real-time:', coupons.length);
+        persistSyncedCollection('COUPONS', coupons, () => {
             if (typeof renderCoupons === 'function') {
                 try { renderCoupons(); } catch (_) {}
             } else {
                 updateCouponsDisplay();
             }
-        }
+        });
         markFirebaseSyncSuccess('realtime:coupons', { coupons: coupons.length });
     }, (error) => {
-        markFirebaseSyncError('realtime:coupons', error);
+        handleRealtimeListenerError('realtime:coupons', error);
         console.error('Coupons listener error:', error);
     });
 
-    // Listen for products changes
-    db.collection('products').onSnapshot((snapshot) => {
+    const unsubProducts = db.collection('products').onSnapshot((snapshot) => {
         products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('🛍️ Products updated in real-time:', products.length);
-        let persisted = false;
-        try {
-            if (typeof setStorageData === 'function') {
-                persisted = setStorageData('PRODUCTS', products) !== false;
-            }
-        } catch (_) {}
-        if (!persisted) {
+        persistSyncedCollection('PRODUCTS', products, () => {
             if (typeof renderProducts === 'function') {
                 try {
                     renderProducts();
@@ -482,13 +499,14 @@ function setupRealtimeListeners() {
             } else if (typeof updateProductsDisplay === 'function') {
                 updateProductsDisplay();
             }
-        }
+        });
         markFirebaseSyncSuccess('realtime:products', { products: products.length });
     }, (error) => {
-        markFirebaseSyncError('realtime:products', error);
+        handleRealtimeListenerError('realtime:products', error);
         console.error('Products listener error:', error);
     });
 
+    realtimeUnsubscribers = [unsubBanners, unsubCoupons, unsubProducts];
     console.log('🔄 Real-time listeners setup complete');
 }
 
@@ -497,13 +515,13 @@ function updateBannersDisplay() {
     const bannerContainer = document.querySelector('.hero-slider');
     if (bannerContainer && banners.length > 0) {
         // Update banner display
-        console.log('🎨 Updating banner display with', banners.length, 'banners');
+        console.log('[INFO] Updating banner display with', banners.length, 'banners');
     }
 }
 
 function updateCouponsDisplay() {
     // Update coupon display in store
-    console.log('🎫 Updating coupon display with', coupons.length, 'coupons');
+    console.log('[INFO] Updating coupon display with', coupons.length, 'coupons');
 }
 
 // Auto-initialize only on store page to avoid unnecessary admin listeners/network calls
@@ -518,3 +536,4 @@ if (isStorePage) {
         setTimeout(initializeFirebaseData, 2000);
     }
 }
+
