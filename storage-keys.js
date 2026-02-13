@@ -18,6 +18,9 @@ const STORAGE_KEYS = {
   
   // العملاء وشهاداتهم
   CUSTOMERS: 'sale_zone_customers',
+
+  // الموردين
+  SUPPLIERS: 'sale_zone_suppliers',
   
   // البنرات (الإعلانات/Sliders)
   BANNERS: 'sale_zone_banners',

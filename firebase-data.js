@@ -192,8 +192,11 @@ function handleRealtimeListenerError(source, error) {
 }
 
 async function pullStoreCollectionsFromFirebase(source = 'poll') {
+    const productReader = (isStorePage && typeof getPublishedProducts === 'function')
+        ? getPublishedProducts
+        : (typeof getAllProducts === 'function' ? getAllProducts : null);
     const tasks = [
-        typeof getAllProducts === 'function' ? getAllProducts() : Promise.resolve(null),
+        typeof productReader === 'function' ? productReader() : Promise.resolve(null),
         typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null),
         typeof getBanners === 'function' ? getBanners() : Promise.resolve(null)
     ];
@@ -297,6 +300,17 @@ function startPollingSyncFallback() {
 
 async function initializeFirebaseData() {
     try {
+        if (!ENABLE_SAMPLE_DATA) {
+            console.log('[INFO] Sample data seeding disabled (all collections).');
+            console.log('[OK] Firebase initialization completed!');
+
+            if (REALTIME_LISTENERS_ENABLED) {
+                setupRealtimeListeners();
+            }
+            startPollingSyncFallback();
+            return;
+        }
+
         // Check if products collection exists
         const productsSnapshot = await db.collection('products').get();
         
@@ -525,8 +539,8 @@ function updateCouponsDisplay() {
 }
 
 // Auto-initialize only on store page to avoid unnecessary admin listeners/network calls
-const currentPage = (document.documentElement && document.documentElement.dataset && document.documentElement.dataset.page) || '';
-const isStorePage = String(currentPage).toLowerCase() === 'store';
+const pageContext = (document.documentElement && document.documentElement.dataset && document.documentElement.dataset.page) || '';
+const isStorePage = String(pageContext).toLowerCase() === 'store';
 
 if (isStorePage) {
     if (typeof db !== 'undefined') {

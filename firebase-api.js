@@ -258,42 +258,57 @@ async function getAllProducts() {
     try {
         const db = getFirebaseDB();
         const snapshot = await db.collection('products').get();
-        const products = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return { 
-                id: doc.id, 
-                name: data.name || '',
-                desc: data.desc || '',
-                category: data.category || '',
-                price: data.price || 0,
-                oldPrice: data.oldPrice || null,
-                image: data.image || '',
-                rating: data.rating || 4.5,
-                ratingCount: data.ratingCount || 0,
-                code: data.code || '',
-                stock: Number.isFinite(Number(data.stock)) ? Number(data.stock) : -1,
-                supplierId: data.supplierId || '',
-                supplierName: data.supplierName || '',
-                supplierCode: data.supplierCode || '',
-                costPrice: Number.isFinite(Number(data.costPrice)) ? Number(data.costPrice) : Number(data.price || 0),
-                marginPercent: Number.isFinite(Number(data.marginPercent)) ? Number(data.marginPercent) : 0,
-                sellPrice: Number.isFinite(Number(data.sellPrice)) ? Number(data.sellPrice) : Number(data.price || 0),
-                profitValue: Number.isFinite(Number(data.profitValue)) ? Number(data.profitValue) : 0,
-                profitMarginActual: Number.isFinite(Number(data.profitMarginActual)) ? Number(data.profitMarginActual) : 0,
-                manualPriceOverride: data.manualPriceOverride === true,
-                manualPriceReason: String(data.manualPriceReason || ''),
-                searchTokens: Array.isArray(data.searchTokens) ? data.searchTokens : buildProductSearchTokens(data),
-                isPublished: data.isPublished !== false,
-                visibilityState: data.visibilityState || (data.isPublished === false ? 'hidden' : 'published'),
-                importBatchId: data.importBatchId || '',
-                importSource: data.importSource || '',
-                createdAt: data.createdAt || '',
-                updatedAt: data.updatedAt || ''
-            };
-        });
+        const products = snapshot.docs.map(mapProductFromSnapshot);
         return products;
     } catch (e) {
         console.error('getAllProducts error:', e);
+        return null;
+    }
+}
+
+function mapProductFromSnapshot(doc) {
+    const data = doc.data();
+    return {
+        id: doc.id,
+        name: data.name || '',
+        desc: data.desc || '',
+        category: data.category || '',
+        price: data.price || 0,
+        oldPrice: data.oldPrice || null,
+        image: data.image || '',
+        rating: data.rating || 4.5,
+        ratingCount: data.ratingCount || 0,
+        code: data.code || '',
+        stock: Number.isFinite(Number(data.stock)) ? Number(data.stock) : -1,
+        supplierId: data.supplierId || '',
+        supplierName: data.supplierName || '',
+        supplierCode: data.supplierCode || '',
+        costPrice: Number.isFinite(Number(data.costPrice)) ? Number(data.costPrice) : Number(data.price || 0),
+        marginPercent: Number.isFinite(Number(data.marginPercent)) ? Number(data.marginPercent) : 0,
+        sellPrice: Number.isFinite(Number(data.sellPrice)) ? Number(data.sellPrice) : Number(data.price || 0),
+        profitValue: Number.isFinite(Number(data.profitValue)) ? Number(data.profitValue) : 0,
+        profitMarginActual: Number.isFinite(Number(data.profitMarginActual)) ? Number(data.profitMarginActual) : 0,
+        manualPriceOverride: data.manualPriceOverride === true,
+        manualPriceReason: String(data.manualPriceReason || ''),
+        searchTokens: Array.isArray(data.searchTokens) ? data.searchTokens : buildProductSearchTokens(data),
+        isPublished: data.isPublished !== false,
+        visibilityState: data.visibilityState || (data.isPublished === false ? 'hidden' : 'published'),
+        importBatchId: data.importBatchId || '',
+        importSource: data.importSource || '',
+        createdAt: data.createdAt || '',
+        updatedAt: data.updatedAt || ''
+    };
+}
+
+async function getPublishedProducts() {
+    try {
+        const db = getFirebaseDB();
+        const snapshot = await db.collection('products')
+            .where('isPublished', '==', true)
+            .get();
+        return snapshot.docs.map(mapProductFromSnapshot);
+    } catch (e) {
+        console.error('getPublishedProducts error:', e);
         return null;
     }
 }

@@ -43,7 +43,8 @@ if (shouldApplyStableTransport) {
             // Keep one deterministic mode to avoid runtime conflicts from mixed cached scripts.
             db.settings({
                 experimentalForceLongPolling: true,
-                useFetchStreams: false
+                useFetchStreams: false,
+                merge: true
             });
             window.__FIRESTORE_SETTINGS_APPLIED__ = true;
             window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = "force";
