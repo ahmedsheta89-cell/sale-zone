@@ -339,6 +339,21 @@
         .status-delivered { background: var(--success); }
         .status-completed { background: var(--success); }
         .status-cancelled { background: var(--error); }
+        .status-hidden { background: #6c757d; }
+        .status-published { background: var(--success); }
+        .batch-chip {
+            display: inline-block;
+            max-width: 130px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: rgba(10,17,40,0.07);
+            color: var(--navy);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 600;
+        }
         .action-btns { display: flex; gap: 5px; }
         .action-btn {
             width: 30px;
@@ -356,6 +371,67 @@
         .action-btn.view { background: rgba(23,162,184,0.15); color: var(--info); }
         .action-btn.edit { background: rgba(212,175,55,0.15); color: var(--gold-dark); }
         .action-btn.delete { background: rgba(220,53,69,0.15); color: var(--error); }
+        .action-btn.publish { background: rgba(80,200,120,0.16); color: #18814a; }
+        .action-btn.hide { background: rgba(108,117,125,0.16); color: #5f6a72; }
+
+        .wizard-steps {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .wizard-step {
+            text-align: center;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 6px 4px;
+            font-size: 11px;
+            color: #666;
+            background: #fafafa;
+        }
+        .wizard-step.active {
+            border-color: var(--gold);
+            background: rgba(212,175,55,0.12);
+            color: var(--navy);
+            font-weight: 700;
+        }
+        .wizard-panel { display: none; }
+        .wizard-panel.active { display: block; }
+        .wizard-preview {
+            max-height: 240px;
+            overflow: auto;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 8px;
+            background: #fff;
+            margin-top: 8px;
+            direction: ltr;
+            font-size: 11px;
+        }
+        .wizard-progress {
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            background: #efefef;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .wizard-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            transition: width 0.2s ease;
+        }
+        .wizard-report {
+            background: #f8f8f8;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 10px;
+            max-height: 180px;
+            overflow: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
 
         /* Content Section */
         .content-section { display: none; }
@@ -856,14 +932,14 @@
                         <div class="header-actions">
                             <button class="btn btn-gold" onclick="openModal('productModal')">➕ إضافة</button>
                             <button class="btn btn-success" onclick="exportProductsExcel()">📤 Excel</button>
-                            <input type="file" id="importProductsFile" accept=".xlsx,.xls" onchange="importProductsExcel(event)" style="display:none">
-                            <button class="btn btn-info" onclick="document.getElementById('importProductsFile').click()">📥 استيراد</button>
+                            <button class="btn btn-info" onclick="openImportWizard()">📥 استيراد مرن</button>
+                            <button class="btn btn-navy" onclick="publishBatchPrompt()">🚀 نشر دفعة</button>
                         </div>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>المنتج</th><th>القسم</th><th>السعر</th><th>التقييم</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>المنتج</th><th>القسم</th><th>السعر</th><th>الحالة</th><th>الدفعة</th><th>التقييم</th><th>إجراءات</th></tr></thead>
                                 <tbody id="productsTable"></tbody>
                             </table>
                         </div>
@@ -1317,6 +1393,123 @@
   </div>
 </div>
 
+<!-- Import Wizard Modal -->
+<div class="modal-overlay" id="importWizardModal">
+  <div class="modal" style="max-width: 960px;">
+    <div class="modal-header">
+      <h2>📥 استيراد Excel مرن</h2>
+      <button class="close-modal" onclick="closeModal('importWizardModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="wizard-steps" id="importWizardSteps">
+        <div class="wizard-step active" data-step="1">1) ملف/شيت</div>
+        <div class="wizard-step" data-step="2">2) Header</div>
+        <div class="wizard-step" data-step="3">3) Mapping</div>
+        <div class="wizard-step" data-step="4">4) التحقق</div>
+        <div class="wizard-step" data-step="5">5) التنفيذ</div>
+      </div>
+
+      <div class="wizard-panel active" id="wizardStep1">
+        <div class="form-row">
+          <div class="form-group">
+            <label>ملف Excel *</label>
+            <input type="file" id="wizardFileInput" accept=".xlsx,.xls,.csv" onchange="parseWorkbook(event)">
+          </div>
+          <div class="form-group">
+            <label>الشيت *</label>
+            <select id="wizardSheetSelect" onchange="selectImportSheet(this.value)"></select>
+          </div>
+        </div>
+        <div class="wizard-preview" id="wizardSheetPreview">اختر ملفًا لعرض المعاينة.</div>
+      </div>
+
+      <div class="wizard-panel" id="wizardStep2">
+        <div class="form-row">
+          <div class="form-group">
+            <label>سطر العناوين (Header Row)</label>
+            <input type="number" id="wizardHeaderRowInput" min="1" value="1" onchange="setHeaderRowManual()">
+          </div>
+          <div class="form-group">
+            <label>اقتراح تلقائي</label>
+            <input type="text" id="wizardHeaderHint" readonly>
+          </div>
+        </div>
+        <div class="wizard-preview" id="wizardHeaderPreview"></div>
+      </div>
+
+      <div class="wizard-panel" id="wizardStep3">
+        <div class="form-row">
+          <div class="form-group">
+            <label>عمود الاسم *</label>
+            <select id="mapNameCol"></select>
+          </div>
+          <div class="form-group">
+            <label>عمود السعر *</label>
+            <select id="mapPriceCol"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>عمود الوصف</label>
+            <select id="mapDescCol"></select>
+          </div>
+          <div class="form-group">
+            <label>عمود القسم</label>
+            <select id="mapCategoryCol"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>عمود الصورة</label>
+            <select id="mapImageCol"></select>
+          </div>
+          <div class="form-group">
+            <label>عمود السعر القديم</label>
+            <select id="mapOldPriceCol"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>عمود الكود</label>
+            <select id="mapCodeCol"></select>
+          </div>
+          <div class="form-group">
+            <label>عمود المخزون</label>
+            <select id="mapStockCol"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="wizard-panel" id="wizardStep4">
+        <div class="wizard-report" id="wizardValidationReport">لا يوجد تقرير بعد.</div>
+      </div>
+
+      <div class="wizard-panel" id="wizardStep5">
+        <div class="form-row">
+          <div class="form-group">
+            <label>مصدر الاستيراد</label>
+            <input type="text" id="wizardImportSource" readonly>
+          </div>
+          <div class="form-group">
+            <label>حالة المنتجات الجديدة</label>
+            <input type="text" value="مخفي افتراضيًا (نشر يدوي)" readonly>
+          </div>
+        </div>
+        <div class="wizard-progress">
+          <div class="wizard-progress-fill" id="wizardProgressFill"></div>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:#666" id="wizardProgressText">جاهز للتنفيذ.</div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+        <button class="btn btn-info" id="wizardPrevBtn" onclick="prevImportWizardStep()" disabled>السابق</button>
+        <button class="btn btn-gold" id="wizardNextBtn" onclick="nextImportWizardStep()">التالي</button>
+        <button class="btn btn-success" id="wizardCommitBtn" onclick="commitImportBatch()" style="display:none;">تنفيذ الاستيراد</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Product Modal -->
 <div class="modal-overlay" id="productModal">
   <div class="modal">
@@ -1381,9 +1574,17 @@
           <input type="url" id="manualImg" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;direction:ltr;">
 
           <!-- رابط نهائي (يتم تعبئته تلقائياً بعد الرفع) -->
-          <input type="hidden" id="finalImg" required>
+          <input type="hidden" id="finalImg">
         </div>
         <!-- =================================================== -->
+
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="productIsPublished" checked>
+            إظهار المنتج في المتجر
+          </label>
+          <small style="color:#777;">يمكنك إخفاء المنتج الآن ثم نشره لاحقًا بعد المراجعة.</small>
+        </div>
 
         <!-- زر حفظ المنتج (اللي كان ناقص) -->
         <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #eee; text-align: center;">
@@ -1551,6 +1752,233 @@
             loyalty: { rate: 5, pointValue: 0.1 }
         };
         let salesChart, categoriesChart;
+        const PENDING_PRODUCT_OPS_KEY = 'sale_zone_pending_ops';
+        const DEFAULT_PRODUCT_IMAGE = './assets/placeholder.svg';
+        let pendingProductOps = [];
+        let pendingOpsInFlight = false;
+        let importWizardState = null;
+        const IMPORT_WIZARD_FIELDS = [
+            { key: 'name', label: 'الاسم', required: true },
+            { key: 'price', label: 'السعر', required: true },
+            { key: 'desc', label: 'الوصف', required: false },
+            { key: 'category', label: 'القسم', required: false },
+            { key: 'image', label: 'الصورة', required: false },
+            { key: 'oldPrice', label: 'السعر القديم', required: false },
+            { key: 'code', label: 'الكود', required: false },
+            { key: 'stock', label: 'المخزون', required: false }
+        ];
+        const IMPORT_HEADER_SYNONYMS = {
+            name: ['name', 'product', 'product name', 'اسم', 'اسم المنتج', 'الصنف', 'المنتج'],
+            price: ['price', 'retail', 'selling', 'sale price', 'سعر', 'السعر', 'سعر البيع', 'سعر القطاعي'],
+            desc: ['description', 'desc', 'details', 'الوصف', 'تفاصيل', 'مواصفات'],
+            category: ['category', 'class', 'section', 'القسم', 'التصنيف', 'الفئه', 'الفئة'],
+            image: ['image', 'img', 'photo', 'url', 'link', 'الصوره', 'الصورة', 'رابط الصورة'],
+            oldPrice: ['old price', 'mrp', 'before', 'list price', 'السعر القديم', 'قبل الخصم', 'سعر قبل'],
+            code: ['code', 'sku', 'barcode', 'item code', 'الكود', 'باركود', 'رمز'],
+            stock: ['stock', 'qty', 'quantity', 'inventory', 'المخزون', 'الكميه', 'الكمية']
+        };
+
+        function normalizeArabicHeader(text) {
+            return String(text || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[\u064b-\u065f]/g, '')
+                .replace(/[أإآ]/g, 'ا')
+                .replace(/[ة]/g, 'ه')
+                .replace(/[ى]/g, 'ي')
+                .replace(/[^a-z0-9\u0621-\u064a\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function inferCategory(value) {
+            const v = normalizeArabicHeader(value);
+            if (!v) return 'supplements';
+            if (/(hair|شعر)/.test(v)) return 'hair-care';
+            if (/(skin|بشره|بشرة)/.test(v)) return 'skin-care';
+            if (/(baby|طفل|اطفال)/.test(v)) return 'baby-care';
+            if (/(med|medical|طبي|اجهزه|اجهزة)/.test(v)) return 'medical';
+            if (/(supplement|vit|مكمل|فيتامين|جمله|جملة)/.test(v)) return 'supplements';
+            return 'supplements';
+        }
+
+        function parseMoney(value) {
+            if (typeof value === 'number' && Number.isFinite(value)) return value;
+            const raw = String(value == null ? '' : value).trim();
+            if (!raw) return NaN;
+            const normalized = raw.replace(/[^\d.,-]/g, '').replace(/,/g, '.');
+            const parsed = parseFloat(normalized);
+            return Number.isFinite(parsed) ? parsed : NaN;
+        }
+
+        function makeImportBatchId() {
+            return `batch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        }
+
+        function normalizeProductForStorage(product, defaults = {}) {
+            const source = product && typeof product === 'object' ? product : {};
+            const nowIso = new Date().toISOString();
+            const isPublished = Object.prototype.hasOwnProperty.call(source, 'isPublished')
+                ? source.isPublished !== false
+                : (defaults.isPublished !== false);
+            return {
+                id: String(source.id || ''),
+                name: String(source.name || '').trim(),
+                desc: String(source.desc || ''),
+                category: inferCategory(source.category || defaults.category || ''),
+                price: Number(parseMoney(source.price) || 0),
+                oldPrice: Number.isFinite(parseMoney(source.oldPrice)) ? parseMoney(source.oldPrice) : null,
+                image: sanitizeImageUrl(source.image || DEFAULT_PRODUCT_IMAGE),
+                rating: Number.isFinite(Number(source.rating)) ? Number(source.rating) : 4.5,
+                ratingCount: Number.isFinite(Number(source.ratingCount)) ? Number(source.ratingCount) : 0,
+                code: String(source.code || ''),
+                stock: Number.isFinite(Number(source.stock)) ? Number(source.stock) : -1,
+                isPublished,
+                visibilityState: isPublished ? 'published' : 'hidden',
+                importBatchId: String(source.importBatchId || defaults.importBatchId || ''),
+                importSource: String(source.importSource || defaults.importSource || ''),
+                createdAt: source.createdAt || defaults.createdAt || nowIso,
+                updatedAt: nowIso
+            };
+        }
+
+        function ensureProductsSchema(list) {
+            return (Array.isArray(list) ? list : [])
+                .map((p) => normalizeProductForStorage(p, { isPublished: true }))
+                .filter((p) => p.name && p.price >= 0);
+        }
+
+        function loadPendingProductOps() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(PENDING_PRODUCT_OPS_KEY) || '[]');
+                pendingProductOps = Array.isArray(parsed) ? parsed : [];
+            } catch (_) {
+                pendingProductOps = [];
+            }
+        }
+
+        function persistPendingProductOps() {
+            localStorage.setItem(PENDING_PRODUCT_OPS_KEY, JSON.stringify(pendingProductOps));
+        }
+
+        function getPendingOpEffectiveId(rawId) {
+            const requestedId = String(rawId || '').trim();
+            if (!requestedId) return '';
+            const mapped = products.find((p) => String(p.id) === requestedId);
+            return mapped ? String(mapped.id) : requestedId;
+        }
+
+        function patchPendingAddByTempId(tempId, updater) {
+            if (!tempId || typeof updater !== 'function') return false;
+            let changed = false;
+            for (const op of pendingProductOps) {
+                if (op.type !== 'add') continue;
+                const opTempId = String(op.payload && op.payload.tmpId || '');
+                if (opTempId !== String(tempId)) continue;
+                const original = op.payload.product || {};
+                const updated = updater({ ...original });
+                if (updated && typeof updated === 'object') {
+                    op.payload.product = updated;
+                    changed = true;
+                }
+            }
+            if (changed) persistPendingProductOps();
+            return changed;
+        }
+
+        function enqueuePendingProductOp(type, payload) {
+            const op = {
+                id: `op_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                type: String(type || ''),
+                payload: payload && typeof payload === 'object' ? payload : {},
+                createdAt: new Date().toISOString()
+            };
+            pendingProductOps.push(op);
+            persistPendingProductOps();
+            return op;
+        }
+
+        async function applyProductOpOnline(op) {
+            const type = String(op && op.type || '');
+            const payload = op && op.payload ? op.payload : {};
+
+            if (type === 'add') {
+                if (typeof addProduct !== 'function') throw new Error('addProduct unavailable');
+                const createdId = await addProduct(payload.product);
+                const tmpId = String(payload.tmpId || '');
+                if (tmpId) {
+                    const idx = products.findIndex((p) => String(p.id) === tmpId);
+                    if (idx !== -1) {
+                        products[idx] = normalizeProductForStorage({ ...products[idx], ...payload.product, id: createdId });
+                    }
+                    pendingProductOps.forEach((pendingOp) => {
+                        if (!pendingOp || !pendingOp.payload) return;
+                        if (String(pendingOp.payload.id || '') === tmpId) {
+                            pendingOp.payload.id = String(createdId);
+                        }
+                        if (String(pendingOp.payload.tmpId || '') === tmpId) {
+                            pendingOp.payload.tmpId = String(createdId);
+                        }
+                    });
+                }
+                return;
+            }
+
+            if (type === 'update') {
+                if (typeof updateProduct !== 'function') throw new Error('updateProduct unavailable');
+                await updateProduct(getPendingOpEffectiveId(payload.id), payload.data || {});
+                return;
+            }
+
+            if (type === 'delete') {
+                if (typeof deleteProductFromFirebase !== 'function') throw new Error('deleteProductFromFirebase unavailable');
+                await deleteProductFromFirebase(getPendingOpEffectiveId(payload.id));
+                return;
+            }
+
+            if (type === 'visibility') {
+                const targetId = getPendingOpEffectiveId(payload.id);
+                if (typeof updateProductVisibility === 'function') {
+                    await updateProductVisibility(targetId, payload.isPublished !== false);
+                } else if (typeof updateProduct === 'function') {
+                    await updateProduct(targetId, {
+                        isPublished: payload.isPublished !== false,
+                        visibilityState: payload.isPublished !== false ? 'published' : 'hidden'
+                    });
+                } else {
+                    throw new Error('visibility update API unavailable');
+                }
+                return;
+            }
+
+            throw new Error(`Unknown op type: ${type}`);
+        }
+
+        async function flushPendingProductOps() {
+            if (pendingOpsInFlight) return;
+            if (!navigator.onLine) return;
+            if (!pendingProductOps.length) return;
+
+            pendingOpsInFlight = true;
+            try {
+                const remaining = [];
+                for (const op of pendingProductOps) {
+                    try {
+                        await applyProductOpOnline(op);
+                    } catch (error) {
+                        remaining.push(op);
+                        console.warn('Pending op failed:', op.type, error);
+                    }
+                }
+                pendingProductOps = remaining;
+                persistPendingProductOps();
+                saveProducts();
+                renderProductsTable();
+                updateStats();
+            } finally {
+                pendingOpsInFlight = false;
+            }
+        }
 
         // ============================================
         // Version Sync (Force fresh rollout on all devices)
@@ -1665,6 +2093,10 @@
                     window.location.reload();
                 }
             });
+            loadPendingProductOps();
+            window.addEventListener('online', () => {
+                flushPendingProductOps();
+            });
             await checkAppVersionAndRefresh();
             // Periodic version check to keep mobile/PWA clients aligned without manual cache clearing.
             setInterval(checkAppVersionAndRefresh, 10 * 60 * 1000);
@@ -1736,6 +2168,9 @@
                     clientErrorLogs = [];
                 }
             }
+
+            products = ensureProductsSchema(products);
+            saveProducts();
             
             // كلمة المرور دائماً من localStorage
             const saved = getStorageData('SETTINGS');
@@ -1827,6 +2262,7 @@
     document.getElementById('dashboard').classList.add('active');
 
     await loadAllData();
+    await flushPendingProductOps();
     initDashboard();
     startCustomersRealtimeSync();
     
@@ -1919,7 +2355,8 @@ async function sendPasswordReset() {
         document.getElementById('dashboard').classList.add('active');
         startCustomersRealtimeSync();
         if (!products.length) {
-          loadAllData().then(() => {
+          loadAllData().then(async () => {
+            await flushPendingProductOps();
             initDashboard();
             autoPurgeSamplesOnce();
             startCustomersRealtimeSync();
@@ -2019,7 +2456,7 @@ function adminLogout(){
         function renderProductsTable() {
             const tbody = document.getElementById('productsTable');
             if (products.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">📦</div><p>لا توجد منتجات</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📦</div><p>لا توجد منتجات</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = products.map(p => `
@@ -2027,8 +2464,18 @@ function adminLogout(){
                     <td><div class="product-cell"><img src="${sanitizeImageUrl(p.image)}" class="product-img" onerror="this.src='${sanitizeImageUrl('')}'"><div><strong>${p.name}</strong></div></div></td>
                     <td>${getCategoryName(p.category)}</td>
                     <td><strong>${p.price} ج.م</strong></td>
+                    <td><span class="status-badge ${p.isPublished === false ? 'status-hidden' : 'status-published'}">${p.isPublished === false ? 'مخفي' : 'منشور'}</span></td>
+                    <td>${p.importBatchId ? `<span class="batch-chip" title="${escapeHtml(p.importBatchId)}">${escapeHtml(p.importBatchId)}</span>` : '-'}</td>
                     <td>⭐ ${(p.rating || 0).toFixed(1)}</td>
-                    <td><div class="action-btns"><button class="action-btn edit" onclick="editProduct('${p.id}')">✏️</button><button class="action-btn delete" onclick="deleteProduct('${p.id}')">🗑️</button></div></td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="action-btn edit" onclick="editProduct('${p.id}')">✏️</button>
+                            ${p.isPublished === false
+                                ? `<button class="action-btn publish" title="نشر" onclick="toggleProductPublish('${p.id}', true)">👁️</button>`
+                                : `<button class="action-btn hide" title="إخفاء" onclick="toggleProductPublish('${p.id}', false)">🙈</button>`}
+                            <button class="action-btn delete" onclick="deleteProduct('${p.id}')">🗑️</button>
+                        </div>
+                    </td>
                 </tr>
             `).join('');
         }
@@ -2112,52 +2559,310 @@ function adminLogout(){
             return names[cat] || cat;
         }
 
+        function buildProductPayloadFromForm() {
+            const imageFromUpload = document.getElementById('finalImg').value;
+            const imageFromManual = document.getElementById('manualImg').value;
+            const selectedCategory = document.getElementById('productCategory').value;
+            const productIsPublished = document.getElementById('productIsPublished').checked;
+            const rawPrice = parseMoney(document.getElementById('productPrice').value);
+            const rawOldPrice = parseMoney(document.getElementById('productOldPrice').value);
+
+            if (!Number.isFinite(rawPrice) || rawPrice < 0) {
+                throw new Error('invalid-price');
+            }
+
+            const payload = normalizeProductForStorage({
+                name: document.getElementById('productName').value.trim(),
+                desc: document.getElementById('productDesc').value.trim(),
+                category: selectedCategory,
+                price: rawPrice,
+                oldPrice: Number.isFinite(rawOldPrice) && rawOldPrice > 0 ? rawOldPrice : null,
+                image: imageFromUpload || imageFromManual || DEFAULT_PRODUCT_IMAGE,
+                rating: 4.5,
+                ratingCount: 0,
+                isPublished: productIsPublished
+            }, {
+                isPublished: productIsPublished,
+                category: selectedCategory
+            });
+
+            if (!payload.name) {
+                throw new Error('missing-name');
+            }
+
+            return payload;
+        }
+
+        function applyLocalProductUpdate(id, patch) {
+            const idx = products.findIndex((p) => String(p.id) === String(id));
+            if (idx === -1) return null;
+            const current = products[idx];
+            const merged = normalizeProductForStorage({ ...current, ...patch, id: current.id }, {
+                isPublished: current.isPublished !== false,
+                category: current.category
+            });
+            merged.createdAt = current.createdAt || merged.createdAt;
+            products[idx] = merged;
+            return merged;
+        }
+
+        function applyLocalProductVisibility(id, isPublished) {
+            const idx = products.findIndex((p) => String(p.id) === String(id));
+            if (idx === -1) return null;
+            const current = products[idx];
+            const next = normalizeProductForStorage({
+                ...current,
+                isPublished: isPublished !== false,
+                visibilityState: isPublished !== false ? 'published' : 'hidden'
+            }, {
+                isPublished: isPublished !== false,
+                category: current.category
+            });
+            next.createdAt = current.createdAt || next.createdAt;
+            products[idx] = next;
+            return next;
+        }
+
+        function removeQueuedOpsForProduct(id) {
+            const strId = String(id || '');
+            if (!strId) return;
+            pendingProductOps = pendingProductOps.filter((op) => {
+                const payload = op && op.payload ? op.payload : {};
+                const payloadId = String(payload.id || payload.tmpId || '');
+                return payloadId !== strId;
+            });
+            persistPendingProductOps();
+        }
+
+        async function toggleProductPublish(id, isPublished) {
+            const productId = String(id || '').trim();
+            if (!productId) return;
+            const target = products.find((p) => String(p.id) === productId);
+            if (!target) return;
+
+            const publishValue = isPublished !== false;
+            const online = navigator.onLine === true;
+
+            if (online && !productId.startsWith('tmp_')) {
+                try {
+                    await requireAdminPermission();
+                    if (typeof updateProductVisibility === 'function') {
+                        await updateProductVisibility(productId, publishValue);
+                    } else if (typeof updateProduct === 'function') {
+                        await updateProduct(productId, {
+                            isPublished: publishValue,
+                            visibilityState: publishValue ? 'published' : 'hidden'
+                        });
+                    } else {
+                        throw new Error('updateProductVisibility-unavailable');
+                    }
+                } catch (error) {
+                    console.error('toggleProductPublish error:', error);
+                    showNotification('error', 'فشل تحديث حالة النشر');
+                    return;
+                }
+            } else if (productId.startsWith('tmp_')) {
+                patchPendingAddByTempId(productId, (productDraft) => ({
+                    ...productDraft,
+                    isPublished: publishValue,
+                    visibilityState: publishValue ? 'published' : 'hidden'
+                }));
+                if (online) await flushPendingProductOps();
+            } else {
+                enqueuePendingProductOp('visibility', { id: productId, isPublished: publishValue });
+                showNotification('info', 'تم حفظ الحالة محليًا وسيتم الرفع عند عودة الاتصال');
+            }
+
+            applyLocalProductVisibility(productId, publishValue);
+            saveProducts();
+            renderProductsTable();
+            updateStats();
+            if (online) {
+                showNotification('success', publishValue ? 'تم نشر المنتج' : 'تم إخفاء المنتج');
+            }
+        }
+
+        async function updateBatchVisibility(batchId, isPublished) {
+            const normalizedBatchId = String(batchId || '').trim();
+            if (!normalizedBatchId) {
+                showNotification('error', 'دفعة غير صالحة');
+                return;
+            }
+
+            const targetProducts = products.filter((p) => String(p.importBatchId || '') === normalizedBatchId);
+            if (!targetProducts.length) {
+                showNotification('error', 'لا توجد منتجات لهذه الدفعة');
+                return;
+            }
+
+            const publishValue = isPublished !== false;
+            const online = navigator.onLine === true;
+
+            if (online) {
+                const realIds = targetProducts.map((p) => String(p.id)).filter((id) => id && !id.startsWith('tmp_'));
+                try {
+                    await requireAdminPermission();
+                    if (realIds.length) {
+                        if (typeof updateProductsVisibilityBatch === 'function') {
+                            await updateProductsVisibilityBatch(realIds, publishValue);
+                        } else if (typeof updateProductVisibility === 'function') {
+                            for (const id of realIds) {
+                                await updateProductVisibility(id, publishValue);
+                            }
+                        } else if (typeof updateProduct === 'function') {
+                            for (const id of realIds) {
+                                await updateProduct(id, {
+                                    isPublished: publishValue,
+                                    visibilityState: publishValue ? 'published' : 'hidden'
+                                });
+                            }
+                        } else {
+                            throw new Error('visibility-api-unavailable');
+                        }
+                    }
+                } catch (error) {
+                    console.error('updateBatchVisibility error:', error);
+                    showNotification('error', 'فشل تحديث حالة الدفعة');
+                    return;
+                }
+            }
+
+            for (const product of targetProducts) {
+                const productId = String(product.id);
+                if (productId.startsWith('tmp_')) {
+                    patchPendingAddByTempId(productId, (productDraft) => ({
+                        ...productDraft,
+                        isPublished: publishValue,
+                        visibilityState: publishValue ? 'published' : 'hidden'
+                    }));
+                } else if (!online) {
+                    enqueuePendingProductOp('visibility', { id: productId, isPublished: publishValue });
+                }
+                applyLocalProductVisibility(productId, publishValue);
+            }
+
+            saveProducts();
+            renderProductsTable();
+            updateStats();
+            if (online) await flushPendingProductOps();
+            showNotification('success', `تم ${publishValue ? 'نشر' : 'إخفاء'} ${targetProducts.length} منتج من الدفعة`);
+        }
+
+        async function publishBatchPrompt() {
+            const batchIds = Array.from(new Set(products.map((p) => String(p.importBatchId || '').trim()).filter(Boolean)));
+            if (!batchIds.length) {
+                showNotification('error', 'لا توجد دفعات استيراد');
+                return;
+            }
+
+            const defaultBatch = batchIds[batchIds.length - 1];
+            const input = prompt(`اكتب رقم الدفعة (importBatchId)\nأحدث دفعة: ${defaultBatch}`, defaultBatch);
+            if (!input) return;
+
+            const isPublishAction = confirm('موافق = نشر الدفعة\nإلغاء = إخفاء الدفعة');
+            await updateBatchVisibility(input, isPublishAction);
+        }
+
         async function saveProduct(e) {
             e.preventDefault();
             const id = document.getElementById('productId').value.trim();
-            const imageUrl = document.getElementById('finalImg').value || document.getElementById('manualImg').value;
-            if (!imageUrl) {
-        showNotification('error', '❌ الصورة مطلوبة', 'يرجى رفع صورة أو إدخال رابط');
-        return;
-    }
-    
-    const data = {
-        name: document.getElementById('productName').value.trim(),
-        desc: document.getElementById('productDesc').value.trim(),
-        category: document.getElementById('productCategory').value,
-        price: parseFloat(document.getElementById('productPrice').value),
-        oldPrice: parseFloat(document.getElementById('productOldPrice').value) || null,
-        image: imageUrl, // ← هنا استخدمنا المتغير الجديد
-        rating: 4.5,
-        ratingCount: 0
-    };
+            let payload;
             try {
-                await requireAdminPermission();
-                if (id) {
-                    // تحديث منتج موجود
-                    const idx = products.findIndex(p => String(p.id) === String(id));
-                    if (idx !== -1) {
-                        products[idx] = { ...products[idx], ...data };
-                        if (typeof updateProduct === 'function') {
-                            await updateProduct(id, { ...products[idx] });
-                        }
-                    }
-                    showNotification('success', 'تم التحديث بنجاح');
-                } else {
-                    // إضافة منتج جديد
-                    if (typeof addProduct === 'function') {
-                        const firebaseId = await addProduct(data);
-                        data.id = firebaseId;
-                    } else {
-                        data.id = Date.now().toString();
-                    }
-                    products.push(data);
-                    showNotification('success', 'تمت الإضافة بنجاح');
-                }
+                payload = buildProductPayloadFromForm();
             } catch (error) {
-                console.error('Firebase save error:', error);
-                showNotification('error', 'فشل الحفظ', 'لا تملك صلاحيات أو يوجد خطأ بالاتصال');
+                if (error && error.message === 'invalid-price') {
+                    showNotification('error', 'السعر غير صالح');
+                    return;
+                }
+                if (error && error.message === 'missing-name') {
+                    showNotification('error', 'اسم المنتج مطلوب');
+                    return;
+                }
+                showNotification('error', 'تعذر قراءة بيانات المنتج');
                 return;
+            }
+
+            const online = navigator.onLine === true;
+
+            if (id) {
+                const idx = products.findIndex((p) => String(p.id) === String(id));
+                if (idx === -1) {
+                    showNotification('error', 'المنتج غير موجود');
+                    return;
+                }
+
+                const current = products[idx];
+                const merged = normalizeProductForStorage({
+                    ...current,
+                    ...payload,
+                    id: current.id
+                }, {
+                    isPublished: payload.isPublished !== false,
+                    category: payload.category
+                });
+                merged.createdAt = current.createdAt || merged.createdAt;
+                const updatePayload = { ...merged };
+                delete updatePayload.id;
+
+                if (online && !String(id).startsWith('tmp_')) {
+                    try {
+                        await requireAdminPermission();
+                        if (typeof updateProduct !== 'function') {
+                            throw new Error('updateProduct unavailable');
+                        }
+                        await updateProduct(id, updatePayload);
+                    } catch (error) {
+                        console.error('Firebase update error:', error);
+                        showNotification('error', 'فشل تحديث المنتج على Firebase');
+                        return;
+                    }
+                } else if (String(id).startsWith('tmp_')) {
+                    patchPendingAddByTempId(String(id), (draft) => ({ ...draft, ...updatePayload }));
+                    if (online) await flushPendingProductOps();
+                    else showNotification('info', 'تم حفظ التعديل محليًا وسيتم الرفع عند عودة الاتصال');
+                } else {
+                    enqueuePendingProductOp('update', { id, data: updatePayload });
+                    showNotification('info', 'تم حفظ التعديل محليًا وسيتم الرفع عند عودة الاتصال');
+                }
+
+                products[idx] = merged;
+                showNotification('success', 'تم تحديث المنتج');
+            } else {
+                const nowIso = new Date().toISOString();
+                const newProduct = normalizeProductForStorage({
+                    ...payload,
+                    createdAt: nowIso,
+                    updatedAt: nowIso
+                }, {
+                    isPublished: payload.isPublished !== false,
+                    category: payload.category
+                });
+
+                const createPayload = { ...newProduct };
+                delete createPayload.id;
+
+                if (online) {
+                    try {
+                        await requireAdminPermission();
+                        if (typeof addProduct !== 'function') {
+                            throw new Error('addProduct unavailable');
+                        }
+                        const firebaseId = await addProduct(createPayload);
+                        newProduct.id = String(firebaseId);
+                    } catch (error) {
+                        console.error('Firebase create error:', error);
+                        showNotification('error', 'فشل إضافة المنتج على Firebase');
+                        return;
+                    }
+                } else {
+                    const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                    newProduct.id = tempId;
+                    enqueuePendingProductOp('add', { tmpId: tempId, product: createPayload });
+                    showNotification('info', 'تمت إضافة المنتج محليًا وسيتم رفعه عند عودة الاتصال');
+                }
+
+                products.push(newProduct);
+                showNotification('success', 'تمت إضافة المنتج');
             }
 
             saveProducts();
@@ -2168,98 +2873,110 @@ function adminLogout(){
         }
 
         function editProduct(id) {
-  const p = products.find(x => String(x.id) === String(id));
-  if (!p) return;
+            const p = products.find((x) => String(x.id) === String(id));
+            if (!p) return;
 
-  document.getElementById('productId').value = p.id || '';
-  document.getElementById('productName').value = p.name || '';
-  document.getElementById('productDesc').value = p.desc || '';
-  document.getElementById('productCategory').value = p.category || '';
-  document.getElementById('productPrice').value = p.price ?? '';
-  document.getElementById('productOldPrice').value = p.oldPrice ?? '';
+            document.getElementById('productId').value = p.id || '';
+            document.getElementById('productName').value = p.name || '';
+            document.getElementById('productDesc').value = p.desc || '';
+            document.getElementById('productCategory').value = p.category || '';
+            document.getElementById('productPrice').value = p.price ?? '';
+            document.getElementById('productOldPrice').value = p.oldPrice ?? '';
+            document.getElementById('productIsPublished').checked = p.isPublished !== false;
 
-  // ✅ الصورة
-  const img = p.image || '';
-  document.getElementById('finalImg').value = img;
-  document.getElementById('manualImg').value = img;
+            const img = p.image || '';
+            document.getElementById('finalImg').value = img;
+            document.getElementById('manualImg').value = img;
 
-  // ✅ معاينة الصورة (اختياري)
-  const preview = document.getElementById('imgPreview');
-  if (preview) {
-    const safeImg = img ? sanitizeImageUrl(img) : '';
-    preview.innerHTML = safeImg
-      ? `<img src="${safeImg}" style="max-width:150px;border-radius:8px;border:2px solid #D4AF37;margin-top:10px;" onerror="this.style.display='none'">`
-      : '';
-  }
+            const preview = document.getElementById('imgPreview');
+            if (preview) {
+                const safeImg = img ? sanitizeImageUrl(img) : '';
+                preview.innerHTML = safeImg
+                    ? `<img src="${safeImg}" style="max-width:150px;border-radius:8px;border:2px solid #D4AF37;margin-top:10px;" onerror="this.style.display='none'">`
+                    : '';
+            }
 
-  // (اختياري) تصفير اختيار الملف عشان لو هيرفع صورة جديدة
-  const fileInput = document.getElementById('imgFile');
-  if (fileInput) fileInput.value = '';
+            const fileInput = document.getElementById('imgFile');
+            if (fileInput) fileInput.value = '';
 
-  document.getElementById('productModalTitle').textContent = '✏️ تعديل';
-  openModal('productModal');
-}
+            document.getElementById('productModalTitle').textContent = '✏️ تعديل';
+            openModal('productModal');
+        }
 
         async function deleteProduct(id) {
             if (!confirm('حذف المنتج؟')) return;
-            try {
-                await requireAdminPermission();
-                if (typeof deleteProductFromFirebase === 'function') {
-                    await deleteProductFromFirebase(id);
+            const productId = String(id || '');
+            const idx = products.findIndex((p) => String(p.id) === productId);
+            if (idx === -1) return;
+
+            const online = navigator.onLine === true;
+            const isTemp = productId.startsWith('tmp_');
+
+            if (online && !isTemp) {
+                try {
+                    await requireAdminPermission();
+                    if (typeof deleteProductFromFirebase !== 'function') {
+                        throw new Error('deleteProductFromFirebase unavailable');
+                    }
+                    await deleteProductFromFirebase(productId);
+                } catch (error) {
+                    console.error('Firebase delete error:', error);
+                    showNotification('error', 'فشل الحذف من Firebase');
+                    return;
                 }
-                products = products.filter(p => p.id != id && String(p.id) != String(id));
-                saveProducts();
-                renderProductsTable();
-                updateStats();
-                showNotification('success', 'تم الحذف ✅');
-            } catch (error) {
-                console.error('Firebase delete error:', error);
-                showNotification('error', 'فشل الحذف', 'لا تملك صلاحيات أو يوجد خطأ بالاتصال');
+            } else if (isTemp) {
+                removeQueuedOpsForProduct(productId);
+            } else {
+                removeQueuedOpsForProduct(productId);
+                enqueuePendingProductOp('delete', { id: productId });
+                showNotification('info', 'تم الحذف محليًا وسيتم مزامنته عند عودة الاتصال');
             }
+
+            products.splice(idx, 1);
+            saveProducts();
+            renderProductsTable();
+            updateStats();
+            showNotification('success', 'تم الحذف ✅');
         }
 
 
         function resetProductForm() {
-  // IDs الجديدة + الأساسية
-  const idsToClear = [
-    'productId',
-    'productName',
-    'productDesc',
-    'productCategory',
-    'productPrice',
-    'productOldPrice',
+            const idsToClear = [
+                'productId',
+                'productName',
+                'productDesc',
+                'productCategory',
+                'productPrice',
+                'productOldPrice',
+                'manualImg',
+                'finalImg',
+                'imgFile'
+            ];
 
-    // نظام الصورة الجديد
-    'manualImg',
-    'finalImg',
-    'imgFile'
-  ];
+            idsToClear.forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (el.type === 'file') el.value = '';
+                else el.value = '';
+            });
 
-  idsToClear.forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return; // ✅ لو العنصر مش موجود ما نعملش خطأ
+            const preview = document.getElementById('imgPreview');
+            if (preview) preview.innerHTML = '';
 
-    if (el.type === 'file') el.value = '';
-    else el.value = '';
-  });
+            const legacy = ['productImage', 'productImageUrl', 'imagePreviewContainer', 'uploadStatus'];
+            legacy.forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (el.tagName === 'DIV') el.innerHTML = '';
+                else el.value = '';
+            });
 
-  // مسح المعاينة
-  const preview = document.getElementById('imgPreview');
-  if (preview) preview.innerHTML = '';
+            const productIsPublished = document.getElementById('productIsPublished');
+            if (productIsPublished) productIsPublished.checked = true;
 
-  // (توافق مع IDs قديمة لو موجودة عندك في أي جزء)
-  const legacy = ['productImage', 'productImageUrl', 'imagePreviewContainer', 'uploadStatus'];
-  legacy.forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (el.tagName === 'DIV') el.innerHTML = '';
-    else el.value = '';
-  });
-
-  // عنوان المودال يرجع افتراضي
-  const title = document.getElementById('productModalTitle');
-  if (title) title.textContent = '➕ منتج جديد';
-}
+            const title = document.getElementById('productModalTitle');
+            if (title) title.textContent = '➕ منتج جديد';
+        }
 
         // ============================================
         // Orders
@@ -3123,7 +3840,20 @@ function adminLogout(){
         // Excel Export/Import
         // ============================================
         function exportProductsExcel() {
-            const data = products.map(p => ({ 'الاسم': p.name, 'الوصف': p.desc, 'القسم': getCategoryName(p.category), 'السعر': p.price, 'السعر القديم': p.oldPrice || '', 'التقييم': p.rating, 'الصورة': p.image }));
+            const data = products.map((p) => ({
+                'الاسم': p.name,
+                'الوصف': p.desc,
+                'القسم': getCategoryName(p.category),
+                'السعر': p.price,
+                'السعر القديم': p.oldPrice || '',
+                'التقييم': p.rating,
+                'الصورة': p.image,
+                'الحالة': p.isPublished === false ? 'مخفي' : 'منشور',
+                'دفعة الاستيراد': p.importBatchId || '',
+                'مصدر الاستيراد': p.importSource || '',
+                'الكود': p.code || '',
+                'المخزون': Number.isFinite(Number(p.stock)) ? Number(p.stock) : ''
+            }));
             exportToExcel(data, 'products');
         }
 
@@ -3144,7 +3874,13 @@ function adminLogout(){
 
         function exportFullReport() {
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(products.map(p => ({ 'الاسم': p.name, 'القسم': getCategoryName(p.category), 'السعر': p.price }))), 'المنتجات');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(products.map((p) => ({
+                'الاسم': p.name,
+                'القسم': getCategoryName(p.category),
+                'السعر': p.price,
+                'الحالة': p.isPublished === false ? 'مخفي' : 'منشور',
+                'دفعة الاستيراد': p.importBatchId || ''
+            }))), 'المنتجات');
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orders.map(o => ({ 'رقم': o.orderNumber, 'العميل': o.customer?.name, 'المبلغ': o.total, 'الحالة': getStatusName(o.status) }))), 'الطلبات');
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users.map(u => ({ 'الاسم': u.name, 'الهاتف': u.phone, 'النقاط': u.loyaltyPoints || 0 }))), 'العملاء');
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ 'المنتجات': products.length, 'الطلبات': orders.length, 'العملاء': users.length, 'الإيرادات': orders.reduce((s, o) => s + (o.total || 0), 0) }]), 'ملخص');
@@ -3161,29 +3897,663 @@ function adminLogout(){
             showNotification('success', 'تم التصدير');
         }
 
-        function importProductsExcel(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                try {
-                    const wb = XLSX.read(ev.target.result, { type: 'binary' });
-                    const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-                    let count = 0;
-                    data.forEach(row => {
-                        if (row['الاسم'] && row['السعر']) {
-                            products.push({ id: Date.now() + Math.random(), name: row['الاسم'], desc: row['الوصف'] || '', category: 'supplements', price: parseFloat(row['السعر']), oldPrice: parseFloat(row['السعر القديم']) || null, image: row['الصورة'] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0xNTAgMTkwQzEzNS4wNDYgMTkwIDEyMy4yOTkgMTc4LjI1MyAxMjMuMjk5IDE2M0MxMjMuMjk5IDE0Ny43NDcgMTM1LjA0NiAxMzYgMTUwIDEzNkMxNjQuOTU0IDEzNiAxNzYuNzAxIDE0Ny43NDcgMTc2LjcwMSAxNjNDMTc2LjcwMSAxNzguMjUzIDE2NC45NTQgMTkwIDE1MCAxOTBaIiBmaWxsPSIjOUNDOUNDOSIvPgo8L3N2Zz4K', rating: 4.5, ratingCount: 0 });
-                            count++;
-                        }
-                    });
-                    saveProducts();
-                    renderProductsTable();
-                    updateStats();
-                    showNotification('success', `تم استيراد ${count} منتج`);
-                } catch (err) { showNotification('error', 'خطأ في الملف'); }
+        function createEmptyImportWizardState() {
+            return {
+                step: 1,
+                fileName: '',
+                workbook: null,
+                sheetName: '',
+                sheetRows: [],
+                headerRowIndex: 0,
+                detectedHeaderRowIndex: 0,
+                columns: [],
+                mapping: {
+                    name: '',
+                    price: '',
+                    desc: '',
+                    category: '',
+                    image: '',
+                    oldPrice: '',
+                    code: '',
+                    stock: ''
+                },
+                validatedProducts: [],
+                invalidRows: [],
+                isCommitting: false,
+                importBatchId: ''
             };
-            reader.readAsBinaryString(file);
-            e.target.value = '';
+        }
+
+        function setWizardProgress(percent, message) {
+            const fill = document.getElementById('wizardProgressFill');
+            const text = document.getElementById('wizardProgressText');
+            const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+            if (fill) fill.style.width = `${safePercent}%`;
+            if (text) text.textContent = message || '';
+        }
+
+        function resetImportWizardState() {
+            importWizardState = createEmptyImportWizardState();
+
+            const sheetSelect = document.getElementById('wizardSheetSelect');
+            const fileInput = document.getElementById('wizardFileInput');
+            const headerRowInput = document.getElementById('wizardHeaderRowInput');
+            const headerHint = document.getElementById('wizardHeaderHint');
+            const importSource = document.getElementById('wizardImportSource');
+            const validationReport = document.getElementById('wizardValidationReport');
+
+            if (sheetSelect) sheetSelect.innerHTML = '<option value="">اختر الشيت</option>';
+            if (fileInput) fileInput.value = '';
+            if (headerRowInput) headerRowInput.value = '1';
+            if (headerHint) headerHint.value = '';
+            if (importSource) importSource.value = '';
+            if (validationReport) validationReport.textContent = 'لا يوجد تقرير بعد.';
+
+            ['wizardSheetPreview', 'wizardHeaderPreview'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = 'لا توجد بيانات للعرض.';
+            });
+
+            ['mapNameCol', 'mapPriceCol', 'mapDescCol', 'mapCategoryCol', 'mapImageCol', 'mapOldPriceCol', 'mapCodeCol', 'mapStockCol']
+                .forEach((id) => {
+                    const select = document.getElementById(id);
+                    if (!select) return;
+                    select.innerHTML = '<option value="">-- غير محدد --</option>';
+                });
+
+            setWizardProgress(0, 'جاهز للتنفيذ.');
+            showImportWizardStep(1);
+        }
+
+        function openImportWizard() {
+            resetImportWizardState();
+            openModal('importWizardModal');
+        }
+
+        function showImportWizardStep(step) {
+            const safeStep = Math.max(1, Math.min(5, Number(step) || 1));
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            importWizardState.step = safeStep;
+
+            document.querySelectorAll('#importWizardSteps .wizard-step').forEach((el) => {
+                el.classList.toggle('active', Number(el.dataset.step) === safeStep);
+            });
+            document.querySelectorAll('#importWizardModal .wizard-panel').forEach((el, index) => {
+                el.classList.toggle('active', index + 1 === safeStep);
+            });
+
+            const prevBtn = document.getElementById('wizardPrevBtn');
+            const nextBtn = document.getElementById('wizardNextBtn');
+            const commitBtn = document.getElementById('wizardCommitBtn');
+
+            if (prevBtn) prevBtn.disabled = safeStep <= 1 || importWizardState.isCommitting;
+            if (nextBtn) {
+                nextBtn.style.display = safeStep >= 5 ? 'none' : '';
+                nextBtn.disabled = importWizardState.isCommitting;
+            }
+            if (commitBtn) {
+                commitBtn.style.display = safeStep === 5 ? '' : 'none';
+                commitBtn.disabled = importWizardState.isCommitting;
+            }
+        }
+
+        function renderWizardTable(containerId, rows, options = {}) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const list = Array.isArray(rows) ? rows : [];
+            if (!list.length) {
+                container.textContent = 'لا توجد بيانات للعرض.';
+                return;
+            }
+
+            const startIndex = Math.max(0, Number(options.startIndex) || 0);
+            const headerRowIndex = Number.isFinite(Number(options.headerRowIndex)) ? Number(options.headerRowIndex) : -1;
+            const maxCols = Math.max(1, ...list.map((row) => Array.isArray(row) ? row.length : 0));
+            const limit = Math.max(1, Math.min(40, Number(options.limit) || 20));
+            const renderedRows = list.slice(0, limit);
+
+            let html = '<div style="overflow:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+            html += '<thead><tr><th style="border:1px solid #ddd;padding:6px;background:#f4f4f4;">#</th>';
+            for (let i = 0; i < maxCols; i += 1) {
+                html += `<th style="border:1px solid #ddd;padding:6px;background:#f4f4f4;">C${i + 1}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            renderedRows.forEach((row, i) => {
+                const absoluteRow = startIndex + i;
+                const isHeader = absoluteRow === headerRowIndex;
+                const rowStyle = isHeader ? 'background:#e8f8ed;font-weight:700;' : '';
+                html += `<tr style="${rowStyle}"><td style="border:1px solid #ddd;padding:6px;">${absoluteRow + 1}</td>`;
+                for (let col = 0; col < maxCols; col += 1) {
+                    const rawCell = Array.isArray(row) ? row[col] : '';
+                    const text = String(rawCell == null ? '' : rawCell);
+                    html += `<td style="border:1px solid #ddd;padding:6px;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(text)}">${escapeHtml(text) || '&nbsp;'}</td>`;
+                }
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function scoreHeaderCell(normalizedCell, fieldKey) {
+            if (!normalizedCell) return 0;
+            const synonyms = IMPORT_HEADER_SYNONYMS[fieldKey] || [];
+            let best = 0;
+            for (const rawSynonym of synonyms) {
+                const synonym = normalizeArabicHeader(rawSynonym);
+                if (!synonym) continue;
+                if (normalizedCell === synonym) best = Math.max(best, 12);
+                else if (normalizedCell.includes(synonym) || synonym.includes(normalizedCell)) best = Math.max(best, 8);
+                else {
+                    const wordsCell = normalizedCell.split(' ');
+                    const wordsSynonym = synonym.split(' ');
+                    const shared = wordsCell.filter((w) => wordsSynonym.includes(w)).length;
+                    if (shared >= 2) best = Math.max(best, 6);
+                    else if (shared === 1) best = Math.max(best, 3);
+                }
+            }
+            return best;
+        }
+
+        function detectHeaderRow(rows) {
+            const list = Array.isArray(rows) ? rows : [];
+            if (!list.length) return 0;
+
+            let bestIndex = 0;
+            let bestScore = -1;
+            const maxScan = Math.min(list.length, 25);
+
+            for (let i = 0; i < maxScan; i += 1) {
+                const row = Array.isArray(list[i]) ? list[i] : [];
+                const nonEmptyCells = row
+                    .map((cell) => String(cell == null ? '' : cell).trim())
+                    .filter(Boolean);
+                if (!nonEmptyCells.length) continue;
+
+                let score = nonEmptyCells.length * 0.4;
+                for (const cell of nonEmptyCells) {
+                    const normalizedCell = normalizeArabicHeader(cell);
+                    for (const field of IMPORT_WIZARD_FIELDS) {
+                        score += scoreHeaderCell(normalizedCell, field.key);
+                    }
+                }
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
+        }
+
+        function selectImportSheet(sheetName) {
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            if (!importWizardState.workbook) return;
+
+            const targetSheet = sheetName || importWizardState.workbook.SheetNames[0];
+            if (!targetSheet || !importWizardState.workbook.Sheets[targetSheet]) return;
+
+            const rows = XLSX.utils.sheet_to_json(importWizardState.workbook.Sheets[targetSheet], {
+                header: 1,
+                defval: '',
+                raw: false
+            });
+
+            importWizardState.sheetName = targetSheet;
+            importWizardState.sheetRows = Array.isArray(rows) ? rows : [];
+            importWizardState.validatedProducts = [];
+            importWizardState.invalidRows = [];
+
+            const detectedHeader = detectHeaderRow(importWizardState.sheetRows);
+            importWizardState.detectedHeaderRowIndex = detectedHeader;
+            importWizardState.headerRowIndex = detectedHeader;
+
+            const headerInput = document.getElementById('wizardHeaderRowInput');
+            if (headerInput) headerInput.value = String(detectedHeader + 1);
+            const headerHint = document.getElementById('wizardHeaderHint');
+            if (headerHint) headerHint.value = `تم اكتشاف السطر ${detectedHeader + 1} كعناوين.`;
+
+            renderWizardTable('wizardSheetPreview', importWizardState.sheetRows, {
+                limit: 20,
+                startIndex: 0,
+                headerRowIndex: importWizardState.headerRowIndex
+            });
+            setHeaderRowManual();
+        }
+
+        function resolveAutoMapping(fieldKey, columns) {
+            const list = Array.isArray(columns) ? columns : [];
+            let bestKey = '';
+            let bestScore = -1;
+
+            list.forEach((column) => {
+                const score = scoreHeaderCell(normalizeArabicHeader(column.label), fieldKey);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestKey = column.key;
+                }
+            });
+
+            return bestScore > 0 ? bestKey : '';
+        }
+
+        function buildColumnMapping() {
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            const columns = importWizardState.columns || [];
+            const mappingTargets = {
+                name: 'mapNameCol',
+                price: 'mapPriceCol',
+                desc: 'mapDescCol',
+                category: 'mapCategoryCol',
+                image: 'mapImageCol',
+                oldPrice: 'mapOldPriceCol',
+                code: 'mapCodeCol',
+                stock: 'mapStockCol'
+            };
+
+            const optionsHtml = columns.map((col) => `<option value="${col.key}">${escapeHtml(col.label)} (C${col.index + 1})</option>`).join('');
+
+            Object.entries(mappingTargets).forEach(([fieldKey, selectId]) => {
+                const select = document.getElementById(selectId);
+                if (!select) return;
+                select.innerHTML = `<option value="">-- غير محدد --</option>${optionsHtml}`;
+
+                const currentValue = importWizardState.mapping[fieldKey];
+                const hasCurrent = columns.some((col) => col.key === currentValue);
+                const suggested = hasCurrent ? currentValue : resolveAutoMapping(fieldKey, columns);
+                importWizardState.mapping[fieldKey] = suggested || '';
+                select.value = importWizardState.mapping[fieldKey] || '';
+            });
+        }
+
+        function setHeaderRowManual() {
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            const rows = importWizardState.sheetRows || [];
+            if (!rows.length) return;
+
+            const headerInput = document.getElementById('wizardHeaderRowInput');
+            let rowNumber = Number(headerInput ? headerInput.value : 1);
+            if (!Number.isFinite(rowNumber)) rowNumber = 1;
+
+            rowNumber = Math.max(1, Math.min(rows.length, Math.floor(rowNumber)));
+            importWizardState.headerRowIndex = rowNumber - 1;
+            if (headerInput) headerInput.value = String(rowNumber);
+
+            const previewStart = Math.max(0, importWizardState.headerRowIndex - 2);
+            const previewRows = rows.slice(previewStart, previewStart + 12);
+            renderWizardTable('wizardHeaderPreview', previewRows, {
+                limit: 12,
+                startIndex: previewStart,
+                headerRowIndex: importWizardState.headerRowIndex
+            });
+
+            const headerRow = Array.isArray(rows[importWizardState.headerRowIndex]) ? rows[importWizardState.headerRowIndex] : [];
+            const maxCols = Math.max(
+                headerRow.length,
+                ...rows.slice(importWizardState.headerRowIndex, importWizardState.headerRowIndex + 30).map((row) => Array.isArray(row) ? row.length : 0),
+                1
+            );
+
+            importWizardState.columns = [];
+            for (let idx = 0; idx < maxCols; idx += 1) {
+                const raw = String(headerRow[idx] == null ? '' : headerRow[idx]).trim();
+                importWizardState.columns.push({
+                    key: `c${idx}`,
+                    index: idx,
+                    label: raw || `عمود ${idx + 1}`
+                });
+            }
+
+            buildColumnMapping();
+        }
+
+        async function parseWorkbook(event) {
+            const file = event && event.target && event.target.files ? event.target.files[0] : null;
+            if (!file) return;
+
+            importWizardState = createEmptyImportWizardState();
+            importWizardState.fileName = file.name || '';
+
+            try {
+                const buffer = await file.arrayBuffer();
+                importWizardState.workbook = XLSX.read(buffer, {
+                    type: 'array',
+                    cellDates: true
+                });
+            } catch (error) {
+                console.error('parseWorkbook error:', error);
+                showNotification('error', 'فشل قراءة ملف Excel');
+                return;
+            }
+
+            const sheetNames = Array.isArray(importWizardState.workbook.SheetNames) ? importWizardState.workbook.SheetNames : [];
+            const sheetSelect = document.getElementById('wizardSheetSelect');
+
+            if (!sheetNames.length) {
+                showNotification('error', 'الملف لا يحتوي على شيتات صالحة');
+                return;
+            }
+
+            if (sheetSelect) {
+                sheetSelect.innerHTML = sheetNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+                sheetSelect.value = sheetNames[0];
+            }
+
+            selectImportSheet(sheetNames[0]);
+        }
+
+        function readWizardMappingFromUI() {
+            const state = importWizardState || createEmptyImportWizardState();
+            const mapping = {
+                name: document.getElementById('mapNameCol')?.value || '',
+                price: document.getElementById('mapPriceCol')?.value || '',
+                desc: document.getElementById('mapDescCol')?.value || '',
+                category: document.getElementById('mapCategoryCol')?.value || '',
+                image: document.getElementById('mapImageCol')?.value || '',
+                oldPrice: document.getElementById('mapOldPriceCol')?.value || '',
+                code: document.getElementById('mapCodeCol')?.value || '',
+                stock: document.getElementById('mapStockCol')?.value || ''
+            };
+            state.mapping = mapping;
+            importWizardState = state;
+            return mapping;
+        }
+
+        function getMappedValue(row, mappingKey) {
+            if (!mappingKey) return '';
+            const colIndex = Number(String(mappingKey).replace('c', ''));
+            if (!Number.isFinite(colIndex) || colIndex < 0) return '';
+            if (!Array.isArray(row)) return '';
+            return String(row[colIndex] == null ? '' : row[colIndex]).trim();
+        }
+
+        function parseStockValue(value) {
+            const parsed = parseMoney(value);
+            if (!Number.isFinite(parsed)) return -1;
+            return Math.max(0, Math.floor(parsed));
+        }
+
+        function renderWizardValidationReport(validRows, invalidRows, skippedRows) {
+            const report = document.getElementById('wizardValidationReport');
+            if (!report) return;
+
+            const invalidPreview = invalidRows.slice(0, 20).map((row) => `<li>السطر ${row.row}: ${escapeHtml(row.reason)}</li>`).join('');
+            const remaining = invalidRows.length > 20 ? `<li>... وهناك ${invalidRows.length - 20} سطر إضافي</li>` : '';
+
+            report.innerHTML = `
+                <div><strong>الصفوف الصالحة:</strong> ${validRows.length}</div>
+                <div><strong>الصفوف المرفوضة:</strong> ${invalidRows.length}</div>
+                <div><strong>الصفوف الفارغة (تم تجاوزها):</strong> ${skippedRows}</div>
+                ${invalidRows.length ? `<hr><div><strong>أسباب الرفض:</strong></div><ul style="margin-top:8px;padding-inline-start:18px;">${invalidPreview}${remaining}</ul>` : '<hr><div style="color:#0f7c33;">كل الصفوف صالحة ✅</div>'}
+            `;
+        }
+
+        function validateImportRows() {
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            const rows = importWizardState.sheetRows || [];
+            const mapping = readWizardMappingFromUI();
+
+            if (!rows.length) {
+                showNotification('error', 'لا توجد بيانات للتحقق');
+                return { validRows: [], invalidRows: [], skippedRows: 0 };
+            }
+
+            if (!mapping.name || !mapping.price) {
+                showNotification('error', 'اختيار عمود الاسم والسعر إلزامي');
+                renderWizardValidationReport([], [{ row: '-', reason: 'لم يتم تحديد عمود الاسم أو السعر.' }], 0);
+                return { validRows: [], invalidRows: [{ row: '-', reason: 'Missing required mapping' }], skippedRows: 0 };
+            }
+
+            const validRows = [];
+            const invalidRows = [];
+            let skippedRows = 0;
+            const startIndex = importWizardState.headerRowIndex + 1;
+
+            for (let rowIndex = startIndex; rowIndex < rows.length; rowIndex += 1) {
+                const row = Array.isArray(rows[rowIndex]) ? rows[rowIndex] : [];
+                const allEmpty = row.every((cell) => String(cell == null ? '' : cell).trim() === '');
+                if (allEmpty) {
+                    skippedRows += 1;
+                    continue;
+                }
+
+                const name = getMappedValue(row, mapping.name);
+                const priceRaw = getMappedValue(row, mapping.price);
+                const price = parseMoney(priceRaw);
+
+                if (!name) {
+                    invalidRows.push({ row: rowIndex + 1, reason: 'اسم المنتج فارغ.' });
+                    continue;
+                }
+                if (!Number.isFinite(price) || price < 0) {
+                    invalidRows.push({ row: rowIndex + 1, reason: `سعر غير صالح: "${priceRaw}"` });
+                    continue;
+                }
+
+                const oldPriceRaw = getMappedValue(row, mapping.oldPrice);
+                const oldPrice = parseMoney(oldPriceRaw);
+                const categoryRaw = getMappedValue(row, mapping.category);
+                const desc = getMappedValue(row, mapping.desc);
+                const code = getMappedValue(row, mapping.code);
+                const stock = parseStockValue(getMappedValue(row, mapping.stock));
+                const image = getMappedValue(row, mapping.image);
+
+                const product = normalizeProductForStorage({
+                    name,
+                    desc,
+                    category: categoryRaw || inferCategory(name),
+                    price,
+                    oldPrice: Number.isFinite(oldPrice) ? oldPrice : null,
+                    image: image || DEFAULT_PRODUCT_IMAGE,
+                    code,
+                    stock,
+                    rating: 4.5,
+                    ratingCount: 0,
+                    isPublished: false
+                }, {
+                    isPublished: false,
+                    category: categoryRaw || inferCategory(name)
+                });
+
+                validRows.push({
+                    row: rowIndex + 1,
+                    product
+                });
+            }
+
+            importWizardState.validatedProducts = validRows;
+            importWizardState.invalidRows = invalidRows;
+            renderWizardValidationReport(validRows, invalidRows, skippedRows);
+
+            return { validRows, invalidRows, skippedRows };
+        }
+
+        function nextImportWizardStep() {
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            const step = importWizardState.step || 1;
+
+            if (step === 1) {
+                if (!importWizardState.workbook || !importWizardState.sheetRows.length) {
+                    showNotification('error', 'اختر ملفًا وشيت صالحًا أولًا');
+                    return;
+                }
+                showImportWizardStep(2);
+                return;
+            }
+
+            if (step === 2) {
+                setHeaderRowManual();
+                showImportWizardStep(3);
+                return;
+            }
+
+            if (step === 3) {
+                validateImportRows();
+                showImportWizardStep(4);
+                return;
+            }
+
+            if (step === 4) {
+                const sourceLabel = `${importWizardState.fileName || 'unknown-file'} :: ${importWizardState.sheetName || 'Sheet1'}`;
+                const sourceInput = document.getElementById('wizardImportSource');
+                if (sourceInput) sourceInput.value = sourceLabel;
+                setWizardProgress(0, `جاهز للاستيراد (${importWizardState.validatedProducts.length} صف صالح)`);
+                showImportWizardStep(5);
+            }
+        }
+
+        function prevImportWizardStep() {
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            if (importWizardState.isCommitting) return;
+            showImportWizardStep((importWizardState.step || 1) - 1);
+        }
+
+        async function commitImportBatch() {
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            if (importWizardState.isCommitting) return;
+
+            let validRows = Array.isArray(importWizardState.validatedProducts) ? importWizardState.validatedProducts : [];
+            if (!validRows.length) {
+                const validation = validateImportRows();
+                validRows = validation.validRows;
+            }
+
+            if (!validRows.length) {
+                showNotification('error', 'لا توجد صفوف صالحة للاستيراد');
+                return;
+            }
+
+            importWizardState.isCommitting = true;
+            showImportWizardStep(5);
+
+            const prevBtn = document.getElementById('wizardPrevBtn');
+            const nextBtn = document.getElementById('wizardNextBtn');
+            const commitBtn = document.getElementById('wizardCommitBtn');
+            if (prevBtn) prevBtn.disabled = true;
+            if (nextBtn) nextBtn.disabled = true;
+            if (commitBtn) commitBtn.disabled = true;
+
+            const importBatchId = makeImportBatchId();
+            importWizardState.importBatchId = importBatchId;
+            const importSource = `${importWizardState.fileName || 'unknown-file'} :: ${importWizardState.sheetName || 'Sheet1'}`;
+            const sourceInput = document.getElementById('wizardImportSource');
+            if (sourceInput) sourceInput.value = `${importSource} | ${importBatchId}`;
+
+            const normalizedProducts = validRows.map((row) => normalizeProductForStorage({
+                ...row.product,
+                isPublished: false,
+                visibilityState: 'hidden',
+                importBatchId,
+                importSource
+            }, {
+                isPublished: false,
+                category: row.product.category
+            }));
+
+            const online = navigator.onLine === true;
+            let writeOnline = online;
+            let syncedCount = 0;
+            let queuedCount = 0;
+            const localImported = [];
+            const chunkSize = 100;
+
+            if (online) {
+                try {
+                    await requireAdminPermission();
+                } catch (error) {
+                    console.error('Import permission check failed:', error);
+                    setWizardProgress(0, 'فشل التحقق من صلاحيات الأدمن.');
+                    showNotification('error', 'تعذر التحقق من صلاحيات الأدمن');
+                    importWizardState.isCommitting = false;
+                    showImportWizardStep(5);
+                    return;
+                }
+            }
+
+            try {
+                for (let offset = 0; offset < normalizedProducts.length; offset += chunkSize) {
+                    const chunk = normalizedProducts.slice(offset, offset + chunkSize);
+                    const payloadChunk = chunk.map((item) => {
+                        const copy = { ...item };
+                        delete copy.id;
+                        return copy;
+                    });
+
+                    let createdIds = [];
+                    if (writeOnline) {
+                        try {
+                            if (typeof addProductsBatch === 'function') {
+                                createdIds = await addProductsBatch(payloadChunk, {
+                                    isPublished: false,
+                                    importBatchId,
+                                    importSource,
+                                    chunkSize: chunk.length
+                                });
+                            } else if (typeof addProduct === 'function') {
+                                for (const payload of payloadChunk) {
+                                    createdIds.push(await addProduct(payload));
+                                }
+                            } else {
+                                throw new Error('addProduct API unavailable');
+                            }
+                        } catch (error) {
+                            writeOnline = false;
+                            console.warn('Import chunk upload failed, switching to queue mode:', error);
+                        }
+                    }
+
+                    chunk.forEach((item, index) => {
+                        const cloned = { ...item };
+                        const createdId = createdIds[index];
+                        if (writeOnline && createdId) {
+                            cloned.id = String(createdId);
+                            syncedCount += 1;
+                        } else {
+                            const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                            cloned.id = tempId;
+                            const queuePayload = { ...item };
+                            delete queuePayload.id;
+                            enqueuePendingProductOp('add', {
+                                tmpId: tempId,
+                                product: queuePayload
+                            });
+                            queuedCount += 1;
+                        }
+                        localImported.push(cloned);
+                    });
+
+                    const done = Math.min(normalizedProducts.length, offset + chunk.length);
+                    setWizardProgress(Math.round((done / normalizedProducts.length) * 100), `تمت معالجة ${done} من ${normalizedProducts.length}`);
+                    await new Promise((resolve) => setTimeout(resolve, 0));
+                }
+
+                products = ensureProductsSchema([...products, ...localImported]);
+                saveProducts();
+                renderProductsTable();
+                updateStats();
+
+                if (queuedCount > 0 && navigator.onLine) {
+                    await flushPendingProductOps();
+                }
+
+                setWizardProgress(100, `اكتمل الاستيراد: ${localImported.length} منتج | مباشر: ${syncedCount} | انتظار: ${queuedCount}`);
+                showNotification('success', `تم استيراد ${localImported.length} منتج (دفعة: ${importBatchId})`);
+            } catch (error) {
+                console.error('commitImportBatch error:', error);
+                setWizardProgress(0, 'فشل تنفيذ الاستيراد.');
+                showNotification('error', 'فشل تنفيذ الاستيراد');
+            } finally {
+                importWizardState.isCommitting = false;
+                showImportWizardStep(5);
+            }
+        }
+
+        function importProductsExcel(e) {
+            openImportWizard();
+            parseWorkbook(e);
         }
 
         // ============================================
@@ -3206,7 +4576,7 @@ function adminLogout(){
             reader.onload = function(ev) {
                 try {
                     const data = JSON.parse(ev.target.result);
-                    if (data.products) { products = data.products; saveProducts(); }
+                    if (data.products) { products = ensureProductsSchema(data.products); saveProducts(); }
                     if (data.orders) { orders = data.orders; saveOrders(); }
                     if (data.coupons) { coupons = data.coupons; saveCoupons(); }
                     if (data.banners) { banners = data.banners; saveBanners(); }
@@ -3311,6 +4681,7 @@ function adminLogout(){
         function closeModal(modalId) {
   document.getElementById(modalId)?.classList.remove('active');
   if (modalId === 'productModal') resetProductForm();
+  if (modalId === 'importWizardModal') resetImportWizardState();
 }
 
         document.querySelectorAll('.modal-overlay').forEach(o => {

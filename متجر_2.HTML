@@ -1058,6 +1058,40 @@
             banners = (banners || []).filter(b => !['خصومات تصل إلى 50%', 'توصيل مجاني', 'نقاط الولاء'].includes(String(b?.title || '').trim()));
         }
 
+        function normalizeStoreProduct(product) {
+            const source = product && typeof product === 'object' ? product : {};
+            const price = Number(source.price);
+            const oldPrice = Number(source.oldPrice);
+            const rating = Number(source.rating);
+            const ratingCount = Number(source.ratingCount);
+            const isPublished = source.isPublished !== false;
+
+            return {
+                ...source,
+                id: source.id != null ? String(source.id) : '',
+                name: String(source.name || '').trim(),
+                desc: String(source.desc || ''),
+                category: String(source.category || 'supplements'),
+                price: Number.isFinite(price) ? price : 0,
+                oldPrice: Number.isFinite(oldPrice) ? oldPrice : null,
+                image: String(source.image || './assets/placeholder.svg'),
+                rating: Number.isFinite(rating) ? rating : 4.5,
+                ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
+                isPublished,
+                visibilityState: isPublished ? 'published' : 'hidden'
+            };
+        }
+
+        function normalizeStoreProducts(list) {
+            return (Array.isArray(list) ? list : [])
+                .map(normalizeStoreProduct)
+                .filter((item) => item.name && item.price >= 0);
+        }
+
+        function getVisibleProductsList() {
+            return (products || []).filter((p) => p && p.isPublished !== false);
+        }
+
         // ============================================
         // 🚀 Initialize
         // ============================================
@@ -1301,7 +1335,7 @@
         // 🔥 Firebase + LocalStorage Hybrid Data Loading
         // ============================================
         async function loadData() {
-            const localProducts = getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []);
+            const localProducts = normalizeStoreProducts(getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []));
             const localCoupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
             const localBanners = getStorageData('BANNERS') || (allowLocalSeedDefaults ? [...defaultBanners] : []);
             const localUsers = getStorageData('CUSTOMERS') || [];
@@ -1334,7 +1368,7 @@
                     (typeof getAllUsers === 'function' ? getAllUsers() : Promise.resolve(null))
                 ]);
 
-                products = resolveList(productsResult, 'PRODUCTS', localProducts, 'Products');
+                products = normalizeStoreProducts(resolveList(productsResult, 'PRODUCTS', localProducts, 'Products'));
                 coupons = resolveList(couponsResult, 'COUPONS', localCoupons, 'Coupons');
                 banners = resolveList(bannersResult, 'BANNERS', localBanners, 'Banners');
 
@@ -1362,7 +1396,7 @@
                 trackStoreEvent('DATA_SYNC_FALLBACK', 'Firebase read failed, fallback to localStorage', 'warning', {
                     error: error && error.message ? String(error.message) : String(error)
                 });
-                products = localProducts;
+                products = normalizeStoreProducts(localProducts);
                 coupons = localCoupons;
                 banners = localBanners;
                 users = localUsers;
@@ -1385,6 +1419,7 @@
             if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
             
             removeSeedDataIfNeeded();
+            products = normalizeStoreProducts(products);
 
             // حفظ في localStorage دائماً لضمان الاستمرارية
             setStorageData('PRODUCTS', products);
@@ -1606,7 +1641,10 @@
         }
 
         function getFilteredProducts() {
-            let filtered = currentCategory === 'all' ? [...products] : products.filter(p => p.category === currentCategory);
+            const visibleProducts = getVisibleProductsList();
+            let filtered = currentCategory === 'all'
+                ? [...visibleProducts]
+                : visibleProducts.filter((p) => p.category === currentCategory);
             
             const minPrice = parseFloat(document.getElementById('minPrice')?.value) || 0;
             const maxPrice = parseFloat(document.getElementById('maxPrice')?.value) || Infinity;
@@ -1655,13 +1693,17 @@
         function searchProducts() {
             const query = document.getElementById('searchInput').value.trim().toLowerCase();
             if (!query) { renderProducts(); return; }
-            const results = products.filter(p => p.name.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query));
+            const baseList = getFilteredProducts();
+            const results = baseList.filter((p) =>
+                String(p.name || '').toLowerCase().includes(query) ||
+                String(p.desc || '').toLowerCase().includes(query)
+            );
             document.getElementById('productsTitle').textContent = `بحث: "${query}"`;
             renderProducts(results);
         }
 
         function showProductDetails(id) {
-            const p = products.find(x => String(x.id) === String(id));
+            const p = getVisibleProductsList().find((x) => String(x.id) === String(id));
             if (!p) return;
             document.getElementById('productModalBody').innerHTML = `
                 <div style="text-align: center;">
@@ -1686,20 +1728,24 @@
         }
 
         function updateCategoryCounts() {
-            document.getElementById('countAll').textContent = products.length;
-            document.getElementById('countHair').textContent = products.filter(p => p.category === 'hair-care').length;
-            document.getElementById('countSkin').textContent = products.filter(p => p.category === 'skin-care').length;
-            document.getElementById('countBaby').textContent = products.filter(p => p.category === 'baby-care').length;
-            document.getElementById('countSupplements').textContent = products.filter(p => p.category === 'supplements').length;
-            document.getElementById('countMedical').textContent = products.filter(p => p.category === 'medical').length;
+            const visibleProducts = getVisibleProductsList();
+            document.getElementById('countAll').textContent = visibleProducts.length;
+            document.getElementById('countHair').textContent = visibleProducts.filter((p) => p.category === 'hair-care').length;
+            document.getElementById('countSkin').textContent = visibleProducts.filter((p) => p.category === 'skin-care').length;
+            document.getElementById('countBaby').textContent = visibleProducts.filter((p) => p.category === 'baby-care').length;
+            document.getElementById('countSupplements').textContent = visibleProducts.filter((p) => p.category === 'supplements').length;
+            document.getElementById('countMedical').textContent = visibleProducts.filter((p) => p.category === 'medical').length;
         }
 
         function updateStats() {
-            document.getElementById('statsProducts').textContent = products.length;
+            const visibleProducts = getVisibleProductsList();
+            document.getElementById('statsProducts').textContent = visibleProducts.length;
             document.getElementById('statsOrders').textContent = orders.length;
             document.getElementById('statsUsers').textContent = users.length;
-            if (products.length > 0) {
-                document.getElementById('statsRating').textContent = (products.reduce((s, p) => s + (p.rating || 0), 0) / products.length).toFixed(1);
+            if (visibleProducts.length > 0) {
+                document.getElementById('statsRating').textContent = (visibleProducts.reduce((s, p) => s + (p.rating || 0), 0) / visibleProducts.length).toFixed(1);
+            } else {
+                document.getElementById('statsRating').textContent = '0.0';
             }
         }
 
@@ -1707,7 +1753,7 @@
         // ⭐ Rating System
         // ============================================
         function showRatingModal(productId) {
-            const p = products.find(x => String(x.id) === String(productId));
+            const p = getVisibleProductsList().find((x) => String(x.id) === String(productId));
             if (!p) return;
             
             document.getElementById('ratingModalBody').innerHTML = `
@@ -1732,6 +1778,7 @@
 
             const p = products.find(x => String(x.id) === String(productId));
             if (!p) return;
+            if (p.isPublished === false) return;
 
             if (!p.ratings) p.ratings = [];
             const existingRating = p.ratings.find(r => r.oderId === currentUser.id);
@@ -1775,16 +1822,20 @@
         }
 
         function updateFavUI() {
-            document.getElementById('favCount').textContent = favorites.length;
+            const visibleProducts = getVisibleProductsList();
+            const visibleFavoriteIds = favorites.filter((favId) =>
+                visibleProducts.some((p) => String(p.id) === String(favId))
+            );
+            document.getElementById('favCount').textContent = visibleFavoriteIds.length;
             const container = document.getElementById('favItems');
             
-            if (favorites.length === 0) {
+            if (visibleFavoriteIds.length === 0) {
                 container.innerHTML = '<div class="fav-empty"><div class="cart-empty-icon">❤️</div><p>لا توجد منتجات مفضلة</p></div>';
                 return;
             }
 
-            container.innerHTML = favorites.map(id => {
-                const p = products.find(x => String(x.id) === String(id));
+            container.innerHTML = visibleFavoriteIds.map((id) => {
+                const p = visibleProducts.find((x) => String(x.id) === String(id));
                 if (!p) return '';
                 return `
                     <div class="fav-item">
@@ -1812,7 +1863,7 @@
         }
 
         function addToCart(id) {
-            const p = products.find(x => x.id == id || String(x.id) === String(id));
+            const p = getVisibleProductsList().find((x) => x.id == id || String(x.id) === String(id));
             if (!p) return;
             const existing = cart.find(item => item.id == id || String(item.id) === String(id));
             if (existing) existing.quantity++;

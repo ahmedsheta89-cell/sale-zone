@@ -47,6 +47,7 @@ async function getCoupons() {
 
 async function addCoupon(coupon) {
     try {
+        const db = getFirebaseDB();
         const docRef = await db.collection('coupons').add(coupon);
         console.log('[OK] Coupon added to Firebase:', docRef.id);
         return docRef.id;
@@ -58,6 +59,7 @@ async function addCoupon(coupon) {
 
 async function updateCoupon(id, data) {
     try {
+        const db = getFirebaseDB();
         await db.collection('coupons').doc(id).set(data, { merge: true });
         console.log('[OK] Coupon updated in Firebase:', id);
     } catch (e) {
@@ -68,6 +70,7 @@ async function updateCoupon(id, data) {
 
 async function deleteCoupon(id) {
     try {
+        const db = getFirebaseDB();
         await db.collection('coupons').doc(id).delete();
         console.log('[OK] Coupon deleted from Firebase:', id);
     } catch (e) {
@@ -103,6 +106,7 @@ async function getBanners() {
 
 async function addBanner(banner) {
     try {
+        const db = getFirebaseDB();
         const docRef = await db.collection('banners').add(banner);
         console.log('[OK] Banner added to Firebase:', docRef.id);
         return docRef.id;
@@ -114,6 +118,7 @@ async function addBanner(banner) {
 
 async function updateBanner(id, data) {
     try {
+        const db = getFirebaseDB();
         await db.collection('banners').doc(id).set(data, { merge: true });
         console.log('[OK] Banner updated in Firebase:', id);
     } catch (e) {
@@ -124,6 +129,7 @@ async function updateBanner(id, data) {
 
 async function deleteBanner(id) {
     try {
+        const db = getFirebaseDB();
         await db.collection('banners').doc(id).delete();
         console.log('[OK] Banner deleted from Firebase:', id);
     } catch (e) {
@@ -135,6 +141,26 @@ async function deleteBanner(id) {
 // ==========================================
 // PRODUCTS
 // ==========================================
+function normalizeProductPayloadForWrite(product, options = {}) {
+    const input = product && typeof product === 'object' ? product : {};
+    const nowIso = new Date().toISOString();
+    const defaults = options.defaults && typeof options.defaults === 'object' ? options.defaults : {};
+
+    const hasIsPublished = Object.prototype.hasOwnProperty.call(input, 'isPublished');
+    const isPublished = hasIsPublished ? input.isPublished !== false : (defaults.isPublished !== false);
+    const visibilityState = isPublished ? 'published' : 'hidden';
+
+    return {
+        ...input,
+        isPublished,
+        visibilityState,
+        importBatchId: input.importBatchId || defaults.importBatchId || '',
+        importSource: input.importSource || defaults.importSource || '',
+        createdAt: input.createdAt || defaults.createdAt || nowIso,
+        updatedAt: input.updatedAt || nowIso
+    };
+}
+
 async function getAllProducts() {
     try {
         const db = getFirebaseDB();
@@ -150,7 +176,15 @@ async function getAllProducts() {
                 oldPrice: data.oldPrice || null,
                 image: data.image || '',
                 rating: data.rating || 4.5,
-                ratingCount: data.ratingCount || 0
+                ratingCount: data.ratingCount || 0,
+                code: data.code || '',
+                stock: Number.isFinite(Number(data.stock)) ? Number(data.stock) : -1,
+                isPublished: data.isPublished !== false,
+                visibilityState: data.visibilityState || (data.isPublished === false ? 'hidden' : 'published'),
+                importBatchId: data.importBatchId || '',
+                importSource: data.importSource || '',
+                createdAt: data.createdAt || '',
+                updatedAt: data.updatedAt || ''
             };
         });
         return products;
@@ -162,7 +196,9 @@ async function getAllProducts() {
 
 async function addProduct(product) {
     try {
-        const docRef = await db.collection('products').add(product);
+        const db = getFirebaseDB();
+        const payload = normalizeProductPayloadForWrite(product, { defaults: { isPublished: true } });
+        const docRef = await db.collection('products').add(payload);
         console.log('[OK] Product added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
@@ -173,7 +209,18 @@ async function addProduct(product) {
 
 async function updateProduct(id, data) {
     try {
-        await db.collection('products').doc(id).set(data, { merge: true });
+        const db = getFirebaseDB();
+        const updatePayload = {
+            ...(data && typeof data === 'object' ? data : {}),
+            updatedAt: new Date().toISOString()
+        };
+
+        if (Object.prototype.hasOwnProperty.call(updatePayload, 'isPublished')) {
+            updatePayload.isPublished = updatePayload.isPublished !== false;
+            updatePayload.visibilityState = updatePayload.isPublished ? 'published' : 'hidden';
+        }
+
+        await db.collection('products').doc(id).set(updatePayload, { merge: true });
         console.log('[OK] Product updated in Firebase:', id);
     } catch (e) {
         console.error('updateProduct error:', e);
@@ -181,8 +228,98 @@ async function updateProduct(id, data) {
     }
 }
 
+async function addProductsBatch(productsArray, options = {}) {
+    try {
+        const db = getFirebaseDB();
+        const items = Array.isArray(productsArray) ? productsArray : [];
+        if (items.length === 0) return [];
+
+        const chunkSize = Math.max(1, Math.min(400, Number(options.chunkSize) || 300));
+        const defaults = {
+            isPublished: options.isPublished !== false ? true : false,
+            importBatchId: String(options.importBatchId || ''),
+            importSource: String(options.importSource || '')
+        };
+
+        const createdIds = [];
+
+        for (let offset = 0; offset < items.length; offset += chunkSize) {
+            const chunk = items.slice(offset, offset + chunkSize);
+            const batch = db.batch();
+            const refs = [];
+
+            chunk.forEach((item) => {
+                const ref = db.collection('products').doc();
+                refs.push(ref);
+                batch.set(ref, normalizeProductPayloadForWrite(item, { defaults }));
+            });
+
+            await batch.commit();
+            refs.forEach((ref) => createdIds.push(ref.id));
+        }
+
+        console.log('[OK] Products batch added to Firebase:', createdIds.length);
+        return createdIds;
+    } catch (e) {
+        console.error('addProductsBatch error:', e);
+        throw e;
+    }
+}
+
+async function updateProductVisibility(id, isPublished) {
+    try {
+        const db = getFirebaseDB();
+        const published = isPublished !== false;
+        await db.collection('products').doc(String(id)).set({
+            isPublished: published,
+            visibilityState: published ? 'published' : 'hidden',
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('[OK] Product visibility updated:', id, published);
+    } catch (e) {
+        console.error('updateProductVisibility error:', e);
+        throw e;
+    }
+}
+
+async function updateProductsVisibilityBatch(ids, isPublished, options = {}) {
+    try {
+        const db = getFirebaseDB();
+        const list = Array.isArray(ids) ? ids.map((x) => String(x || '').trim()).filter(Boolean) : [];
+        if (list.length === 0) return 0;
+
+        const published = isPublished !== false;
+        const chunkSize = Math.max(1, Math.min(400, Number(options.chunkSize) || 300));
+        let updatedCount = 0;
+
+        for (let offset = 0; offset < list.length; offset += chunkSize) {
+            const chunk = list.slice(offset, offset + chunkSize);
+            const batch = db.batch();
+
+            chunk.forEach((id) => {
+                const ref = db.collection('products').doc(id);
+                batch.set(ref, {
+                    isPublished: published,
+                    visibilityState: published ? 'published' : 'hidden',
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+            });
+
+            await batch.commit();
+            updatedCount += chunk.length;
+        }
+
+        console.log('[OK] Products visibility batch updated:', updatedCount);
+        return updatedCount;
+    } catch (e) {
+        console.error('updateProductsVisibilityBatch error:', e);
+        throw e;
+    }
+}
+
 async function deleteProductFromFirebase(id) {
     try {
+        const db = getFirebaseDB();
         await db.collection('products').doc(id).delete();
         console.log('[OK] Product deleted from Firebase:', id);
     } catch (e) {
@@ -371,19 +508,9 @@ async function getAllCoupons() {
     }
 }
 
-async function addCoupon(coupon) {
-    try {
-        const docRef = await db.collection('coupons').add(coupon);
-        console.log('[OK] Coupon added to Firebase:', docRef.id);
-        return docRef.id;
-    } catch (e) {
-        console.error('addCoupon error:', e);
-        throw e;
-    }
-}
-
 async function deleteCouponFromFirebase(id) {
     try {
+        const db = getFirebaseDB();
         await db.collection('coupons').doc(id).delete();
         console.log('[OK] Coupon deleted from Firebase:', id);
     } catch (e) {
@@ -406,19 +533,9 @@ async function getAllBanners() {
     }
 }
 
-async function addBanner(banner) {
-    try {
-        const docRef = await db.collection('banners').add(banner);
-        console.log('[OK] Banner added to Firebase:', docRef.id);
-        return docRef.id;
-    } catch (e) {
-        console.error('addBanner error:', e);
-        throw e;
-    }
-}
-
 async function deleteBannerFromFirebase(id) {
     try {
+        const db = getFirebaseDB();
         await db.collection('banners').doc(id).delete();
         console.log('[OK] Banner deleted from Firebase:', id);
     } catch (e) {
