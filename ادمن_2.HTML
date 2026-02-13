@@ -832,6 +832,7 @@
                 <div class="menu-section">
                     <div class="menu-section-title">الإدارة</div>
                     <button class="menu-item" onclick="showSection('products')">📦 المنتجات <span class="badge" id="productsCount">0</span></button>
+                    <button class="menu-item" onclick="showSection('suppliers')">🏭 الموردين <span class="badge" id="suppliersCount">0</span></button>
                     <button class="menu-item" onclick="showSection('orders')">🛍️ الطلبات <span class="badge" id="ordersCount">0</span></button>
                     <button class="menu-item" onclick="showSection('banners')">🎠 البانرات</button>
                     <button class="menu-item" onclick="showSection('coupons')">🎫 الكوبونات</button>
@@ -930,16 +931,40 @@
                     <div class="section-header">
                         <h3 class="section-title">📦 المنتجات</h3>
                         <div class="header-actions">
-                            <button class="btn btn-gold" onclick="openModal('productModal')">➕ إضافة</button>
+                            <button class="btn btn-gold" onclick="openProductModal()">➕ إضافة</button>
                             <button class="btn btn-success" onclick="exportProductsExcel()">📤 Excel</button>
                             <button class="btn btn-info" onclick="openImportWizard()">📥 استيراد مرن</button>
                             <button class="btn btn-navy" onclick="publishBatchPrompt()">🚀 نشر دفعة</button>
                         </div>
                     </div>
                     <div class="section-body">
+                        <div class="form-row" style="margin-bottom:12px;">
+                            <div class="form-group">
+                                <label>بحث</label>
+                                <input type="text" id="adminProductSearch" placeholder="اسم / كود / وصف" oninput="renderProductsTable()">
+                            </div>
+                            <div class="form-group">
+                                <label>المورد</label>
+                                <select id="adminProductSupplierFilter" onchange="renderProductsTable()">
+                                    <option value="">كل الموردين</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>الحالة</label>
+                                <select id="adminProductStatusFilter" onchange="renderProductsTable()">
+                                    <option value="all">الكل</option>
+                                    <option value="published">منشور</option>
+                                    <option value="hidden">مخفي</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="display:flex;align-items:end;gap:8px;">
+                                <button type="button" class="btn btn-info" onclick="saveProductFilterView()">💾 حفظ العرض</button>
+                                <button type="button" class="btn btn-navy" onclick="loadProductFilterView()">📂 تحميل</button>
+                            </div>
+                        </div>
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>المنتج</th><th>القسم</th><th>السعر</th><th>الحالة</th><th>الدفعة</th><th>التقييم</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>المنتج</th><th>القسم</th><th>المورد</th><th>التكلفة</th><th>السعر</th><th>الربح</th><th>الحالة</th><th>الدفعة</th><th>إجراءات</th></tr></thead>
                                 <tbody id="productsTable"></tbody>
                             </table>
                         </div>
@@ -1196,6 +1221,27 @@
                 </div>
             </section>
 
+            <section class="content-section" id="suppliersSection">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">🏭 الموردين</h3>
+                        <div class="header-actions">
+                            <button class="btn btn-gold" onclick="openSupplierModal()">➕ إضافة مورد</button>
+                            <button class="btn btn-info" onclick="assignSupplierToSelectionPrompt()">🔗 تعيين مورد</button>
+                            <button class="btn btn-success" onclick="recalculateSupplierPrompt()">🧮 إعادة تسعير</button>
+                        </div>
+                    </div>
+                    <div class="section-body">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead><tr><th>الاسم</th><th>الكود</th><th>الهامش الافتراضي</th><th>التواصل</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                                <tbody id="suppliersTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Store Settings -->
             <section class="content-section" id="storeSettingsSection">
                 <div class="tabs">
@@ -1220,6 +1266,24 @@
                                 <div class="form-group">
                                     <label>📝 الوصف</label>
                                     <textarea id="storeDescription"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>💬 إعدادات FAQ Bot (JSON)</label>
+                                    <textarea id="storeFaqIntents" rows="5" placeholder='[{"keywords":["شحن","توصيل"],"response":"التوصيل مجاني فوق 500 ج.م"}]'></textarea>
+                                    <small style="color:#777;">اختياري: مصفوفة عناصر تحتوي keywords و response.</small>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>tawk.to Property ID (اختياري)</label>
+                                        <input type="text" id="tawkPropertyId" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>tawk.to Widget ID (اختياري)</label>
+                                        <input type="text" id="tawkWidgetId" placeholder="1xxxxxxxx">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label><input type="checkbox" id="tawkEnabled"> تفعيل tawk.to (مجاني)</label>
                                 </div>
                                 <button type="submit" class="submit-btn">💾 حفظ</button>
                             </form>
@@ -1366,6 +1430,14 @@
                             يحذف فقط العناصر التي تم إنشاؤها افتراضيًا (صور Placeholder + أسماء/أكواد معروفة).
                         </p>
                         <button class="btn btn-danger" onclick="purgeSampleData()" style="width: 100%;">🗑️ حذف التجريبية الآن</button>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>🧬 ترحيل Schema المنتجات</h3>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 12px;">
+                            Backfill آمن: التكلفة = السعر، الهامش = 0، وسعر البيع = السعر مع إنشاء searchTokens.
+                        </p>
+                        <button class="btn btn-info" onclick="runProductsSchemaMigration()" style="width: 100%;">🚀 تشغيل الترحيل الآن</button>
                     </div>
 
                     <div class="settings-card danger-zone">
@@ -1547,13 +1619,56 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label>السعر *</label>
-            <input type="number" id="productPrice" required min="0">
+            <label>المورد</label>
+            <select id="productSupplierId" onchange="handleProductSupplierChange()">
+              <option value="">بدون مورد</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>الكود</label>
+            <input type="text" id="productCode">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>التكلفة *</label>
+            <input type="number" id="productCostPrice" required min="0" step="0.01" oninput="recalculateProductPricingFromForm()">
+          </div>
+          <div class="form-group">
+            <label>الهامش % *</label>
+            <input type="number" id="productMarginPercent" required min="0" max="1000" step="0.01" oninput="recalculateProductPricingFromForm()">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>سعر البيع *</label>
+            <input type="number" id="productPrice" required min="0" step="0.01" oninput="markManualSellPriceOverride()">
           </div>
           <div class="form-group">
             <label>السعر القديم</label>
-            <input type="number" id="productOldPrice" min="0">
+            <input type="number" id="productOldPrice" min="0" step="0.01">
           </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>ربح متوقع</label>
+            <input type="number" id="productProfitValue" readonly>
+          </div>
+          <div class="form-group">
+            <label>هامش الربح الفعلي %</label>
+            <input type="number" id="productProfitMarginActual" readonly>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="productManualPriceOverride" onchange="recalculateProductPricingFromForm()">
+            تثبيت سعر البيع يدويًا (عدم إعادة حسابه تلقائيًا)
+          </label>
+          <input type="text" id="productManualPriceReason" placeholder="سبب التثبيت اليدوي (اختياري)" style="margin-top:8px;">
         </div>
 
         <!-- ============ صورة المنتج (رفع أو رابط) ============ -->
@@ -1594,6 +1709,60 @@
           </button>
         </div>
 
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Supplier Modal -->
+<div class="modal-overlay" id="supplierModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="supplierModalTitle">🏭 مورد جديد</h2>
+      <button class="close-modal" onclick="closeModal('supplierModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form onsubmit="saveSupplier(event)">
+        <input type="hidden" id="supplierId">
+        <div class="form-row">
+          <div class="form-group">
+            <label>اسم المورد *</label>
+            <input type="text" id="supplierName" required>
+          </div>
+          <div class="form-group">
+            <label>كود المورد *</label>
+            <input type="text" id="supplierCode" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>مسؤول التواصل</label>
+            <input type="text" id="supplierContactName">
+          </div>
+          <div class="form-group">
+            <label>رقم الهاتف</label>
+            <input type="tel" id="supplierPhone">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>الهامش الافتراضي %</label>
+            <input type="number" id="supplierDefaultMargin" min="0" max="1000" step="0.01" value="0">
+          </div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;margin-top:28px;">
+              <input type="checkbox" id="supplierActive" checked>
+              مورد نشط
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>ملاحظات</label>
+          <textarea id="supplierNotes"></textarea>
+        </div>
+        <div style="margin-top: 20px; text-align: center;">
+          <button type="submit" class="submit-btn">💾 حفظ المورد</button>
+        </div>
       </form>
     </div>
   </div>
@@ -1734,6 +1903,7 @@
         let coupons = [];
         let banners = [];
         let users = [];
+        let suppliers = [];
         let customersUnsubscribe = null;
         let clientErrorLogs = [];
         let storeEvents = [];
@@ -1750,10 +1920,13 @@
             topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
             contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
             footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
-            loyalty: { rate: 5, pointValue: 0.1 }
+            loyalty: { rate: 5, pointValue: 0.1 },
+            faqIntents: [],
+            chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' }
         };
         let salesChart, categoriesChart;
         const PENDING_PRODUCT_OPS_KEY = 'sale_zone_pending_ops';
+        const PRODUCT_SAVED_FILTERS_KEY = 'sale_zone_admin_saved_product_filters';
         const DEFAULT_PRODUCT_IMAGE = './assets/placeholder.svg';
         let pendingProductOps = [];
         let pendingOpsInFlight = false;
@@ -1816,24 +1989,76 @@
             return `batch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         }
 
+        function resolveProductPricingFields(source, defaults = {}) {
+            const rawSource = source && typeof source === 'object' ? source : {};
+            const rawDefaults = defaults && typeof defaults === 'object' ? defaults : {};
+            const effective = {
+                price: rawSource.price,
+                costPrice: Object.prototype.hasOwnProperty.call(rawSource, 'costPrice') ? rawSource.costPrice : rawDefaults.costPrice,
+                marginPercent: Object.prototype.hasOwnProperty.call(rawSource, 'marginPercent') ? rawSource.marginPercent : rawDefaults.marginPercent,
+                sellPrice: Object.prototype.hasOwnProperty.call(rawSource, 'sellPrice') ? rawSource.sellPrice : rawDefaults.sellPrice,
+                manualPriceOverride: Object.prototype.hasOwnProperty.call(rawSource, 'manualPriceOverride') ? rawSource.manualPriceOverride : rawDefaults.manualPriceOverride,
+                manualPriceReason: Object.prototype.hasOwnProperty.call(rawSource, 'manualPriceReason') ? rawSource.manualPriceReason : rawDefaults.manualPriceReason
+            };
+
+            if (typeof normalizePricingFields === 'function') {
+                return normalizePricingFields(effective);
+            }
+
+            const costPrice = Math.max(0, Number(parseMoney(effective.costPrice)));
+            const marginPercent = Math.max(0, Math.min(1000, Number(parseMoney(effective.marginPercent))));
+            const manualPriceOverride = effective.manualPriceOverride === true;
+            const autoSellPrice = Number((costPrice * (1 + (marginPercent / 100))).toFixed(2));
+            const requestedSellPrice = Number(Number(parseMoney(effective.sellPrice)).toFixed(2));
+            const sellPrice = manualPriceOverride && Number.isFinite(requestedSellPrice) ? Math.max(0, requestedSellPrice) : autoSellPrice;
+            const profitValue = Number((sellPrice - costPrice).toFixed(2));
+            const profitMarginActual = sellPrice > 0 ? Number(((profitValue / sellPrice) * 100).toFixed(2)) : 0;
+
+            return {
+                costPrice,
+                marginPercent,
+                sellPrice,
+                price: sellPrice,
+                profitValue,
+                profitMarginActual,
+                manualPriceOverride,
+                manualPriceReason: String(effective.manualPriceReason || '').trim()
+            };
+        }
+
+        function buildProductSearchTokensSafe(source) {
+            if (typeof buildProductSearchTokens === 'function') {
+                return buildProductSearchTokens(source);
+            }
+            return [];
+        }
+
         function normalizeProductForStorage(product, defaults = {}) {
             const source = product && typeof product === 'object' ? product : {};
             const nowIso = new Date().toISOString();
             const isPublished = Object.prototype.hasOwnProperty.call(source, 'isPublished')
                 ? source.isPublished !== false
                 : (defaults.isPublished !== false);
+            const pricing = resolveProductPricingFields(source, defaults);
+
             return {
                 id: String(source.id || ''),
                 name: String(source.name || '').trim(),
                 desc: String(source.desc || ''),
                 category: inferCategory(source.category || defaults.category || ''),
-                price: Number(parseMoney(source.price) || 0),
+                supplierId: String(source.supplierId || defaults.supplierId || ''),
+                supplierName: String(source.supplierName || defaults.supplierName || ''),
+                supplierCode: String(source.supplierCode || defaults.supplierCode || ''),
+                ...pricing,
                 oldPrice: Number.isFinite(parseMoney(source.oldPrice)) ? parseMoney(source.oldPrice) : null,
                 image: sanitizeImageUrl(source.image || DEFAULT_PRODUCT_IMAGE),
                 rating: Number.isFinite(Number(source.rating)) ? Number(source.rating) : 4.5,
                 ratingCount: Number.isFinite(Number(source.ratingCount)) ? Number(source.ratingCount) : 0,
                 code: String(source.code || ''),
                 stock: Number.isFinite(Number(source.stock)) ? Number(source.stock) : -1,
+                searchTokens: Array.isArray(source.searchTokens) && source.searchTokens.length
+                    ? source.searchTokens
+                    : buildProductSearchTokensSafe({ ...defaults, ...source, ...pricing }),
                 isPublished,
                 visibilityState: isPublished ? 'published' : 'hidden',
                 importBatchId: String(source.importBatchId || defaults.importBatchId || ''),
@@ -1847,6 +2072,22 @@
             return (Array.isArray(list) ? list : [])
                 .map((p) => normalizeProductForStorage(p, { isPublished: true }))
                 .filter((p) => p.name && p.price >= 0);
+        }
+
+        function ensureSuppliersSchema(list) {
+            const nowIso = new Date().toISOString();
+            return (Array.isArray(list) ? list : []).map((item) => ({
+                id: String(item && item.id || ''),
+                name: String(item && item.name || '').trim(),
+                code: String(item && item.code || '').trim().toUpperCase(),
+                contactName: String(item && item.contactName || '').trim(),
+                phone: String(item && item.phone || '').trim(),
+                notes: String(item && item.notes || '').trim(),
+                defaultMarginPercent: Number.isFinite(Number(item && item.defaultMarginPercent)) ? Number(item.defaultMarginPercent) : 0,
+                active: item && item.active !== false,
+                createdAt: String(item && item.createdAt || nowIso),
+                updatedAt: String(item && item.updatedAt || nowIso)
+            })).filter((item) => item.name.length > 0);
         }
 
         function loadPendingProductOps() {
@@ -2122,12 +2363,14 @@
                     const fbUsers = await getAllUsers();
                     const fbCoupons = await getAllCoupons();
                     const fbBanners = await getAllBanners();
+                    const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
 
                     products = Array.isArray(fbProducts) ? fbProducts : (getStorageData('PRODUCTS') || []);
                     orders = Array.isArray(fbOrders) ? fbOrders : (getStorageData('ORDERS') || []);
                     users = Array.isArray(fbUsers) ? fbUsers : (getStorageData('CUSTOMERS') || []);
                     coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
                     banners = Array.isArray(fbBanners) ? fbBanners : (getStorageData('BANNERS') || []);
+                    suppliers = Array.isArray(fbSuppliers) ? fbSuppliers : (getStorageData('SUPPLIERS') || []);
                     
                     const settings = await getSettings();
                     if (settings) storeSettings = { ...storeSettings, ...settings };
@@ -2150,6 +2393,7 @@
                 coupons = getStorageData('COUPONS') || [];
                 banners = getStorageData('BANNERS') || [];
                 users = getStorageData('CUSTOMERS') || [];
+                suppliers = getStorageData('SUPPLIERS') || [];
                 try {
                     const localErrors = JSON.parse(localStorage.getItem('adminErrors') || '[]');
                     clientErrorLogs = localErrors.slice(-50).reverse().map((err, idx) => ({
@@ -2171,7 +2415,9 @@
             }
 
             products = ensureProductsSchema(products);
+            suppliers = ensureSuppliersSchema(suppliers);
             saveProducts();
+            saveSuppliers();
             
             // كلمة المرور دائماً من localStorage
             const saved = getStorageData('SETTINGS');
@@ -2185,8 +2431,16 @@
         function saveCoupons() { setStorageData('COUPONS', coupons); }
         function saveBanners() { setStorageData('BANNERS', banners); }
         function saveUsers() { setStorageData('CUSTOMERS', users); }
+        function saveSuppliers() { setStorageData('SUPPLIERS', suppliers); }
         function saveAdminPassword() {}
-        function saveStoreSettings() { setStorageData('SETTINGS', storeSettings); }
+        function saveStoreSettings() {
+            setStorageData('SETTINGS', storeSettings);
+            if (navigator.onLine === true && typeof saveSettings === 'function') {
+                saveSettings(storeSettings).catch((error) => {
+                    console.warn('saveStoreSettings firebase sync warning:', error);
+                });
+            }
+        }
 
         // ============================================
         // Auth
@@ -2403,7 +2657,10 @@ function adminLogout(){
         function initDashboard() {
             updateStats();
             updateBadges();
+            renderAdminSupplierFilterOptions();
             renderProductsTable();
+            renderSuppliersTable();
+            renderSupplierOptions();
             renderOrdersTable();
             renderBannersTable();
             renderCouponsTable();
@@ -2428,6 +2685,8 @@ function adminLogout(){
 
         function updateBadges() {
             document.getElementById('productsCount').textContent = products.length;
+            const suppliersBadge = document.getElementById('suppliersCount');
+            if (suppliersBadge) suppliersBadge.textContent = (suppliers || []).filter((s) => s && s.active !== false).length;
             document.getElementById('ordersCount').textContent = orders.filter(o => o.status === 'pending').length;
         }
 
@@ -2455,19 +2714,39 @@ function adminLogout(){
         }
 
         function renderProductsTable() {
+            const searchText = String(document.getElementById('adminProductSearch')?.value || '').trim().toLowerCase();
+            const supplierFilter = String(document.getElementById('adminProductSupplierFilter')?.value || '').trim();
+            const statusFilter = String(document.getElementById('adminProductStatusFilter')?.value || 'all');
             const tbody = document.getElementById('productsTable');
-            if (products.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📦</div><p>لا توجد منتجات</p></div></td></tr>';
+            const visibleRows = (products || []).filter((item) => {
+                if (!item) return false;
+                if (supplierFilter && String(item.supplierId || '') !== supplierFilter) return false;
+                if (statusFilter === 'published' && item.isPublished === false) return false;
+                if (statusFilter === 'hidden' && item.isPublished !== false) return false;
+                if (!searchText) return true;
+                const haystack = [
+                    String(item.name || ''),
+                    String(item.code || ''),
+                    String(item.desc || ''),
+                    String(item.supplierName || '')
+                ].join(' ').toLowerCase();
+                return haystack.includes(searchText);
+            });
+
+            if (visibleRows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📦</div><p>لا توجد منتجات</p></div></td></tr>';
                 return;
             }
-            tbody.innerHTML = products.map(p => `
+            tbody.innerHTML = visibleRows.map(p => `
                 <tr>
                     <td><div class="product-cell"><img src="${sanitizeImageUrl(p.image)}" class="product-img" onerror="this.src='${sanitizeImageUrl('')}'"><div><strong>${p.name}</strong></div></div></td>
                     <td>${getCategoryName(p.category)}</td>
-                    <td><strong>${p.price} ج.م</strong></td>
+                    <td>${escapeHtml(p.supplierName || '-')}</td>
+                    <td><strong>${Number(p.costPrice || 0).toFixed(2)} ج.م</strong></td>
+                    <td><strong>${Number(p.price || 0).toFixed(2)} ج.م</strong>${p.manualPriceOverride === true ? '<div style="font-size:11px;color:#b8960c;">يدوي</div>' : ''}</td>
+                    <td><strong>${Number(p.profitValue || 0).toFixed(2)} ج.م</strong><div style="font-size:11px;color:#666;">${Number(p.profitMarginActual || 0).toFixed(2)}%</div></td>
                     <td><span class="status-badge ${p.isPublished === false ? 'status-hidden' : 'status-published'}">${p.isPublished === false ? 'مخفي' : 'منشور'}</span></td>
                     <td>${p.importBatchId ? `<span class="batch-chip" title="${escapeHtml(p.importBatchId)}">${escapeHtml(p.importBatchId)}</span>` : '-'}</td>
-                    <td>⭐ ${(p.rating || 0).toFixed(1)}</td>
                     <td>
                         <div class="action-btns">
                             <button class="action-btn edit" onclick="editProduct('${p.id}')">✏️</button>
@@ -2479,6 +2758,51 @@ function adminLogout(){
                     </td>
                 </tr>
             `).join('');
+        }
+
+        function renderAdminSupplierFilterOptions() {
+            const select = document.getElementById('adminProductSupplierFilter');
+            if (!select) return;
+            const currentValue = String(select.value || '');
+            const options = (suppliers || []).filter((item) => item && item.active !== false);
+            select.innerHTML = '<option value="">كل الموردين</option>' + options.map((item) => (
+                `<option value="${String(item.id || '')}">${escapeHtml(item.name || '')}</option>`
+            )).join('');
+            if (currentValue) select.value = currentValue;
+        }
+
+        function saveProductFilterView() {
+            const viewName = prompt('اسم العرض المحفوظ');
+            if (!viewName) return;
+            const payload = {
+                search: String(document.getElementById('adminProductSearch')?.value || ''),
+                supplierId: String(document.getElementById('adminProductSupplierFilter')?.value || ''),
+                status: String(document.getElementById('adminProductStatusFilter')?.value || 'all')
+            };
+            const allViews = getStorageData(PRODUCT_SAVED_FILTERS_KEY) || {};
+            allViews[viewName] = payload;
+            setStorageData(PRODUCT_SAVED_FILTERS_KEY, allViews);
+            showNotification('success', `تم حفظ العرض: ${viewName}`);
+        }
+
+        function loadProductFilterView() {
+            const allViews = getStorageData(PRODUCT_SAVED_FILTERS_KEY) || {};
+            const names = Object.keys(allViews);
+            if (!names.length) {
+                showNotification('error', 'لا توجد عروض محفوظة');
+                return;
+            }
+            const chosen = prompt(`اختر العرض:\n${names.join('\n')}`, names[0]);
+            if (!chosen || !allViews[chosen]) return;
+            const view = allViews[chosen];
+            const searchInput = document.getElementById('adminProductSearch');
+            const supplierInput = document.getElementById('adminProductSupplierFilter');
+            const statusInput = document.getElementById('adminProductStatusFilter');
+            if (searchInput) searchInput.value = String(view.search || '');
+            if (supplierInput) supplierInput.value = String(view.supplierId || '');
+            if (statusInput) statusInput.value = String(view.status || 'all');
+            renderProductsTable();
+            showNotification('success', `تم تحميل العرض: ${chosen}`);
         }
 
         // ============================================
@@ -2560,13 +2884,88 @@ function adminLogout(){
             return names[cat] || cat;
         }
 
+        function getSupplierById(id) {
+            const supplierId = String(id || '').trim();
+            if (!supplierId) return null;
+            return (suppliers || []).find((item) => String(item.id || '') === supplierId) || null;
+        }
+
+        function renderSupplierOptions() {
+            const select = document.getElementById('productSupplierId');
+            if (!select) return;
+            const activeSuppliers = (suppliers || []).filter((item) => item && item.active !== false);
+            const currentValue = String(select.value || '');
+            select.innerHTML = '<option value="">بدون مورد</option>' + activeSuppliers.map((item) => (
+                `<option value="${String(item.id || '')}">${escapeHtml(item.name || 'مورد بدون اسم')}</option>`
+            )).join('');
+            if (currentValue) select.value = currentValue;
+        }
+
+        function recalculateProductPricingFromForm() {
+            const manualOverride = document.getElementById('productManualPriceOverride')?.checked === true;
+            const cost = Number(parseMoney(document.getElementById('productCostPrice')?.value));
+            const margin = Number(parseMoney(document.getElementById('productMarginPercent')?.value));
+
+            if (!Number.isFinite(cost) || cost < 0) return;
+            if (!Number.isFinite(margin) || margin < 0) return;
+
+            const autoSellPrice = Number((cost * (1 + (Math.min(margin, 1000) / 100))).toFixed(2));
+            const sellInput = document.getElementById('productPrice');
+            if (!manualOverride && sellInput) {
+                sellInput.value = String(autoSellPrice);
+            }
+
+            const finalSellPrice = Number(parseMoney(sellInput?.value));
+            if (!Number.isFinite(finalSellPrice)) return;
+
+            const profit = Number((finalSellPrice - cost).toFixed(2));
+            const profitMargin = finalSellPrice > 0 ? Number(((profit / finalSellPrice) * 100).toFixed(2)) : 0;
+
+            const profitInput = document.getElementById('productProfitValue');
+            const marginActualInput = document.getElementById('productProfitMarginActual');
+            if (profitInput) profitInput.value = String(profit);
+            if (marginActualInput) marginActualInput.value = String(profitMargin);
+        }
+
+        function markManualSellPriceOverride() {
+            const checkbox = document.getElementById('productManualPriceOverride');
+            if (checkbox && checkbox.checked) {
+                recalculateProductPricingFromForm();
+            }
+        }
+
+        function handleProductSupplierChange() {
+            const supplierId = document.getElementById('productSupplierId')?.value || '';
+            const supplier = getSupplierById(supplierId);
+            const marginInput = document.getElementById('productMarginPercent');
+            const manualOverride = document.getElementById('productManualPriceOverride');
+            if (supplier && marginInput && manualOverride && manualOverride.checked !== true) {
+                marginInput.value = Number(supplier.defaultMarginPercent || 0).toString();
+                recalculateProductPricingFromForm();
+            }
+        }
+
         function buildProductPayloadFromForm() {
             const imageFromUpload = document.getElementById('finalImg').value;
             const imageFromManual = document.getElementById('manualImg').value;
             const selectedCategory = document.getElementById('productCategory').value;
             const productIsPublished = document.getElementById('productIsPublished').checked;
+            const supplierId = String(document.getElementById('productSupplierId')?.value || '').trim();
+            const supplier = getSupplierById(supplierId);
+            const rawCostPrice = parseMoney(document.getElementById('productCostPrice').value);
+            const rawMarginPercent = parseMoney(document.getElementById('productMarginPercent').value);
             const rawPrice = parseMoney(document.getElementById('productPrice').value);
             const rawOldPrice = parseMoney(document.getElementById('productOldPrice').value);
+            const manualPriceOverride = document.getElementById('productManualPriceOverride')?.checked === true;
+            const manualPriceReason = String(document.getElementById('productManualPriceReason')?.value || '').trim();
+
+            if (!Number.isFinite(rawCostPrice) || rawCostPrice < 0) {
+                throw new Error('invalid-cost');
+            }
+
+            if (!Number.isFinite(rawMarginPercent) || rawMarginPercent < 0) {
+                throw new Error('invalid-margin');
+            }
 
             if (!Number.isFinite(rawPrice) || rawPrice < 0) {
                 throw new Error('invalid-price');
@@ -2576,11 +2975,20 @@ function adminLogout(){
                 name: document.getElementById('productName').value.trim(),
                 desc: document.getElementById('productDesc').value.trim(),
                 category: selectedCategory,
+                supplierId,
+                supplierName: supplier ? String(supplier.name || '') : '',
+                supplierCode: supplier ? String(supplier.code || '') : '',
                 price: rawPrice,
+                sellPrice: rawPrice,
+                costPrice: rawCostPrice,
+                marginPercent: rawMarginPercent,
+                manualPriceOverride,
+                manualPriceReason,
                 oldPrice: Number.isFinite(rawOldPrice) && rawOldPrice > 0 ? rawOldPrice : null,
                 image: imageFromUpload || imageFromManual || DEFAULT_PRODUCT_IMAGE,
                 rating: 4.5,
                 ratingCount: 0,
+                code: String(document.getElementById('productCode')?.value || '').trim(),
                 isPublished: productIsPublished
             }, {
                 isPublished: productIsPublished,
@@ -2771,6 +3179,14 @@ function adminLogout(){
             try {
                 payload = buildProductPayloadFromForm();
             } catch (error) {
+                if (error && error.message === 'invalid-cost') {
+                    showNotification('error', 'التكلفة غير صالحة');
+                    return;
+                }
+                if (error && error.message === 'invalid-margin') {
+                    showNotification('error', 'نسبة الهامش غير صالحة');
+                    return;
+                }
                 if (error && error.message === 'invalid-price') {
                     showNotification('error', 'السعر غير صالح');
                     return;
@@ -2881,9 +3297,17 @@ function adminLogout(){
             document.getElementById('productName').value = p.name || '';
             document.getElementById('productDesc').value = p.desc || '';
             document.getElementById('productCategory').value = p.category || '';
+            renderSupplierOptions();
+            document.getElementById('productSupplierId').value = p.supplierId || '';
+            document.getElementById('productCode').value = p.code || '';
+            document.getElementById('productCostPrice').value = p.costPrice ?? p.price ?? '';
+            document.getElementById('productMarginPercent').value = p.marginPercent ?? 0;
             document.getElementById('productPrice').value = p.price ?? '';
             document.getElementById('productOldPrice').value = p.oldPrice ?? '';
+            document.getElementById('productManualPriceOverride').checked = p.manualPriceOverride === true;
+            document.getElementById('productManualPriceReason').value = p.manualPriceReason || '';
             document.getElementById('productIsPublished').checked = p.isPublished !== false;
+            recalculateProductPricingFromForm();
 
             const img = p.image || '';
             document.getElementById('finalImg').value = img;
@@ -2947,8 +3371,15 @@ function adminLogout(){
                 'productName',
                 'productDesc',
                 'productCategory',
+                'productSupplierId',
+                'productCode',
+                'productCostPrice',
+                'productMarginPercent',
                 'productPrice',
                 'productOldPrice',
+                'productProfitValue',
+                'productProfitMarginActual',
+                'productManualPriceReason',
                 'manualImg',
                 'finalImg',
                 'imgFile'
@@ -2974,9 +3405,289 @@ function adminLogout(){
 
             const productIsPublished = document.getElementById('productIsPublished');
             if (productIsPublished) productIsPublished.checked = true;
+            const productManualPriceOverride = document.getElementById('productManualPriceOverride');
+            if (productManualPriceOverride) productManualPriceOverride.checked = false;
+
+            const defaultCostInput = document.getElementById('productCostPrice');
+            if (defaultCostInput && !defaultCostInput.value) defaultCostInput.value = '0';
+            const defaultMarginInput = document.getElementById('productMarginPercent');
+            if (defaultMarginInput && !defaultMarginInput.value) defaultMarginInput.value = '0';
 
             const title = document.getElementById('productModalTitle');
             if (title) title.textContent = '➕ منتج جديد';
+            renderSupplierOptions();
+            recalculateProductPricingFromForm();
+        }
+
+        function renderSuppliersTable() {
+            const tbody = document.getElementById('suppliersTable');
+            if (!tbody) return;
+            if (!Array.isArray(suppliers) || suppliers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">🏭</div><p>لا يوجد موردون</p></div></td></tr>';
+                return;
+            }
+
+            const rows = [...suppliers].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+            tbody.innerHTML = rows.map((supplier) => `
+                <tr>
+                    <td><strong>${escapeHtml(supplier.name || '-')}</strong></td>
+                    <td>${escapeHtml(supplier.code || '-')}</td>
+                    <td>${Number(supplier.defaultMarginPercent || 0).toFixed(2)}%</td>
+                    <td>${escapeHtml(supplier.contactName || supplier.phone || '-')}</td>
+                    <td><span class="status-badge ${supplier.active === false ? 'status-hidden' : 'status-published'}">${supplier.active === false ? 'مؤرشف' : 'نشط'}</span></td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="action-btn edit" onclick="editSupplier('${supplier.id}')">✏️</button>
+                            <button class="action-btn ${supplier.active === false ? 'publish' : 'hide'}" onclick="toggleSupplierArchive('${supplier.id}', ${supplier.active === false ? 'true' : 'false'})">${supplier.active === false ? '♻️' : '🗂️'}</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openSupplierModal() {
+            resetSupplierForm();
+            openModal('supplierModal');
+        }
+
+        function resetSupplierForm() {
+            const ids = ['supplierId', 'supplierName', 'supplierCode', 'supplierContactName', 'supplierPhone', 'supplierDefaultMargin', 'supplierNotes'];
+            ids.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const activeInput = document.getElementById('supplierActive');
+            if (activeInput) activeInput.checked = true;
+            const title = document.getElementById('supplierModalTitle');
+            if (title) title.textContent = '🏭 مورد جديد';
+        }
+
+        function editSupplier(id) {
+            const supplier = (suppliers || []).find((item) => String(item.id) === String(id));
+            if (!supplier) return;
+            document.getElementById('supplierId').value = supplier.id || '';
+            document.getElementById('supplierName').value = supplier.name || '';
+            document.getElementById('supplierCode').value = supplier.code || '';
+            document.getElementById('supplierContactName').value = supplier.contactName || '';
+            document.getElementById('supplierPhone').value = supplier.phone || '';
+            document.getElementById('supplierDefaultMargin').value = supplier.defaultMarginPercent ?? 0;
+            document.getElementById('supplierNotes').value = supplier.notes || '';
+            document.getElementById('supplierActive').checked = supplier.active !== false;
+            const title = document.getElementById('supplierModalTitle');
+            if (title) title.textContent = '✏️ تعديل المورد';
+            openModal('supplierModal');
+        }
+
+        async function saveSupplier(event) {
+            event.preventDefault();
+            const id = String(document.getElementById('supplierId').value || '').trim();
+            const payload = {
+                name: String(document.getElementById('supplierName').value || '').trim(),
+                code: String(document.getElementById('supplierCode').value || '').trim().toUpperCase(),
+                contactName: String(document.getElementById('supplierContactName').value || '').trim(),
+                phone: String(document.getElementById('supplierPhone').value || '').trim(),
+                defaultMarginPercent: Number(parseMoney(document.getElementById('supplierDefaultMargin').value) || 0),
+                notes: String(document.getElementById('supplierNotes').value || '').trim(),
+                active: document.getElementById('supplierActive').checked
+            };
+
+            if (!payload.name || !payload.code) {
+                showNotification('error', 'اسم المورد والكود مطلوبان');
+                return;
+            }
+
+            const duplicate = (suppliers || []).find((item) =>
+                String(item.code || '').toUpperCase() === payload.code
+                && String(item.id || '') !== id
+            );
+            if (duplicate) {
+                showNotification('error', 'كود المورد مستخدم بالفعل');
+                return;
+            }
+
+            const online = navigator.onLine === true;
+            try {
+                if (online) {
+                    await requireAdminPermission();
+                    if (id) {
+                        if (typeof updateSupplier !== 'function') throw new Error('updateSupplier unavailable');
+                        await updateSupplier(id, payload);
+                    } else {
+                        if (typeof addSupplier !== 'function') throw new Error('addSupplier unavailable');
+                        payload.id = await addSupplier(payload);
+                    }
+                } else if (!id) {
+                    payload.id = `supplier_tmp_${Date.now()}`;
+                    showNotification('info', 'المورد أُضيف محليًا، وسيتم رفعه عند عودة الاتصال');
+                } else {
+                    showNotification('info', 'تم تحديث المورد محليًا، ارفع التغييرات عند عودة الاتصال');
+                }
+            } catch (error) {
+                console.error('saveSupplier error:', error);
+                showNotification('error', 'فشل حفظ المورد');
+                return;
+            }
+
+            if (id) {
+                suppliers = (suppliers || []).map((item) => (
+                    String(item.id) === id
+                        ? { ...item, ...payload, id }
+                        : item
+                ));
+            } else {
+                suppliers = [...(suppliers || []), {
+                    id: payload.id || `supplier_${Date.now()}`,
+                    createdAt: new Date().toISOString(),
+                    ...payload
+                }];
+            }
+
+            suppliers = ensureSuppliersSchema(suppliers);
+            saveSuppliers();
+            renderSuppliersTable();
+            renderSupplierOptions();
+            renderAdminSupplierFilterOptions();
+            updateBadges();
+            closeModal('supplierModal');
+            resetSupplierForm();
+            showNotification('success', id ? 'تم تحديث المورد' : 'تم إضافة المورد');
+        }
+
+        async function toggleSupplierArchive(id, restore = false) {
+            const supplierId = String(id || '').trim();
+            if (!supplierId) return;
+            const idx = (suppliers || []).findIndex((item) => String(item.id) === supplierId);
+            if (idx === -1) return;
+
+            const nextActiveState = restore === true;
+            if (navigator.onLine === true) {
+                try {
+                    await requireAdminPermission();
+                    if (nextActiveState && typeof updateSupplier === 'function') {
+                        await updateSupplier(supplierId, { active: true });
+                    } else if (!nextActiveState && typeof archiveSupplier === 'function') {
+                        await archiveSupplier(supplierId);
+                    } else if (typeof updateSupplier === 'function') {
+                        await updateSupplier(supplierId, { active: nextActiveState });
+                    }
+                } catch (error) {
+                    console.error('toggleSupplierArchive error:', error);
+                    showNotification('error', 'فشل تحديث حالة المورد');
+                    return;
+                }
+            }
+
+            suppliers[idx] = { ...suppliers[idx], active: nextActiveState };
+            saveSuppliers();
+            renderSuppliersTable();
+            renderSupplierOptions();
+            renderAdminSupplierFilterOptions();
+            updateBadges();
+            showNotification('success', nextActiveState ? 'تم إعادة تفعيل المورد' : 'تم أرشفة المورد');
+        }
+
+        async function assignSupplierToSelectionPrompt() {
+            const supplierOptions = (suppliers || []).filter((item) => item && item.active !== false);
+            if (!supplierOptions.length) {
+                showNotification('error', 'لا يوجد موردون نشطون');
+                return;
+            }
+
+            const supplierCode = prompt(`أدخل كود المورد (${supplierOptions.map((item) => item.code).join(' / ')})`);
+            if (!supplierCode) return;
+            const supplier = supplierOptions.find((item) => String(item.code || '').toUpperCase() === String(supplierCode || '').trim().toUpperCase());
+            if (!supplier) {
+                showNotification('error', 'المورد غير موجود');
+                return;
+            }
+
+            const idsInput = prompt('أدخل معرفات المنتجات مفصولة بفاصلة، أو اتركه فارغًا لتطبيق المورد على جميع المنتجات الحالية');
+            const candidateIds = idsInput
+                ? idsInput.split(',').map((item) => item.trim()).filter(Boolean)
+                : (products || []).map((item) => String(item.id || '')).filter(Boolean);
+            if (!candidateIds.length) {
+                showNotification('error', 'لا يوجد منتجات للتحديث');
+                return;
+            }
+
+            const marginInput = prompt('هامش اختياري % (اتركه فارغًا لاستخدام هامش المنتج الحالي)', String(supplier.defaultMarginPercent || ''));
+            const marginValue = marginInput === '' ? null : Number(parseMoney(marginInput));
+
+            try {
+                if (navigator.onLine === true && typeof assignSupplierToProducts === 'function') {
+                    await requireAdminPermission();
+                    await assignSupplierToProducts(candidateIds, supplier.id, Number.isFinite(marginValue) ? marginValue : null);
+                }
+
+                const targetSet = new Set(candidateIds.map((id) => String(id)));
+                products = (products || []).map((product) => {
+                    if (!targetSet.has(String(product.id || ''))) return product;
+                    const marginPercent = Number.isFinite(marginValue) ? marginValue : Number(product.marginPercent || supplier.defaultMarginPercent || 0);
+                    return normalizeProductForStorage({
+                        ...product,
+                        supplierId: supplier.id,
+                        supplierName: supplier.name,
+                        supplierCode: supplier.code,
+                        marginPercent
+                    }, {
+                        isPublished: product.isPublished !== false,
+                        category: product.category
+                    });
+                });
+
+                saveProducts();
+                renderProductsTable();
+                updateStats();
+                showNotification('success', `تم تعيين المورد على ${candidateIds.length} منتج`);
+            } catch (error) {
+                console.error('assignSupplierToSelectionPrompt error:', error);
+                showNotification('error', 'فشل تعيين المورد');
+            }
+        }
+
+        async function recalculateSupplierPrompt() {
+            const supplierOptions = (suppliers || []).filter((item) => item && item.active !== false);
+            if (!supplierOptions.length) {
+                showNotification('error', 'لا يوجد موردون نشطون');
+                return;
+            }
+            const supplierCode = prompt(`أدخل كود المورد لإعادة التسعير (${supplierOptions.map((item) => item.code).join(' / ')})`);
+            if (!supplierCode) return;
+            const supplier = supplierOptions.find((item) => String(item.code || '').toUpperCase() === String(supplierCode || '').trim().toUpperCase());
+            if (!supplier) {
+                showNotification('error', 'المورد غير موجود');
+                return;
+            }
+
+            const overwriteManual = confirm('موافق = إعادة التسعير حتى للمنتجات ذات السعر اليدوي\nإلغاء = الحفاظ على المنتجات ذات التثبيت اليدوي');
+            const mode = overwriteManual ? 'overwrite_manual' : 'preserve_manual';
+
+            try {
+                if (navigator.onLine === true && typeof recalculateSupplierPrices === 'function') {
+                    await requireAdminPermission();
+                    await recalculateSupplierPrices(supplier.id, mode);
+                }
+
+                products = (products || []).map((product) => {
+                    if (String(product.supplierId || '') !== String(supplier.id || '')) return product;
+                    if (mode === 'preserve_manual' && product.manualPriceOverride === true) return product;
+                    return normalizeProductForStorage({
+                        ...product,
+                        manualPriceOverride: mode === 'overwrite_manual' ? false : product.manualPriceOverride
+                    }, {
+                        isPublished: product.isPublished !== false,
+                        category: product.category
+                    });
+                });
+
+                saveProducts();
+                renderProductsTable();
+                updateStats();
+                showNotification('success', 'تمت إعادة التسعير بنجاح');
+            } catch (error) {
+                console.error('recalculateSupplierPrompt error:', error);
+                showNotification('error', 'فشل إعادة التسعير');
+            }
         }
 
         // ============================================
@@ -3541,6 +4252,10 @@ function adminLogout(){
             document.getElementById('storeName').value = storeSettings.name || '';
             document.getElementById('storeTagline').value = storeSettings.tagline || '';
             document.getElementById('storeDescription').value = storeSettings.description || '';
+            document.getElementById('storeFaqIntents').value = JSON.stringify(storeSettings.faqIntents || [], null, 2);
+            document.getElementById('tawkPropertyId').value = storeSettings.chatSupport?.tawkPropertyId || '';
+            document.getElementById('tawkWidgetId').value = storeSettings.chatSupport?.tawkWidgetId || '';
+            document.getElementById('tawkEnabled').checked = storeSettings.chatSupport?.enableTawk === true;
             document.getElementById('topBarText').value = storeSettings.topBar?.text || '';
             document.getElementById('topBarBgColor').value = storeSettings.topBar?.bgColor || '#0A1128';
             document.getElementById('topBarTextColor').value = storeSettings.topBar?.textColor || '#F4E4BC';
@@ -3561,6 +4276,23 @@ function adminLogout(){
             storeSettings.name = document.getElementById('storeName').value.trim();
             storeSettings.tagline = document.getElementById('storeTagline').value.trim();
             storeSettings.description = document.getElementById('storeDescription').value.trim();
+            const faqRaw = document.getElementById('storeFaqIntents').value.trim();
+            if (faqRaw) {
+                try {
+                    const parsed = JSON.parse(faqRaw);
+                    storeSettings.faqIntents = Array.isArray(parsed) ? parsed : [];
+                } catch (error) {
+                    showNotification('error', 'JSON FAQ غير صالح');
+                    return;
+                }
+            } else {
+                storeSettings.faqIntents = [];
+            }
+            storeSettings.chatSupport = {
+                enableTawk: document.getElementById('tawkEnabled').checked,
+                tawkPropertyId: document.getElementById('tawkPropertyId').value.trim(),
+                tawkWidgetId: document.getElementById('tawkWidgetId').value.trim()
+            };
             saveStoreSettings();
             showNotification('success', 'تم الحفظ');
         }
@@ -3845,7 +4577,12 @@ function adminLogout(){
                 'الاسم': p.name,
                 'الوصف': p.desc,
                 'القسم': getCategoryName(p.category),
+                'المورد': p.supplierName || '',
                 'السعر': p.price,
+                'التكلفة': p.costPrice || 0,
+                'هامش التسعير %': p.marginPercent || 0,
+                'الربح': p.profitValue || 0,
+                'هامش الربح الفعلي %': p.profitMarginActual || 0,
                 'السعر القديم': p.oldPrice || '',
                 'التقييم': p.rating,
                 'الصورة': p.image,
@@ -3878,7 +4615,10 @@ function adminLogout(){
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(products.map((p) => ({
                 'الاسم': p.name,
                 'القسم': getCategoryName(p.category),
+                'المورد': p.supplierName || '',
                 'السعر': p.price,
+                'التكلفة': p.costPrice || 0,
+                'الربح': p.profitValue || 0,
                 'الحالة': p.isPublished === false ? 'مخفي' : 'منشور',
                 'دفعة الاستيراد': p.importBatchId || ''
             }))), 'المنتجات');
@@ -4844,7 +5584,7 @@ function adminLogout(){
             document.getElementById(name + 'Section').classList.add('active');
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
             event?.target?.classList.add('active');
-            const titles = { overview: '📊 نظرة عامة', products: '📦 المنتجات', orders: '🛍️ الطلبات', banners: '🎠 البانرات', coupons: '🎫 الكوبونات', users: '👥 العملاء', loyalty: '💎 نقاط الولاء', reports: '📈 التقارير', storeSettings: '🏪 المتجر', settings: '⚙️ النظام' };
+            const titles = { overview: '📊 نظرة عامة', products: '📦 المنتجات', suppliers: '🏭 الموردين', orders: '🛍️ الطلبات', banners: '🎠 البانرات', coupons: '🎫 الكوبونات', users: '👥 العملاء', loyalty: '💎 نقاط الولاء', reports: '📈 التقارير', storeSettings: '🏪 المتجر', settings: '⚙️ النظام' };
             document.getElementById('pageTitle').textContent = titles[name] || name;
             document.getElementById('sidebar').classList.remove('active');
             document.getElementById('overlay').classList.remove('active');
@@ -4863,9 +5603,15 @@ function adminLogout(){
         }
 
         function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function openProductModal() {
+            resetProductForm();
+            renderSupplierOptions();
+            openModal('productModal');
+        }
         function closeModal(modalId) {
   document.getElementById(modalId)?.classList.remove('active');
   if (modalId === 'productModal') resetProductForm();
+  if (modalId === 'supplierModal') resetSupplierForm();
   if (modalId === 'importWizardModal') resetImportWizardState();
 }
 
@@ -4996,6 +5742,84 @@ function adminLogout(){
             if (localStorage.getItem(SAMPLE_PURGE_FLAG) === '1') return;
             const ok = await purgeSampleData(true);
             if (ok) localStorage.setItem(SAMPLE_PURGE_FLAG, '1');
+        }
+
+        async function runProductsSchemaMigration() {
+            if (!Array.isArray(products) || !products.length) {
+                showNotification('error', 'لا توجد منتجات للترحيل');
+                return;
+            }
+
+            if (!confirm(`سيتم ترحيل ${products.length} منتج إلى schema الربحية/الموردين. متابعة؟`)) return;
+
+            const report = {
+                total: products.length,
+                localUpdated: 0,
+                firebaseUpdated: 0,
+                failed: 0,
+                failedIds: []
+            };
+
+            const migrated = [];
+            for (const item of products) {
+                try {
+                    const normalized = normalizeProductForStorage({
+                        ...item,
+                        costPrice: Number.isFinite(Number(item.costPrice)) ? Number(item.costPrice) : Number(item.price || 0),
+                        marginPercent: Number.isFinite(Number(item.marginPercent)) ? Number(item.marginPercent) : 0,
+                        sellPrice: Number.isFinite(Number(item.sellPrice)) ? Number(item.sellPrice) : Number(item.price || 0),
+                        manualPriceOverride: item.manualPriceOverride === true ? true : false
+                    }, {
+                        isPublished: item.isPublished !== false,
+                        category: item.category
+                    });
+                    migrated.push(normalized);
+                    report.localUpdated += 1;
+                } catch (_) {
+                    report.failed += 1;
+                    report.failedIds.push(String(item && item.id || 'unknown'));
+                    migrated.push(item);
+                }
+            }
+
+            products = migrated;
+            saveProducts();
+            renderProductsTable();
+            updateStats();
+
+            if (navigator.onLine === true && typeof updateProduct === 'function') {
+                try {
+                    await requireAdminPermission();
+                    for (const product of products) {
+                        try {
+                            if (!product || !product.id || String(product.id).startsWith('tmp_')) continue;
+                            const payload = { ...product };
+                            delete payload.id;
+                            await updateProduct(product.id, payload);
+                            report.firebaseUpdated += 1;
+                        } catch (_) {
+                            report.failed += 1;
+                            report.failedIds.push(String(product && product.id || 'unknown'));
+                        }
+                    }
+                } catch (error) {
+                    console.warn('runProductsSchemaMigration online sync warning:', error);
+                }
+            }
+
+            const output = [
+                '✅ Migration report',
+                `- Total: ${report.total}`,
+                `- Local updated: ${report.localUpdated}`,
+                `- Firebase updated: ${report.firebaseUpdated}`,
+                `- Failed: ${report.failed}`,
+                report.failedIds.length ? `- Failed IDs: ${report.failedIds.join(', ')}` : ''
+            ].filter(Boolean).join('\n');
+
+            const preflightOutput = document.getElementById('preflightOutput');
+            if (preflightOutput) preflightOutput.textContent = output;
+            openModal('preflightModal');
+            showNotification(report.failed ? 'warning' : 'success', report.failed ? 'تم الترحيل مع بعض الإخفاقات' : 'تم ترحيل المنتجات بنجاح');
         }
 
         async function runPreflightCheck() {

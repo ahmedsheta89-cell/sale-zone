@@ -141,6 +141,80 @@ async function deleteBanner(id) {
 // ==========================================
 // PRODUCTS
 // ==========================================
+function toFiniteNumber(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : Number(fallback) || 0;
+}
+
+function roundMoney(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.round((parsed + Number.EPSILON) * 100) / 100;
+}
+
+function normalizeSearchText(value) {
+    return String(value || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[\u064b-\u065f]/g, '')
+        .replace(/[أإآ]/g, 'ا')
+        .replace(/[ة]/g, 'ه')
+        .replace(/[ى]/g, 'ي')
+        .replace(/[^a-z0-9\u0621-\u064a\s-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function tokenizeSearchText(value) {
+    return normalizeSearchText(value)
+        .split(' ')
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 2);
+}
+
+function buildProductSearchTokens(product) {
+    const source = product && typeof product === 'object' ? product : {};
+    const tokenSet = new Set();
+    const addTokens = (value) => tokenizeSearchText(value).forEach((token) => tokenSet.add(token));
+
+    addTokens(source.name);
+    addTokens(source.desc);
+    addTokens(source.code);
+    addTokens(source.category);
+    addTokens(source.supplierName);
+    addTokens(source.supplierCode);
+
+    return Array.from(tokenSet).slice(0, 120);
+}
+
+function normalizePricingFields(input) {
+    const source = input && typeof input === 'object' ? input : {};
+    const priceFallback = toFiniteNumber(source.price, 0);
+    const costRaw = toFiniteNumber(source.costPrice, priceFallback);
+    const costPrice = roundMoney(Math.max(0, costRaw));
+
+    const marginRaw = toFiniteNumber(source.marginPercent, 0);
+    const marginPercent = roundMoney(Math.max(0, Math.min(1000, marginRaw)));
+    const manualPriceOverride = source.manualPriceOverride === true;
+
+    const autoSellPrice = roundMoney(costPrice * (1 + (marginPercent / 100)));
+    const requestedSellPrice = roundMoney(Math.max(0, toFiniteNumber(source.sellPrice, autoSellPrice)));
+    const sellPrice = manualPriceOverride ? requestedSellPrice : autoSellPrice;
+    const profitValue = roundMoney(sellPrice - costPrice);
+    const profitMarginActual = sellPrice > 0 ? roundMoney((profitValue / sellPrice) * 100) : 0;
+
+    return {
+        costPrice,
+        marginPercent,
+        sellPrice,
+        price: sellPrice,
+        profitValue,
+        profitMarginActual,
+        manualPriceOverride,
+        manualPriceReason: String(source.manualPriceReason || '').trim().slice(0, 300)
+    };
+}
+
 function normalizeProductPayloadForWrite(product, options = {}) {
     const input = product && typeof product === 'object' ? product : {};
     const nowIso = new Date().toISOString();
@@ -150,14 +224,33 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     const isPublished = hasIsPublished ? input.isPublished !== false : (defaults.isPublished !== false);
     const visibilityState = isPublished ? 'published' : 'hidden';
 
+    const pricing = normalizePricingFields({
+        price: input.price,
+        costPrice: Object.prototype.hasOwnProperty.call(input, 'costPrice') ? input.costPrice : defaults.costPrice,
+        marginPercent: Object.prototype.hasOwnProperty.call(input, 'marginPercent') ? input.marginPercent : defaults.marginPercent,
+        sellPrice: Object.prototype.hasOwnProperty.call(input, 'sellPrice') ? input.sellPrice : defaults.sellPrice,
+        manualPriceOverride: Object.prototype.hasOwnProperty.call(input, 'manualPriceOverride') ? input.manualPriceOverride : defaults.manualPriceOverride,
+        manualPriceReason: Object.prototype.hasOwnProperty.call(input, 'manualPriceReason') ? input.manualPriceReason : defaults.manualPriceReason
+    });
+
+    const mergedForTokens = { ...defaults, ...input, ...pricing };
+    const searchTokens = Array.isArray(input.searchTokens) && input.searchTokens.length
+        ? input.searchTokens.map((token) => normalizeSearchText(token)).filter(Boolean).slice(0, 120)
+        : buildProductSearchTokens(mergedForTokens);
+
     return {
         ...input,
+        supplierId: String(input.supplierId || defaults.supplierId || ''),
+        supplierName: String(input.supplierName || defaults.supplierName || ''),
+        supplierCode: String(input.supplierCode || defaults.supplierCode || ''),
+        ...pricing,
         isPublished,
         visibilityState,
         importBatchId: input.importBatchId || defaults.importBatchId || '',
         importSource: input.importSource || defaults.importSource || '',
+        searchTokens,
         createdAt: input.createdAt || defaults.createdAt || nowIso,
-        updatedAt: input.updatedAt || nowIso
+        updatedAt: nowIso
     };
 }
 
@@ -179,6 +272,17 @@ async function getAllProducts() {
                 ratingCount: data.ratingCount || 0,
                 code: data.code || '',
                 stock: Number.isFinite(Number(data.stock)) ? Number(data.stock) : -1,
+                supplierId: data.supplierId || '',
+                supplierName: data.supplierName || '',
+                supplierCode: data.supplierCode || '',
+                costPrice: Number.isFinite(Number(data.costPrice)) ? Number(data.costPrice) : Number(data.price || 0),
+                marginPercent: Number.isFinite(Number(data.marginPercent)) ? Number(data.marginPercent) : 0,
+                sellPrice: Number.isFinite(Number(data.sellPrice)) ? Number(data.sellPrice) : Number(data.price || 0),
+                profitValue: Number.isFinite(Number(data.profitValue)) ? Number(data.profitValue) : 0,
+                profitMarginActual: Number.isFinite(Number(data.profitMarginActual)) ? Number(data.profitMarginActual) : 0,
+                manualPriceOverride: data.manualPriceOverride === true,
+                manualPriceReason: String(data.manualPriceReason || ''),
+                searchTokens: Array.isArray(data.searchTokens) ? data.searchTokens : buildProductSearchTokens(data),
                 isPublished: data.isPublished !== false,
                 visibilityState: data.visibilityState || (data.isPublished === false ? 'hidden' : 'published'),
                 importBatchId: data.importBatchId || '',
@@ -210,17 +314,19 @@ async function addProduct(product) {
 async function updateProduct(id, data) {
     try {
         const db = getFirebaseDB();
-        const updatePayload = {
-            ...(data && typeof data === 'object' ? data : {}),
-            updatedAt: new Date().toISOString()
-        };
-
-        if (Object.prototype.hasOwnProperty.call(updatePayload, 'isPublished')) {
-            updatePayload.isPublished = updatePayload.isPublished !== false;
-            updatePayload.visibilityState = updatePayload.isPublished ? 'published' : 'hidden';
-        }
-
-        await db.collection('products').doc(id).set(updatePayload, { merge: true });
+        const payload = data && typeof data === 'object' ? data : {};
+        const ref = db.collection('products').doc(String(id));
+        const existingDoc = await ref.get();
+        const existing = existingDoc.exists ? (existingDoc.data() || {}) : {};
+        const normalizedPayload = normalizeProductPayloadForWrite({
+            ...existing,
+            ...payload
+        }, {
+            defaults: {
+                isPublished: existing.isPublished !== false
+            }
+        });
+        await ref.set(normalizedPayload, { merge: true });
         console.log('[OK] Product updated in Firebase:', id);
     } catch (e) {
         console.error('updateProduct error:', e);
@@ -375,6 +481,205 @@ async function getAllUsers() {
         console.error('getAllUsers error:', e);
         return null;
     }
+}
+
+async function searchProductsIndexed(query, filters = {}, sort = 'default', page = 1, pageSize = 24) {
+    const normalize = (value) => normalizeSearchText(value || '');
+    const queryText = normalize(query);
+    const safeFilters = filters && typeof filters === 'object' ? filters : {};
+    const safePageSize = Math.max(1, Math.min(120, Number(pageSize) || 24));
+    const safePage = Math.max(1, Number(page) || 1);
+
+    const products = await getAllProducts();
+    const list = Array.isArray(products) ? products : [];
+
+    let rows = list.filter((item) => item && item.isPublished !== false);
+
+    if (safeFilters.category && safeFilters.category !== 'all') {
+        rows = rows.filter((item) => String(item.category || '') === String(safeFilters.category));
+    }
+    if (safeFilters.supplierId) {
+        rows = rows.filter((item) => String(item.supplierId || '') === String(safeFilters.supplierId));
+    }
+
+    const minPrice = Number(safeFilters.minPrice);
+    const maxPrice = Number(safeFilters.maxPrice);
+    if (Number.isFinite(minPrice)) rows = rows.filter((item) => Number(item.sellPrice || item.price || 0) >= minPrice);
+    if (Number.isFinite(maxPrice)) rows = rows.filter((item) => Number(item.sellPrice || item.price || 0) <= maxPrice);
+    if (safeFilters.inStock === true) rows = rows.filter((item) => Number(item.stock || 0) > 0);
+
+    if (queryText) {
+        const queryTokens = queryText.split(' ').filter(Boolean);
+        rows = rows.filter((item) => {
+            const haystack = normalize([
+                item.name,
+                item.desc,
+                item.code,
+                item.category,
+                item.supplierName,
+                ...(Array.isArray(item.searchTokens) ? item.searchTokens : [])
+            ].join(' '));
+            return queryTokens.every((token) => haystack.includes(token));
+        });
+    }
+
+    switch (String(sort || 'default')) {
+        case 'price-low':
+            rows.sort((a, b) => Number(a.sellPrice || a.price || 0) - Number(b.sellPrice || b.price || 0));
+            break;
+        case 'price-high':
+            rows.sort((a, b) => Number(b.sellPrice || b.price || 0) - Number(a.sellPrice || a.price || 0));
+            break;
+        case 'rating':
+            rows.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
+            break;
+        case 'name':
+            rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+            break;
+        case 'updated':
+            rows.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+            break;
+        default:
+            rows.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+            break;
+    }
+
+    const total = rows.length;
+    const totalPages = Math.max(1, Math.ceil(total / safePageSize));
+    const currentPage = Math.min(safePage, totalPages);
+    const start = (currentPage - 1) * safePageSize;
+
+    return {
+        items: rows.slice(start, start + safePageSize),
+        total,
+        page: currentPage,
+        pageSize: safePageSize,
+        totalPages
+    };
+}
+
+// ==========================================
+// SUPPLIERS
+// ==========================================
+function normalizeSupplierPayload(payload, defaults = {}) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const base = defaults && typeof defaults === 'object' ? defaults : {};
+    const nowIso = new Date().toISOString();
+    return {
+        name: String(source.name || base.name || '').trim(),
+        code: String(source.code || base.code || '').trim().toUpperCase(),
+        contactName: String(source.contactName || base.contactName || '').trim(),
+        phone: String(source.phone || base.phone || '').trim(),
+        notes: String(source.notes || base.notes || '').trim(),
+        defaultMarginPercent: roundMoney(Math.max(0, Math.min(1000, toFiniteNumber(source.defaultMarginPercent, base.defaultMarginPercent || 0)))),
+        active: source.active !== false,
+        createdAt: source.createdAt || base.createdAt || nowIso,
+        updatedAt: nowIso
+    };
+}
+
+async function getSuppliers() {
+    try {
+        const db = getFirebaseDB();
+        const snapshot = await db.collection('suppliers').orderBy('name', 'asc').get();
+        return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.error('getSuppliers error:', e);
+        return null;
+    }
+}
+
+async function addSupplier(payload) {
+    try {
+        const db = getFirebaseDB();
+        const normalized = normalizeSupplierPayload(payload);
+        const docRef = await db.collection('suppliers').add(normalized);
+        console.log('[OK] Supplier added to Firebase:', docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('addSupplier error:', e);
+        throw e;
+    }
+}
+
+async function updateSupplier(id, payload) {
+    try {
+        const db = getFirebaseDB();
+        const ref = db.collection('suppliers').doc(String(id));
+        const snapshot = await ref.get();
+        const current = snapshot.exists ? (snapshot.data() || {}) : {};
+        const normalized = normalizeSupplierPayload(payload, current);
+        await ref.set(normalized, { merge: true });
+        console.log('[OK] Supplier updated in Firebase:', id);
+    } catch (e) {
+        console.error('updateSupplier error:', e);
+        throw e;
+    }
+}
+
+async function archiveSupplier(id) {
+    try {
+        const db = getFirebaseDB();
+        await db.collection('suppliers').doc(String(id)).set({
+            active: false,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('[OK] Supplier archived in Firebase:', id);
+    } catch (e) {
+        console.error('archiveSupplier error:', e);
+        throw e;
+    }
+}
+
+async function assignSupplierToProducts(productIds, supplierId, marginPercent = null) {
+    const ids = Array.isArray(productIds) ? productIds.map((id) => String(id || '').trim()).filter(Boolean) : [];
+    if (!ids.length) return 0;
+
+    const supplier = String(supplierId || '').trim();
+    if (!supplier) throw new Error('supplierId is required');
+
+    const products = await getAllProducts();
+    const sourceRows = Array.isArray(products) ? products : [];
+    let updated = 0;
+
+    for (const id of ids) {
+        const current = sourceRows.find((row) => String(row.id) === id) || { id };
+        const patch = {
+            supplierId: supplier
+        };
+        if (marginPercent !== null && marginPercent !== undefined && marginPercent !== '') {
+            patch.marginPercent = roundMoney(Math.max(0, Math.min(1000, Number(marginPercent))));
+        } else if (Number.isFinite(Number(current.marginPercent))) {
+            patch.marginPercent = Number(current.marginPercent);
+        }
+        await updateProduct(id, patch);
+        updated += 1;
+    }
+
+    return updated;
+}
+
+async function recalculateSupplierPrices(supplierId, mode = 'preserve_manual') {
+    const supplier = String(supplierId || '').trim();
+    if (!supplier) throw new Error('supplierId is required');
+
+    const products = await getAllProducts();
+    const rows = (Array.isArray(products) ? products : []).filter((row) => String(row.supplierId || '') === supplier);
+    let updated = 0;
+
+    for (const row of rows) {
+        const isManual = row.manualPriceOverride === true;
+        if (mode === 'preserve_manual' && isManual) continue;
+
+        await updateProduct(String(row.id), {
+            costPrice: Number.isFinite(Number(row.costPrice)) ? Number(row.costPrice) : Number(row.price || 0),
+            marginPercent: Number.isFinite(Number(row.marginPercent)) ? Number(row.marginPercent) : 0,
+            manualPriceOverride: mode === 'overwrite_manual' ? false : isManual
+        });
+        updated += 1;
+    }
+
+    return updated;
 }
 
 // Reduce noisy write retries when transport is unstable.

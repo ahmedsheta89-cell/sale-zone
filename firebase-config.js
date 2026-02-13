@@ -26,31 +26,7 @@ function isLocalLikeHost(hostname) {
 const hostname = window.location.hostname || "";
 const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
 const isLocalDev = isLocalLikeHost(hostname);
-const urlParams = new URLSearchParams(window.location.search || "");
-const longPollingParam = urlParams.get("lp");
-const isFirefoxFamily = /firefox|fxios/i.test(navigator.userAgent || "");
 const shouldApplyStableTransport = isLocalDev || isGithubPages;
-const transportModeStorageKey = "sale_zone_firestore_transport_mode";
-
-let desiredTransportMode = "";
-try {
-    const persistedMode = String(localStorage.getItem(transportModeStorageKey) || "");
-    if (longPollingParam === "1") {
-        desiredTransportMode = "force";
-    } else if (longPollingParam === "0") {
-        desiredTransportMode = "auto";
-    } else if (persistedMode === "force" || persistedMode === "auto") {
-        desiredTransportMode = persistedMode;
-    } else if (isGithubPages) {
-        desiredTransportMode = "force";
-    } else {
-        desiredTransportMode = isFirefoxFamily ? "force" : "auto";
-    }
-} catch (_) {
-    desiredTransportMode = (isGithubPages || isFirefoxFamily) ? "force" : "auto";
-}
-
-const shouldForceLongPolling = desiredTransportMode === "force";
 
 // Initialize Firebase
 if (!firebase.apps.length) {
@@ -64,36 +40,15 @@ const db = firebase.firestore();
 if (shouldApplyStableTransport) {
     try {
         if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
-            const existingMode = String(window.__FIRESTORE_STABLE_TRANSPORT_MODE__ || '');
-            if (existingMode && existingMode !== desiredTransportMode) {
-                console.warn(`Firestore transport mode already set to "${existingMode}" in this page; keeping it.`);
-                window.__FIRESTORE_SETTINGS_APPLIED__ = true;
-            }
-
-            const settings = {
+            // Keep one deterministic mode to avoid runtime conflicts from mixed cached scripts.
+            db.settings({
+                experimentalForceLongPolling: true,
                 useFetchStreams: false
-            };
-
-            if (shouldForceLongPolling) {
-                settings.experimentalForceLongPolling = true;
-            } else {
-                settings.experimentalAutoDetectLongPolling = true;
-            }
-
-            if (!window.__FIRESTORE_SETTINGS_APPLIED__) {
-                db.settings(settings);
-                window.__FIRESTORE_SETTINGS_APPLIED__ = true;
-                window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = desiredTransportMode;
-                try {
-                    localStorage.setItem(transportModeStorageKey, desiredTransportMode);
-                } catch (_) {}
-            }
+            });
+            window.__FIRESTORE_SETTINGS_APPLIED__ = true;
+            window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = "force";
         }
-        if (shouldForceLongPolling) {
-            console.log("Firestore stable transport enabled (force long-polling)");
-        } else {
-            console.log("Firestore stable transport enabled (auto long-polling)");
-        }
+        console.log("Firestore stable transport enabled (force long-polling)");
     } catch (e) {
         // Non-fatal:
         // - settings already applied in this page lifecycle

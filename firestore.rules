@@ -42,7 +42,9 @@ service cloud.firestore {
         "address",
         "password",
         "loyaltyPoints",
-        "createdAt"
+        "status",
+        "createdAt",
+        "updatedAt"
       ])
       && (!("uid" in request.resource.data) || request.resource.data.uid is string)
       && request.resource.data.name is string
@@ -53,7 +55,9 @@ service cloud.firestore {
       && (!("email" in request.resource.data) || request.resource.data.email is string)
       && (!("address" in request.resource.data) || request.resource.data.address is string)
       && (!("password" in request.resource.data) || (request.resource.data.password is string && request.resource.data.password.size() >= 4))
-      && (!("loyaltyPoints" in request.resource.data) || request.resource.data.loyaltyPoints is number);
+      && (!("loyaltyPoints" in request.resource.data) || request.resource.data.loyaltyPoints is number)
+      && (!("status" in request.resource.data) || request.resource.data.status is string)
+      && (!("updatedAt" in request.resource.data) || request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp);
     }
 
     // Same shape rules as create, but `createdAt` is optional for legacy docs.
@@ -71,7 +75,9 @@ service cloud.firestore {
         "address",
         "password",
         "loyaltyPoints",
-        "createdAt"
+        "status",
+        "createdAt",
+        "updatedAt"
       ])
       && (!("uid" in request.resource.data) || request.resource.data.uid is string)
       && request.resource.data.name is string
@@ -83,7 +89,9 @@ service cloud.firestore {
       && (!("address" in request.resource.data) || request.resource.data.address is string)
       && (!("password" in request.resource.data) || (request.resource.data.password is string && request.resource.data.password.size() >= 4))
       && (!("loyaltyPoints" in request.resource.data) || request.resource.data.loyaltyPoints is number)
-      && (!("createdAt" in request.resource.data) || request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp);
+      && (!("status" in request.resource.data) || request.resource.data.status is string)
+      && (!("createdAt" in request.resource.data) || request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
+      && (!("updatedAt" in request.resource.data) || request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp);
     }
 
     // Allow customers (non-admin) to update ONLY their own profile in a safe way.
@@ -226,10 +234,31 @@ service cloud.firestore {
       && (!("userAgent" in request.resource.data) || request.resource.data.userAgent is string);
     }
 
+    function isValidProductWrite() {
+      return request.resource.data.name is string
+      && request.resource.data.name.size() > 0
+      && request.resource.data.price is number
+      && request.resource.data.price >= 0
+      && (!("costPrice" in request.resource.data) || (request.resource.data.costPrice is number && request.resource.data.costPrice >= 0))
+      && (!("marginPercent" in request.resource.data) || (request.resource.data.marginPercent is number && request.resource.data.marginPercent >= 0 && request.resource.data.marginPercent <= 1000))
+      && (!("sellPrice" in request.resource.data) || (request.resource.data.sellPrice is number && request.resource.data.sellPrice >= 0))
+      && (!("profitValue" in request.resource.data) || request.resource.data.profitValue is number)
+      && (!("profitMarginActual" in request.resource.data) || request.resource.data.profitMarginActual is number)
+      && (!("manualPriceOverride" in request.resource.data) || request.resource.data.manualPriceOverride is bool)
+      && (!("manualPriceReason" in request.resource.data) || request.resource.data.manualPriceReason is string)
+      && (!("supplierId" in request.resource.data) || request.resource.data.supplierId is string)
+      && (!("supplierName" in request.resource.data) || request.resource.data.supplierName is string)
+      && (!("supplierCode" in request.resource.data) || request.resource.data.supplierCode is string)
+      && (!("searchTokens" in request.resource.data) || request.resource.data.searchTokens is list)
+      && (!("isPublished" in request.resource.data) || request.resource.data.isPublished is bool)
+      && (!("visibilityState" in request.resource.data) || request.resource.data.visibilityState is string);
+    }
+
     // Public readable content
     match /products/{productId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin() || isAdminEmail();
+      allow read: if (resource.data.isPublished != false) || isAdmin() || isAdminEmail();
+      allow create, update: if (isAdmin() || isAdminEmail()) && isValidProductWrite();
+      allow delete: if isAdmin() || isAdminEmail();
     }
 
     match /coupons/{couponId} {
@@ -245,6 +274,10 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if true;
       allow create, update, delete: if isAdmin() || isAdminEmail();
+    }
+
+    match /suppliers/{supplierId} {
+      allow read, create, update, delete: if isAdmin() || isAdminEmail();
     }
 
     // Admin-only data

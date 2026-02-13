@@ -210,6 +210,9 @@
         .filter-select:focus { border-color: var(--gold); }
         .filter-btn { padding: 8px 18px; border-radius: 20px; background: var(--cream); color: var(--navy); border: 2px solid #ddd; font-weight: 600; transition: var(--transition); font-size: 12px; }
         .filter-btn:hover, .filter-btn.active { background: var(--gold); color: var(--white); border-color: var(--gold); }
+        .pagination-btn { min-width: 38px; height: 38px; border-radius: 10px; border: 1px solid #ddd; background: var(--white); color: var(--navy); font-weight: 700; padding: 0 10px; }
+        .pagination-btn.active { background: var(--gold); color: var(--white); border-color: var(--gold-dark); }
+        .pagination-btn:disabled { opacity: .5; cursor: not-allowed; }
         .price-range { display: flex; align-items: center; gap: 8px; }
         .price-input { width: 80px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 13px; text-align: center; }
         .price-input:focus { border-color: var(--gold); }
@@ -609,6 +612,18 @@
                     <option value="name">الاسم</option>
                 </select>
             </div>
+            <div class="filter-group">
+                <label>المورد:</label>
+                <select class="filter-select" id="supplierFilter" onchange="applyAdvancedFilters()">
+                    <option value="">الكل</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label style="display:flex;align-items:center;gap:6px;">
+                    <input type="checkbox" id="inStockOnly" onchange="applyAdvancedFilters()">
+                    متاح فقط
+                </label>
+            </div>
             <div class="filter-group price-range">
                 <label>السعر:</label>
                 <input type="number" class="price-input" id="minPrice" placeholder="من" onchange="filterByPrice()">
@@ -621,6 +636,7 @@
         </div>
         
         <div class="products-grid" id="productsGrid"></div>
+        <div id="productsPagination" style="display:flex;justify-content:center;gap:8px;margin-top:20px;flex-wrap:wrap;"></div>
     </section>
 
     <!-- Stats -->
@@ -783,8 +799,8 @@
                 </div>
                 <form id="loginForm" onsubmit="handleLogin(event)">
                     <div class="form-group">
-                        <label>📱 رقم الهاتف <span class="required">*</span></label>
-                        <input type="tel" id="loginPhone" required placeholder="01xxxxxxxxx">
+                        <label>📱 رقم الهاتف أو 📧 البريد <span class="required">*</span></label>
+                        <input type="text" id="loginIdentifier" required placeholder="01xxxxxxxxx أو user@email.com">
                     </div>
                     <div class="form-group">
                         <label>🔐 كلمة المرور <span class="required">*</span></label>
@@ -802,8 +818,8 @@
                         <input type="tel" id="registerPhone" required placeholder="01xxxxxxxxx">
                     </div>
                     <div class="form-group">
-                        <label>📧 الإيميل</label>
-                        <input type="email" id="registerEmail">
+                        <label>📧 الإيميل <span class="required">*</span></label>
+                        <input type="email" id="registerEmail" required>
                     </div>
                     <div class="form-group">
                         <label>📍 العنوان <span class="required">*</span></label>
@@ -971,11 +987,21 @@
         let coupons = [];
         let banners = [];
         let users = [];
+        let suppliers = [];
         let currentUser = null;
         let appliedCoupon = null;
         let usedPoints = 0;
         let pointsDiscount = 0;
         let currentCategory = 'all';
+        let currentSearchQuery = '';
+        let currentPage = 1;
+        const PAGE_SIZE = 24;
+        let lastSearchResult = { items: [], total: 0, page: 1, pageSize: PAGE_SIZE, totalPages: 1 };
+        let searchWorker = null;
+        let searchWorkerReady = false;
+        let searchRequestCounter = 0;
+        const pendingSearchResolvers = new Map();
+        let searchDebounceTimer = null;
         let currentBanner = 0;
         let bannerInterval;
         let liveSessionHeartbeatTimer = null;
@@ -1004,7 +1030,9 @@
             topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
             contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
             footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
-            loyalty: { rate: 5, pointValue: 0.1 }
+            loyalty: { rate: 5, pointValue: 0.1 },
+            faqIntents: [],
+            chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' }
         };
 
         const defaultProducts = [
@@ -1065,6 +1093,13 @@
             const rating = Number(source.rating);
             const ratingCount = Number(source.ratingCount);
             const isPublished = source.isPublished !== false;
+            const costPrice = Number.isFinite(Number(source.costPrice)) ? Number(source.costPrice) : (Number.isFinite(price) ? price : 0);
+            const marginPercent = Number.isFinite(Number(source.marginPercent)) ? Number(source.marginPercent) : 0;
+            const sellPrice = Number.isFinite(Number(source.sellPrice)) ? Number(source.sellPrice) : (Number.isFinite(price) ? price : 0);
+            const profitValue = Number.isFinite(Number(source.profitValue)) ? Number(source.profitValue) : Number((sellPrice - costPrice).toFixed(2));
+            const profitMarginActual = Number.isFinite(Number(source.profitMarginActual))
+                ? Number(source.profitMarginActual)
+                : (sellPrice > 0 ? Number(((profitValue / sellPrice) * 100).toFixed(2)) : 0);
 
             return {
                 ...source,
@@ -1077,6 +1112,17 @@
                 image: String(source.image || './assets/placeholder.svg'),
                 rating: Number.isFinite(rating) ? rating : 4.5,
                 ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
+                supplierId: String(source.supplierId || ''),
+                supplierName: String(source.supplierName || ''),
+                supplierCode: String(source.supplierCode || ''),
+                costPrice,
+                marginPercent,
+                sellPrice,
+                profitValue,
+                profitMarginActual,
+                manualPriceOverride: source.manualPriceOverride === true,
+                manualPriceReason: String(source.manualPriceReason || ''),
+                searchTokens: Array.isArray(source.searchTokens) ? source.searchTokens : [],
                 isPublished,
                 visibilityState: isPublished ? 'published' : 'hidden'
             };
@@ -1183,8 +1229,11 @@
 
             // ? Fast boot render with defaults (never block UI)
             safeRun('applyStoreSettings', applyStoreSettings);
+            safeRun('maybeLoadTawkWidget', maybeLoadTawkWidget);
             safeRun('renderBanners', renderBanners);
-            safeRun('renderProducts', renderProducts);
+            safeRun('renderSupplierFilters', renderSupplierFilters);
+            safeRun('buildSearchIndexAsync', buildSearchIndexAsync);
+            safeRun('runProductSearch', () => runProductSearch(1));
             safeRun('renderCoupons', renderCoupons);
             safeRun('updateCategoryCounts', updateCategoryCounts);
             safeRun('updateStats', updateStats);
@@ -1213,8 +1262,11 @@
             safeRun('loadDataWithTimeout', () => {
                 loadDataWithTimeout(25000).then(() => {
                     safeRun('applyStoreSettings', applyStoreSettings);
+                    safeRun('maybeLoadTawkWidget', maybeLoadTawkWidget);
                     safeRun('renderBanners', renderBanners);
-                    safeRun('renderProducts', renderProducts);
+                    safeRun('renderSupplierFilters', renderSupplierFilters);
+                    safeRun('buildSearchIndexAsync', buildSearchIndexAsync);
+                    safeRun('runProductSearch', () => runProductSearch(1));
                     safeRun('renderCoupons', renderCoupons);
                     safeRun('updateCategoryCounts', updateCategoryCounts);
                     safeRun('updateStats', updateStats);
@@ -1334,6 +1386,30 @@
         // ============================================
         // 🔥 Firebase + LocalStorage Hybrid Data Loading
         // ============================================
+        const STORE_COLLECTION_SIGNATURES = {};
+
+        function buildCollectionSignature(collectionKey, rows) {
+            const list = Array.isArray(rows) ? rows : [];
+            const first = list[0] || {};
+            const last = list[list.length - 1] || {};
+            return [
+                collectionKey,
+                list.length,
+                String(first.id || ''),
+                String(first.updatedAt || first.createdAt || ''),
+                String(last.id || ''),
+                String(last.updatedAt || last.createdAt || '')
+            ].join('|');
+        }
+
+        function persistCollectionIfChanged(collectionKey, storageKey, rows) {
+            const signature = buildCollectionSignature(collectionKey, rows);
+            if (STORE_COLLECTION_SIGNATURES[collectionKey] === signature) return false;
+            STORE_COLLECTION_SIGNATURES[collectionKey] = signature;
+            setStorageData(storageKey, rows);
+            return true;
+        }
+
         async function loadData() {
             const localProducts = normalizeStoreProducts(getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []));
             const localCoupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
@@ -1413,11 +1489,20 @@
             
             removeSeedDataIfNeeded();
             products = normalizeStoreProducts(products);
+            suppliers = Array.from(new Map(
+                products
+                    .filter((item) => item && String(item.supplierId || '').trim())
+                    .map((item) => [String(item.supplierId), {
+                        id: String(item.supplierId || ''),
+                        name: String(item.supplierName || item.supplierCode || item.supplierId || ''),
+                        code: String(item.supplierCode || '')
+                    }])
+            ).values());
 
             // حفظ مرة واحدة فقط لتقليل تكلفة الكتابة مع أحجام البيانات الكبيرة.
-            setStorageData('PRODUCTS', products);
-            setStorageData('COUPONS', coupons);
-            setStorageData('BANNERS', banners);
+            persistCollectionIfChanged('PRODUCTS', 'PRODUCTS', products);
+            persistCollectionIfChanged('COUPONS', 'COUPONS', coupons);
+            persistCollectionIfChanged('BANNERS', 'BANNERS', banners);
             console.log('💾 Data saved to localStorage for persistence');
             updateLiveSessionState({
                 customerId: currentUser && currentUser.id ? String(currentUser.id) : ''
@@ -1465,7 +1550,7 @@
             users = Array.from(deduped.values());
             setStorageData('CUSTOMERS', users);
         }
-        function saveProducts() { setStorageData('PRODUCTS', products); }
+        function saveProducts() { persistCollectionIfChanged('PRODUCTS', 'PRODUCTS', products); }
 
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
@@ -1594,18 +1679,139 @@
         // ============================================
         // 🎴 Products
         // ============================================
+        function normalizeSearchKeyword(value) {
+            return String(value || '')
+                .toLowerCase()
+                .trim()
+                .replace(/[\u064b-\u065f]/g, '')
+                .replace(/[أإآ]/g, 'ا')
+                .replace(/[ة]/g, 'ه')
+                .replace(/[ى]/g, 'ي')
+                .replace(/[^a-z0-9\u0621-\u064a\s-]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function ensureSearchWorker() {
+            if (searchWorker) return;
+            try {
+                searchWorker = new Worker('./product-search-worker.js');
+                searchWorker.onmessage = (event) => {
+                    const message = event && event.data ? event.data : {};
+                    if (message.type === 'built') {
+                        searchWorkerReady = true;
+                        return;
+                    }
+                    if (message.type !== 'search-result') return;
+                    const requestId = String(message.requestId || '');
+                    const resolver = pendingSearchResolvers.get(requestId);
+                    if (!resolver) return;
+                    pendingSearchResolvers.delete(requestId);
+                    resolver(message.result || { items: [], total: 0, page: 1, pageSize: PAGE_SIZE, totalPages: 1 });
+                };
+                searchWorker.onerror = () => {
+                    searchWorkerReady = false;
+                };
+            } catch (error) {
+                console.warn('Search worker unavailable:', error);
+                searchWorker = null;
+                searchWorkerReady = false;
+            }
+        }
+
+        function buildSearchIndexAsync() {
+            ensureSearchWorker();
+            if (!searchWorker) return;
+            searchWorkerReady = false;
+            searchWorker.postMessage({
+                type: 'build',
+                products: getVisibleProductsList()
+            });
+        }
+
+        function searchProductsViaWorker(payload) {
+            ensureSearchWorker();
+            if (!searchWorker) return Promise.resolve(null);
+            const requestId = `req_${Date.now()}_${++searchRequestCounter}`;
+            return new Promise((resolve) => {
+                pendingSearchResolvers.set(requestId, resolve);
+                searchWorker.postMessage({
+                    type: 'search',
+                    requestId,
+                    payload
+                });
+            });
+        }
+
+        function renderSupplierFilters() {
+            const select = document.getElementById('supplierFilter');
+            if (!select) return;
+            const current = String(select.value || '');
+            const pool = getVisibleProductsList();
+            const map = new Map();
+            for (const item of pool) {
+                const id = String(item.supplierId || '').trim();
+                if (!id) continue;
+                if (!map.has(id)) {
+                    map.set(id, String(item.supplierName || item.supplierCode || id));
+                }
+            }
+            const options = Array.from(map.entries()).sort((a, b) => String(a[1]).localeCompare(String(b[1]), 'ar'));
+            select.innerHTML = '<option value="">الكل</option>' + options.map(([id, name]) => (
+                `<option value="${id}">${name}</option>`
+            )).join('');
+            if (current) select.value = current;
+        }
+
+        function renderPaginationControls(meta) {
+            const pagination = document.getElementById('productsPagination');
+            if (!pagination) return;
+            if (!meta || Number(meta.totalPages || 1) <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            const page = Number(meta.page || 1);
+            const totalPages = Number(meta.totalPages || 1);
+
+            const createButton = (label, targetPage, disabled = false, active = false) => (
+                `<button class="pagination-btn ${active ? 'active' : ''}" ${disabled ? 'disabled' : ''} onclick="runProductSearch(${targetPage})">${label}</button>`
+            );
+
+            const pageButtons = [];
+            const start = Math.max(1, page - 2);
+            const end = Math.min(totalPages, page + 2);
+            for (let i = start; i <= end; i += 1) {
+                pageButtons.push(createButton(String(i), i, false, i === page));
+            }
+
+            pagination.innerHTML = [
+                createButton('«', 1, page <= 1),
+                createButton('‹', Math.max(1, page - 1), page <= 1),
+                ...pageButtons,
+                createButton('›', Math.min(totalPages, page + 1), page >= totalPages),
+                createButton('»', totalPages, page >= totalPages)
+            ].join('');
+        }
+
         function renderProducts(productsToRender = null) {
+            if (!Array.isArray(productsToRender)) {
+                buildSearchIndexAsync();
+                runProductSearch(currentPage || 1);
+                return;
+            }
             const grid = document.getElementById('productsGrid');
-            const displayProducts = productsToRender || getFilteredProducts();
+            const displayProducts = productsToRender;
 
             if (displayProducts.length === 0) {
                 grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><div style="font-size: 60px;">📦</div><h3 style="color: #666;">لا توجد منتجات</h3></div>';
+                renderPaginationControls({ totalPages: 1, page: 1 });
                 return;
             }
 
             grid.innerHTML = displayProducts.map(p => `
                 <div class="product-card">
-                    ${p.oldPrice ? `<div class="product-badge">-${Math.round((1 - p.price/p.oldPrice) * 100)}%</div>` : ''}
+                    ${p.oldPrice ? `<div class="product-badge">-${Math.round((1 - (Number(p.sellPrice || p.price || 0) / Number(p.oldPrice))) * 100)}%</div>` : ''}
                     <div class="product-fav ${favorites.includes(String(p.id)) ? 'active' : ''}" onclick="toggleFav('${p.id}')">
                         ${favorites.includes(String(p.id)) ? '❤️' : '🤍'}
                     </div>
@@ -1624,8 +1830,8 @@
                             <span class="rating-count">(${p.ratingCount || 0})</span>
                         </div>
                         <div class="product-price">
-                            <span class="current-price">${p.price} ج.م</span>
-                            ${p.oldPrice ? `<span class="old-price">${p.oldPrice} ج.م</span>` : ''}
+                            <span class="current-price">${Number(p.sellPrice || p.price || 0).toFixed(2)} ج.م</span>
+                            ${p.oldPrice ? `<span class="old-price">${Number(p.oldPrice).toFixed(2)} ج.م</span>` : ''}
                         </div>
                         <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">🛒 أضف للسلة</button>
                     </div>
@@ -1633,17 +1839,93 @@
             `).join('');
         }
 
-        function getFilteredProducts() {
-            const visibleProducts = getVisibleProductsList();
-            let filtered = currentCategory === 'all'
-                ? [...visibleProducts]
-                : visibleProducts.filter((p) => p.category === currentCategory);
-            
-            const minPrice = parseFloat(document.getElementById('minPrice')?.value) || 0;
-            const maxPrice = parseFloat(document.getElementById('maxPrice')?.value) || Infinity;
-            filtered = filtered.filter(p => p.price >= minPrice && p.price <= maxPrice);
-            
-            return filtered;
+        function getAdvancedFilters() {
+            const minRaw = parseFloat(document.getElementById('minPrice')?.value);
+            const maxRaw = parseFloat(document.getElementById('maxPrice')?.value);
+            return {
+                minPrice: Number.isFinite(minRaw) ? minRaw : null,
+                maxPrice: Number.isFinite(maxRaw) ? maxRaw : null,
+                supplierId: String(document.getElementById('supplierFilter')?.value || '').trim(),
+                inStockOnly: document.getElementById('inStockOnly')?.checked === true
+            };
+        }
+
+        function runProductSearch(page = 1) {
+            renderSupplierFilters();
+            const query = currentSearchQuery;
+            const filters = getAdvancedFilters();
+            const sort = document.getElementById('sortSelect')?.value || 'default';
+            const payload = {
+                query,
+                filters,
+                sort,
+                page,
+                pageSize: PAGE_SIZE,
+                currentCategory
+            };
+
+            const fallbackSearch = () => {
+                const normalizedQuery = normalizeSearchKeyword(query);
+                const tokens = normalizedQuery ? normalizedQuery.split(' ').filter(Boolean) : [];
+                let rows = getVisibleProductsList().filter((item) => {
+                    if (!item) return false;
+                    if (currentCategory !== 'all' && String(item.category || '') !== currentCategory) return false;
+                    if (filters.supplierId && String(item.supplierId || '') !== filters.supplierId) return false;
+                    if (filters.inStockOnly && Number(item.stock || 0) <= 0) return false;
+                    const priceValue = Number(item.sellPrice || item.price || 0);
+                    if (Number.isFinite(filters.minPrice) && priceValue < filters.minPrice) return false;
+                    if (Number.isFinite(filters.maxPrice) && priceValue > filters.maxPrice) return false;
+                    if (!tokens.length) return true;
+                    const haystack = normalizeSearchKeyword([
+                        item.name,
+                        item.desc,
+                        item.code,
+                        item.supplierName,
+                        ...(Array.isArray(item.searchTokens) ? item.searchTokens : [])
+                    ].join(' '));
+                    return tokens.every((token) => haystack.includes(token));
+                });
+
+                sortProducts(sort, rows, false);
+                const total = rows.length;
+                const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+                const safePage = Math.min(Math.max(1, page), totalPages);
+                const start = (safePage - 1) * PAGE_SIZE;
+                return {
+                    items: rows.slice(start, start + PAGE_SIZE),
+                    total,
+                    page: safePage,
+                    pageSize: PAGE_SIZE,
+                    totalPages
+                };
+            };
+
+            const applyResult = (result) => {
+                lastSearchResult = result;
+                currentPage = Number(result.page || 1);
+                renderProducts(result.items || []);
+                renderPaginationControls(result);
+                const titlePrefix = query ? `بحث: "${query}"` : (currentCategory === 'all' ? 'جميع المنتجات' : getCategoryName(currentCategory));
+                document.getElementById('productsTitle').textContent = `${titlePrefix} (${result.total || 0})`;
+            };
+
+            if (!searchWorkerReady) {
+                const localResult = fallbackSearch();
+                applyResult(localResult);
+                return;
+            }
+
+            searchProductsViaWorker(payload)
+                .then((result) => {
+                    if (!result || !Array.isArray(result.items)) {
+                        applyResult(fallbackSearch());
+                        return;
+                    }
+                    applyResult(result);
+                })
+                .catch(() => {
+                    applyResult(fallbackSearch());
+                });
         }
 
         function getCategoryName(cat) {
@@ -1660,39 +1942,44 @@
         function filterByCategory(category) {
             currentCategory = category;
             document.querySelectorAll('.category-card').forEach(c => c.classList.toggle('active', c.dataset.category === category));
-            document.getElementById('productsTitle').textContent = category === 'all' ? 'جميع المنتجات' : getCategoryName(category);
-            renderProducts();
+            runProductSearch(1);
         }
 
-        function sortProducts(type) {
-            let filtered = [...getFilteredProducts()];
+        function sortProducts(type, sourceRows = null, shouldRender = true) {
+            if (!Array.isArray(sourceRows) && shouldRender) {
+                runProductSearch(1);
+                return [];
+            }
+            let filtered = Array.isArray(sourceRows) ? [...sourceRows] : [...(lastSearchResult.items || [])];
             switch(type) {
-                case 'price-low': filtered.sort((a, b) => a.price - b.price); break;
-                case 'price-high': filtered.sort((a, b) => b.price - a.price); break;
+                case 'price-low': filtered.sort((a, b) => Number(a.sellPrice || a.price || 0) - Number(b.sellPrice || b.price || 0)); break;
+                case 'price-high': filtered.sort((a, b) => Number(b.sellPrice || b.price || 0) - Number(a.sellPrice || a.price || 0)); break;
                 case 'rating': filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0)); break;
                 case 'name': filtered.sort((a, b) => a.name.localeCompare(b.name, 'ar')); break;
             }
-            renderProducts(filtered);
+            if (shouldRender) renderProducts(filtered);
+            return filtered;
         }
 
-        function filterByPrice() { renderProducts(); }
+        function filterByPrice() { runProductSearch(1); }
+        function applyAdvancedFilters() { runProductSearch(1); }
         function resetFilters() {
             document.getElementById('minPrice').value = '';
             document.getElementById('maxPrice').value = '';
+            document.getElementById('supplierFilter').value = '';
+            document.getElementById('inStockOnly').checked = false;
             document.getElementById('sortSelect').value = 'default';
-            renderProducts();
+            currentSearchQuery = '';
+            document.getElementById('searchInput').value = '';
+            runProductSearch(1);
         }
 
         function searchProducts() {
-            const query = document.getElementById('searchInput').value.trim().toLowerCase();
-            if (!query) { renderProducts(); return; }
-            const baseList = getFilteredProducts();
-            const results = baseList.filter((p) =>
-                String(p.name || '').toLowerCase().includes(query) ||
-                String(p.desc || '').toLowerCase().includes(query)
-            );
-            document.getElementById('productsTitle').textContent = `بحث: "${query}"`;
-            renderProducts(results);
+            currentSearchQuery = document.getElementById('searchInput').value.trim();
+            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                runProductSearch(1);
+            }, 120);
         }
 
         function showProductDetails(id) {
@@ -1708,8 +1995,8 @@
                         <span style="color: #999; font-size: 12px;">(${p.ratingCount || 0} تقييم)</span>
                     </div>
                     <div style="margin-bottom: 18px;">
-                        <span style="font-size: 26px; font-weight: 800; color: var(--gold-dark);">${p.price} ج.م</span>
-                        ${p.oldPrice ? `<span style="font-size: 16px; color: #999; text-decoration: line-through; margin-right: 10px;">${p.oldPrice} ج.م</span>` : ''}
+                        <span style="font-size: 26px; font-weight: 800; color: var(--gold-dark);">${Number(p.sellPrice || p.price || 0).toFixed(2)} ج.م</span>
+                        ${p.oldPrice ? `<span style="font-size: 16px; color: #999; text-decoration: line-through; margin-right: 10px;">${Number(p.oldPrice).toFixed(2)} ج.م</span>` : ''}
                     </div>
                     <div style="display: flex; gap: 10px; justify-content: center;">
                         <button class="submit-btn" onclick="addToCart('${p.id}'); closeModal('productModal');" style="flex: 1; max-width: 200px;">🛒 أضف للسلة</button>
@@ -1786,7 +2073,8 @@
             p.rating = p.ratings.reduce((s, r) => s + r.value, 0) / p.ratings.length;
 
             saveProducts();
-            renderProducts();
+            buildSearchIndexAsync();
+            runProductSearch(currentPage);
             closeModal('ratingModal');
             showNotification('success', 'شكراً', `تم تقييم المنتج بـ ${rating} نجوم`);
         }
@@ -1811,7 +2099,7 @@
             }
             saveFavorites();
             updateFavUI();
-            renderProducts();
+            runProductSearch(currentPage);
         }
 
         function updateFavUI() {
@@ -1835,7 +2123,7 @@
                         <div class="fav-item-image"><img src="${sanitizeImageUrl(p.image)}" onerror="this.src='${sanitizeImageUrl('')}'"></div>
                         <div class="fav-item-details">
                             <div class="fav-item-name">${p.name}</div>
-                            <div class="fav-item-price">${p.price} ج.م</div>
+                            <div class="fav-item-price">${Number(p.sellPrice || p.price || 0).toFixed(2)} ج.م</div>
                         </div>
                         <div class="fav-item-actions">
                             <button class="fav-add-btn" onclick="addToCart('${p.id}')">🛒</button>
@@ -1860,7 +2148,7 @@
             if (!p) return;
             const existing = cart.find(item => item.id == id || String(item.id) === String(id));
             if (existing) existing.quantity++;
-            else cart.push({ id: p.id, name: p.name, price: p.price, image: p.image, quantity: 1 });
+            else cart.push({ id: p.id, name: p.name, price: Number(p.sellPrice || p.price || 0), image: p.image, quantity: 1 });
             saveCart();
             updateCartUI();
             showNotification('success', 'تمت الإضافة', `"${p.name}" في السلة`);
@@ -2151,7 +2439,9 @@
                 email: toText(pick('email', ''), 200),
                 address: toText(pick('address', ''), 500),
                 loyaltyPoints: Number.isFinite(Number(pick('loyaltyPoints', 0))) ? Number(pick('loyaltyPoints', 0)) : 0,
+                status: toText(pick('status', 'active'), 50) || 'active',
                 createdAt,
+                updatedAt: normalizeCustomerCreatedAt(pick('updatedAt', '')) || createdAt,
                 password: toText(pick('password', ''), 200)
             };
         }
@@ -2174,34 +2464,49 @@
             return `عميل ${suffix}`;
         }
 
-        function buildCustomerAuthEmail(phone) {
+        function isEmailIdentifier(value) {
+            const text = String(value || '').trim();
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
+        }
+
+        function buildLegacyCustomerAuthEmail(phone) {
             return `customer_${normalizePhone(phone)}@salezone.customer`;
         }
 
-        async function signInCustomerAuth(phone, password) {
+        function resolveCustomerAuthEmail(identifier, options = {}) {
+            const input = String(identifier || '').trim();
+            if (options.authEmail) return String(options.authEmail || '').trim().toLowerCase();
+            if (isEmailIdentifier(input)) return input.toLowerCase();
+            return buildLegacyCustomerAuthEmail(input);
+        }
+
+        async function signInCustomerAuth(identifier, password, options = {}) {
             if (!(firebase && firebase.auth)) return null;
-            const email = buildCustomerAuthEmail(phone);
+            const email = resolveCustomerAuthEmail(identifier, options);
             return firebase.auth().signInWithEmailAndPassword(email, password);
         }
 
-        async function registerCustomerAuth(phone, password) {
+        async function registerCustomerAuth(identifier, password, options = {}) {
             if (!(firebase && firebase.auth)) return null;
-            const email = buildCustomerAuthEmail(phone);
+            const email = resolveCustomerAuthEmail(identifier, options);
             return firebase.auth().createUserWithEmailAndPassword(email, password);
         }
 
-        async function ensureCustomerAuthIdentity(phone, password, options = {}) {
+        async function ensureCustomerAuthIdentity(identifier, password, options = {}) {
             const settings = { allowCreate: true, allowSignIn: true, ...options };
             if (!(firebase && firebase.auth)) {
                 return { uid: '', mode: 'auth-unavailable' };
             }
 
+            const authEmail = resolveCustomerAuthEmail(identifier, settings);
+
             if (settings.allowCreate) {
                 try {
-                    const created = await registerCustomerAuth(phone, password);
+                    const created = await registerCustomerAuth(identifier, password, { authEmail });
                     return {
                         uid: created && created.user && created.user.uid ? String(created.user.uid) : '',
-                        mode: 'created'
+                        mode: 'created',
+                        authEmail
                     };
                 } catch (error) {
                     const code = error && error.code ? String(error.code) : '';
@@ -2210,10 +2515,11 @@
             }
 
             if (settings.allowSignIn) {
-                const signed = await signInCustomerAuth(phone, password);
+                const signed = await signInCustomerAuth(identifier, password, { authEmail });
                 return {
                     uid: signed && signed.user && signed.user.uid ? String(signed.user.uid) : '',
-                    mode: 'signed-in'
+                    mode: 'signed-in',
+                    authEmail
                 };
             }
 
@@ -2263,11 +2569,17 @@
             if (authSubmitLock) return;
             authSubmitLock = true;
             try {
-            const phone = document.getElementById('loginPhone').value.trim();
+            const identifier = document.getElementById('loginIdentifier').value.trim();
             const password = document.getElementById('loginPassword').value;
-            const phoneNormalized = normalizePhone(phone);
+            const emailNormalized = isEmailIdentifier(identifier) ? identifier.toLowerCase() : '';
+            const phoneNormalized = emailNormalized ? '' : normalizePhone(identifier);
 
-            if (!isValidCustomerPhone(phoneNormalized)) {
+            if (!identifier) {
+                showNotification('error', 'خطأ', 'أدخل البريد أو الهاتف');
+                return;
+            }
+
+            if (!emailNormalized && !isValidCustomerPhone(phoneNormalized)) {
                 showNotification('error', 'خطأ', 'رقم الهاتف غير صالح');
                 return;
             }
@@ -2278,14 +2590,19 @@
             }
 
             await syncUsersFromFirebase().catch(() => null);
-            const phoneMatchedUser = (users || []).find(
-                u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized
-            );
+            const phoneMatchedUser = !emailNormalized
+                ? (users || []).find((u) => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
+                : null;
+            const preferredEmailForPhoneLogin = phoneMatchedUser && phoneMatchedUser.email
+                ? String(phoneMatchedUser.email).toLowerCase()
+                : '';
             let authUid = '';
             let authSignInSucceeded = false;
             let authUser = null;
             try {
-                const authCred = await signInCustomerAuth(phone, password);
+                const authCred = await signInCustomerAuth(identifier, password, {
+                    authEmail: emailNormalized || preferredEmailForPhoneLogin || undefined
+                });
                 authUser = authCred && authCred.user ? authCred.user : null;
                 authUid = authUser && authUser.uid ? String(authUser.uid) : '';
                 authSignInSucceeded = !!authUser;
@@ -2299,7 +2616,7 @@
             if (!authSignInSucceeded && phoneMatchedUser && !String(phoneMatchedUser.password || '').trim()) {
                 showNotification('warning', 'الحساب يحتاج استكمال', 'هذا رقم قديم بدون كلمة مرور. أعد التسجيل بنفس الرقم لاستكمال الحساب.');
                 trackStoreEvent('LOGIN_BLOCKED_LEGACY', 'Legacy account requires password completion', 'warning', {
-                    phoneNormalized: normalizePhone(phone)
+                    phoneNormalized
                 });
                 return;
             }
@@ -2308,17 +2625,19 @@
 
             if (authSignInSucceeded) {
                 user = (users || []).find(u => String(u.uid || '') === authUid)
-                    || (users || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
+                    || (emailNormalized
+                        ? (users || []).find(u => String((u.email || '')).toLowerCase() === emailNormalized)
+                        : (users || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized))
                     || null;
 
                 if (!user) {
                     const fallbackProfile = sanitizeCustomerRecord({
                         id: `auth_${authUid}`,
                         uid: authUid,
-                        name: buildFallbackCustomerName(phoneNormalized),
-                        phone,
+                        name: emailNormalized ? `عميل ${emailNormalized.split('@')[0]}` : buildFallbackCustomerName(phoneNormalized),
+                        phone: emailNormalized ? '' : identifier,
                         phoneNormalized,
-                        email: '',
+                        email: emailNormalized,
                         address: '',
                         loyaltyPoints: 0,
                         createdAt: new Date().toISOString(),
@@ -2335,7 +2654,9 @@
                                 email: fallbackProfile.email,
                                 address: fallbackProfile.address,
                                 loyaltyPoints: fallbackProfile.loyaltyPoints,
-                                createdAt: fallbackProfile.createdAt
+                                status: fallbackProfile.status || 'active',
+                                createdAt: fallbackProfile.createdAt,
+                                updatedAt: new Date().toISOString()
                             });
                             if (createdId) fallbackProfile.id = createdId;
                         }
@@ -2349,7 +2670,8 @@
                     user = fallbackProfile;
                     trackStoreEvent('LOGIN_PROFILE_BOOTSTRAP', 'Customer profile bootstrapped after auth login', 'warning', {
                         customerId: String(fallbackProfile.id || ''),
-                        phoneNormalized
+                        phoneNormalized,
+                        email: emailNormalized
                     });
                 } else {
                     const needsSave = String(user.uid || '') !== authUid || String(user.password || '') !== String(password || '');
@@ -2374,7 +2696,9 @@
                 }
             } else {
                 user = (users || []).find((u) =>
-                    normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized
+                    (emailNormalized
+                        ? String((u.email || '')).toLowerCase() === emailNormalized
+                        : normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
                     && String(u.password || '') === String(password || '')
                 );
             }
@@ -2382,7 +2706,8 @@
             if (!user) {
                 showNotification('error', 'خطأ', 'بيانات غير صحيحة');
                 trackStoreEvent('LOGIN_FAILED', 'Customer login failed', 'warning', {
-                    phoneNormalized
+                    phoneNormalized,
+                    email: emailNormalized
                 });
                 return;
             }
@@ -2397,7 +2722,8 @@
             });
             trackStoreEvent('LOGIN_SUCCESS', 'Customer login success', 'info', {
                 customerId: String(currentUser.id || ''),
-                phoneNormalized: normalizePhone(currentUser.phone || '')
+                phoneNormalized: normalizePhone(currentUser.phone || ''),
+                email: String(currentUser.email || '').toLowerCase()
             });
             } finally {
                 authSubmitLock = false;
@@ -2413,6 +2739,7 @@
             const phone = document.getElementById('registerPhone').value.trim();
             const phoneNormalized = normalizePhone(phone);
             const email = document.getElementById('registerEmail').value.trim();
+            const emailNormalized = email.toLowerCase();
             const address = document.getElementById('registerAddress').value.trim();
             const password = document.getElementById('registerPassword').value;
             const confirm = document.getElementById('registerPasswordConfirm').value;
@@ -2420,6 +2747,7 @@
             if (!name) { showNotification('error', 'خطأ', 'الاسم مطلوب'); return; }
             if (!address) { showNotification('error', 'خطأ', 'العنوان مطلوب'); return; }
             if (!isValidCustomerPhone(phoneNormalized)) { showNotification('error', 'خطأ', 'رقم الهاتف غير صالح'); return; }
+            if (!isEmailIdentifier(emailNormalized)) { showNotification('error', 'خطأ', 'البريد الإلكتروني غير صالح'); return; }
             if (!isValidCustomerPassword(password)) { showNotification('error', 'خطأ', 'كلمة المرور يجب أن تكون 4 أحرف على الأقل'); return; }
             if (password !== confirm) { showNotification('error', 'خطأ', 'كلمات المرور غير متطابقة'); return; }
 
@@ -2428,13 +2756,18 @@
                 ? cloudUsers.find(u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
                 : null;
             const existsLocal = findUserByPhone(phone);
+            const emailExists = (users || []).some((u) => String(u.email || '').toLowerCase() === emailNormalized);
 
             // Legacy recovery: account exists in Firebase without password from old versions
             if (existsInCloud && !String(existsInCloud.password || '').trim()) {
                 try {
                     let authUid = '';
                     try {
-                        const authState = await ensureCustomerAuthIdentity(phone, password, { allowCreate: true, allowSignIn: true });
+                        const authState = await ensureCustomerAuthIdentity(phone, password, {
+                            allowCreate: true,
+                            allowSignIn: true,
+                            authEmail: buildLegacyCustomerAuthEmail(phone)
+                        });
                         authUid = authState.uid || '';
                     } catch (authError) {
                         const code = authError && authError.code ? String(authError.code) : '';
@@ -2456,7 +2789,7 @@
                         uid: authUid,
                         phone,
                         phoneNormalized,
-                        email: email || (existsInCloud && existsInCloud.email) || '',
+                        email: emailNormalized || (existsInCloud && existsInCloud.email) || '',
                         address: address || (existsInCloud && existsInCloud.address) || '',
                         password
                     });
@@ -2468,7 +2801,7 @@
                             await updateCustomer(String(existsInCloud.id), {
                                 uid: authUid,
                                 phoneNormalized,
-                                ...(email ? { email } : {}),
+                                ...(emailNormalized ? { email: emailNormalized } : {}),
                                 ...(address ? { address } : {})
                             });
                         }
@@ -2516,9 +2849,18 @@
                 return;
             }
 
+            if (emailExists) {
+                showNotification('error', 'خطأ', 'البريد الإلكتروني مسجل بالفعل');
+                return;
+            }
+
             let authUid = '';
             try {
-                const authState = await ensureCustomerAuthIdentity(phone, password, { allowCreate: true, allowSignIn: true });
+                const authState = await ensureCustomerAuthIdentity(emailNormalized, password, {
+                    allowCreate: true,
+                    allowSignIn: true,
+                    authEmail: emailNormalized
+                });
                 authUid = authState.uid || '';
             } catch (authError) {
                 const code = authError && authError.code ? String(authError.code) : '';
@@ -2548,13 +2890,14 @@
                 name,
                 phone,
                 phoneNormalized,
-                email,
+                email: emailNormalized,
                 address,
                 loyaltyPoints: 0,
+                status: 'active',
                 createdAt: new Date().toISOString(),
                 password
             });
-            const customerPayload = { uid: authUid, name, phone, phoneNormalized, email, address, loyaltyPoints: 0, createdAt: newUser.createdAt };
+            const customerPayload = { uid: authUid, name, phone, phoneNormalized, email: emailNormalized, address, loyaltyPoints: 0, status: 'active', createdAt: newUser.createdAt, updatedAt: newUser.createdAt };
             try {
                 if (typeof addCustomer === 'function') {
                     const firebaseId = await addCustomer(customerPayload);
@@ -2574,7 +2917,8 @@
                 });
                 trackStoreEvent('REGISTER_SUCCESS', 'Customer registered successfully', 'info', {
                     customerId: String(newUser.id || ''),
-                    phoneNormalized
+                    phoneNormalized,
+                    email: emailNormalized
                 });
             } catch (error) {
                 console.error('addCustomer error:', error);
@@ -2588,13 +2932,15 @@
                     closeModal('authModal');
                     showNotification('info', 'تم التسجيل محليًا', 'لا يوجد إنترنت. سيتم رفع الحساب تلقائيًا عند عودة الاتصال.');
                     trackStoreEvent('REGISTER_LOCAL_FALLBACK', 'Customer registered locally due to offline mode', 'warning', {
-                        phoneNormalized
+                        phoneNormalized,
+                        email: emailNormalized
                     });
                     return;
                 }
                 showNotification('error', 'فشل التسجيل', 'لم يتم حفظ الحساب على الخادم. حاول مرة أخرى.');
                 trackStoreEvent('REGISTER_FAILED', 'Customer registration failed on server', 'error', {
                     phoneNormalized,
+                    email: emailNormalized,
                     error: error && error.message ? String(error.message) : String(error)
                 });
             }
@@ -2962,15 +3308,64 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             container.scrollTop = container.scrollHeight;
         }
 
+        function getFaqIntents() {
+            const defaults = [
+                { keywords: ['مرحبا', 'السلام', 'اهلا'], response: 'أهلاً! كيف أساعدك؟ 😊' },
+                { keywords: ['سعر', 'تكلفة'], response: 'تقدر تستخدم البحث والفلاتر لمعرفة الأسعار بسرعة 💰' },
+                { keywords: ['توصيل', 'شحن'], response: 'التوصيل مجاني فوق 500 ج.م 🚚' },
+                { keywords: ['تتبع', 'طلب'], response: 'اضغط على "تتبع طلبي" من القائمة الجانبية 📦' },
+                { keywords: ['خصم', 'كوبون'], response: 'لو فيه كوبونات نشطة ستظهر تلقائيًا داخل السلة 🎁' },
+                { keywords: ['نقاط', 'ولاء'], response: 'تحصل على نقاط ولاء مع كل طلب حسب إعدادات المتجر 💎' }
+            ];
+
+            const configured = storeSettings && Array.isArray(storeSettings.faqIntents)
+                ? storeSettings.faqIntents
+                : [];
+            const normalizedConfigured = configured
+                .filter((item) => item && Array.isArray(item.keywords) && item.response)
+                .map((item) => ({
+                    keywords: item.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean),
+                    response: String(item.response || '').trim()
+                }))
+                .filter((item) => item.keywords.length > 0 && item.response);
+
+            return normalizedConfigured.length ? normalizedConfigured : defaults;
+        }
+
         function getBotResponse(msg) {
-            const m = msg.toLowerCase();
-            if (m.includes('مرحبا') || m.includes('السلام') || m.includes('اهلا')) return 'أهلاً! كيف أساعدك؟ 😊';
-            if (m.includes('سعر')) return 'تصفح المنتجات لمعرفة الأسعار 💰';
-            if (m.includes('توصيل') || m.includes('شحن')) return 'التوصيل مجاني فوق 500 ج.م 🚚';
-            if (m.includes('تتبع') || m.includes('طلب')) return 'اضغط على "تتبع طلبي" في القائمة 📦';
-            if (m.includes('خصم') || m.includes('كوبون')) return 'جرب كود WELCOME20 لخصم 20% 🎁';
-            if (m.includes('نقاط') || m.includes('ولاء')) return 'تكسب 5% نقاط من كل طلب! 💎';
+            const text = normalizeSearchKeyword(msg);
+            const intents = getFaqIntents();
+            for (const intent of intents) {
+                if ((intent.keywords || []).some((keyword) => text.includes(normalizeSearchKeyword(keyword)))) {
+                    return intent.response;
+                }
+            }
+            if (text.includes('موظف') || text.includes('بشري') || text.includes('دعم')) {
+                return 'يمكنك التواصل مباشرة على واتساب من الزر العائم، أو رقم المتجر في قسم التواصل.';
+            }
             return `تواصل معنا: ${storeSettings.contact?.phone || '01018108979'} 📞`;
+        }
+
+        let tawkWidgetLoaded = false;
+        function maybeLoadTawkWidget() {
+            const config = storeSettings && storeSettings.chatSupport && typeof storeSettings.chatSupport === 'object'
+                ? storeSettings.chatSupport
+                : {};
+            if (config.enableTawk !== true) return;
+            if (tawkWidgetLoaded || window.Tawk_API) return;
+
+            const propertyId = String(config.tawkPropertyId || '').trim();
+            const widgetId = String(config.tawkWidgetId || '').trim();
+            if (!propertyId || !widgetId) return;
+
+            const script = document.createElement('script');
+            script.async = true;
+            script.src = `https://embed.tawk.to/${propertyId}/${widgetId}`;
+            script.charset = 'UTF-8';
+            script.setAttribute('crossorigin', '*');
+            script.onload = () => { tawkWidgetLoaded = true; };
+            script.onerror = () => { tawkWidgetLoaded = false; };
+            document.head.appendChild(script);
         }
 
         // ============================================
@@ -3036,6 +3431,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         });
 
         document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key === 'Enter') searchProducts(); });
+        document.getElementById('searchInput').addEventListener('input', () => searchProducts());
     </script>
 </body>
 </html>

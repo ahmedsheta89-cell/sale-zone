@@ -1,7 +1,7 @@
 ﻿// PROFESSIONAL SERVICE WORKER - 2025 standards
 // Progressive Web App (PWA) with offline-first safeguards
 
-const CACHE_VERSION = 'v6.0.9';
+const CACHE_VERSION = 'v6.1.0';
 const CACHE_PREFIX = 'salezone';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic-${CACHE_VERSION}`;
@@ -28,6 +28,7 @@ const CRITICAL_ASSETS = [
   '/assets/placeholder.svg',
   '/assets/banner-placeholder.svg',
   '/cloudinary-service.js',
+  '/product-search-worker.js',
   '/ADMIN_ERROR_DASHBOARD.js',
   '/offline.html'
 ];

@@ -1,5 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 
+echo "[pre-commit] syntax checks"
+node --check firebase-config.js
+node --check firebase-api.js
+node --check firebase-data.js
+node --check ERROR_DETECTION_SYSTEM.js
 echo "[pre-commit] running tools/preflight.js"
 node tools/preflight.js
+echo "[pre-commit] running tools/smoke-check.js"
+node tools/smoke-check.js
