@@ -501,7 +501,11 @@ function setupRealtimeListeners() {
         console.error('Coupons listener error:', error);
     });
 
-    const unsubProducts = db.collection('products').onSnapshot((snapshot) => {
+    const productsRef = isStorePage
+        ? db.collection('products').where('isPublished', '==', true)
+        : db.collection('products');
+
+    const unsubProducts = productsRef.onSnapshot((snapshot) => {
         products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('🛍️ Products updated in real-time:', products.length);
         persistSyncedCollection('PRODUCTS', products, () => {

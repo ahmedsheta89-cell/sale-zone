@@ -2365,7 +2365,9 @@
                     const fbBanners = await getAllBanners();
                     const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
 
-                    products = Array.isArray(fbProducts) ? fbProducts : (getStorageData('PRODUCTS') || []);
+                    products = Array.isArray(fbProducts)
+                        ? fbProducts
+                        : (getStorageData('PRODUCTS_ADMIN') || getStorageData('PRODUCTS') || []);
                     orders = Array.isArray(fbOrders) ? fbOrders : (getStorageData('ORDERS') || []);
                     users = Array.isArray(fbUsers) ? fbUsers : (getStorageData('CUSTOMERS') || []);
                     coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
@@ -2388,7 +2390,7 @@
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
                 // Fallback to localStorage
-                products = getStorageData('PRODUCTS') || [];
+                products = getStorageData('PRODUCTS_ADMIN') || getStorageData('PRODUCTS') || [];
                 orders = getStorageData('ORDERS') || [];
                 coupons = getStorageData('COUPONS') || [];
                 banners = getStorageData('BANNERS') || [];
@@ -2426,7 +2428,7 @@
             // Data loaded, rendering will be done by initDashboard()
         }
 
-        function saveProducts() { setStorageData('PRODUCTS', products); }
+        function saveProducts() { setStorageData('PRODUCTS_ADMIN', products); }
         function saveOrders() { setStorageData('ORDERS', orders); }
         function saveCoupons() { setStorageData('COUPONS', coupons); }
         function saveBanners() { setStorageData('BANNERS', banners); }

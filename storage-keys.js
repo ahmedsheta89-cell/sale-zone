@@ -12,6 +12,9 @@
 const STORAGE_KEYS = {
   // المنتجات
   PRODUCTS: 'sale_zone_products',
+
+  // منتجات الأدمن الكاملة (تشمل المخفي)
+  PRODUCTS_ADMIN: 'sale_zone_products_admin',
   
   // الطلبات
   ORDERS: 'sale_zone_orders',

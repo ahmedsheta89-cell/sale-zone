@@ -26,7 +26,9 @@ function isLocalLikeHost(hostname) {
 const hostname = window.location.hostname || "";
 const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
 const isLocalDev = isLocalLikeHost(hostname);
-const shouldApplyStableTransport = isLocalDev || isGithubPages;
+const forcePollingTransport = new URLSearchParams(window.location.search).get("forcepoll") === "1" ||
+    window.FORCE_FIRESTORE_FORCE_LONG_POLLING === true;
+const shouldApplyStableTransport = isLocalDev || forcePollingTransport;
 
 // Initialize Firebase
 if (!firebase.apps.length) {
@@ -64,7 +66,11 @@ if (shouldApplyStableTransport) {
 // GitHub Pages mode
 if (isGithubPages) {
     // Keep Firebase online mode on production; realtime listeners are gated in firebase-data.js.
-    console.log("GitHub Pages detected - Firebase online mode enabled");
+    if (forcePollingTransport) {
+        console.log("GitHub Pages detected - Firebase online mode enabled (forced long-polling)");
+    } else {
+        console.log("GitHub Pages detected - Firebase online mode enabled");
+    }
 } else {
     console.log("Firebase initialized");
 }

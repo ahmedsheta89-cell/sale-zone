@@ -1,7 +1,7 @@
 ﻿// PROFESSIONAL SERVICE WORKER - 2025 standards
 // Progressive Web App (PWA) with offline-first safeguards
 
-const CACHE_VERSION = 'v6.1.0';
+const CACHE_VERSION = 'v6.1.1';
 const CACHE_PREFIX = 'salezone';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic-${CACHE_VERSION}`;
