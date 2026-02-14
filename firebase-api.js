@@ -1260,8 +1260,18 @@ async function getOrCreateSupportThread(customerProfile) {
 
         const threadId = buildSupportThreadId(customerUid);
         const ref = db.collection('support_threads').doc(threadId);
-        const snapshot = await ref.get();
-        const base = snapshot.exists ? (snapshot.data() || {}) : {};
+        let snapshot = null;
+        let base = {};
+        try {
+            snapshot = await ref.get();
+            base = snapshot.exists ? (snapshot.data() || {}) : {};
+        } catch (readError) {
+            const normalizedReadError = normalizeFirebaseError(readError, 'getOrCreateSupportThread.read');
+            if (!normalizedReadError.permissionDenied) throw readError;
+            // Firestore rules can deny reads on missing docs; proceed with write path.
+            snapshot = null;
+            base = {};
+        }
 
         const normalized = normalizeSupportThreadPayload({
             ...base,
@@ -1274,7 +1284,7 @@ async function getOrCreateSupportThread(customerProfile) {
             updatedAt: new Date().toISOString()
         }, base);
 
-        if (!snapshot.exists) {
+        if (!(snapshot && snapshot.exists)) {
             normalized.createdAt = normalized.updatedAt;
         }
 
