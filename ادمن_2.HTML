@@ -308,6 +308,7 @@
         .btn-gold:hover { box-shadow: 0 4px 15px rgba(212,175,55,0.4); }
         .btn-success { background: var(--success); color: var(--white); }
         .btn-info { background: var(--info); color: var(--white); }
+        .btn-warning { background: #f0ad4e; color: var(--white); }
         .btn-danger { background: var(--error); color: var(--white); }
         .btn-navy { background: var(--navy); color: var(--white); }
         .section-body { padding: 18px; }
@@ -932,9 +933,12 @@
                         <h3 class="section-title">📦 المنتجات</h3>
                         <div class="header-actions">
                             <button class="btn btn-gold" onclick="openProductModal()">➕ إضافة</button>
+                            <button class="btn btn-navy" onclick="openAddCategoryPrompt()">🏷️ قسم جديد</button>
                             <button class="btn btn-success" onclick="exportProductsExcel()">📤 Excel</button>
                             <button class="btn btn-info" onclick="openImportWizard()">📥 استيراد مرن</button>
                             <button class="btn btn-navy" onclick="publishBatchPrompt()">🚀 نشر دفعة</button>
+                            <button class="btn btn-warning" onclick="setAllProductsVisibility(false)">🙈 إخفاء الكل</button>
+                            <button class="btn btn-danger" onclick="deleteAllProducts()">🧨 مسح الكل</button>
                         </div>
                     </div>
                     <div class="section-body">
@@ -1921,12 +1925,14 @@
             contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
             footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
             loyalty: { rate: 5, pointValue: 0.1 },
+            customCategories: [],
             faqIntents: [],
             chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' }
         };
         let salesChart, categoriesChart;
         const PENDING_PRODUCT_OPS_KEY = 'sale_zone_pending_ops';
         const PRODUCT_SAVED_FILTERS_KEY = 'sale_zone_admin_saved_product_filters';
+        const MAX_ADMIN_PRODUCTS_LOCAL_CACHE = 800;
         const DEFAULT_PRODUCT_IMAGE = './assets/placeholder.svg';
         let pendingProductOps = [];
         let pendingOpsInFlight = false;
@@ -2330,6 +2336,7 @@
         // Initialize
         // ============================================
         document.addEventListener('DOMContentLoaded', async function() {
+            setupAutoTooltips();
             window.addEventListener('pageshow', (event) => {
                 if (event.persisted) {
                     window.location.reload();
@@ -2365,9 +2372,11 @@
                     const fbBanners = await getAllBanners();
                     const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
 
+                    const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
+                    const cachedStoreProducts = getStorageData('PRODUCTS');
                     products = Array.isArray(fbProducts)
                         ? fbProducts
-                        : (getStorageData('PRODUCTS_ADMIN') || getStorageData('PRODUCTS') || []);
+                        : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
                     orders = Array.isArray(fbOrders) ? fbOrders : (getStorageData('ORDERS') || []);
                     users = Array.isArray(fbUsers) ? fbUsers : (getStorageData('CUSTOMERS') || []);
                     coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
@@ -2390,7 +2399,9 @@
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
                 // Fallback to localStorage
-                products = getStorageData('PRODUCTS_ADMIN') || getStorageData('PRODUCTS') || [];
+                const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
+                const cachedStoreProducts = getStorageData('PRODUCTS');
+                products = Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []);
                 orders = getStorageData('ORDERS') || [];
                 coupons = getStorageData('COUPONS') || [];
                 banners = getStorageData('BANNERS') || [];
@@ -2420,6 +2431,7 @@
             suppliers = ensureSuppliersSchema(suppliers);
             saveProducts();
             saveSuppliers();
+            renderProductCategoryOptions();
             
             // كلمة المرور دائماً من localStorage
             const saved = getStorageData('SETTINGS');
@@ -2428,7 +2440,25 @@
             // Data loaded, rendering will be done by initDashboard()
         }
 
-        function saveProducts() { setStorageData('PRODUCTS_ADMIN', products); }
+        function saveProducts() {
+            const source = Array.isArray(products) ? products : [];
+            if (source.length > MAX_ADMIN_PRODUCTS_LOCAL_CACHE) {
+                const compact = source.slice(0, MAX_ADMIN_PRODUCTS_LOCAL_CACHE).map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    code: item.code || '',
+                    category: item.category || '',
+                    price: Number(item.price || 0),
+                    isPublished: item.isPublished !== false,
+                    updatedAt: item.updatedAt || '',
+                    image: item.image || './assets/placeholder.svg'
+                }));
+                setStorageData('PRODUCTS_ADMIN', compact);
+                console.log(`[INFO] Admin products cache compacted: ${compact.length}/${source.length}`);
+                return;
+            }
+            setStorageData('PRODUCTS_ADMIN', source);
+        }
         function saveOrders() { setStorageData('ORDERS', orders); }
         function saveCoupons() { setStorageData('COUPONS', coupons); }
         function saveBanners() { setStorageData('BANNERS', banners); }
@@ -2881,9 +2911,84 @@ function adminLogout(){
             showNotification('success', 'تم تنظيف الصور', `تم تحديث ${productsUpdated} منتج و ${bannersUpdated} بانر`);
         }
 
+        function getDefaultCategoryDefinitions() {
+            return [
+                { id: 'hair-care', name: 'شعر', icon: '💇‍♀️' },
+                { id: 'skin-care', name: 'بشرة', icon: '🧴' },
+                { id: 'baby-care', name: 'طفل', icon: '👶' },
+                { id: 'supplements', name: 'مكملات', icon: '💊' },
+                { id: 'medical', name: 'طبي', icon: '🏥' }
+            ];
+        }
+
+        function sanitizeCategoryId(value) {
+            const raw = String(value || '').trim().toLowerCase();
+            if (!raw) return '';
+            return raw.replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        }
+
+        function getAllCategoryDefinitions() {
+            const map = new Map();
+            getDefaultCategoryDefinitions().forEach((item) => map.set(item.id, item));
+            const custom = Array.isArray(storeSettings?.customCategories) ? storeSettings.customCategories : [];
+            custom.forEach((item) => {
+                const id = sanitizeCategoryId(item && item.id);
+                const name = String((item && item.name) || id || '').trim();
+                if (!id || !name) return;
+                map.set(id, { id, name, icon: String((item && item.icon) || '🏷️') });
+            });
+            return Array.from(map.values());
+        }
+
+        function renderProductCategoryOptions(selectedValue = '') {
+            const select = document.getElementById('productCategory');
+            if (!select) return;
+            const categories = getAllCategoryDefinitions();
+            const current = String(selectedValue || select.value || '');
+            select.innerHTML = '<option value="">اختر</option>' + categories.map((item) => (
+                `<option value="${item.id}">${item.icon} ${escapeHtml(item.name)}</option>`
+            )).join('');
+            if (current && categories.some((item) => item.id === current)) {
+                select.value = current;
+            } else {
+                select.value = '';
+            }
+        }
+
+        function openAddCategoryPrompt() {
+            const rawName = prompt('اسم القسم الجديد');
+            if (!rawName) return;
+            const name = String(rawName).trim();
+            if (!name) return;
+
+            const suggestedId = sanitizeCategoryId(name);
+            const rawId = prompt('كود القسم (English/slug)', suggestedId || 'new-category');
+            const id = sanitizeCategoryId(rawId);
+            if (!id) {
+                showNotification('error', 'كود القسم غير صالح');
+                return;
+            }
+
+            const definitions = getAllCategoryDefinitions();
+            if (definitions.some((item) => item.id === id)) {
+                showNotification('error', 'القسم موجود بالفعل');
+                return;
+            }
+
+            const rawIcon = prompt('أيقونة القسم (اختياري)', '🏷️');
+            const icon = String(rawIcon || '🏷️').trim() || '🏷️';
+            const nextCustom = Array.isArray(storeSettings.customCategories) ? [...storeSettings.customCategories] : [];
+            nextCustom.push({ id, name, icon });
+            storeSettings.customCategories = nextCustom;
+            saveStoreSettings();
+            renderProductCategoryOptions(id);
+            renderProductsTable();
+            showNotification('success', `تمت إضافة القسم: ${name}`);
+        }
+
         function getCategoryName(cat) {
-            const names = { 'hair-care': 'شعر', 'skin-care': 'بشرة', 'baby-care': 'طفل', 'supplements': 'مكملات', 'medical': 'طبي' };
-            return names[cat] || cat;
+            const lookup = new Map(getAllCategoryDefinitions().map((item) => [item.id, item.name]));
+            return lookup.get(String(cat || '')) || cat;
         }
 
         function getSupplierById(id) {
@@ -3174,6 +3279,105 @@ function adminLogout(){
             await updateBatchVisibility(input, isPublishAction);
         }
 
+        async function setAllProductsVisibility(isPublished) {
+            const targetProducts = Array.isArray(products) ? products : [];
+            if (!targetProducts.length) {
+                showNotification('error', 'لا توجد منتجات');
+                return;
+            }
+
+            const publishValue = isPublished !== false;
+            const verb = publishValue ? 'نشر' : 'إخفاء';
+            const input = prompt(`سيتم ${verb} ${targetProducts.length} منتج.\nاكتب "${verb}" للتأكيد`, '');
+            if (String(input || '').trim() !== verb) return;
+
+            const online = navigator.onLine === true;
+            const realIds = targetProducts.map((p) => String(p.id || '')).filter((id) => id && !id.startsWith('tmp_'));
+
+            if (online && realIds.length) {
+                try {
+                    await requireAdminPermission();
+                    if (typeof updateProductsVisibilityBatch === 'function') {
+                        await updateProductsVisibilityBatch(realIds, publishValue, { chunkSize: 300 });
+                    } else {
+                        for (const id of realIds) {
+                            await updateProductVisibility(id, publishValue);
+                        }
+                    }
+                } catch (error) {
+                    console.error('setAllProductsVisibility error:', error);
+                    showNotification('error', `فشل ${verb} جميع المنتجات`);
+                    return;
+                }
+            }
+
+            targetProducts.forEach((product) => {
+                const productId = String(product.id || '');
+                if (!productId) return;
+                if (productId.startsWith('tmp_')) {
+                    patchPendingAddByTempId(productId, (productDraft) => ({
+                        ...productDraft,
+                        isPublished: publishValue,
+                        visibilityState: publishValue ? 'published' : 'hidden'
+                    }));
+                } else if (!online) {
+                    enqueuePendingProductOp('visibility', { id: productId, isPublished: publishValue });
+                }
+                applyLocalProductVisibility(productId, publishValue);
+            });
+
+            saveProducts();
+            renderProductsTable();
+            updateStats();
+            updateBadges();
+            showNotification('success', `تم ${verb} ${targetProducts.length} منتج`);
+        }
+
+        async function deleteAllProducts() {
+            const targetProducts = Array.isArray(products) ? products : [];
+            if (!targetProducts.length) {
+                showNotification('error', 'لا توجد منتجات للحذف');
+                return;
+            }
+
+            const input = prompt(`تحذير: سيتم حذف ${targetProducts.length} منتج نهائياً.\nاكتب DELETE للتأكيد`, '');
+            if (String(input || '').trim().toUpperCase() !== 'DELETE') return;
+
+            const online = navigator.onLine === true;
+            const realIds = targetProducts.map((p) => String(p.id || '')).filter((id) => id && !id.startsWith('tmp_'));
+
+            if (online && realIds.length) {
+                try {
+                    await requireAdminPermission();
+                    if (typeof deleteProductsBatch === 'function') {
+                        await deleteProductsBatch(realIds, { chunkSize: 250 });
+                    } else {
+                        for (const id of realIds) {
+                            await deleteProductFromFirebase(id);
+                        }
+                    }
+                } catch (error) {
+                    console.error('deleteAllProducts error:', error);
+                    showNotification('error', 'فشل حذف جميع المنتجات من Firebase');
+                    return;
+                }
+            } else if (!online) {
+                targetProducts.forEach((item) => {
+                    const productId = String(item.id || '');
+                    if (!productId || productId.startsWith('tmp_')) return;
+                    enqueuePendingProductOp('delete', { id: productId });
+                });
+                showNotification('info', 'تم الحذف محليًا وسيتم المزامنة عند عودة الاتصال');
+            }
+
+            products = [];
+            saveProducts();
+            renderProductsTable();
+            updateStats();
+            updateBadges();
+            showNotification('success', 'تم مسح كل المنتجات');
+        }
+
         async function saveProduct(e) {
             e.preventDefault();
             const id = document.getElementById('productId').value.trim();
@@ -3298,7 +3502,7 @@ function adminLogout(){
             document.getElementById('productId').value = p.id || '';
             document.getElementById('productName').value = p.name || '';
             document.getElementById('productDesc').value = p.desc || '';
-            document.getElementById('productCategory').value = p.category || '';
+            renderProductCategoryOptions(p.category || '');
             renderSupplierOptions();
             document.getElementById('productSupplierId').value = p.supplierId || '';
             document.getElementById('productCode').value = p.code || '';
@@ -3417,6 +3621,7 @@ function adminLogout(){
 
             const title = document.getElementById('productModalTitle');
             if (title) title.textContent = '➕ منتج جديد';
+            renderProductCategoryOptions('');
             renderSupplierOptions();
             recalculateProductPricingFromForm();
         }
@@ -5602,6 +5807,32 @@ function adminLogout(){
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('active');
             document.getElementById('overlay').classList.toggle('active');
+        }
+
+        function applyAutoTooltips(root = document) {
+            const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+            const elements = scope.querySelectorAll('button, .btn, .action-btn, .menu-item, [role="button"], a[onclick]');
+            elements.forEach((el) => {
+                if (!el || el.dataset.tooltipBound === '1') return;
+                if (el.getAttribute('title')) {
+                    el.dataset.tooltipBound = '1';
+                    return;
+                }
+                const label = String(el.getAttribute('aria-label') || el.textContent || '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                if (!label) return;
+                el.setAttribute('title', label.slice(0, 120));
+                el.dataset.tooltipBound = '1';
+            });
+        }
+
+        function setupAutoTooltips() {
+            applyAutoTooltips(document);
+            if (window.__ADMIN_TOOLTIP_OBSERVER__) return;
+            const observer = new MutationObserver(() => applyAutoTooltips(document));
+            observer.observe(document.body, { childList: true, subtree: true });
+            window.__ADMIN_TOOLTIP_OBSERVER__ = observer;
         }
 
         function openModal(id) { document.getElementById(id).classList.add('active'); }

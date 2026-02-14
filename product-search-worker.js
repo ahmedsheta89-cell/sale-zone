@@ -6,19 +6,12 @@ function normalizeText(value) {
         .toLowerCase()
         .trim()
         .replace(/[\u064b-\u065f]/g, '')
-        .replace(/[أإآ]/g, 'ا')
-        .replace(/[ة]/g, 'ه')
-        .replace(/[ى]/g, 'ي')
+        .replace(/[\u0623\u0625\u0622]/g, '\u0627')
+        .replace(/\u0629/g, '\u0647')
+        .replace(/\u0649/g, '\u064a')
         .replace(/[^a-z0-9\u0621-\u064a\s-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-}
-
-function tokenize(value) {
-    return normalizeText(value)
-        .split(' ')
-        .map((token) => token.trim())
-        .filter((token) => token.length >= 2);
 }
 
 function buildSearchBlob(product) {

@@ -438,6 +438,36 @@ async function updateProductsVisibilityBatch(ids, isPublished, options = {}) {
     }
 }
 
+async function deleteProductsBatch(ids, options = {}) {
+    try {
+        const db = getFirebaseDB();
+        const list = Array.isArray(ids) ? ids.map((x) => String(x || '').trim()).filter(Boolean) : [];
+        if (list.length === 0) return 0;
+
+        const chunkSize = Math.max(1, Math.min(400, Number(options.chunkSize) || 300));
+        let deletedCount = 0;
+
+        for (let offset = 0; offset < list.length; offset += chunkSize) {
+            const chunk = list.slice(offset, offset + chunkSize);
+            const batch = db.batch();
+
+            chunk.forEach((id) => {
+                const ref = db.collection('products').doc(id);
+                batch.delete(ref);
+            });
+
+            await batch.commit();
+            deletedCount += chunk.length;
+        }
+
+        console.log('[OK] Products batch deleted:', deletedCount);
+        return deletedCount;
+    } catch (e) {
+        console.error('deleteProductsBatch error:', e);
+        throw e;
+    }
+}
+
 async function deleteProductFromFirebase(id) {
     try {
         const db = getFirebaseDB();

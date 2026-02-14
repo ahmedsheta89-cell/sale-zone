@@ -558,7 +558,7 @@
             <h2>تسوق حسب القسم</h2>
             <div class="line"></div>
         </div>
-        <div class="categories-grid">
+        <div class="categories-grid" id="categoriesGrid">
             <div class="category-card active" data-category="all" onclick="filterByCategory('all')">
                 <div class="category-icon">🛍️</div>
                 <div class="category-name">الكل</div>
@@ -1031,6 +1031,7 @@
             contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
             footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
             loyalty: { rate: 5, pointValue: 0.1 },
+            customCategories: [],
             faqIntents: [],
             chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' }
         };
@@ -1142,6 +1143,7 @@
         // 🚀 Initialize
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
+            setupAutoTooltips();
             // ?? Minimal client-side error capture for mobile debugging
             window.__errors = window.__errors || [];
             window.onerror = function(message, source, lineno, colno, error) {
@@ -1612,6 +1614,10 @@
             document.getElementById('hoursNote').textContent = storeSettings.footer?.workingHoursNote || '';
             document.getElementById('footerCopyright').textContent = storeSettings.footer?.copyright || '';
             document.getElementById('floatWhatsapp').href = `https://wa.me/2${whatsapp}`;
+            if (!Array.isArray(storeSettings.customCategories)) {
+                storeSettings.customCategories = [];
+            }
+            renderDynamicCategoryCards();
         }
 
         // ============================================
@@ -1931,9 +1937,91 @@
                 });
         }
 
+        function getDefaultCategoryDefinitions() {
+            return [
+                { id: 'all', name: 'الكل', icon: '🛍️', staticCountId: 'countAll' },
+                { id: 'hair-care', name: 'الشعر', icon: '💇‍♀️', staticCountId: 'countHair' },
+                { id: 'skin-care', name: 'البشرة', icon: '🧴', staticCountId: 'countSkin' },
+                { id: 'baby-care', name: 'الطفل', icon: '👶', staticCountId: 'countBaby' },
+                { id: 'supplements', name: 'المكملات', icon: '💊', staticCountId: 'countSupplements' },
+                { id: 'medical', name: 'الطبي', icon: '🏥', staticCountId: 'countMedical' }
+            ];
+        }
+
+        function sanitizeCategoryId(value) {
+            const raw = String(value || '').trim().toLowerCase();
+            if (!raw) return '';
+            return raw.replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        }
+
+        function getConfiguredCustomCategories() {
+            const configured = Array.isArray(storeSettings?.customCategories) ? storeSettings.customCategories : [];
+            return configured
+                .map((item) => ({
+                    id: sanitizeCategoryId(item && item.id),
+                    name: String((item && item.name) || '').trim(),
+                    icon: String((item && item.icon) || '🏷️').trim() || '🏷️'
+                }))
+                .filter((item) => item.id && item.name);
+        }
+
+        function getDynamicProductCategories() {
+            const defaults = new Set(getDefaultCategoryDefinitions().map((item) => item.id));
+            const map = new Map();
+            (products || []).forEach((item) => {
+                const id = sanitizeCategoryId(item && item.category);
+                if (!id || defaults.has(id)) return;
+                if (!map.has(id)) {
+                    map.set(id, {
+                        id,
+                        name: String(item?.categoryName || item?.categoryLabel || item?.category || id),
+                        icon: '🏷️'
+                    });
+                }
+            });
+            return Array.from(map.values());
+        }
+
+        function getAllCategoryDefinitions() {
+            const map = new Map();
+            getDefaultCategoryDefinitions().forEach((item) => map.set(item.id, item));
+            getConfiguredCustomCategories().forEach((item) => map.set(item.id, item));
+            getDynamicProductCategories().forEach((item) => {
+                if (!map.has(item.id)) map.set(item.id, item);
+            });
+            return Array.from(map.values());
+        }
+
+        function renderDynamicCategoryCards() {
+            const grid = document.getElementById('categoriesGrid');
+            if (!grid) return;
+
+            grid.querySelectorAll('.dynamic-category-card').forEach((node) => node.remove());
+            const defaults = new Set(getDefaultCategoryDefinitions().map((item) => item.id));
+            const customCategories = getAllCategoryDefinitions().filter((item) => !defaults.has(item.id));
+
+            customCategories.forEach((item) => {
+                const card = document.createElement('div');
+                card.className = `category-card dynamic-category-card${currentCategory === item.id ? ' active' : ''}`;
+                card.dataset.category = item.id;
+                card.onclick = () => filterByCategory(item.id);
+                card.innerHTML = `
+                    <div class="category-icon">${item.icon || '🏷️'}</div>
+                    <div class="category-name">${item.name}</div>
+                    <div class="category-count">0</div>
+                `;
+                const iconElement = card.querySelector('.category-icon');
+                if (iconElement) {
+                    iconElement.style.background = 'linear-gradient(135deg, var(--gold), var(--gold-dark))';
+                }
+                grid.appendChild(card);
+            });
+        }
+
         function getCategoryName(cat) {
-            const names = { 'hair-care': 'شعر', 'skin-care': 'بشرة', 'baby-care': 'طفل', 'supplements': 'مكملات', 'medical': 'طبي' };
-            return names[cat] || cat;
+            const id = sanitizeCategoryId(cat);
+            const found = getAllCategoryDefinitions().find((item) => item.id === id);
+            return found ? found.name : cat;
         }
 
         function getStars(rating) {
@@ -2011,13 +2099,19 @@
         }
 
         function updateCategoryCounts() {
+            renderDynamicCategoryCards();
             const visibleProducts = getVisibleProductsList();
-            document.getElementById('countAll').textContent = visibleProducts.length;
-            document.getElementById('countHair').textContent = visibleProducts.filter((p) => p.category === 'hair-care').length;
-            document.getElementById('countSkin').textContent = visibleProducts.filter((p) => p.category === 'skin-care').length;
-            document.getElementById('countBaby').textContent = visibleProducts.filter((p) => p.category === 'baby-care').length;
-            document.getElementById('countSupplements').textContent = visibleProducts.filter((p) => p.category === 'supplements').length;
-            document.getElementById('countMedical').textContent = visibleProducts.filter((p) => p.category === 'medical').length;
+            const countAll = document.getElementById('countAll');
+            if (countAll) countAll.textContent = visibleProducts.length;
+
+            document.querySelectorAll('.category-card[data-category]').forEach((card) => {
+                const categoryId = String(card.dataset.category || '');
+                if (!categoryId || categoryId === 'all') return;
+                const countElement = card.querySelector('.category-count');
+                if (!countElement) return;
+                const count = visibleProducts.filter((item) => String(item.category || '') === categoryId).length;
+                countElement.textContent = String(count);
+            });
         }
 
         function updateStats() {
@@ -3391,8 +3485,23 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             setTimeout(() => n.remove(), 4000);
 
             // Browser notification
-            if (Notification.permission === 'granted' && type === 'success') {
-                new Notification(title, { body: message, icon: '🛍️' });
+            if (type === 'success' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                try {
+                    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                        navigator.serviceWorker.ready
+                            .then((registration) => registration.showNotification(String(title || ''), {
+                                body: String(message || ''),
+                                tag: 'salezone-success-notification',
+                                renotify: false,
+                                data: { source: 'store' }
+                            }))
+                            .catch(() => undefined);
+                    } else if (typeof window.Notification === 'function') {
+                        new window.Notification(String(title || ''), { body: String(message || '') });
+                    }
+                } catch (_) {
+                    // Ignore browser notification errors (UI notification already shown).
+                }
             }
         }
 
@@ -3415,6 +3524,32 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         // ============================================
         // 🎛️ UI Helpers
         // ============================================
+        function applyAutoTooltips(root = document) {
+            const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+            const elements = scope.querySelectorAll('button, .btn, .action-btn, .category-card, [role="button"], a[onclick]');
+            elements.forEach((el) => {
+                if (!el || el.dataset.tooltipBound === '1') return;
+                if (el.getAttribute('title')) {
+                    el.dataset.tooltipBound = '1';
+                    return;
+                }
+                const label = String(el.getAttribute('aria-label') || el.textContent || '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                if (!label) return;
+                el.setAttribute('title', label.slice(0, 120));
+                el.dataset.tooltipBound = '1';
+            });
+        }
+
+        function setupAutoTooltips() {
+            applyAutoTooltips(document);
+            if (window.__STORE_TOOLTIP_OBSERVER__) return;
+            const observer = new MutationObserver(() => applyAutoTooltips(document));
+            observer.observe(document.body, { childList: true, subtree: true });
+            window.__STORE_TOOLTIP_OBSERVER__ = observer;
+        }
+
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
