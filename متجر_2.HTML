@@ -379,6 +379,9 @@
         .chat-box.active { opacity: 1; visibility: visible; transform: translateY(0); }
         .chat-box-header { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: var(--white); padding: 15px; border-radius: 16px 16px 0 0; display: flex; align-items: center; gap: 10px; }
         .chat-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .chat-mode-toggle { margin-right: auto; display: inline-flex; gap: 6px; }
+        .chat-mode-btn { border: 1px solid rgba(255,255,255,0.35); background: transparent; color: var(--white); border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 700; cursor: pointer; }
+        .chat-mode-btn.active { background: var(--gold); border-color: var(--gold); color: var(--navy); }
         .chat-bot-info h4 { font-size: 14px; margin-bottom: 2px; }
         .chat-bot-info span { font-size: 10px; color: var(--gold-light); display: flex; align-items: center; gap: 4px; }
         .online-dot { width: 7px; height: 7px; background: var(--success); border-radius: 50%; }
@@ -386,6 +389,7 @@
         .chat-message { max-width: 85%; padding: 10px 12px; border-radius: 12px; font-size: 12px; line-height: 1.5; animation: fadeIn 0.3s ease; }
         .chat-message.bot { background: var(--cream); color: var(--navy); align-self: flex-start; border-bottom-right-radius: 4px; }
         .chat-message.user { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white); align-self: flex-end; border-bottom-left-radius: 4px; }
+        .chat-message.meta { background: #f2f4f8; color: #555; align-self: center; border-radius: 10px; font-size: 11px; }
         .chat-input-container { padding: 12px; border-top: 1px solid #eee; display: flex; gap: 8px; }
         .chat-input { flex: 1; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 20px; font-size: 12px; }
         .chat-input:focus { border-color: var(--gold); }
@@ -957,7 +961,11 @@
                 <div class="chat-avatar">🤖</div>
                 <div class="chat-bot-info">
                     <h4>مساعد Sale Zone</h4>
-                    <span><span class="online-dot"></span> متصل</span>
+                    <span id="chatStatusText"><span class="online-dot"></span> وضع FAQ</span>
+                </div>
+                <div class="chat-mode-toggle">
+                    <button type="button" class="chat-mode-btn active" id="chatModeBotBtn" onclick="switchChatMode('bot')">FAQ</button>
+                    <button type="button" class="chat-mode-btn" id="chatModeSupportBtn" onclick="switchChatMode('support')">دعم</button>
                 </div>
             </div>
             <div class="chat-messages" id="chatMessages">
@@ -1006,6 +1014,12 @@
         let bannerInterval;
         let liveSessionHeartbeatTimer = null;
         let authSubmitLock = false;
+        let chatMode = 'bot';
+        let activeSupportThread = null;
+        let supportThreadUnsubscribe = null;
+        let supportMessagesUnsubscribe = null;
+        let supportRealtimeConnected = false;
+        const SUPPORT_CHAT_MESSAGES_LIMIT = 150;
         const recentStoreEventLog = Object.create(null);
         const STORE_EVENT_THROTTLE_MS = {
             STORE_BOOT: 30000,
@@ -1144,6 +1158,7 @@
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
             setupAutoTooltips();
+            setChatStatus('وضع FAQ', true);
             // ?? Minimal client-side error capture for mobile debugging
             window.__errors = window.__errors || [];
             window.onerror = function(message, source, lineno, colno, error) {
@@ -2811,6 +2826,9 @@
             currentUser = sanitizeCustomerRecord(user, { id: user && user.id ? user.id : '' });
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             updateUserUI();
+            if (chatMode === 'support') {
+                ensureSupportChatReady().catch(() => null);
+            }
             closeModal('authModal');
             showNotification('success', 'مرحباً', `أهلاً ${currentUser.name}!`);
             updateLiveSessionState({
@@ -2911,6 +2929,9 @@
                     currentUser = sanitizeCustomerRecord(recoveredUser, { id: recoveredUser.id });
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     updateUserUI();
+                    if (chatMode === 'support') {
+                        ensureSupportChatReady().catch(() => null);
+                    }
                     closeModal('authModal');
                     showNotification('success', 'تم استكمال الحساب', 'تم تحديث حسابك القديم ويمكنك الدخول الآن.');
                     updateLiveSessionState({
@@ -3006,6 +3027,9 @@
                 currentUser = sanitizeCustomerRecord(newUser, { id: newUser.id });
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 updateUserUI();
+                if (chatMode === 'support') {
+                    ensureSupportChatReady().catch(() => null);
+                }
                 closeModal('authModal');
                 showNotification('success', 'مرحباً', 'تم إنشاء حسابك بنجاح!');
                 updateLiveSessionState({
@@ -3056,6 +3080,9 @@
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 }
                 updateUserUI();
+                if (chatMode === 'support') {
+                    ensureSupportChatReady().catch(() => null);
+                }
                 updateLiveSessionState({
                     customerId: String(currentUser.id || ''),
                     customerPhone: String(currentUser.phone || '')
@@ -3085,6 +3112,10 @@
             localStorage.removeItem('currentUser');
             if (firebase && firebase.auth) {
                 firebase.auth().signOut().catch(() => null);
+            }
+            stopSupportChatRealtime();
+            if (chatMode === 'support') {
+                switchChatMode('bot');
             }
             updateUserUI();
             updateLiveSessionState({ customerId: '', customerPhone: '' });
@@ -3384,25 +3415,253 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         // 💬 Chat
         // ============================================
         function toggleChat() {
-            document.getElementById('chatBox').classList.toggle('active');
+            const box = document.getElementById('chatBox');
+            if (!box) return;
+            box.classList.toggle('active');
+            if (!box.classList.contains('active')) return;
+            if (chatMode === 'support') {
+                ensureSupportChatReady().catch((error) => {
+                    console.warn('support chat init warning:', error);
+                });
+            }
         }
 
-        function sendChatMessage() {
+        async function sendChatMessage() {
             const input = document.getElementById('chatInput');
             const msg = input.value.trim();
             if (!msg) return;
+
+            if (chatMode === 'support') {
+                if (!currentUser) {
+                    showNotification('warning', 'تنبيه', 'سجل دخول أولًا لاستخدام الدردشة الداخلية');
+                    showAuthModal('login');
+                    return;
+                }
+                await sendSupportMessageFromCustomer(msg);
+                input.value = '';
+                return;
+            }
+
             addChatMessage(msg, 'user');
             input.value = '';
             setTimeout(() => addChatMessage(getBotResponse(msg), 'bot'), 600);
         }
 
-        function addChatMessage(text, sender) {
+        function addChatMessage(text, sender = 'bot') {
             const container = document.getElementById('chatMessages');
+            if (!container) return;
             const div = document.createElement('div');
             div.className = `chat-message ${sender}`;
             div.textContent = text;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
+        }
+
+        function clearChatMessages() {
+            const container = document.getElementById('chatMessages');
+            if (!container) return;
+            container.innerHTML = '';
+        }
+
+        function setChatStatus(text, isOnline = true) {
+            const statusEl = document.getElementById('chatStatusText');
+            if (!statusEl) return;
+            const dotColor = isOnline ? 'var(--success)' : 'var(--warning)';
+            statusEl.innerHTML = '';
+            const dot = document.createElement('span');
+            dot.className = 'online-dot';
+            dot.style.background = dotColor;
+            statusEl.appendChild(dot);
+            statusEl.appendChild(document.createTextNode(` ${String(text || '')}`));
+        }
+
+        function switchChatMode(mode) {
+            const nextMode = mode === 'support' ? 'support' : 'bot';
+            if (nextMode === 'support' && !currentUser) {
+                showNotification('warning', 'تنبيه', 'سجل دخول أولًا لاستخدام الدردشة الداخلية');
+                showAuthModal('login');
+                return;
+            }
+
+            chatMode = nextMode;
+            document.getElementById('chatModeBotBtn')?.classList.toggle('active', nextMode === 'bot');
+            document.getElementById('chatModeSupportBtn')?.classList.toggle('active', nextMode === 'support');
+
+            clearChatMessages();
+            if (nextMode === 'bot') {
+                setChatStatus('وضع FAQ', true);
+                addChatMessage('مرحباً! كيف أساعدك؟ 😊', 'bot');
+                disconnectSupportMessageListener();
+                return;
+            }
+
+            setChatStatus('الدردشة الداخلية', supportRealtimeConnected);
+            addChatMessage('جاري ربط الدردشة الداخلية...', 'meta');
+            ensureSupportChatReady().catch((error) => {
+                console.warn('switch support mode warning:', error);
+                addChatMessage('تعذر بدء الدردشة الداخلية. حاول مرة أخرى.', 'meta');
+            });
+        }
+
+        function disconnectSupportMessageListener() {
+            if (typeof supportMessagesUnsubscribe === 'function') {
+                supportMessagesUnsubscribe();
+            }
+            supportMessagesUnsubscribe = null;
+        }
+
+        function disconnectSupportThreadListener() {
+            if (typeof supportThreadUnsubscribe === 'function') {
+                supportThreadUnsubscribe();
+            }
+            supportThreadUnsubscribe = null;
+        }
+
+        function stopSupportChatRealtime() {
+            disconnectSupportThreadListener();
+            disconnectSupportMessageListener();
+            activeSupportThread = null;
+            supportRealtimeConnected = false;
+        }
+
+        function subscribeSupportThreadStatus(threadId) {
+            disconnectSupportThreadListener();
+            if (typeof subscribeSupportThread !== 'function') return;
+            supportThreadUnsubscribe = subscribeSupportThread(
+                threadId,
+                (thread) => {
+                    if (!thread) return;
+                    activeSupportThread = thread;
+                    if (thread.status === 'closed' && chatMode === 'support') {
+                        setChatStatus('الدردشة الداخلية (مغلقة)', false);
+                    } else if (chatMode === 'support') {
+                        setChatStatus('الدردشة الداخلية', supportRealtimeConnected);
+                    }
+                },
+                (error) => {
+                    console.warn('support thread listener error:', error);
+                }
+            );
+        }
+
+        function getSupportCustomerProfile() {
+            if (!currentUser) return null;
+            const uid = String(currentUser.uid || '').trim();
+            if (!uid) return null;
+            return {
+                uid,
+                customerUid: uid,
+                customerId: String(currentUser.id || ''),
+                customerName: String(currentUser.name || ''),
+                customerPhone: String(currentUser.phone || currentUser.phoneNormalized || ''),
+                customerEmail: String(currentUser.email || '')
+            };
+        }
+
+        function renderSupportMessages(messages = []) {
+            clearChatMessages();
+            if (!Array.isArray(messages) || !messages.length) {
+                addChatMessage('لا توجد رسائل بعد. اكتب سؤالك وسيتم الرد عليك.', 'meta');
+                return;
+            }
+            messages.forEach((row) => {
+                const senderRole = String(row && row.senderRole || 'customer');
+                const senderClass = senderRole === 'customer' ? 'user' : 'bot';
+                const senderName = senderRole === 'admin' ? 'الدعم' : 'أنت';
+                const text = String(row && row.message || '').trim();
+                if (!text) return;
+                addChatMessage(`${senderName}: ${text}`, senderClass);
+            });
+        }
+
+        function subscribeSupportThreadMessages(threadId) {
+            disconnectSupportMessageListener();
+            if (typeof subscribeSupportMessages !== 'function') return;
+            supportMessagesUnsubscribe = subscribeSupportMessages(
+                threadId,
+                async (rows) => {
+                    const list = Array.isArray(rows) ? rows : [];
+                    renderSupportMessages(list);
+                    setChatStatus('الدردشة الداخلية', true);
+                    supportRealtimeConnected = true;
+                    if (typeof markSupportThreadReadByCustomer === 'function') {
+                        await markSupportThreadReadByCustomer(threadId).catch(() => null);
+                    }
+                },
+                (error) => {
+                    console.warn('support messages listener error:', error);
+                    supportRealtimeConnected = false;
+                    setChatStatus('الدردشة الداخلية (إعادة المحاولة)', false);
+                },
+                SUPPORT_CHAT_MESSAGES_LIMIT
+            );
+        }
+
+        async function ensureSupportChatReady() {
+            if (chatMode !== 'support') return false;
+            if (!currentUser) return false;
+            if (typeof getOrCreateSupportThread !== 'function') {
+                addChatMessage('ميزة الدردشة الداخلية غير متاحة حاليًا.', 'meta');
+                return false;
+            }
+
+            const profile = getSupportCustomerProfile();
+            if (!profile || !profile.uid) {
+                addChatMessage('حسابك غير مكتمل للدردشة الداخلية. أعد تسجيل الدخول.', 'meta');
+                return false;
+            }
+
+            const thread = await getOrCreateSupportThread(profile);
+            if (!thread || !thread.id) {
+                addChatMessage('تعذر إنشاء محادثة الدعم. حاول لاحقًا.', 'meta');
+                return false;
+            }
+
+            activeSupportThread = thread;
+            subscribeSupportThreadStatus(thread.id);
+            subscribeSupportThreadMessages(thread.id);
+            setChatStatus('الدردشة الداخلية', true);
+            return true;
+        }
+
+        async function sendSupportMessageFromCustomer(messageText) {
+            const text = String(messageText || '').trim();
+            if (!text) return;
+            if (typeof addSupportMessage !== 'function') {
+                showNotification('error', 'خطأ', 'ميزة الدردشة الداخلية غير متاحة');
+                return;
+            }
+
+            if (!activeSupportThread || !activeSupportThread.id) {
+                const ready = await ensureSupportChatReady();
+                if (!ready) return;
+            }
+
+            const profile = getSupportCustomerProfile();
+            if (!profile) return;
+
+            try {
+                await addSupportMessage({
+                    threadId: String(activeSupportThread.id || ''),
+                    senderRole: 'customer',
+                    senderUid: String(profile.uid || ''),
+                    senderName: String(profile.customerName || 'عميل'),
+                    message: text,
+                    createdAt: new Date().toISOString(),
+                    createdAtMs: Date.now()
+                });
+                trackStoreEvent('SUPPORT_MESSAGE_SENT', 'Customer sent support message', 'info', {
+                    customerId: String(currentUser && currentUser.id || ''),
+                    threadId: String(activeSupportThread.id || '')
+                });
+            } catch (error) {
+                console.error('sendSupportMessageFromCustomer error:', error);
+                showNotification('error', 'خطأ', 'تعذر إرسال الرسالة. حاول مرة أخرى.');
+                trackStoreEvent('SUPPORT_MESSAGE_FAILED', 'Customer support message failed', 'warning', {
+                    customerId: String(currentUser && currentUser.id || ''),
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+            }
         }
 
         function getFaqIntents() {
@@ -3438,7 +3697,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 }
             }
             if (text.includes('موظف') || text.includes('بشري') || text.includes('دعم')) {
-                return 'يمكنك التواصل مباشرة على واتساب من الزر العائم، أو رقم المتجر في قسم التواصل.';
+                return 'يمكنك التحويل لوضع "دعم" داخل نفس نافذة الشات للتواصل الداخلي المباشر.';
             }
             return `تواصل معنا: ${storeSettings.contact?.phone || '01018108979'} 📞`;
         }

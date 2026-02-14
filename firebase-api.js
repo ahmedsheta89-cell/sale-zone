@@ -1145,4 +1145,326 @@ function subscribeLiveSessions(onData, onError, limitCount = 200) {
     }
 }
 
+// ==========================================
+// SUPPORT CHAT (Internal Customer/Admin)
+// ==========================================
+function normalizeSupportText(value, max = 4000) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function normalizeSupportThreadPayload(payload, defaults = {}) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const base = defaults && typeof defaults === 'object' ? defaults : {};
+    const now = new Date().toISOString();
+
+    return {
+        customerUid: normalizeSupportText(source.customerUid || base.customerUid, 200),
+        customerId: normalizeSupportText(source.customerId || base.customerId, 200),
+        customerName: normalizeSupportText(source.customerName || base.customerName, 200),
+        customerPhone: normalizeSupportText(source.customerPhone || base.customerPhone, 50),
+        customerEmail: normalizeSupportText(source.customerEmail || base.customerEmail, 200).toLowerCase(),
+        status: ['open', 'closed'].includes(String(source.status || base.status || 'open'))
+            ? String(source.status || base.status || 'open')
+            : 'open',
+        lastMessage: normalizeSupportText(source.lastMessage || base.lastMessage, 600),
+        lastMessageAt: normalizeSupportText(source.lastMessageAt || base.lastMessageAt || now, 60),
+        lastSenderRole: ['customer', 'admin'].includes(String(source.lastSenderRole || base.lastSenderRole || 'customer'))
+            ? String(source.lastSenderRole || base.lastSenderRole || 'customer')
+            : 'customer',
+        unreadForAdmin: Number.isFinite(Number(source.unreadForAdmin))
+            ? Math.max(0, Number(source.unreadForAdmin))
+            : Math.max(0, Number(base.unreadForAdmin || 0)),
+        unreadForCustomer: Number.isFinite(Number(source.unreadForCustomer))
+            ? Math.max(0, Number(source.unreadForCustomer))
+            : Math.max(0, Number(base.unreadForCustomer || 0)),
+        createdAt: normalizeSupportText(source.createdAt || base.createdAt || now, 60),
+        updatedAt: normalizeSupportText(source.updatedAt || now, 60)
+    };
+}
+
+function normalizeSupportThreadRecord(data, threadId = '') {
+    const base = normalizeSupportThreadPayload(data || {});
+    return {
+        id: String(threadId || data && data.id || ''),
+        customerUid: base.customerUid,
+        customerId: base.customerId,
+        customerName: base.customerName,
+        customerPhone: base.customerPhone,
+        customerEmail: base.customerEmail,
+        status: base.status,
+        lastMessage: base.lastMessage,
+        lastMessageAt: base.lastMessageAt,
+        lastSenderRole: base.lastSenderRole,
+        unreadForAdmin: Math.max(0, Number(base.unreadForAdmin || 0)),
+        unreadForCustomer: Math.max(0, Number(base.unreadForCustomer || 0)),
+        createdAt: base.createdAt,
+        updatedAt: base.updatedAt
+    };
+}
+
+function normalizeSupportMessagePayload(payload) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const createdAtMs = Number(source.createdAtMs);
+    return {
+        threadId: normalizeSupportText(source.threadId, 200),
+        senderRole: ['customer', 'admin'].includes(String(source.senderRole || 'customer'))
+            ? String(source.senderRole || 'customer')
+            : 'customer',
+        senderUid: normalizeSupportText(source.senderUid, 200),
+        senderName: normalizeSupportText(source.senderName, 200),
+        message: normalizeSupportText(source.message, 2000),
+        createdAt: normalizeSupportText(source.createdAt || new Date().toISOString(), 60),
+        createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : Date.now()
+    };
+}
+
+function buildSupportThreadId(customerUid) {
+    return `thread_${normalizeSupportText(customerUid, 200)}`;
+}
+
+async function getOrCreateSupportThread(customerProfile) {
+    try {
+        const db = getFirebaseDB();
+        const profile = customerProfile && typeof customerProfile === 'object' ? customerProfile : {};
+        const customerUid = normalizeSupportText(profile.customerUid || profile.uid, 200);
+        if (!customerUid) throw new Error('customer uid required');
+
+        const threadId = buildSupportThreadId(customerUid);
+        const ref = db.collection('support_threads').doc(threadId);
+        const snapshot = await ref.get();
+        const base = snapshot.exists ? (snapshot.data() || {}) : {};
+
+        const normalized = normalizeSupportThreadPayload({
+            ...base,
+            customerUid,
+            customerId: profile.customerId || profile.id || base.customerId || '',
+            customerName: profile.customerName || profile.name || base.customerName || '',
+            customerPhone: profile.customerPhone || profile.phone || profile.phoneNormalized || base.customerPhone || '',
+            customerEmail: profile.customerEmail || profile.email || base.customerEmail || '',
+            status: base.status || 'open',
+            updatedAt: new Date().toISOString()
+        }, base);
+
+        if (!snapshot.exists) {
+            normalized.createdAt = normalized.updatedAt;
+        }
+
+        await ref.set(normalized, { merge: true });
+        return normalizeSupportThreadRecord(normalized, threadId);
+    } catch (e) {
+        console.error('getOrCreateSupportThread error:', e);
+        throw e;
+    }
+}
+
+async function addSupportMessage(payload) {
+    try {
+        const db = getFirebaseDB();
+        const normalized = normalizeSupportMessagePayload(payload);
+        if (!normalized.threadId) throw new Error('threadId required');
+        if (!normalized.message) throw new Error('message required');
+
+        const threadRef = db.collection('support_threads').doc(normalized.threadId);
+        const threadSnapshot = await threadRef.get();
+        if (!threadSnapshot.exists) {
+            throw new Error('support thread not found');
+        }
+        const threadData = normalizeSupportThreadRecord(threadSnapshot.data() || {}, normalized.threadId);
+
+        const messageRef = await threadRef
+            .collection('messages')
+            .add(normalized);
+
+        const isCustomer = normalized.senderRole === 'customer';
+        const unreadForAdmin = isCustomer
+            ? Math.max(0, Number(threadData.unreadForAdmin || 0)) + 1
+            : 0;
+        const unreadForCustomer = isCustomer
+            ? Math.max(0, Number(threadData.unreadForCustomer || 0))
+            : Math.max(0, Number(threadData.unreadForCustomer || 0)) + 1;
+
+        await threadRef.set({
+            lastMessage: normalized.message.slice(0, 600),
+            lastMessageAt: normalized.createdAt,
+            lastSenderRole: normalized.senderRole,
+            updatedAt: normalized.createdAt,
+            status: 'open',
+            unreadForAdmin,
+            unreadForCustomer
+        }, { merge: true });
+
+        return { id: messageRef.id, ...normalized };
+    } catch (e) {
+        console.error('addSupportMessage error:', e);
+        throw e;
+    }
+}
+
+async function getSupportThreads(limitCount = 100) {
+    try {
+        const db = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(500, Number(limitCount) || 100));
+        const snapshot = await db.collection('support_threads')
+            .orderBy('updatedAt', 'desc')
+            .limit(safeLimit)
+            .get();
+        return snapshot.docs.map((doc) => normalizeSupportThreadRecord(doc.data() || {}, doc.id));
+    } catch (e) {
+        console.error('getSupportThreads error:', e);
+        return [];
+    }
+}
+
+async function getSupportThread(threadId) {
+    try {
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return null;
+        const db = getFirebaseDB();
+        const snapshot = await db.collection('support_threads').doc(normalizedThreadId).get();
+        if (!snapshot.exists) return null;
+        return normalizeSupportThreadRecord(snapshot.data() || {}, snapshot.id);
+    } catch (e) {
+        console.error('getSupportThread error:', e);
+        return null;
+    }
+}
+
+async function getSupportMessages(threadId, limitCount = 200) {
+    try {
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return [];
+        const db = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(500, Number(limitCount) || 200));
+        const snapshot = await db.collection('support_threads')
+            .doc(normalizedThreadId)
+            .collection('messages')
+            .orderBy('createdAtMs', 'asc')
+            .limit(safeLimit)
+            .get();
+        return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.error('getSupportMessages error:', e);
+        return [];
+    }
+}
+
+function subscribeSupportThreads(onData, onError, limitCount = 100) {
+    try {
+        const db = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(500, Number(limitCount) || 100));
+        return db.collection('support_threads')
+            .orderBy('updatedAt', 'desc')
+            .limit(safeLimit)
+            .onSnapshot(
+                (snapshot) => {
+                    const rows = snapshot.docs.map((doc) => normalizeSupportThreadRecord(doc.data() || {}, doc.id));
+                    if (typeof onData === 'function') onData(rows);
+                },
+                (error) => {
+                    if (typeof onError === 'function') onError(error);
+                }
+            );
+    } catch (e) {
+        if (typeof onError === 'function') onError(e);
+        return null;
+    }
+}
+
+function subscribeSupportThread(threadId, onData, onError) {
+    try {
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return null;
+        const db = getFirebaseDB();
+        return db.collection('support_threads')
+            .doc(normalizedThreadId)
+            .onSnapshot(
+                (doc) => {
+                    if (typeof onData === 'function') {
+                        onData(doc.exists ? normalizeSupportThreadRecord(doc.data() || {}, doc.id) : null);
+                    }
+                },
+                (error) => {
+                    if (typeof onError === 'function') onError(error);
+                }
+            );
+    } catch (e) {
+        if (typeof onError === 'function') onError(e);
+        return null;
+    }
+}
+
+function subscribeSupportMessages(threadId, onData, onError, limitCount = 200) {
+    try {
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return null;
+        const db = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(500, Number(limitCount) || 200));
+        return db.collection('support_threads')
+            .doc(normalizedThreadId)
+            .collection('messages')
+            .orderBy('createdAtMs', 'asc')
+            .limit(safeLimit)
+            .onSnapshot(
+                (snapshot) => {
+                    const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+                    if (typeof onData === 'function') onData(rows);
+                },
+                (error) => {
+                    if (typeof onError === 'function') onError(error);
+                }
+            );
+    } catch (e) {
+        if (typeof onError === 'function') onError(e);
+        return null;
+    }
+}
+
+async function markSupportThreadReadByAdmin(threadId) {
+    try {
+        const db = getFirebaseDB();
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return false;
+        await db.collection('support_threads').doc(normalizedThreadId).set({
+            unreadForAdmin: 0,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        return true;
+    } catch (e) {
+        console.error('markSupportThreadReadByAdmin error:', e);
+        return false;
+    }
+}
+
+async function markSupportThreadReadByCustomer(threadId) {
+    try {
+        const db = getFirebaseDB();
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return false;
+        await db.collection('support_threads').doc(normalizedThreadId).set({
+            unreadForCustomer: 0,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        return true;
+    } catch (e) {
+        console.error('markSupportThreadReadByCustomer error:', e);
+        return false;
+    }
+}
+
+async function closeSupportThread(threadId) {
+    try {
+        const db = getFirebaseDB();
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return false;
+        await db.collection('support_threads').doc(normalizedThreadId).set({
+            status: 'closed',
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        return true;
+    } catch (e) {
+        console.error('closeSupportThread error:', e);
+        return false;
+    }
+}
+
 console.log('[OK] Firebase API loaded');

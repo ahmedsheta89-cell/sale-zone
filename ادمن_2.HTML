@@ -781,6 +781,127 @@
         }
         .points-btn.add { background: var(--success); color: white; }
         .points-btn.sub { background: var(--error); color: white; }
+
+        /* Internal Support Chat */
+        .support-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 14px;
+            min-height: 560px;
+        }
+        .support-threads-panel,
+        .support-messages-panel {
+            background: var(--white);
+            border: 1px solid #e9ebf0;
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 520px;
+        }
+        .support-panel-header {
+            padding: 12px 14px;
+            border-bottom: 1px solid #eceff5;
+            background: #fafbff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .support-thread-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .support-thread-item {
+            border: 1px solid #e5e8ef;
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all .15s ease;
+            background: #fff;
+        }
+        .support-thread-item.active {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, .15);
+            background: #fffdf6;
+        }
+        .support-thread-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 11px;
+            color: #777;
+            margin-top: 6px;
+        }
+        .support-unread-badge {
+            min-width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            padding: 0 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--error);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .support-messages-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #f8f9fc;
+        }
+        .support-message {
+            max-width: 80%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            line-height: 1.5;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .support-message.customer {
+            align-self: flex-start;
+            background: #fff;
+            border: 1px solid #e3e6ee;
+            color: #24304a;
+        }
+        .support-message.admin {
+            align-self: flex-end;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: #fff;
+        }
+        .support-message-meta {
+            margin-top: 4px;
+            font-size: 10px;
+            opacity: 0.8;
+        }
+        .support-composer {
+            border-top: 1px solid #eceff5;
+            padding: 10px;
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+            background: #fff;
+        }
+        .support-composer textarea {
+            resize: vertical;
+            min-height: 44px;
+            max-height: 140px;
+        }
+        @media (max-width: 1024px) {
+            .support-layout { grid-template-columns: 1fr; }
+            .support-threads-panel, .support-messages-panel { min-height: 380px; }
+        }
     </style>
 </head>
 <body>
@@ -838,6 +959,7 @@
                     <button class="menu-item" onclick="showSection('banners')">🎠 البانرات</button>
                     <button class="menu-item" onclick="showSection('coupons')">🎫 الكوبونات</button>
                     <button class="menu-item" onclick="showSection('users')">👥 العملاء</button>
+                    <button class="menu-item" onclick="showSection('support')">💬 الدردشة الداخلية <span class="badge" id="supportUnreadCount">0</span></button>
                     <button class="menu-item" onclick="showSection('loyalty')">💎 نقاط الولاء</button>
                 </div>
                 <div class="menu-section">
@@ -1051,6 +1173,51 @@
                                 <thead><tr><th>الاسم</th><th>الهاتف</th><th>البريد</th><th>النقاط</th><th>التسجيل</th><th>إجراءات</th></tr></thead>
                                 <tbody id="usersTable"></tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Support -->
+            <section class="content-section" id="supportSection">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">💬 الدردشة الداخلية</h3>
+                        <div class="header-actions">
+                            <button class="btn btn-gold" onclick="refreshSupportThreads()">🔄 تحديث</button>
+                            <button class="btn btn-danger" onclick="closeActiveSupportThread()" id="closeSupportThreadBtn" disabled>🔒 إغلاق المحادثة</button>
+                        </div>
+                    </div>
+                    <div class="section-body">
+                        <div class="support-layout">
+                            <div class="support-threads-panel">
+                                <div class="support-panel-header">
+                                    <strong>المحادثات</strong>
+                                    <span id="supportThreadsMeta" style="font-size:11px;color:#666;">0 محادثة</span>
+                                </div>
+                                <div class="support-thread-list" id="supportThreadsList">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">💬</div>
+                                        <p>لا توجد محادثات دعم</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="support-messages-panel">
+                                <div class="support-panel-header">
+                                    <strong id="supportActiveThreadTitle">اختر محادثة</strong>
+                                    <span id="supportActiveThreadStatus" class="status-badge status-pending">-</span>
+                                </div>
+                                <div class="support-messages-list" id="supportMessagesList">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">📨</div>
+                                        <p>اختر محادثة من القائمة</p>
+                                    </div>
+                                </div>
+                                <div class="support-composer">
+                                    <textarea id="supportReplyInput" placeholder="اكتب ردك هنا..." disabled></textarea>
+                                    <button class="btn btn-navy" onclick="sendSupportReply()" id="supportReplyBtn" disabled>إرسال</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1912,6 +2079,11 @@
         let clientErrorLogs = [];
         let storeEvents = [];
         let liveSessions = [];
+        let supportThreads = [];
+        let supportMessages = [];
+        let activeSupportThreadId = '';
+        let supportThreadsUnsubscribe = null;
+        let supportMessagesUnsubscribe = null;
         let storeEventsUnsubscribe = null;
         let liveSessionsUnsubscribe = null;
         // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
@@ -2371,6 +2543,7 @@
                     const fbCoupons = await getAllCoupons();
                     const fbBanners = await getAllBanners();
                     const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
+                    const fbSupportThreads = typeof getSupportThreads === 'function' ? await getSupportThreads(150) : null;
 
                     const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
                     const cachedStoreProducts = getStorageData('PRODUCTS');
@@ -2382,6 +2555,7 @@
                     coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
                     banners = Array.isArray(fbBanners) ? fbBanners : (getStorageData('BANNERS') || []);
                     suppliers = Array.isArray(fbSuppliers) ? fbSuppliers : (getStorageData('SUPPLIERS') || []);
+                    supportThreads = Array.isArray(fbSupportThreads) ? fbSupportThreads : [];
                     
                     const settings = await getSettings();
                     if (settings) storeSettings = { ...storeSettings, ...settings };
@@ -2407,6 +2581,7 @@
                 banners = getStorageData('BANNERS') || [];
                 users = getStorageData('CUSTOMERS') || [];
                 suppliers = getStorageData('SUPPLIERS') || [];
+                supportThreads = [];
                 try {
                     const localErrors = JSON.parse(localStorage.getItem('adminErrors') || '[]');
                     clientErrorLogs = localErrors.slice(-50).reverse().map((err, idx) => ({
@@ -2625,6 +2800,7 @@ async function sendPasswordReset() {
         sessionStorage.removeItem('adminLoggedIn');
         sessionStorage.removeItem('adminSessionId');
         sessionStorage.removeItem('adminSession');
+        stopSupportChatRealtime();
         document.getElementById('dashboard').classList.remove('active');
         document.getElementById('loginScreen').style.display = 'flex';
         return;
@@ -2665,6 +2841,7 @@ async function sendPasswordReset() {
 function adminLogout(){
   stopCustomersRealtimeSync();
   stopStoreOperationsMonitoring();
+  stopSupportChatRealtime();
   const sessionId = sessionStorage.getItem('adminSessionId');
   if (sessionId) {
     sessionManager.destroySession(sessionId);
@@ -2702,9 +2879,12 @@ function adminLogout(){
             renderClientErrorLogsTable();
             renderStoreEventsTable();
             renderLiveSessionsTable();
+            renderSupportThreads();
+            renderSupportMessages();
             loadSettingsToForms();
             initCharts();
             startStoreOperationsMonitoring();
+            startSupportChatRealtime();
         }
 
         function updateStats() {
@@ -2720,6 +2900,11 @@ function adminLogout(){
             const suppliersBadge = document.getElementById('suppliersCount');
             if (suppliersBadge) suppliersBadge.textContent = (suppliers || []).filter((s) => s && s.active !== false).length;
             document.getElementById('ordersCount').textContent = orders.filter(o => o.status === 'pending').length;
+            const supportBadge = document.getElementById('supportUnreadCount');
+            if (supportBadge) {
+                const unread = (supportThreads || []).reduce((sum, thread) => sum + Math.max(0, Number(thread && thread.unreadForAdmin || 0)), 0);
+                supportBadge.textContent = String(unread);
+            }
         }
 
         // ============================================
@@ -4338,6 +4523,283 @@ function adminLogout(){
         }
 
         // ============================================
+        // Internal Support Chat
+        // ============================================
+        function getSupportThreadById(threadId) {
+            const id = String(threadId || '');
+            return (supportThreads || []).find((item) => String(item && item.id || '') === id) || null;
+        }
+
+        function getSupportThreadStatusLabel(status) {
+            return status === 'closed' ? 'مغلقة' : 'مفتوحة';
+        }
+
+        function getSupportThreadStatusClass(status) {
+            return status === 'closed' ? 'status-cancelled' : 'status-confirmed';
+        }
+
+        function safeSupportTime(iso) {
+            return formatDateTime(iso || '');
+        }
+
+        function renderSupportThreads() {
+            const listEl = document.getElementById('supportThreadsList');
+            const metaEl = document.getElementById('supportThreadsMeta');
+            if (!listEl || !metaEl) return;
+
+            const list = Array.isArray(supportThreads) ? [...supportThreads] : [];
+            list.sort((a, b) => String(b && b.updatedAt || '').localeCompare(String(a && a.updatedAt || '')));
+            supportThreads = list;
+            metaEl.textContent = `${list.length} محادثة`;
+            updateBadges();
+
+            if (!list.length) {
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><p>لا توجد محادثات دعم</p></div>';
+                return;
+            }
+
+            listEl.innerHTML = list.map((thread) => {
+                const id = String(thread && thread.id || '');
+                const unread = Math.max(0, Number(thread && thread.unreadForAdmin || 0));
+                const activeClass = id && id === String(activeSupportThreadId || '') ? 'active' : '';
+                const name = escapeHtml(thread && thread.customerName || 'عميل');
+                const phone = escapeHtml(thread && thread.customerPhone || '-');
+                const lastMessage = escapeHtml(thread && thread.lastMessage || 'بدون رسائل');
+                const status = getSupportThreadStatusLabel(String(thread && thread.status || 'open'));
+                const statusClass = getSupportThreadStatusClass(String(thread && thread.status || 'open'));
+                return `
+                    <div class="support-thread-item ${activeClass}" onclick="selectSupportThread('${id}')">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                            <strong style="font-size:13px;">${name}</strong>
+                            ${unread > 0 ? `<span class="support-unread-badge">${unread}</span>` : ''}
+                        </div>
+                        <div style="font-size:11px;color:#666;margin-top:4px;">${phone}</div>
+                        <div style="font-size:12px;color:#333;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${lastMessage}</div>
+                        <div class="support-thread-meta">
+                            <span class="status-badge ${statusClass}">${status}</span>
+                            <span>${safeSupportTime(thread && thread.updatedAt)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderSupportMessages() {
+            const listEl = document.getElementById('supportMessagesList');
+            const titleEl = document.getElementById('supportActiveThreadTitle');
+            const statusEl = document.getElementById('supportActiveThreadStatus');
+            const replyInput = document.getElementById('supportReplyInput');
+            const replyBtn = document.getElementById('supportReplyBtn');
+            const closeBtn = document.getElementById('closeSupportThreadBtn');
+            if (!listEl || !titleEl || !statusEl || !replyInput || !replyBtn || !closeBtn) return;
+
+            const thread = getSupportThreadById(activeSupportThreadId);
+            if (!thread) {
+                titleEl.textContent = 'اختر محادثة';
+                statusEl.className = 'status-badge status-pending';
+                statusEl.textContent = '-';
+                replyInput.value = '';
+                replyInput.disabled = true;
+                replyBtn.disabled = true;
+                closeBtn.disabled = true;
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📨</div><p>اختر محادثة من القائمة</p></div>';
+                return;
+            }
+
+            const threadStatus = String(thread.status || 'open');
+            const isClosed = threadStatus === 'closed';
+            titleEl.textContent = `${thread.customerName || 'عميل'} - ${thread.customerPhone || '-'}`;
+            statusEl.className = `status-badge ${getSupportThreadStatusClass(threadStatus)}`;
+            statusEl.textContent = getSupportThreadStatusLabel(threadStatus);
+            replyInput.disabled = isClosed;
+            replyBtn.disabled = isClosed;
+            closeBtn.disabled = isClosed;
+
+            const rows = Array.isArray(supportMessages) ? supportMessages : [];
+            if (!rows.length) {
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><p>لا توجد رسائل بعد</p></div>';
+                return;
+            }
+
+            listEl.innerHTML = rows.map((msg) => {
+                const role = String(msg && msg.senderRole || 'customer');
+                const name = role === 'admin' ? 'الأدمن' : (thread.customerName || 'العميل');
+                const cssClass = role === 'admin' ? 'admin' : 'customer';
+                const text = escapeHtml(msg && msg.message || '');
+                const createdAt = safeSupportTime(msg && msg.createdAt);
+                return `
+                    <div class="support-message ${cssClass}">
+                        <div>${text}</div>
+                        <div class="support-message-meta">${escapeHtml(name)} · ${createdAt}</div>
+                    </div>
+                `;
+            }).join('');
+            listEl.scrollTop = listEl.scrollHeight;
+        }
+
+        function clearSupportMessageSubscription() {
+            if (typeof supportMessagesUnsubscribe === 'function') {
+                supportMessagesUnsubscribe();
+            }
+            supportMessagesUnsubscribe = null;
+        }
+
+        function clearSupportThreadSubscription() {
+            if (typeof supportThreadsUnsubscribe === 'function') {
+                supportThreadsUnsubscribe();
+            }
+            supportThreadsUnsubscribe = null;
+        }
+
+        async function selectSupportThread(threadId) {
+            const id = String(threadId || '').trim();
+            if (!id) return;
+            activeSupportThreadId = id;
+            supportMessages = [];
+            renderSupportThreads();
+            renderSupportMessages();
+
+            clearSupportMessageSubscription();
+            if (typeof subscribeSupportMessages === 'function') {
+                supportMessagesUnsubscribe = subscribeSupportMessages(
+                    id,
+                    async (rows) => {
+                        supportMessages = Array.isArray(rows) ? rows : [];
+                        renderSupportMessages();
+                        if (typeof markSupportThreadReadByAdmin === 'function') {
+                            await markSupportThreadReadByAdmin(id).catch(() => null);
+                        }
+                        supportThreads = (supportThreads || []).map((item) => (
+                            String(item && item.id || '') === id
+                                ? { ...item, unreadForAdmin: 0, updatedAt: new Date().toISOString() }
+                                : item
+                        ));
+                        renderSupportThreads();
+                    },
+                    (error) => {
+                        console.error('support messages listener error:', error);
+                    },
+                    300
+                );
+            } else if (typeof getSupportMessages === 'function') {
+                supportMessages = await getSupportMessages(id, 300);
+                renderSupportMessages();
+            }
+        }
+
+        async function refreshSupportThreads() {
+            try {
+                if (typeof getSupportThreads !== 'function') throw new Error('support API unavailable');
+                supportThreads = await getSupportThreads(200);
+                renderSupportThreads();
+                renderSupportMessages();
+                if (!activeSupportThreadId && supportThreads.length > 0) {
+                    await selectSupportThread(String(supportThreads[0].id || ''));
+                }
+                showNotification('success', 'تم تحديث المحادثات');
+            } catch (error) {
+                console.error('refreshSupportThreads error:', error);
+                showNotification('error', 'فشل تحديث المحادثات');
+            }
+        }
+
+        function startSupportChatRealtime() {
+            if (supportThreadsUnsubscribe || typeof subscribeSupportThreads !== 'function') {
+                renderSupportThreads();
+                renderSupportMessages();
+                return;
+            }
+
+            supportThreadsUnsubscribe = subscribeSupportThreads(
+                (rows) => {
+                    const previousActive = String(activeSupportThreadId || '');
+                    supportThreads = Array.isArray(rows) ? rows : [];
+                    if (previousActive && !getSupportThreadById(previousActive)) {
+                        activeSupportThreadId = '';
+                        supportMessages = [];
+                        clearSupportMessageSubscription();
+                    }
+                    renderSupportThreads();
+                    renderSupportMessages();
+                    if (!activeSupportThreadId && supportThreads.length > 0) {
+                        selectSupportThread(String(supportThreads[0].id || ''));
+                    }
+                },
+                (error) => {
+                    console.error('support threads listener error:', error);
+                },
+                250
+            );
+        }
+
+        function stopSupportChatRealtime() {
+            clearSupportMessageSubscription();
+            clearSupportThreadSubscription();
+            supportMessages = [];
+            activeSupportThreadId = '';
+        }
+
+        async function sendSupportReply() {
+            const thread = getSupportThreadById(activeSupportThreadId);
+            const input = document.getElementById('supportReplyInput');
+            if (!thread || !input) return;
+            if (String(thread.status || 'open') === 'closed') {
+                showNotification('error', 'المحادثة مغلقة');
+                return;
+            }
+            const message = String(input.value || '').trim();
+            if (!message) return;
+
+            try {
+                const authUser = firebase && firebase.auth ? firebase.auth().currentUser : null;
+                const senderUid = authUser && authUser.uid ? String(authUser.uid) : '';
+                if (!senderUid) {
+                    showNotification('error', 'جلسة الأدمن غير متاحة');
+                    return;
+                }
+                const senderName = authUser && authUser.email ? String(authUser.email) : 'admin';
+                await addSupportMessage({
+                    threadId: String(thread.id || ''),
+                    senderRole: 'admin',
+                    senderUid,
+                    senderName,
+                    message,
+                    createdAt: new Date().toISOString(),
+                    createdAtMs: Date.now()
+                });
+                input.value = '';
+            } catch (error) {
+                console.error('sendSupportReply error:', error);
+                showNotification('error', 'فشل إرسال الرد');
+            }
+        }
+
+        async function closeActiveSupportThread() {
+            const thread = getSupportThreadById(activeSupportThreadId);
+            if (!thread) {
+                showNotification('error', 'اختر محادثة أولًا');
+                return;
+            }
+            if (!confirm('إغلاق هذه المحادثة؟')) return;
+
+            try {
+                if (typeof closeSupportThread !== 'function') throw new Error('closeSupportThread unavailable');
+                await closeSupportThread(thread.id);
+                supportThreads = (supportThreads || []).map((item) => (
+                    String(item && item.id || '') === String(thread.id || '')
+                        ? { ...item, status: 'closed', updatedAt: new Date().toISOString() }
+                        : item
+                ));
+                renderSupportThreads();
+                renderSupportMessages();
+                showNotification('success', 'تم إغلاق المحادثة');
+            } catch (error) {
+                console.error('closeActiveSupportThread error:', error);
+                showNotification('error', 'فشل إغلاق المحادثة');
+            }
+        }
+
+        // ============================================
         // Loyalty
         // ============================================
         function renderLoyaltySection() {
@@ -5791,7 +6253,7 @@ function adminLogout(){
             document.getElementById(name + 'Section').classList.add('active');
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
             event?.target?.classList.add('active');
-            const titles = { overview: '📊 نظرة عامة', products: '📦 المنتجات', suppliers: '🏭 الموردين', orders: '🛍️ الطلبات', banners: '🎠 البانرات', coupons: '🎫 الكوبونات', users: '👥 العملاء', loyalty: '💎 نقاط الولاء', reports: '📈 التقارير', storeSettings: '🏪 المتجر', settings: '⚙️ النظام' };
+            const titles = { overview: '📊 نظرة عامة', products: '📦 المنتجات', suppliers: '🏭 الموردين', orders: '🛍️ الطلبات', banners: '🎠 البانرات', coupons: '🎫 الكوبونات', users: '👥 العملاء', support: '💬 الدردشة الداخلية', loyalty: '💎 نقاط الولاء', reports: '📈 التقارير', storeSettings: '🏪 المتجر', settings: '⚙️ النظام' };
             document.getElementById('pageTitle').textContent = titles[name] || name;
             document.getElementById('sidebar').classList.remove('active');
             document.getElementById('overlay').classList.remove('active');
@@ -5801,6 +6263,9 @@ function adminLogout(){
                 renderStoreEventsTable();
                 renderLiveSessionsTable();
                 refreshStoreOperationsNow();
+            } else if (name === 'support') {
+                renderSupportThreads();
+                renderSupportMessages();
             }
         }
 

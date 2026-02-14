@@ -234,6 +234,90 @@ service cloud.firestore {
       && (!("userAgent" in request.resource.data) || request.resource.data.userAgent is string);
     }
 
+    function isSupportThreadOwnerData(data) {
+      return request.auth != null
+        && data is map
+        && ("customerUid" in data)
+        && data.customerUid is string
+        && data.customerUid == request.auth.uid;
+    }
+
+    function isSupportThreadOwner(threadId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/support_threads/$(threadId))
+        && get(/databases/$(database)/documents/support_threads/$(threadId)).data.customerUid == request.auth.uid;
+    }
+
+    function isValidSupportThreadWrite() {
+      return request.resource.data.keys().hasOnly([
+        "customerUid",
+        "customerId",
+        "customerName",
+        "customerPhone",
+        "customerEmail",
+        "status",
+        "lastMessage",
+        "lastMessageAt",
+        "lastSenderRole",
+        "unreadForAdmin",
+        "unreadForCustomer",
+        "createdAt",
+        "updatedAt"
+      ])
+      && request.resource.data.keys().hasAll([
+        "customerUid",
+        "status",
+        "updatedAt"
+      ])
+      && request.resource.data.customerUid is string
+      && request.resource.data.customerUid.size() > 0
+      && request.resource.data.status is string
+      && request.resource.data.status in ["open", "closed"]
+      && request.resource.data.updatedAt is string
+      && (!("customerId" in request.resource.data) || request.resource.data.customerId is string)
+      && (!("customerName" in request.resource.data) || request.resource.data.customerName is string)
+      && (!("customerPhone" in request.resource.data) || request.resource.data.customerPhone is string)
+      && (!("customerEmail" in request.resource.data) || request.resource.data.customerEmail is string)
+      && (!("lastMessage" in request.resource.data) || request.resource.data.lastMessage is string)
+      && (!("lastMessageAt" in request.resource.data) || request.resource.data.lastMessageAt is string)
+      && (!("lastSenderRole" in request.resource.data) || request.resource.data.lastSenderRole in ["customer", "admin"])
+      && (!("unreadForAdmin" in request.resource.data) || (request.resource.data.unreadForAdmin is number && request.resource.data.unreadForAdmin >= 0))
+      && (!("unreadForCustomer" in request.resource.data) || (request.resource.data.unreadForCustomer is number && request.resource.data.unreadForCustomer >= 0))
+      && (!("createdAt" in request.resource.data) || request.resource.data.createdAt is string);
+    }
+
+    function isValidSupportMessageCreate(threadId) {
+      return request.resource.data.keys().hasOnly([
+        "threadId",
+        "senderRole",
+        "senderUid",
+        "senderName",
+        "message",
+        "createdAt",
+        "createdAtMs"
+      ])
+      && request.resource.data.keys().hasAll([
+        "threadId",
+        "senderRole",
+        "senderUid",
+        "message",
+        "createdAt",
+        "createdAtMs"
+      ])
+      && request.resource.data.threadId is string
+      && request.resource.data.threadId.size() > 0
+      && request.resource.data.threadId == threadId
+      && request.resource.data.senderRole in ["customer", "admin"]
+      && request.resource.data.senderUid is string
+      && request.resource.data.senderUid.size() > 0
+      && request.resource.data.message is string
+      && request.resource.data.message.size() > 0
+      && request.resource.data.message.size() <= 2000
+      && request.resource.data.createdAt is string
+      && request.resource.data.createdAtMs is number
+      && (!("senderName" in request.resource.data) || request.resource.data.senderName is string);
+    }
+
     function isValidProductWrite() {
       return request.resource.data.name is string
       && request.resource.data.name.size() > 0
@@ -323,6 +407,42 @@ service cloud.firestore {
     match /store_live_sessions/{sessionId} {
       allow read, delete: if isAdmin() || isAdminEmail();
       allow create, update: if isAdmin() || isAdminEmail() || isValidLiveSessionWrite();
+    }
+
+    match /support_threads/{threadId} {
+      allow read: if isAdmin() || isAdminEmail() || isSupportThreadOwnerData(resource.data);
+      allow create: if (
+          ((isAdmin() || isAdminEmail()) && isValidSupportThreadWrite())
+          || (request.auth != null && isValidSupportThreadWrite() && request.resource.data.customerUid == request.auth.uid)
+        );
+      allow update: if (
+          (isAdmin() || isAdminEmail())
+          || (
+            request.auth != null
+            && isValidSupportThreadWrite()
+            && request.resource.data.customerUid == request.auth.uid
+            && (!("customerUid" in resource.data) || resource.data.customerUid == request.auth.uid)
+          )
+        );
+      allow delete: if isAdmin() || isAdminEmail();
+
+      match /messages/{messageId} {
+        allow read: if (isAdmin() || isAdminEmail()) || isSupportThreadOwner(threadId);
+        allow create: if isValidSupportMessageCreate(threadId) && (
+            (
+              request.auth != null
+              && request.resource.data.senderRole == "customer"
+              && request.resource.data.senderUid == request.auth.uid
+              && isSupportThreadOwner(threadId)
+            )
+            || (
+              (isAdmin() || isAdminEmail())
+              && request.resource.data.senderRole == "admin"
+              && request.resource.data.senderUid == request.auth.uid
+            )
+          );
+        allow update, delete: if isAdmin() || isAdminEmail();
+      }
     }
 
     match /sessions/{sessionId} {
