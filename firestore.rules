@@ -248,6 +248,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/support_threads/$(threadId)).data.customerUid == request.auth.uid;
     }
 
+    function isSupportThreadIdOwner(threadId) {
+      return request.auth != null
+        && threadId is string
+        && threadId == ("thread_" + request.auth.uid);
+    }
+
     function isValidSupportThreadWrite() {
       return request.resource.data.keys().hasOnly([
         "customerUid",
@@ -410,7 +416,7 @@ service cloud.firestore {
     }
 
     match /support_threads/{threadId} {
-      allow read: if isAdmin() || isAdminEmail() || isSupportThreadOwnerData(resource.data);
+      allow read: if isAdmin() || isAdminEmail() || isSupportThreadOwnerData(resource.data) || isSupportThreadIdOwner(threadId);
       allow create: if (
           ((isAdmin() || isAdminEmail()) && isValidSupportThreadWrite())
           || (request.auth != null && isValidSupportThreadWrite() && request.resource.data.customerUid == request.auth.uid)
@@ -427,13 +433,13 @@ service cloud.firestore {
       allow delete: if isAdmin() || isAdminEmail();
 
       match /messages/{messageId} {
-        allow read: if (isAdmin() || isAdminEmail()) || isSupportThreadOwner(threadId);
+        allow read: if (isAdmin() || isAdminEmail()) || isSupportThreadOwner(threadId) || isSupportThreadIdOwner(threadId);
         allow create: if isValidSupportMessageCreate(threadId) && (
             (
               request.auth != null
               && request.resource.data.senderRole == "customer"
               && request.resource.data.senderUid == request.auth.uid
-              && isSupportThreadOwner(threadId)
+              && (isSupportThreadOwner(threadId) || isSupportThreadIdOwner(threadId))
             )
             || (
               (isAdmin() || isAdminEmail())
