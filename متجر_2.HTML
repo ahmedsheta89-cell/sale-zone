@@ -1439,6 +1439,42 @@
             return true;
         }
 
+        function shouldPreserveLocalCustomers(remoteUsers, localUsers, source = 'customers-sync') {
+            const remote = Array.isArray(remoteUsers) ? remoteUsers : [];
+            const local = Array.isArray(localUsers) ? localUsers : [];
+            if (remote.length > 0 || local.length === 0) return false;
+
+            const syncStatus = window.__FIREBASE_SYNC_STATUS__ || {};
+            const hasRecentSyncError = Number(syncStatus.consecutiveErrors || 0) > 0 || !!syncStatus.lastError;
+            const lastSuccessAt = Number(syncStatus.lastSuccessAt || 0);
+            const hasFreshSync = lastSuccessAt > 0 && (Date.now() - lastSuccessAt) < 120000;
+
+            if (!navigator.onLine || hasRecentSyncError || !hasFreshSync) {
+                console.warn(`⚠️ Preserving local CUSTOMERS cache (${source}) to avoid destructive empty overwrite.`);
+                return true;
+            }
+
+            return false;
+        }
+
+        function mergeRemoteCustomersWithLocal(remoteUsers, localUsers) {
+            const remote = Array.isArray(remoteUsers) ? remoteUsers : [];
+            const local = Array.isArray(localUsers) ? localUsers : [];
+            const localByPhone = new Map(local.map((u) => [normalizePhone(u && (u.phone || u.phoneNormalized) || ''), u]));
+            const localById = new Map(local.map((u) => [String(u && u.id || ''), u]));
+            return remote.map((u) => {
+                const sourcePhone = normalizePhone((u && (u.phone || u.phoneNormalized)) || '');
+                const sourceId = String(u && u.id || '');
+                const localMatch = localByPhone.get(sourcePhone) || localById.get(sourceId) || null;
+                return sanitizeCustomerRecord(u, {
+                    id: sourceId || (localMatch && localMatch.id) || '',
+                    uid: (u && u.uid) || (localMatch && localMatch.uid) || '',
+                    phoneNormalized: sourcePhone,
+                    password: (u && u.password) || (localMatch && localMatch.password) || ''
+                });
+            });
+        }
+
         async function loadData() {
             const localProducts = normalizeStoreProducts(getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []));
             const localCoupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
@@ -1479,18 +1515,15 @@
                 banners = resolveList(bannersResult, 'BANNERS', localBanners, 'Banners');
 
                 if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
-                    const localByPhone = new Map(localUsers.map(u => [normalizePhone(u.phone), u]));
-                    users = usersResult.value.map(u => {
-                        const sourcePhone = normalizePhone((u && (u.phone || u.phoneNormalized)) || '');
-                        const localMatch = localByPhone.get(sourcePhone);
-                        return sanitizeCustomerRecord(u, {
-                            uid: (u && u.uid) || (localMatch && localMatch.uid) || '',
-                            phoneNormalized: sourcePhone,
-                            password: (u && u.password) || (localMatch && localMatch.password) || ''
-                        });
-                    });
-                    setStorageData('CUSTOMERS', users);
-                    console.log('✅ Customers loaded from Firebase:', users.length);
+                    const remoteUsers = usersResult.value;
+                    if (shouldPreserveLocalCustomers(remoteUsers, localUsers, 'loadData')) {
+                        users = localUsers.map((u) => sanitizeCustomerRecord(u, { id: u && u.id ? u.id : '' }));
+                        console.log('✅ Customers preserved from local cache:', users.length);
+                    } else {
+                        users = mergeRemoteCustomersWithLocal(remoteUsers, localUsers);
+                        setStorageData('CUSTOMERS', users);
+                        console.log('✅ Customers loaded from Firebase:', users.length);
+                    }
                 } else {
                     if (usersResult.status === 'rejected') {
                         console.warn('Customers firebase read failed, fallback to localStorage:', usersResult.reason);
@@ -2662,16 +2695,13 @@
             if (!Array.isArray(fbUsers)) return null;
 
             const localUsers = getStorageData('CUSTOMERS') || [];
-            const localByPhone = new Map(localUsers.map(u => [normalizePhone(u.phone), u]));
-            users = fbUsers.map(u => {
-                const sourcePhone = normalizePhone((u && (u.phone || u.phoneNormalized)) || '');
-                const localMatch = localByPhone.get(sourcePhone);
-                return sanitizeCustomerRecord(u, {
-                    uid: (u && u.uid) || (localMatch && localMatch.uid) || '',
-                    phoneNormalized: sourcePhone,
-                    password: (u && u.password) || (localMatch && localMatch.password) || ''
-                });
-            }).sort((a, b) => String(a.phoneNormalized || '').localeCompare(String(b.phoneNormalized || '')));
+            if (shouldPreserveLocalCustomers(fbUsers, localUsers, 'syncUsersFromFirebase')) {
+                users = localUsers.map((u) => sanitizeCustomerRecord(u, { id: u && u.id ? u.id : '' }));
+                return users;
+            }
+
+            users = mergeRemoteCustomersWithLocal(fbUsers, localUsers)
+                .sort((a, b) => String(a.phoneNormalized || '').localeCompare(String(b.phoneNormalized || '')));
             saveUsers();
             return users;
         }
@@ -2723,6 +2753,7 @@
             let authUid = '';
             let authSignInSucceeded = false;
             let authUser = null;
+            let authSignInError = null;
             try {
                 const authCred = await signInCustomerAuth(identifier, password, {
                     authEmail: emailNormalized || preferredEmailForPhoneLogin || undefined
@@ -2731,6 +2762,7 @@
                 authUid = authUser && authUser.uid ? String(authUser.uid) : '';
                 authSignInSucceeded = !!authUser;
             } catch (authError) {
+                authSignInError = authError;
                 const code = authError && authError.code ? String(authError.code) : '';
                 if (code && code !== 'auth/user-not-found' && code !== 'auth/wrong-password' && code !== 'auth/invalid-credential' && code !== 'auth/invalid-login-credentials') {
                     console.warn('Customer auth sign-in warning:', authError);
@@ -2745,6 +2777,23 @@
                 return;
             }
 
+            const authErrorCode = String(authSignInError && authSignInError.code || '').toLowerCase();
+            const authErrorMessage = String(authSignInError && authSignInError.message || '').toLowerCase();
+            const transientAuthFailure = authErrorCode === 'auth/network-request-failed'
+                || authErrorMessage.includes('network')
+                || authErrorMessage.includes('offline')
+                || authErrorMessage.includes('fetch');
+            const allowLocalOnlyLogin = !isOnlineMode() || transientAuthFailure;
+            if (!authSignInSucceeded && !allowLocalOnlyLogin) {
+                showNotification('warning', 'تسجيل الدخول', 'يلزم تسجيل دخول Firebase صالح. إذا كان الحساب قديمًا استخدم إنشاء حساب بنفس الرقم/البريد.');
+                trackStoreEvent('LOGIN_BLOCKED_AUTH_REQUIRED', 'Blocked local-only login while online', 'warning', {
+                    phoneNormalized,
+                    email: emailNormalized,
+                    authErrorCode
+                });
+                return;
+            }
+
             let user = null;
 
             if (authSignInSucceeded) {
@@ -2755,12 +2804,17 @@
                     || null;
 
                 if (!user) {
+                    const authPhone = String(authUser && authUser.phoneNumber || '').trim();
+                    const bootstrapPhoneRaw = emailNormalized
+                        ? String((phoneMatchedUser && (phoneMatchedUser.phone || phoneMatchedUser.phoneNormalized)) || authPhone || '')
+                        : String(identifier || '');
+                    const bootstrapPhoneNormalized = normalizePhone(bootstrapPhoneRaw);
                     const fallbackProfile = sanitizeCustomerRecord({
                         id: `auth_${authUid}`,
                         uid: authUid,
                         name: emailNormalized ? `عميل ${emailNormalized.split('@')[0]}` : buildFallbackCustomerName(phoneNormalized),
-                        phone: emailNormalized ? '' : identifier,
-                        phoneNormalized,
+                        phone: bootstrapPhoneRaw,
+                        phoneNormalized: bootstrapPhoneNormalized,
                         email: emailNormalized,
                         address: '',
                         loyaltyPoints: 0,
@@ -2769,7 +2823,8 @@
                     });
 
                     try {
-                        if (typeof addCustomer === 'function') {
+                        const canPersistProfile = isValidCustomerPhone(bootstrapPhoneNormalized);
+                        if (typeof addCustomer === 'function' && canPersistProfile) {
                             const createdId = await addCustomer({
                                 uid: fallbackProfile.uid,
                                 name: fallbackProfile.name,
@@ -2783,8 +2838,14 @@
                                 updatedAt: new Date().toISOString()
                             });
                             if (createdId) fallbackProfile.id = createdId;
+                        } else if (!canPersistProfile) {
+                            console.info('profile bootstrap skipped: valid phone is required for customers collection.');
                         }
                     } catch (profileError) {
+                        const code = String(profileError && profileError.code || '');
+                        if (code === 'customer/uid-mismatch') {
+                            showNotification('warning', 'تعارض حساب', 'رقم الهاتف مرتبط بحساب آخر. استخدم بيانات الحساب الصحيحة أو تواصل مع الدعم.');
+                        }
                         console.warn('auth profile bootstrap warning:', profileError);
                     }
 
@@ -3088,7 +3149,10 @@
                 currentUser = sanitizeCustomerRecord(JSON.parse(saved));
                 const freshUser = users.find(u => String(u.id) === String(currentUser.id));
                 if (freshUser) {
-                    currentUser = sanitizeCustomerRecord(freshUser, { id: freshUser.id });
+                    currentUser = sanitizeCustomerRecord(freshUser, {
+                        id: freshUser.id,
+                        password: String(freshUser.password || currentUser.password || '')
+                    });
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 }
                 updateUserUI();
@@ -3606,7 +3670,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
 
             if (activeUid && localUid && localUid !== activeUid) {
-                await auth.signOut().catch(() => null);
+                // Keep active Firebase session and self-heal stale local uid instead of forcing sign-out.
+                syncCurrentUserSupportUid(activeUid);
+                return activeUid;
             }
 
             const password = String(currentUser && currentUser.password || '').trim();

@@ -794,6 +794,13 @@ async function addCustomer(customer) {
                 // accidentally change system fields (createdAt / loyaltyPoints / password).
                 // This also keeps Firestore rules self-update checks happy.
                 const existingData = existingDoc.data() || {};
+                const existingUid = String(existingData.uid || '').trim();
+                const incomingUid = String(payload.uid || '').trim();
+                if (existingUid && incomingUid && existingUid !== incomingUid) {
+                    const conflict = new Error('Customer phone is linked to another account.');
+                    conflict.code = 'customer/uid-mismatch';
+                    throw conflict;
+                }
                 const safePayload = { ...payload };
                 if ('createdAt' in existingData) safePayload.createdAt = existingData.createdAt;
                 else delete safePayload.createdAt;
