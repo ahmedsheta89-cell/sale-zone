@@ -3476,6 +3476,113 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             return true;
         }
 
+        function getActiveFirebaseAuthUser() {
+            try {
+                if (!(firebase && firebase.auth)) return null;
+                const auth = firebase.auth();
+                return auth && auth.currentUser ? auth.currentUser : null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function syncCurrentUserSupportUid(uid) {
+            const normalizedUid = String(uid || '').trim();
+            if (!currentUser || !normalizedUid) return;
+            if (String(currentUser.uid || '').trim() === normalizedUid) return;
+
+            currentUser = sanitizeCustomerRecord(currentUser, {
+                id: currentUser && currentUser.id ? currentUser.id : '',
+                uid: normalizedUid
+            });
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+
+            const currentId = String(currentUser.id || '');
+            if (!currentId || !Array.isArray(users)) return;
+            const userIndex = users.findIndex((userRow) => String(userRow && userRow.id || '') === currentId);
+            if (userIndex === -1) return;
+
+            users[userIndex] = sanitizeCustomerRecord(users[userIndex], {
+                id: currentId,
+                uid: normalizedUid
+            });
+            saveUsers();
+        }
+
+        function buildSupportAuthAttempts() {
+            if (!currentUser) return [];
+            const attempts = [];
+            const email = String(currentUser.email || '').trim().toLowerCase();
+            const phone = String(currentUser.phone || currentUser.phoneNormalized || '').trim();
+            if (email) {
+                attempts.push({ identifier: email, authEmail: email });
+            }
+            if (phone) {
+                attempts.push({ identifier: phone, authEmail: email || undefined });
+            }
+            return attempts;
+        }
+
+        async function ensureSupportAuthSession() {
+            if (!(firebase && firebase.auth)) {
+                const unavailableError = new Error('Firebase Auth غير متاح للدردشة الداخلية.');
+                unavailableError.code = 'auth/unavailable';
+                throw unavailableError;
+            }
+
+            const auth = firebase.auth();
+            const localUid = String(currentUser && currentUser.uid || '').trim();
+            const activeUid = String(auth && auth.currentUser && auth.currentUser.uid || '').trim();
+
+            if (activeUid && (!localUid || localUid === activeUid)) {
+                syncCurrentUserSupportUid(activeUid);
+                return activeUid;
+            }
+
+            if (activeUid && localUid && localUid !== activeUid) {
+                await auth.signOut().catch(() => null);
+            }
+
+            const password = String(currentUser && currentUser.password || '').trim();
+            if (!password) {
+                const sessionError = new Error('الدردشة الداخلية تتطلب إعادة تسجيل الدخول بكلمة المرور.');
+                sessionError.code = 'auth/session-required';
+                throw sessionError;
+            }
+
+            const attempts = buildSupportAuthAttempts();
+            if (!attempts.length) {
+                const profileError = new Error('بيانات الحساب غير مكتملة لتفعيل الدردشة الداخلية.');
+                profileError.code = 'auth/session-required';
+                throw profileError;
+            }
+
+            let lastError = null;
+            for (const attempt of attempts) {
+                try {
+                    const credential = await signInCustomerAuth(attempt.identifier, password, {
+                        authEmail: attempt.authEmail
+                    });
+                    const signedUid = String(
+                        (credential && credential.user && credential.user.uid)
+                        || (auth && auth.currentUser && auth.currentUser.uid)
+                        || ''
+                    ).trim();
+                    if (signedUid) {
+                        syncCurrentUserSupportUid(signedUid);
+                        return signedUid;
+                    }
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            if (lastError) throw lastError;
+            const unknownError = new Error('تعذر إنشاء جلسة دخول Firebase للدعم.');
+            unknownError.code = 'auth/session-required';
+            throw unknownError;
+        }
+
         function toggleChat() {
             const box = document.getElementById('chatBox');
             if (!box) return;
@@ -3610,9 +3717,15 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             );
         }
 
-        function getSupportCustomerProfile() {
+        function getSupportCustomerProfile(resolvedUid = '') {
             if (!currentUser) return null;
-            const uid = String(currentUser.uid || '').trim();
+            const authUser = getActiveFirebaseAuthUser();
+            const uid = String(
+                resolvedUid
+                || (authUser && authUser.uid)
+                || currentUser.uid
+                || ''
+            ).trim();
             if (!uid) return null;
             return {
                 uid,
@@ -3672,7 +3785,28 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 return false;
             }
 
-            const profile = getSupportCustomerProfile();
+            let supportUid = '';
+            try {
+                supportUid = await ensureSupportAuthSession();
+            } catch (authError) {
+                const reason = String(authError && authError.message || authError || 'support auth session required').trim();
+                const reasonKey = `support-auth:${reason}`;
+                supportRealtimeConnected = false;
+                setChatStatus('الدردشة الداخلية (غير متاحة)', false);
+                if (supportAccess.notifiedReason !== reasonKey) {
+                    supportAccess.notifiedReason = reasonKey;
+                    showNotification('warning', 'الدردشة الداخلية', 'يلزم تسجيل دخول Firebase صالح لاستخدام الدعم. تم التحويل إلى FAQ.');
+                }
+                console.warn('support auth session error:', authError);
+                fallbackSupportChatToFaq('تعذر تفعيل الدردشة الداخلية بدون جلسة دخول Firebase صالحة. تم التحويل إلى FAQ.');
+                trackStoreEvent('SUPPORT_AUTH_SESSION_REQUIRED', 'Support chat requires Firebase Auth session', 'warning', {
+                    customerId: String(currentUser && currentUser.id || ''),
+                    reason
+                });
+                return false;
+            }
+
+            const profile = getSupportCustomerProfile(supportUid);
             if (!profile || !profile.uid) {
                 addChatMessage('حسابك غير مكتمل للدردشة الداخلية. أعد تسجيل الدخول.', 'meta');
                 return false;
@@ -3707,12 +3841,33 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 return;
             }
 
+            let supportUid = '';
+            try {
+                supportUid = await ensureSupportAuthSession();
+            } catch (authError) {
+                const reason = String(authError && authError.message || authError || 'support auth session required').trim();
+                const reasonKey = `support-auth-send:${reason}`;
+                supportRealtimeConnected = false;
+                setChatStatus('الدردشة الداخلية (غير متاحة)', false);
+                if (supportAccess.notifiedReason !== reasonKey) {
+                    supportAccess.notifiedReason = reasonKey;
+                    showNotification('warning', 'الدردشة الداخلية', 'يلزم تسجيل دخول Firebase صالح لإرسال الرسائل. تم التحويل إلى FAQ.');
+                }
+                console.warn('support send auth session error:', authError);
+                fallbackSupportChatToFaq('تعذر إرسال رسالة الدعم بدون جلسة دخول Firebase صالحة. تم التحويل إلى FAQ.');
+                trackStoreEvent('SUPPORT_SEND_AUTH_REQUIRED', 'Support message send requires Firebase Auth session', 'warning', {
+                    customerId: String(currentUser && currentUser.id || ''),
+                    reason
+                });
+                return;
+            }
+
             if (!activeSupportThread || !activeSupportThread.id) {
                 const ready = await ensureSupportChatReady();
                 if (!ready) return;
             }
 
-            const profile = getSupportCustomerProfile();
+            const profile = getSupportCustomerProfile(supportUid);
             if (!profile) return;
 
             try {
