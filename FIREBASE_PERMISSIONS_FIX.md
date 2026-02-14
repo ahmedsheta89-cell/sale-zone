@@ -59,7 +59,7 @@ service cloud.firestore {
    - اضغط على علامة التبويب `Rules`
 
 3. **استبدل Rules الحالية**
-   - انسخ القواعد من ملف `firebase-rules.firestore`
+   - انسخ القواعد من ملف `firestore.rules`
    - الصقها في محرر Rules
    - اضغط `Publish`
 

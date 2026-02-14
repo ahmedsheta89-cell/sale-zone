@@ -1184,11 +1184,12 @@
                     <div class="section-header">
                         <h3 class="section-title">💬 الدردشة الداخلية</h3>
                         <div class="header-actions">
-                            <button class="btn btn-gold" onclick="refreshSupportThreads()">🔄 تحديث</button>
+                            <button class="btn btn-gold" onclick="refreshSupportThreads()" id="refreshSupportThreadsBtn">🔄 تحديث</button>
                             <button class="btn btn-danger" onclick="closeActiveSupportThread()" id="closeSupportThreadBtn" disabled>🔒 إغلاق المحادثة</button>
                         </div>
                     </div>
                     <div class="section-body">
+                        <div id="supportAccessNotice" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:10px;background:#fff4e5;color:#8a4b08;font-size:12px;font-weight:600;"></div>
                         <div class="support-layout">
                             <div class="support-threads-panel">
                                 <div class="support-panel-header">
@@ -2084,6 +2085,12 @@
         let activeSupportThreadId = '';
         let supportThreadsUnsubscribe = null;
         let supportMessagesUnsubscribe = null;
+        let supportAccess = {
+            denied: false,
+            reason: '',
+            source: '',
+            notifiedReason: ''
+        };
         let storeEventsUnsubscribe = null;
         let liveSessionsUnsubscribe = null;
         // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
@@ -2543,7 +2550,20 @@
                     const fbCoupons = await getAllCoupons();
                     const fbBanners = await getAllBanners();
                     const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
-                    const fbSupportThreads = typeof getSupportThreads === 'function' ? await getSupportThreads(150) : null;
+                    let fbSupportThreads = null;
+                    if (typeof getSupportThreads === 'function') {
+                        try {
+                            await requireAdminPermission();
+                            fbSupportThreads = await getSupportThreads(150, { strict: true });
+                            clearSupportAccessState();
+                        } catch (supportError) {
+                            const denied = handleSupportAccessError(supportError, 'loadAllData.getSupportThreads');
+                            if (!denied) {
+                                console.warn('support preload warning:', supportError);
+                            }
+                            fbSupportThreads = [];
+                        }
+                    }
 
                     const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
                     const cachedStoreProducts = getStorageData('PRODUCTS');
@@ -2607,6 +2627,7 @@
             saveProducts();
             saveSuppliers();
             renderProductCategoryOptions();
+            updateSupportAccessUi();
             
             // كلمة المرور دائماً من localStorage
             const saved = getStorageData('SETTINGS');
@@ -4525,6 +4546,92 @@ function adminLogout(){
         // ============================================
         // Internal Support Chat
         // ============================================
+        function getSupportAccessErrorCode(error) {
+            const rawCode = String(error && (error.code || error.errorCode) || '').trim().toLowerCase();
+            if (!rawCode) return '';
+            return rawCode.startsWith('firebase/') ? rawCode.slice('firebase/'.length) : rawCode;
+        }
+
+        function isSupportPermissionDenied(error) {
+            if (!error) return false;
+            if (error.permissionDenied === true) return true;
+            const code = getSupportAccessErrorCode(error);
+            if (code === 'permission-denied' || code === 'permission_denied') return true;
+            const message = String(error && (error.message || error.reason) || error || '').toLowerCase();
+            return message.includes('missing or insufficient permissions')
+                || message.includes('insufficient permissions')
+                || message.includes('permission-denied');
+        }
+
+        function updateSupportAccessUi() {
+            const noticeEl = document.getElementById('supportAccessNotice');
+            const replyInput = document.getElementById('supportReplyInput');
+            const replyBtn = document.getElementById('supportReplyBtn');
+            const closeBtn = document.getElementById('closeSupportThreadBtn');
+
+            if (noticeEl) {
+                if (supportAccess.denied) {
+                    const source = String(supportAccess.source || 'support');
+                    noticeEl.textContent = `تعذر تشغيل الدردشة الداخلية بسبب الصلاحيات (source: ${source}). باقي لوحة الأدمن تعمل بشكل طبيعي.`;
+                    noticeEl.style.display = 'block';
+                } else {
+                    noticeEl.style.display = 'none';
+                    noticeEl.textContent = '';
+                }
+            }
+
+            if (supportAccess.denied) {
+                if (replyInput) replyInput.disabled = true;
+                if (replyBtn) replyBtn.disabled = true;
+                if (closeBtn) closeBtn.disabled = true;
+            }
+        }
+
+        function clearSupportAccessState() {
+            supportAccess.denied = false;
+            supportAccess.reason = '';
+            supportAccess.source = '';
+            supportAccess.notifiedReason = '';
+            updateSupportAccessUi();
+        }
+
+        function handleSupportAccessError(error, source = '') {
+            const denied = isSupportPermissionDenied(error);
+            if (!denied) return false;
+
+            const reason = String(error && (error.message || error.reason) || error || 'unknown support access error').trim();
+            const normalizedSource = String(source || 'support');
+            supportAccess.denied = true;
+            supportAccess.reason = reason;
+            supportAccess.source = normalizedSource;
+
+            if (supportAccess.notifiedReason !== reason) {
+                supportAccess.notifiedReason = reason;
+                showNotification('error', 'تعذر تشغيل الدردشة الداخلية بسبب الصلاحيات. باقي لوحة الأدمن تعمل بشكل طبيعي.');
+            }
+
+            console.warn(`support access denied (${normalizedSource}):`, reason);
+            stopSupportChatRealtime();
+            supportThreads = [];
+            supportMessages = [];
+            activeSupportThreadId = '';
+            renderSupportThreads();
+            renderSupportMessages();
+            updateSupportAccessUi();
+            return true;
+        }
+
+        function canUseSupportChat(notify = true) {
+            if (supportAccess.denied) {
+                updateSupportAccessUi();
+                if (notify) {
+                    showNotification('error', 'الدردشة الداخلية متوقفة حاليًا بسبب الصلاحيات.');
+                }
+                return false;
+            }
+            return true;
+        }
+
         function getSupportThreadById(threadId) {
             const id = String(threadId || '');
             return (supportThreads || []).find((item) => String(item && item.id || '') === id) || null;
@@ -4546,6 +4653,14 @@ function adminLogout(){
             const listEl = document.getElementById('supportThreadsList');
             const metaEl = document.getElementById('supportThreadsMeta');
             if (!listEl || !metaEl) return;
+            updateSupportAccessUi();
+
+            if (supportAccess.denied) {
+                metaEl.textContent = 'صلاحيات غير متاحة';
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔒</div><p>الدردشة الداخلية متوقفة بسبب الصلاحيات.</p></div>';
+                updateBadges();
+                return;
+            }
 
             const list = Array.isArray(supportThreads) ? [...supportThreads] : [];
             list.sort((a, b) => String(b && b.updatedAt || '').localeCompare(String(a && a.updatedAt || '')));
@@ -4592,6 +4707,19 @@ function adminLogout(){
             const replyBtn = document.getElementById('supportReplyBtn');
             const closeBtn = document.getElementById('closeSupportThreadBtn');
             if (!listEl || !titleEl || !statusEl || !replyInput || !replyBtn || !closeBtn) return;
+            updateSupportAccessUi();
+
+            if (supportAccess.denied) {
+                titleEl.textContent = 'الدردشة الداخلية غير متاحة';
+                statusEl.className = 'status-badge status-pending';
+                statusEl.textContent = 'صلاحيات';
+                replyInput.value = '';
+                replyInput.disabled = true;
+                replyBtn.disabled = true;
+                closeBtn.disabled = true;
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔒</div><p>لا يمكن تحميل الرسائل بسبب الصلاحيات.</p></div>';
+                return;
+            }
 
             const thread = getSupportThreadById(activeSupportThreadId);
             if (!thread) {
@@ -4652,12 +4780,20 @@ function adminLogout(){
         }
 
         async function selectSupportThread(threadId) {
+            if (!canUseSupportChat()) return;
             const id = String(threadId || '').trim();
             if (!id) return;
             activeSupportThreadId = id;
             supportMessages = [];
             renderSupportThreads();
             renderSupportMessages();
+
+            try {
+                await requireAdminPermission();
+            } catch (error) {
+                handleSupportAccessError(error, 'selectSupportThread.requireAdminPermission');
+                return;
+            }
 
             clearSupportMessageSubscription();
             if (typeof subscribeSupportMessages === 'function') {
@@ -4678,19 +4814,31 @@ function adminLogout(){
                     },
                     (error) => {
                         console.error('support messages listener error:', error);
+                        if (handleSupportAccessError(error, 'selectSupportThread.listener')) {
+                            clearSupportMessageSubscription();
+                        }
                     },
                     300
                 );
             } else if (typeof getSupportMessages === 'function') {
-                supportMessages = await getSupportMessages(id, 300);
-                renderSupportMessages();
+                try {
+                    supportMessages = await getSupportMessages(id, 300, { strict: true });
+                    renderSupportMessages();
+                } catch (error) {
+                    handleSupportAccessError(error, 'selectSupportThread.getSupportMessages');
+                }
             }
         }
 
         async function refreshSupportThreads() {
             try {
+                if (supportAccess.denied) {
+                    showNotification('info', 'جاري إعادة التحقق من صلاحيات الدردشة...');
+                }
+                await requireAdminPermission();
                 if (typeof getSupportThreads !== 'function') throw new Error('support API unavailable');
-                supportThreads = await getSupportThreads(200);
+                supportThreads = await getSupportThreads(200, { strict: true });
+                clearSupportAccessState();
                 renderSupportThreads();
                 renderSupportMessages();
                 if (!activeSupportThreadId && supportThreads.length > 0) {
@@ -4699,14 +4847,31 @@ function adminLogout(){
                 showNotification('success', 'تم تحديث المحادثات');
             } catch (error) {
                 console.error('refreshSupportThreads error:', error);
-                showNotification('error', 'فشل تحديث المحادثات');
+                if (!handleSupportAccessError(error, 'refreshSupportThreads')) {
+                    showNotification('error', 'فشل تحديث المحادثات');
+                }
             }
         }
 
-        function startSupportChatRealtime() {
+        async function startSupportChatRealtime() {
             if (supportThreadsUnsubscribe || typeof subscribeSupportThreads !== 'function') {
                 renderSupportThreads();
                 renderSupportMessages();
+                return;
+            }
+
+            if (!canUseSupportChat(false)) {
+                renderSupportThreads();
+                renderSupportMessages();
+                return;
+            }
+
+            try {
+                await requireAdminPermission();
+            } catch (error) {
+                if (!handleSupportAccessError(error, 'startSupportChatRealtime.requireAdminPermission')) {
+                    console.error('support realtime admin permission error:', error);
+                }
                 return;
             }
 
@@ -4727,6 +4892,9 @@ function adminLogout(){
                 },
                 (error) => {
                     console.error('support threads listener error:', error);
+                    if (handleSupportAccessError(error, 'startSupportChatRealtime.listener')) {
+                        stopSupportChatRealtime();
+                    }
                 },
                 250
             );
@@ -4737,9 +4905,11 @@ function adminLogout(){
             clearSupportThreadSubscription();
             supportMessages = [];
             activeSupportThreadId = '';
+            updateSupportAccessUi();
         }
 
         async function sendSupportReply() {
+            if (!canUseSupportChat()) return;
             const thread = getSupportThreadById(activeSupportThreadId);
             const input = document.getElementById('supportReplyInput');
             if (!thread || !input) return;
@@ -4751,6 +4921,7 @@ function adminLogout(){
             if (!message) return;
 
             try {
+                await requireAdminPermission();
                 const authUser = firebase && firebase.auth ? firebase.auth().currentUser : null;
                 const senderUid = authUser && authUser.uid ? String(authUser.uid) : '';
                 if (!senderUid) {
@@ -4770,11 +4941,14 @@ function adminLogout(){
                 input.value = '';
             } catch (error) {
                 console.error('sendSupportReply error:', error);
-                showNotification('error', 'فشل إرسال الرد');
+                if (!handleSupportAccessError(error, 'sendSupportReply')) {
+                    showNotification('error', 'فشل إرسال الرد');
+                }
             }
         }
 
         async function closeActiveSupportThread() {
+            if (!canUseSupportChat()) return;
             const thread = getSupportThreadById(activeSupportThreadId);
             if (!thread) {
                 showNotification('error', 'اختر محادثة أولًا');
@@ -4783,6 +4957,7 @@ function adminLogout(){
             if (!confirm('إغلاق هذه المحادثة؟')) return;
 
             try {
+                await requireAdminPermission();
                 if (typeof closeSupportThread !== 'function') throw new Error('closeSupportThread unavailable');
                 await closeSupportThread(thread.id);
                 supportThreads = (supportThreads || []).map((item) => (
@@ -4795,7 +4970,9 @@ function adminLogout(){
                 showNotification('success', 'تم إغلاق المحادثة');
             } catch (error) {
                 console.error('closeActiveSupportThread error:', error);
-                showNotification('error', 'فشل إغلاق المحادثة');
+                if (!handleSupportAccessError(error, 'closeActiveSupportThread')) {
+                    showNotification('error', 'فشل إغلاق المحادثة');
+                }
             }
         }
 

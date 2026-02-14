@@ -26,9 +26,53 @@ function isLocalLikeHost(hostname) {
 const hostname = window.location.hostname || "";
 const isGithubPages = /(^|\.)github\.io$/i.test(hostname);
 const isLocalDev = isLocalLikeHost(hostname);
-const forcePollingTransport = new URLSearchParams(window.location.search).get("forcepoll") === "1" ||
-    window.FORCE_FIRESTORE_FORCE_LONG_POLLING === true;
-const shouldApplyStableTransport = isLocalDev || forcePollingTransport;
+const urlParams = new URLSearchParams(window.location.search || "");
+
+function parseOptionalBooleanFlag(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") return true;
+    if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") return false;
+    return null;
+}
+
+function resolveFirestoreTransportPolicy() {
+    const queryForcePoll = parseOptionalBooleanFlag(urlParams.get("forcepoll"));
+    if (queryForcePoll !== null) {
+        return { forceLongPolling: queryForcePoll, source: "query:forcepoll" };
+    }
+
+    // Backward compatibility with old links that use ?lp=1 / ?lp=0.
+    const legacyLongPolling = parseOptionalBooleanFlag(urlParams.get("lp"));
+    if (legacyLongPolling !== null) {
+        return { forceLongPolling: legacyLongPolling, source: "query:lp" };
+    }
+
+    if (typeof window.FORCE_FIRESTORE_FORCE_LONG_POLLING === "boolean") {
+        return {
+            forceLongPolling: window.FORCE_FIRESTORE_FORCE_LONG_POLLING === true,
+            source: "window-flag"
+        };
+    }
+
+    if (isLocalDev) {
+        return { forceLongPolling: true, source: "local-default" };
+    }
+
+    return { forceLongPolling: false, source: "default" };
+}
+
+const transportPolicy = resolveFirestoreTransportPolicy();
+const forcePollingTransport = transportPolicy.forceLongPolling === true;
+const shouldApplyStableTransport = forcePollingTransport;
+
+window.__FIRESTORE_TRANSPORT_POLICY__ = {
+    host: hostname,
+    isLocalDev,
+    isGithubPages,
+    forceLongPolling: forcePollingTransport,
+    source: transportPolicy.source
+};
 
 // Initialize Firebase
 if (!firebase.apps.length) {
@@ -45,8 +89,7 @@ if (shouldApplyStableTransport) {
             // Keep one deterministic mode to avoid runtime conflicts from mixed cached scripts.
             db.settings({
                 experimentalForceLongPolling: true,
-                useFetchStreams: false,
-                merge: true
+                useFetchStreams: false
             });
             window.__FIRESTORE_SETTINGS_APPLIED__ = true;
             window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = "force";
@@ -57,8 +100,17 @@ if (shouldApplyStableTransport) {
         // - settings already applied in this page lifecycle
         // - stale cached client executed an old conflicting config before this script
         const reason = e && e.message ? e.message : String(e);
+        const normalizedReason = String(reason || "").toLowerCase();
+        const settingsAlreadyLocked =
+            normalizedReason.includes("settings can no longer be changed") ||
+            normalizedReason.includes("already been started") ||
+            normalizedReason.includes("already started") ||
+            normalizedReason.includes("must be set before any other methods") ||
+            normalizedReason.includes("cannot be changed once you've started using cloud firestore");
+
         console.warn("Firestore transport settings could not be applied (non-fatal):", reason);
-        window.__FIRESTORE_SETTINGS_APPLIED__ = true;
+        // Mark as applied only when Firestore is already locked in this page lifecycle.
+        window.__FIRESTORE_SETTINGS_APPLIED__ = settingsAlreadyLocked;
         window.__FIRESTORE_STABLE_TRANSPORT_ERROR__ = reason;
     }
 }
@@ -67,10 +119,14 @@ if (shouldApplyStableTransport) {
 if (isGithubPages) {
     // Keep Firebase online mode on production; realtime listeners are gated in firebase-data.js.
     if (forcePollingTransport) {
-        console.log("GitHub Pages detected - Firebase online mode enabled (forced long-polling)");
+        console.log(`GitHub Pages detected - Firebase online mode enabled (forced long-polling via ${transportPolicy.source})`);
     } else {
         console.log("GitHub Pages detected - Firebase online mode enabled");
     }
 } else {
-    console.log("Firebase initialized");
+    if (forcePollingTransport) {
+        console.log(`Firebase initialized (forced long-polling via ${transportPolicy.source})`);
+    } else {
+        console.log("Firebase initialized");
+    }
 }

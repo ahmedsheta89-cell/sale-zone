@@ -1148,6 +1148,35 @@ function subscribeLiveSessions(onData, onError, limitCount = 200) {
 // ==========================================
 // SUPPORT CHAT (Internal Customer/Admin)
 // ==========================================
+function getFirebaseErrorCode(error) {
+    const rawCode = String(error && (error.code || error.errorCode) || '').trim().toLowerCase();
+    if (!rawCode) return '';
+    return rawCode.startsWith('firebase/') ? rawCode.slice('firebase/'.length) : rawCode;
+}
+
+function isPermissionDeniedError(error) {
+    if (!error) return false;
+    if (error.permissionDenied === true) return true;
+    const code = getFirebaseErrorCode(error);
+    if (code === 'permission-denied' || code === 'permission_denied') return true;
+    const message = String(error && error.message || error || '').toLowerCase();
+    return message.includes('missing or insufficient permissions')
+        || message.includes('insufficient permissions')
+        || message.includes('permission-denied');
+}
+
+function normalizeFirebaseError(error, source = '') {
+    const code = getFirebaseErrorCode(error);
+    const message = String(error && error.message || error || 'unknown firebase error');
+    return {
+        source: String(source || 'firebase'),
+        code: code || 'unknown',
+        message,
+        permissionDenied: isPermissionDeniedError(error),
+        original: error || null
+    };
+}
+
 function normalizeSupportText(value, max = 4000) {
     return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
@@ -1300,7 +1329,7 @@ async function addSupportMessage(payload) {
     }
 }
 
-async function getSupportThreads(limitCount = 100) {
+async function getSupportThreads(limitCount = 100, options = {}) {
     try {
         const db = getFirebaseDB();
         const safeLimit = Math.max(1, Math.min(500, Number(limitCount) || 100));
@@ -1310,7 +1339,11 @@ async function getSupportThreads(limitCount = 100) {
             .get();
         return snapshot.docs.map((doc) => normalizeSupportThreadRecord(doc.data() || {}, doc.id));
     } catch (e) {
-        console.error('getSupportThreads error:', e);
+        const normalized = normalizeFirebaseError(e, 'getSupportThreads');
+        console.error('getSupportThreads error:', normalized.message);
+        if (options && options.strict === true) {
+            throw normalized;
+        }
         return [];
     }
 }
@@ -1329,7 +1362,7 @@ async function getSupportThread(threadId) {
     }
 }
 
-async function getSupportMessages(threadId, limitCount = 200) {
+async function getSupportMessages(threadId, limitCount = 200, options = {}) {
     try {
         const normalizedThreadId = normalizeSupportText(threadId, 200);
         if (!normalizedThreadId) return [];
@@ -1343,7 +1376,11 @@ async function getSupportMessages(threadId, limitCount = 200) {
             .get();
         return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
-        console.error('getSupportMessages error:', e);
+        const normalized = normalizeFirebaseError(e, 'getSupportMessages');
+        console.error('getSupportMessages error:', normalized.message);
+        if (options && options.strict === true) {
+            throw normalized;
+        }
         return [];
     }
 }

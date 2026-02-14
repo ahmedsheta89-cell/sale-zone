@@ -1019,6 +1019,12 @@
         let supportThreadUnsubscribe = null;
         let supportMessagesUnsubscribe = null;
         let supportRealtimeConnected = false;
+        let supportAccess = {
+            denied: false,
+            reason: '',
+            source: '',
+            notifiedReason: ''
+        };
         const SUPPORT_CHAT_MESSAGES_LIMIT = 150;
         const recentStoreEventLog = Object.create(null);
         const STORE_EVENT_THROTTLE_MS = {
@@ -3414,6 +3420,62 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         // ============================================
         // 💬 Chat
         // ============================================
+        function getSupportErrorCode(error) {
+            const rawCode = String(error && (error.code || error.errorCode) || '').trim().toLowerCase();
+            if (!rawCode) return '';
+            return rawCode.startsWith('firebase/') ? rawCode.slice('firebase/'.length) : rawCode;
+        }
+
+        function isSupportPermissionDenied(error) {
+            if (!error) return false;
+            if (error.permissionDenied === true) return true;
+            const code = getSupportErrorCode(error);
+            if (code === 'permission-denied' || code === 'permission_denied') return true;
+            const message = String(error && (error.message || error.reason) || error || '').toLowerCase();
+            return message.includes('missing or insufficient permissions')
+                || message.includes('insufficient permissions')
+                || message.includes('permission-denied');
+        }
+
+        function fallbackSupportChatToFaq(message = 'تم التحويل إلى وضع FAQ.') {
+            stopSupportChatRealtime();
+            chatMode = 'bot';
+            document.getElementById('chatModeBotBtn')?.classList.add('active');
+            document.getElementById('chatModeSupportBtn')?.classList.remove('active');
+            setChatStatus('وضع FAQ', true);
+            clearChatMessages();
+            addChatMessage(String(message || 'تم التحويل إلى وضع FAQ.'), 'meta');
+            addChatMessage('مرحباً! كيف أساعدك؟ 😊', 'bot');
+        }
+
+        function clearSupportAccessState() {
+            supportAccess.denied = false;
+            supportAccess.reason = '';
+            supportAccess.source = '';
+            supportAccess.notifiedReason = '';
+        }
+
+        function handleSupportAccessError(error, source = '') {
+            const denied = isSupportPermissionDenied(error);
+            if (!denied) return false;
+
+            const reason = String(error && (error.message || error.reason) || error || 'unknown support access error').trim();
+            const normalizedSource = String(source || 'support');
+            supportAccess.denied = true;
+            supportAccess.reason = reason;
+            supportAccess.source = normalizedSource;
+            supportRealtimeConnected = false;
+
+            if (supportAccess.notifiedReason !== reason) {
+                supportAccess.notifiedReason = reason;
+                showNotification('warning', 'الدردشة الداخلية', 'تعذر الوصول للدعم الآن. تم التحويل إلى FAQ.');
+            }
+
+            console.warn(`support access denied (${normalizedSource}):`, reason);
+            fallbackSupportChatToFaq('تعذر استخدام الدردشة الداخلية بسبب الصلاحيات. تم التحويل إلى FAQ.');
+            return true;
+        }
+
         function toggleChat() {
             const box = document.getElementById('chatBox');
             if (!box) return;
@@ -3422,6 +3484,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             if (chatMode === 'support') {
                 ensureSupportChatReady().catch((error) => {
                     console.warn('support chat init warning:', error);
+                    handleSupportAccessError(error, 'toggleChat.ensureSupportChatReady');
                 });
             }
         }
@@ -3499,7 +3562,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             addChatMessage('جاري ربط الدردشة الداخلية...', 'meta');
             ensureSupportChatReady().catch((error) => {
                 console.warn('switch support mode warning:', error);
-                addChatMessage('تعذر بدء الدردشة الداخلية. حاول مرة أخرى.', 'meta');
+                if (!handleSupportAccessError(error, 'switchChatMode.ensureSupportChatReady')) {
+                    addChatMessage('تعذر بدء الدردشة الداخلية. حاول مرة أخرى.', 'meta');
+                }
             });
         }
 
@@ -3540,6 +3605,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 },
                 (error) => {
                     console.warn('support thread listener error:', error);
+                    handleSupportAccessError(error, 'subscribeSupportThreadStatus.listener');
                 }
             );
         }
@@ -3592,6 +3658,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                     console.warn('support messages listener error:', error);
                     supportRealtimeConnected = false;
                     setChatStatus('الدردشة الداخلية (إعادة المحاولة)', false);
+                    handleSupportAccessError(error, 'subscribeSupportThreadMessages.listener');
                 },
                 SUPPORT_CHAT_MESSAGES_LIMIT
             );
@@ -3611,17 +3678,25 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 return false;
             }
 
-            const thread = await getOrCreateSupportThread(profile);
-            if (!thread || !thread.id) {
-                addChatMessage('تعذر إنشاء محادثة الدعم. حاول لاحقًا.', 'meta');
+            try {
+                const thread = await getOrCreateSupportThread(profile);
+                if (!thread || !thread.id) {
+                    addChatMessage('تعذر إنشاء محادثة الدعم. حاول لاحقًا.', 'meta');
+                    return false;
+                }
+
+                clearSupportAccessState();
+                activeSupportThread = thread;
+                subscribeSupportThreadStatus(thread.id);
+                subscribeSupportThreadMessages(thread.id);
+                setChatStatus('الدردشة الداخلية', true);
+                return true;
+            } catch (error) {
+                if (!handleSupportAccessError(error, 'ensureSupportChatReady.getOrCreateSupportThread')) {
+                    addChatMessage('تعذر إنشاء محادثة الدعم. حاول لاحقًا.', 'meta');
+                }
                 return false;
             }
-
-            activeSupportThread = thread;
-            subscribeSupportThreadStatus(thread.id);
-            subscribeSupportThreadMessages(thread.id);
-            setChatStatus('الدردشة الداخلية', true);
-            return true;
         }
 
         async function sendSupportMessageFromCustomer(messageText) {
@@ -3656,7 +3731,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 });
             } catch (error) {
                 console.error('sendSupportMessageFromCustomer error:', error);
-                showNotification('error', 'خطأ', 'تعذر إرسال الرسالة. حاول مرة أخرى.');
+                if (!handleSupportAccessError(error, 'sendSupportMessageFromCustomer')) {
+                    showNotification('error', 'خطأ', 'تعذر إرسال الرسالة. حاول مرة أخرى.');
+                }
                 trackStoreEvent('SUPPORT_MESSAGE_FAILED', 'Customer support message failed', 'warning', {
                     customerId: String(currentUser && currentUser.id || ''),
                     error: error && error.message ? String(error.message) : String(error)
