@@ -809,8 +809,8 @@
                 </div>
                 <form id="loginForm" onsubmit="handleLogin(event)">
                     <div class="form-group">
-                        <label>📱 رقم الهاتف أو 📧 البريد <span class="required">*</span></label>
-                        <input type="text" id="loginIdentifier" required placeholder="01xxxxxxxxx أو user@email.com">
+                        <label>📧 البريد الإلكتروني <span class="required">*</span></label>
+                        <input type="email" id="loginIdentifier" required placeholder="user@email.com">
                     </div>
                     <div class="form-group">
                         <label>🔐 كلمة المرور <span class="required">*</span></label>
@@ -1439,40 +1439,18 @@
             return true;
         }
 
-        function shouldPreserveLocalCustomers(remoteUsers, localUsers, source = 'customers-sync') {
-            const remote = Array.isArray(remoteUsers) ? remoteUsers : [];
-            const local = Array.isArray(localUsers) ? localUsers : [];
-            if (remote.length > 0 || local.length === 0) return false;
-            console.warn(`⚠️ Preserving local CUSTOMERS cache (${source}) to avoid destructive empty overwrite.`);
-            return true;
+        function shouldPreserveLocalCustomers() {
+            return false;
         }
 
-        function mergeRemoteCustomersWithLocal(remoteUsers, localUsers) {
-            const remote = Array.isArray(remoteUsers) ? remoteUsers : [];
-            const local = Array.isArray(localUsers) ? localUsers : [];
-            const localByPhone = new Map(local.map((u) => [normalizePhone(u && (u.phone || u.phoneNormalized) || ''), u]));
-            const localById = new Map(local.map((u) => [String(u && u.id || ''), u]));
-            const localByUid = new Map(local.map((u) => [String(u && u.uid || ''), u]));
-            return remote.map((u) => {
-                const sourcePhone = normalizePhone((u && (u.phone || u.phoneNormalized)) || '');
-                const sourceId = String(u && u.id || '');
-                const sourceUid = String(u && u.uid || '');
-                const localMatch = localByPhone.get(sourcePhone) || localById.get(sourceId) || null;
-                const resolvedLocalMatch = localMatch || localByUid.get(sourceUid) || null;
-                return sanitizeCustomerRecord(u, {
-                    id: sourceId || (resolvedLocalMatch && resolvedLocalMatch.id) || '',
-                    uid: (u && u.uid) || (resolvedLocalMatch && resolvedLocalMatch.uid) || '',
-                    phoneNormalized: sourcePhone,
-                    password: (u && u.password) || (resolvedLocalMatch && resolvedLocalMatch.password) || ''
-                });
-            });
+        function mergeRemoteCustomersWithLocal() {
+            return [];
         }
 
         async function loadData() {
             const localProducts = normalizeStoreProducts(getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []));
             const localCoupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
             const localBanners = getStorageData('BANNERS') || (allowLocalSeedDefaults ? [...defaultBanners] : []);
-            const localUsers = getStorageData('CUSTOMERS') || [];
 
             const resolveList = (result, storageKey, localFallback, label) => {
                 if (result.status === 'fulfilled' && Array.isArray(result.value)) {
@@ -1496,33 +1474,16 @@
                 const productsReader = (typeof getPublishedProducts === 'function')
                     ? getPublishedProducts
                     : (typeof getAllProducts === 'function' ? getAllProducts : null);
-                const [productsResult, couponsResult, bannersResult, usersResult] = await Promise.allSettled([
+                const [productsResult, couponsResult, bannersResult] = await Promise.allSettled([
                     (typeof productsReader === 'function' ? productsReader() : Promise.resolve(null)),
                     (typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null)),
-                    (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null)),
-                    (typeof getAllUsers === 'function' ? getAllUsers() : Promise.resolve(null))
+                    (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null))
                 ]);
 
                 products = normalizeStoreProducts(resolveList(productsResult, 'PRODUCTS', localProducts, 'Products'));
                 coupons = resolveList(couponsResult, 'COUPONS', localCoupons, 'Coupons');
                 banners = resolveList(bannersResult, 'BANNERS', localBanners, 'Banners');
-
-                if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
-                    const remoteUsers = usersResult.value;
-                    if (shouldPreserveLocalCustomers(remoteUsers, localUsers, 'loadData')) {
-                        users = localUsers.map((u) => sanitizeCustomerRecord(u, { id: u && u.id ? u.id : '' }));
-                        console.log('✅ Customers preserved from local cache:', users.length);
-                    } else {
-                        users = mergeRemoteCustomersWithLocal(remoteUsers, localUsers);
-                        setStorageData('CUSTOMERS', users);
-                        console.log('✅ Customers loaded from Firebase:', users.length);
-                    }
-                } else {
-                    if (usersResult.status === 'rejected') {
-                        console.warn('Customers firebase read failed, fallback to localStorage:', usersResult.reason);
-                    }
-                    users = localUsers;
-                }
+                users = [];
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
                 trackStoreEvent('DATA_SYNC_FALLBACK', 'Firebase read failed, fallback to localStorage', 'warning', {
@@ -1531,16 +1492,13 @@
                 products = normalizeStoreProducts(localProducts);
                 coupons = localCoupons;
                 banners = localBanners;
-                users = localUsers;
+                users = [];
             }
 
             // هذه البيانات دائماً من localStorage (السلة، المفضلات، إلخ)
             cart = getStorageData('CART') || [];
             favorites = (getStorageData('WISHLIST') || []).map(id => String(id));
             orders = getStorageData('ORDERS') || [];
-            if (!Array.isArray(users) || users.length === 0) {
-                users = getStorageData('CUSTOMERS') || [];
-            }
             
             const savedSettings = getStorageData('SETTINGS');
             if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
@@ -1569,7 +1527,7 @@
                 products: products.length,
                 coupons: coupons.length,
                 banners: banners.length,
-                users: users.length
+                users: currentUser ? 1 : 0
             });
         }
 
@@ -1598,15 +1556,7 @@
         function saveFavorites() { setStorageData('WISHLIST', favorites); }
         function saveOrders() { setStorageData('ORDERS', orders); }
         function saveUsers() {
-            const deduped = new Map();
-            (users || []).forEach((entry) => {
-                const safe = sanitizeCustomerRecord(entry, { id: entry && entry.id ? entry.id : '' });
-                const key = safe.phoneNormalized || safe.id;
-                if (!key) return;
-                deduped.set(key, safe);
-            });
-            users = Array.from(deduped.values());
-            setStorageData('CUSTOMERS', users);
+            users = Array.isArray(users) ? users : [];
         }
         function saveProducts() { persistCollectionIfChanged('PRODUCTS', 'PRODUCTS', products); }
 
@@ -2589,10 +2539,11 @@
                 email: toText(pick('email', ''), 200),
                 address: toText(pick('address', ''), 500),
                 loyaltyPoints: Number.isFinite(Number(pick('loyaltyPoints', 0))) ? Number(pick('loyaltyPoints', 0)) : 0,
+                role: toText(pick('role', 'customer'), 20) || 'customer',
+                emailVerified: pick('emailVerified', false) === true,
                 status: toText(pick('status', 'active'), 50) || 'active',
                 createdAt,
-                updatedAt: normalizeCustomerCreatedAt(pick('updatedAt', '')) || createdAt,
-                password: toText(pick('password', ''), 200)
+                updatedAt: normalizeCustomerCreatedAt(pick('updatedAt', '')) || createdAt
             };
         }
 
@@ -2606,7 +2557,7 @@
         }
 
         function isValidCustomerPassword(password) {
-            return String(password || '').trim().length >= 4;
+            return String(password || '').trim().length >= 6;
         }
 
         function buildFallbackCustomerName(phoneNormalized) {
@@ -2619,63 +2570,35 @@
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
         }
 
-        function buildLegacyCustomerAuthEmail(phone) {
-            return `customer_${normalizePhone(phone)}@salezone.customer`;
-        }
-
-        function resolveCustomerAuthEmail(identifier, options = {}) {
-            const input = String(identifier || '').trim();
-            if (options.authEmail) return String(options.authEmail || '').trim().toLowerCase();
-            if (isEmailIdentifier(input)) return input.toLowerCase();
-            return buildLegacyCustomerAuthEmail(input);
-        }
-
-        async function signInCustomerAuth(identifier, password, options = {}) {
+        async function signInCustomerAuth(email, password) {
+            const normalizedEmail = String(email || '').trim().toLowerCase();
+            const normalizedPassword = String(password || '');
+            if (typeof loginCustomerByEmail === 'function') {
+                return loginCustomerByEmail(normalizedEmail, normalizedPassword);
+            }
             if (!(firebase && firebase.auth)) return null;
-            const email = resolveCustomerAuthEmail(identifier, options);
-            return firebase.auth().signInWithEmailAndPassword(email, password);
+            return firebase.auth().signInWithEmailAndPassword(normalizedEmail, normalizedPassword);
         }
 
-        async function registerCustomerAuth(identifier, password, options = {}) {
+        async function registerCustomerAuth(payload = {}) {
+            const profile = payload && typeof payload === 'object' ? payload : {};
+            const normalizedEmail = String(profile.email || '').trim().toLowerCase();
+            const normalizedPassword = String(profile.password || '');
+            if (typeof registerCustomerByEmail === 'function') {
+                return registerCustomerByEmail({
+                    email: normalizedEmail,
+                    password: normalizedPassword,
+                    phone: String(profile.phone || '').trim(),
+                    address: String(profile.address || '').trim(),
+                    displayName: String(profile.displayName || profile.name || '').trim()
+                });
+            }
             if (!(firebase && firebase.auth)) return null;
-            const email = resolveCustomerAuthEmail(identifier, options);
-            return firebase.auth().createUserWithEmailAndPassword(email, password);
-        }
-
-        async function ensureCustomerAuthIdentity(identifier, password, options = {}) {
-            const settings = { allowCreate: true, allowSignIn: true, ...options };
-            if (!(firebase && firebase.auth)) {
-                return { uid: '', mode: 'auth-unavailable' };
+            const credential = await firebase.auth().createUserWithEmailAndPassword(normalizedEmail, normalizedPassword);
+            if (credential && credential.user && typeof credential.user.sendEmailVerification === 'function') {
+                await credential.user.sendEmailVerification();
             }
-
-            const authEmail = resolveCustomerAuthEmail(identifier, settings);
-
-            if (settings.allowCreate) {
-                try {
-                    const created = await registerCustomerAuth(identifier, password, { authEmail });
-                    return {
-                        uid: created && created.user && created.user.uid ? String(created.user.uid) : '',
-                        mode: 'created',
-                        authEmail
-                    };
-                } catch (error) {
-                    const code = error && error.code ? String(error.code) : '';
-                    if (code !== 'auth/email-already-in-use') throw error;
-                }
-            }
-
-            if (settings.allowSignIn) {
-                const signed = await signInCustomerAuth(identifier, password, { authEmail });
-                return {
-                    uid: signed && signed.user && signed.user.uid ? String(signed.user.uid) : '',
-                    mode: 'signed-in',
-                    authEmail
-                };
-            }
-
-            const mismatchError = new Error('Auth account exists but sign-in was not allowed.');
-            mismatchError.code = 'auth/password-mismatch';
-            throw mismatchError;
+            return credential;
         }
 
         function isOnlineMode() {
@@ -2683,19 +2606,7 @@
         }
 
         async function syncUsersFromFirebase() {
-            if (typeof getAllUsers !== 'function') return null;
-            const fbUsers = await getAllUsers();
-            if (!Array.isArray(fbUsers)) return null;
-
-            const localUsers = getStorageData('CUSTOMERS') || [];
-            if (shouldPreserveLocalCustomers(fbUsers, localUsers, 'syncUsersFromFirebase')) {
-                users = localUsers.map((u) => sanitizeCustomerRecord(u, { id: u && u.id ? u.id : '' }));
-                return users;
-            }
-
-            users = mergeRemoteCustomersWithLocal(fbUsers, localUsers)
-                .sort((a, b) => String(a.phoneNormalized || '').localeCompare(String(b.phoneNormalized || '')));
-            saveUsers();
+            users = [];
             return users;
         }
 
@@ -2716,196 +2627,90 @@
             if (authSubmitLock) return;
             authSubmitLock = true;
             try {
-            const identifier = document.getElementById('loginIdentifier').value.trim();
+            const email = document.getElementById('loginIdentifier').value.trim().toLowerCase();
             const password = document.getElementById('loginPassword').value;
-            const emailNormalized = isEmailIdentifier(identifier) ? identifier.toLowerCase() : '';
-            const phoneNormalized = emailNormalized ? '' : normalizePhone(identifier);
 
-            if (!identifier) {
-                showNotification('error', 'خطأ', 'أدخل البريد أو الهاتف');
-                return;
-            }
-
-            if (!emailNormalized && !isValidCustomerPhone(phoneNormalized)) {
-                showNotification('error', 'خطأ', 'رقم الهاتف غير صالح');
+            if (!isEmailIdentifier(email)) {
+                showNotification('error', 'خطأ', 'أدخل بريدًا إلكترونيًا صالحًا');
                 return;
             }
 
             if (!isValidCustomerPassword(password)) {
-                showNotification('error', 'خطأ', 'كلمة المرور يجب أن تكون 4 أحرف على الأقل');
+                showNotification('error', 'خطأ', 'كلمة المرور يجب أن تكون 6 أحرف على الأقل');
                 return;
             }
 
-            await syncUsersFromFirebase().catch(() => null);
-            const phoneMatchedUser = !emailNormalized
-                ? (users || []).find((u) => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
-                : null;
-            const preferredEmailForPhoneLogin = phoneMatchedUser && phoneMatchedUser.email
-                ? String(phoneMatchedUser.email).toLowerCase()
-                : '';
-            let authUid = '';
-            let authSignInSucceeded = false;
-            let authUser = null;
-            let authSignInError = null;
-            try {
-                const authCred = await signInCustomerAuth(identifier, password, {
-                    authEmail: emailNormalized || preferredEmailForPhoneLogin || undefined
-                });
-                authUser = authCred && authCred.user ? authCred.user : null;
-                authUid = authUser && authUser.uid ? String(authUser.uid) : '';
-                authSignInSucceeded = !!authUser;
-            } catch (authError) {
-                authSignInError = authError;
-                const code = authError && authError.code ? String(authError.code) : '';
-                if (code && code !== 'auth/user-not-found' && code !== 'auth/wrong-password' && code !== 'auth/invalid-credential' && code !== 'auth/invalid-login-credentials') {
-                    console.warn('Customer auth sign-in warning:', authError);
-                }
+            const authCred = await signInCustomerAuth(email, password);
+            const authUser = authCred && authCred.user
+                ? authCred.user
+                : (firebase && firebase.auth ? firebase.auth().currentUser : null);
+            if (!authUser || !authUser.uid) {
+                throw new Error('تعذر إنشاء جلسة دخول');
             }
 
-            if (!authSignInSucceeded && phoneMatchedUser && !String(phoneMatchedUser.password || '').trim()) {
-                showNotification('warning', 'الحساب يحتاج استكمال', 'هذا رقم قديم بدون كلمة مرور. أعد التسجيل بنفس الرقم لاستكمال الحساب.');
-                trackStoreEvent('LOGIN_BLOCKED_LEGACY', 'Legacy account requires password completion', 'warning', {
-                    phoneNormalized
-                });
-                return;
+            if (typeof authUser.reload === 'function') {
+                await authUser.reload();
+            }
+            if (typeof authUser.getIdToken === 'function') {
+                await authUser.getIdToken(true).catch(() => null);
             }
 
-            const authErrorCode = String(authSignInError && authSignInError.code || '').toLowerCase();
-            const authErrorMessage = String(authSignInError && authSignInError.message || '').toLowerCase();
-            const transientAuthFailure = authErrorCode === 'auth/network-request-failed'
-                || authErrorMessage.includes('network')
-                || authErrorMessage.includes('offline')
-                || authErrorMessage.includes('fetch');
-            const allowLocalOnlyLogin = !isOnlineMode() || transientAuthFailure;
-            if (!authSignInSucceeded && !allowLocalOnlyLogin) {
-                showNotification('warning', 'تسجيل الدخول', 'يلزم تسجيل دخول Firebase صالح. إذا كان الحساب قديمًا استخدم إنشاء حساب بنفس الرقم/البريد.');
-                trackStoreEvent('LOGIN_BLOCKED_AUTH_REQUIRED', 'Blocked local-only login while online', 'warning', {
-                    phoneNormalized,
-                    email: emailNormalized,
-                    authErrorCode
-                });
-                return;
+            const uid = String(authUser.uid || '').trim();
+            let profile = null;
+            if (typeof getMyCustomerProfile === 'function') {
+                profile = await getMyCustomerProfile(uid).catch(() => null);
             }
 
-            let user = null;
-
-            if (authSignInSucceeded) {
-                user = (users || []).find(u => String(u.uid || '') === authUid)
-                    || (emailNormalized
-                        ? (users || []).find(u => String((u.email || '')).toLowerCase() === emailNormalized)
-                        : (users || []).find(u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized))
-                    || null;
-
-                if (!user) {
-                    const authPhone = String(authUser && authUser.phoneNumber || '').trim();
-                    const bootstrapPhoneRaw = emailNormalized
-                        ? String((phoneMatchedUser && (phoneMatchedUser.phone || phoneMatchedUser.phoneNormalized)) || authPhone || '')
-                        : String(identifier || '');
-                    const bootstrapPhoneNormalized = normalizePhone(bootstrapPhoneRaw);
-                    const fallbackProfile = sanitizeCustomerRecord({
-                        id: `auth_${authUid}`,
-                        uid: authUid,
-                        name: emailNormalized ? `عميل ${emailNormalized.split('@')[0]}` : buildFallbackCustomerName(phoneNormalized),
-                        phone: bootstrapPhoneRaw,
-                        phoneNormalized: bootstrapPhoneNormalized,
-                        email: emailNormalized,
-                        address: '',
-                        loyaltyPoints: 0,
-                        createdAt: new Date().toISOString(),
-                        password
-                    });
-
-                    try {
-                        const canPersistProfile = isValidCustomerPhone(bootstrapPhoneNormalized);
-                        if (typeof addCustomer === 'function' && canPersistProfile) {
-                            const createdId = await addCustomer({
-                                uid: fallbackProfile.uid,
-                                name: fallbackProfile.name,
-                                phone: fallbackProfile.phone,
-                                phoneNormalized: fallbackProfile.phoneNormalized,
-                                email: fallbackProfile.email,
-                                address: fallbackProfile.address,
-                                loyaltyPoints: fallbackProfile.loyaltyPoints,
-                                status: fallbackProfile.status || 'active',
-                                createdAt: fallbackProfile.createdAt,
-                                updatedAt: new Date().toISOString()
-                            });
-                            if (createdId) fallbackProfile.id = createdId;
-                        } else if (!canPersistProfile) {
-                            console.info('profile bootstrap skipped: valid phone is required for customers collection.');
-                        }
-                    } catch (profileError) {
-                        const code = String(profileError && profileError.code || '');
-                        if (code === 'customer/uid-mismatch') {
-                            showNotification('warning', 'تعارض حساب', 'رقم الهاتف مرتبط بحساب آخر. استخدم بيانات الحساب الصحيحة أو تواصل مع الدعم.');
-                        }
-                        console.warn('auth profile bootstrap warning:', profileError);
-                    }
-
-                    users = users || [];
-                    users.push(fallbackProfile);
-                    saveUsers();
-                    user = fallbackProfile;
-                    trackStoreEvent('LOGIN_PROFILE_BOOTSTRAP', 'Customer profile bootstrapped after auth login', 'warning', {
-                        customerId: String(fallbackProfile.id || ''),
-                        phoneNormalized,
-                        email: emailNormalized
-                    });
-                } else {
-                    const needsSave = String(user.uid || '') !== authUid || String(user.password || '') !== String(password || '');
-                    if (String(user.uid || '') !== authUid) {
-                        user.uid = authUid;
-                        try {
-                            if (typeof updateCustomer === 'function') {
-                                await updateCustomer(user.id, { uid: authUid });
-                            }
-                        } catch (_) {
-                            // Client may not have update permission for customers; local self-heal is enough here.
-                        }
-                    }
-                    if (String(user.password || '') !== String(password || '')) {
-                        user.password = password;
-                    }
-                    if (needsSave) {
-                        user = sanitizeCustomerRecord(user, { id: user.id });
-                        users = (users || []).map(u => String(u.id) === String(user.id) ? user : sanitizeCustomerRecord(u, { id: u.id }));
-                        saveUsers();
-                    }
-                }
-            } else {
-                user = (users || []).find((u) =>
-                    (emailNormalized
-                        ? String((u.email || '')).toLowerCase() === emailNormalized
-                        : normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
-                    && String(u.password || '') === String(password || '')
-                );
+            if (!profile && typeof upsertMyCustomerProfile === 'function') {
+                profile = await upsertMyCustomerProfile(uid, {
+                    phone: '',
+                    address: '',
+                    displayName: String(authUser.displayName || email.split('@')[0] || '')
+                }).catch(() => null);
             }
 
-            if (!user) {
-                showNotification('error', 'خطأ', 'بيانات غير صحيحة');
-                trackStoreEvent('LOGIN_FAILED', 'Customer login failed', 'warning', {
-                    phoneNormalized,
-                    email: emailNormalized
-                });
-                return;
-            }
-            currentUser = sanitizeCustomerRecord(user, { id: user && user.id ? user.id : '' });
+            currentUser = sanitizeCustomerRecord({
+                id: String(profile && profile.id || uid),
+                uid,
+                name: String(profile && (profile.displayName || profile.name) || authUser.displayName || email.split('@')[0] || 'عميل'),
+                phone: String(profile && profile.phone || ''),
+                email: String(profile && profile.email || authUser.email || email),
+                address: String(profile && profile.address || ''),
+                loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
+                createdAt: String(profile && profile.createdAt || new Date().toISOString()),
+                updatedAt: String(profile && profile.updatedAt || new Date().toISOString()),
+                role: String(profile && profile.role || 'customer'),
+                emailVerified: authUser.emailVerified === true
+            });
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             updateUserUI();
             if (chatMode === 'support') {
                 ensureSupportChatReady().catch(() => null);
             }
             closeModal('authModal');
-            showNotification('success', 'مرحباً', `أهلاً ${currentUser.name}!`);
+            if (authUser.emailVerified !== true) {
+                showNotification('warning', 'تم تسجيل الدخول', 'يرجى تفعيل البريد الإلكتروني قبل الشراء أو الدردشة الداخلية.');
+            } else {
+                showNotification('success', 'مرحباً', `أهلاً ${currentUser.name}!`);
+            }
             updateLiveSessionState({
-                customerId: String(currentUser.id || ''),
+                customerId: String(currentUser.id || currentUser.uid || ''),
                 customerPhone: String(currentUser.phone || '')
             });
             trackStoreEvent('LOGIN_SUCCESS', 'Customer login success', 'info', {
-                customerId: String(currentUser.id || ''),
-                phoneNormalized: normalizePhone(currentUser.phone || ''),
-                email: String(currentUser.email || '').toLowerCase()
+                customerId: String(currentUser.id || currentUser.uid || ''),
+                email: String(currentUser.email || '').toLowerCase(),
+                emailVerified: currentUser.emailVerified === true
             });
+            users = [];
+            saveUsers();
+            } catch (error) {
+                console.error('handleLogin error:', error);
+                showNotification('error', 'فشل تسجيل الدخول', 'تحقق من البريد الإلكتروني وكلمة المرور');
+                trackStoreEvent('LOGIN_FAILED', 'Customer login failed', 'warning', {
+                    email: String(document.getElementById('loginIdentifier').value || '').trim().toLowerCase(),
+                    error: error && error.message ? String(error.message) : String(error)
+                });
             } finally {
                 authSubmitLock = false;
             }
@@ -2929,208 +2734,66 @@
             if (!address) { showNotification('error', 'خطأ', 'العنوان مطلوب'); return; }
             if (!isValidCustomerPhone(phoneNormalized)) { showNotification('error', 'خطأ', 'رقم الهاتف غير صالح'); return; }
             if (!isEmailIdentifier(emailNormalized)) { showNotification('error', 'خطأ', 'البريد الإلكتروني غير صالح'); return; }
-            if (!isValidCustomerPassword(password)) { showNotification('error', 'خطأ', 'كلمة المرور يجب أن تكون 4 أحرف على الأقل'); return; }
+            if (!isValidCustomerPassword(password)) { showNotification('error', 'خطأ', 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return; }
             if (password !== confirm) { showNotification('error', 'خطأ', 'كلمات المرور غير متطابقة'); return; }
 
-            const cloudUsers = await syncUsersFromFirebase().catch(() => null);
-            const existsInCloud = Array.isArray(cloudUsers)
-                ? cloudUsers.find(u => normalizePhone(u.phone || u.phoneNormalized) === phoneNormalized)
-                : null;
-            const existsLocal = findUserByPhone(phone);
-            const emailExists = (users || []).some((u) => String(u.email || '').toLowerCase() === emailNormalized);
-
-            // Legacy recovery: account exists in Firebase without password from old versions
-            if (existsInCloud && !String(existsInCloud.password || '').trim()) {
-                try {
-                    let authUid = '';
-                    try {
-                        const authState = await ensureCustomerAuthIdentity(phone, password, {
-                            allowCreate: true,
-                            allowSignIn: true,
-                            authEmail: buildLegacyCustomerAuthEmail(phone)
-                        });
-                        authUid = authState.uid || '';
-                    } catch (authError) {
-                        const code = authError && authError.code ? String(authError.code) : '';
-                        const isPasswordMismatch = code === 'auth/wrong-password'
-                            || code === 'auth/invalid-login-credentials'
-                            || code === 'auth/invalid-credential';
-                        if (isPasswordMismatch) {
-                            showNotification('warning', 'الحساب يحتاج تفعيل', 'هذا الرقم مرتبط بحساب قديم. اطلب من الأدمن تعيين كلمة مرور للعميل.');
-                            trackStoreEvent('REGISTER_RECOVER_NEEDS_ADMIN', 'Legacy customer profile requires admin password reset', 'warning', {
-                                phoneNormalized
-                            });
-                            return;
-                        }
-                        throw authError;
-                    }
-
-                    const recoveredUser = sanitizeCustomerRecord(existsInCloud, {
-                        id: String(existsInCloud && existsInCloud.id ? existsInCloud.id : ''),
-                        uid: authUid,
-                        phone,
-                        phoneNormalized,
-                        email: emailNormalized || (existsInCloud && existsInCloud.email) || '',
-                        address: address || (existsInCloud && existsInCloud.address) || '',
-                        password
-                    });
-
-                    // Best-effort: attach the auth uid (and normalized phone) back to the legacy Firebase profile.
-                    // If Firestore rules block this write, we still continue locally so the customer can proceed.
-                    try {
-                        if (typeof updateCustomer === 'function' && existsInCloud && existsInCloud.id) {
-                            await updateCustomer(String(existsInCloud.id), {
-                                uid: authUid,
-                                phoneNormalized,
-                                ...(emailNormalized ? { email: emailNormalized } : {}),
-                                ...(address ? { address } : {})
-                            });
-                        }
-                    } catch (syncError) {
-                        console.warn('legacy recovery profile sync warning:', syncError && syncError.message ? syncError.message : syncError);
-                    }
-                    users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
-                    users.push(recoveredUser);
-                    saveUsers();
-                    currentUser = sanitizeCustomerRecord(recoveredUser, { id: recoveredUser.id });
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    updateUserUI();
-                    if (chatMode === 'support') {
-                        ensureSupportChatReady().catch(() => null);
-                    }
-                    closeModal('authModal');
-                    showNotification('success', 'تم استكمال الحساب', 'تم تحديث حسابك القديم ويمكنك الدخول الآن.');
-                    updateLiveSessionState({
-                        customerId: String(existsInCloud.id || '')
-                    });
-                    trackStoreEvent('REGISTER_RECOVER_LEGACY', 'Legacy customer profile completed', 'info', {
-                        customerId: String(existsInCloud.id || ''),
-                        phoneNormalized
-                    });
-                    return;
-                } catch (error) {
-                    console.error('legacy recovery error:', error);
-                    showNotification('error', 'فشل استكمال الحساب', 'تعذر تحديث الحساب القديم. حاول مرة أخرى.');
-                    trackStoreEvent('REGISTER_RECOVER_FAILED', 'Legacy customer profile completion failed', 'error', {
-                        phoneNormalized,
-                        error: error && error.message ? String(error.message) : String(error)
-                    });
-                    return;
-                }
-            }
-
-            // If cloud is authoritative and phone was deleted there, clear stale local copy.
-            if (Array.isArray(cloudUsers) && !existsInCloud && existsLocal) {
-                users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
-                saveUsers();
-            }
-
-            if (existsInCloud || (!Array.isArray(cloudUsers) && existsLocal)) {
-                showNotification('error', 'خطأ', 'الرقم مسجل');
-                trackStoreEvent('REGISTER_DUPLICATE_PHONE', 'Registration rejected: phone already exists', 'warning', {
-                    phoneNormalized
-                });
-                return;
-            }
-
-            if (emailExists) {
-                showNotification('error', 'خطأ', 'البريد الإلكتروني مسجل بالفعل');
-                return;
-            }
-
-            let authUid = '';
-            try {
-                const authState = await ensureCustomerAuthIdentity(emailNormalized, password, {
-                    allowCreate: true,
-                    allowSignIn: true,
-                    authEmail: emailNormalized
-                });
-                authUid = authState.uid || '';
-            } catch (authError) {
-                const code = authError && authError.code ? String(authError.code) : '';
-                const isPasswordMismatch = code === 'auth/wrong-password'
-                    || code === 'auth/invalid-login-credentials'
-                    || code === 'auth/invalid-credential';
-
-                if (isPasswordMismatch) {
-                    showNotification('error', 'فشل التسجيل', 'الرقم مسجل مسبقًا بكلمة مرور مختلفة. استخدم نسيت كلمة المرور.');
-                    trackStoreEvent('REGISTER_FAILED_AUTH_MISMATCH', 'Firebase Auth account exists with different password', 'warning', {
-                        phoneNormalized
-                    });
-                    return;
-                }
-
-                showNotification('error', 'فشل التسجيل', 'تعذر إنشاء حساب الدخول. حاول مرة أخرى.');
-                trackStoreEvent('REGISTER_FAILED_AUTH', 'Firebase Auth registration failed', 'error', {
-                    phoneNormalized,
-                    error: authError && authError.message ? String(authError.message) : String(authError)
-                });
-                return;
-            }
-
-            const newUser = sanitizeCustomerRecord({
-                id: Date.now().toString(),
-                uid: authUid,
-                name,
-                phone,
-                phoneNormalized,
+            const registerResult = await registerCustomerAuth({
                 email: emailNormalized,
+                password,
+                phone,
                 address,
-                loyaltyPoints: 0,
-                status: 'active',
-                createdAt: new Date().toISOString(),
-                password
+                displayName: name,
+                name
             });
-            const customerPayload = { uid: authUid, name, phone, phoneNormalized, email: emailNormalized, address, loyaltyPoints: 0, status: 'active', createdAt: newUser.createdAt, updatedAt: newUser.createdAt };
-            try {
-                if (typeof addCustomer === 'function') {
-                    const firebaseId = await addCustomer(customerPayload);
-                    if (firebaseId) newUser.id = firebaseId;
-                }
-                users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
-                users.push(newUser);
-                saveUsers();
-                currentUser = sanitizeCustomerRecord(newUser, { id: newUser.id });
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                updateUserUI();
-                if (chatMode === 'support') {
-                    ensureSupportChatReady().catch(() => null);
-                }
-                closeModal('authModal');
-                showNotification('success', 'مرحباً', 'تم إنشاء حسابك بنجاح!');
-                updateLiveSessionState({
-                    customerId: String(newUser.id || ''),
-                    customerPhone: String(newUser.phone || '')
+            const authUser = registerResult && registerResult.user
+                ? registerResult.user
+                : (registerResult && registerResult.profile && firebase && firebase.auth ? firebase.auth().currentUser : null);
+            const uid = String(authUser && authUser.uid || registerResult && registerResult.profile && registerResult.profile.uid || '').trim();
+            if (!uid) throw new Error('فشل إنشاء الحساب');
+
+            let profile = registerResult && registerResult.profile ? registerResult.profile : null;
+            if (!profile && typeof upsertMyCustomerProfile === 'function') {
+                profile = await upsertMyCustomerProfile(uid, {
+                    phone,
+                    address,
+                    displayName: name
                 });
-                trackStoreEvent('REGISTER_SUCCESS', 'Customer registered successfully', 'info', {
-                    customerId: String(newUser.id || ''),
-                    phoneNormalized,
-                    email: emailNormalized
-                });
+            }
+
+            currentUser = sanitizeCustomerRecord({
+                id: String(profile && profile.id || uid),
+                uid,
+                name: String(profile && (profile.displayName || profile.name) || name),
+                phone: String(profile && profile.phone || phone),
+                email: String(profile && profile.email || emailNormalized),
+                address: String(profile && profile.address || address),
+                loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
+                createdAt: String(profile && profile.createdAt || new Date().toISOString()),
+                updatedAt: String(profile && profile.updatedAt || new Date().toISOString()),
+                role: String(profile && profile.role || 'customer'),
+                emailVerified: false
+            });
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            users = [];
+            saveUsers();
+            updateUserUI();
+            closeModal('authModal');
+            showNotification('success', 'تم إنشاء الحساب', 'تحقق من بريدك الإلكتروني لتفعيل الحساب قبل الشراء أو الدعم.');
+            updateLiveSessionState({
+                customerId: String(currentUser.id || currentUser.uid || ''),
+                customerPhone: String(currentUser.phone || '')
+            });
+            trackStoreEvent('REGISTER_SUCCESS', 'Customer registered successfully', 'info', {
+                customerId: String(currentUser.id || currentUser.uid || ''),
+                email: emailNormalized
+            });
             } catch (error) {
-                console.error('addCustomer error:', error);
-                if (!isOnlineMode()) {
-                    users = (users || []).filter(u => normalizePhone(u.phone || u.phoneNormalized) !== phoneNormalized);
-                    users.push(newUser);
-                    saveUsers();
-                    currentUser = sanitizeCustomerRecord(newUser, { id: newUser.id });
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    updateUserUI();
-                    closeModal('authModal');
-                    showNotification('info', 'تم التسجيل محليًا', 'لا يوجد إنترنت. سيتم رفع الحساب تلقائيًا عند عودة الاتصال.');
-                    trackStoreEvent('REGISTER_LOCAL_FALLBACK', 'Customer registered locally due to offline mode', 'warning', {
-                        phoneNormalized,
-                        email: emailNormalized
-                    });
-                    return;
-                }
-                showNotification('error', 'فشل التسجيل', 'لم يتم حفظ الحساب على الخادم. حاول مرة أخرى.');
-                trackStoreEvent('REGISTER_FAILED', 'Customer registration failed on server', 'error', {
-                    phoneNormalized,
+                console.error('handleRegister error:', error);
+                showNotification('error', 'فشل التسجيل', 'تعذر إنشاء الحساب. تحقق من البريد الإلكتروني أو حاول لاحقًا.');
+                trackStoreEvent('REGISTER_FAILED', 'Customer registration failed', 'error', {
                     email: emailNormalized,
                     error: error && error.message ? String(error.message) : String(error)
                 });
-            }
             } finally {
                 authSubmitLock = false;
             }
@@ -3139,21 +2802,60 @@
         function checkLoggedInUser() {
             const saved = localStorage.getItem('currentUser');
             if (saved) {
-                currentUser = sanitizeCustomerRecord(JSON.parse(saved));
-                const freshUser = users.find(u => String(u.id) === String(currentUser.id));
-                if (freshUser) {
-                    currentUser = sanitizeCustomerRecord(freshUser, {
-                        id: freshUser.id,
-                        password: String(freshUser.password || currentUser.password || '')
-                    });
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                try {
+                    currentUser = sanitizeCustomerRecord(JSON.parse(saved));
+                } catch (_) {
+                    currentUser = null;
+                    localStorage.removeItem('currentUser');
                 }
-                updateUserUI();
-                if (chatMode === 'support') {
-                    ensureSupportChatReady().catch(() => null);
+            }
+
+            const authUser = (firebase && firebase.auth && firebase.auth().currentUser)
+                ? firebase.auth().currentUser
+                : null;
+            if (authUser && authUser.uid) {
+                currentUser = sanitizeCustomerRecord({
+                    ...(currentUser || {}),
+                    id: String(currentUser && currentUser.id || authUser.uid),
+                    uid: String(authUser.uid || ''),
+                    name: String(currentUser && currentUser.name || authUser.displayName || ''),
+                    email: String(authUser.email || currentUser && currentUser.email || '').toLowerCase(),
+                    emailVerified: authUser.emailVerified === true
+                });
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+
+                if (typeof getMyCustomerProfile === 'function') {
+                    getMyCustomerProfile(String(authUser.uid || ''))
+                        .then((profile) => {
+                            if (!profile) return;
+                            currentUser = sanitizeCustomerRecord({
+                                ...(currentUser || {}),
+                                id: String(profile.id || authUser.uid),
+                                uid: String(profile.uid || authUser.uid),
+                                name: String(profile.displayName || profile.name || currentUser.name || ''),
+                                phone: String(profile.phone || currentUser.phone || ''),
+                                email: String(profile.email || currentUser.email || '').toLowerCase(),
+                                address: String(profile.address || currentUser.address || ''),
+                                loyaltyPoints: Number(profile.loyaltyPoints || 0),
+                                createdAt: String(profile.createdAt || currentUser.createdAt || ''),
+                                updatedAt: String(profile.updatedAt || currentUser.updatedAt || ''),
+                                role: String(profile.role || currentUser.role || 'customer'),
+                                emailVerified: authUser.emailVerified === true
+                            });
+                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                            updateUserUI();
+                        })
+                        .catch(() => null);
                 }
+            }
+
+            updateUserUI();
+            if (currentUser && chatMode === 'support') {
+                ensureSupportChatReady().catch(() => null);
+            }
+            if (currentUser) {
                 updateLiveSessionState({
-                    customerId: String(currentUser.id || ''),
+                    customerId: String(currentUser.id || currentUser.uid || ''),
                     customerPhone: String(currentUser.phone || '')
                 });
             }
@@ -3202,44 +2904,29 @@
             const current = document.getElementById('currentPassword').value;
             const newPass = document.getElementById('newPassword').value;
             const confirm = document.getElementById('confirmNewPassword').value;
+            if (newPass !== confirm) { showNotification('error', 'خطأ', 'غير متطابقة'); return; }
+            if (!isValidCustomerPassword(newPass)) { showNotification('error', 'خطأ', 'كلمة المرور الجديدة قصيرة'); return; }
 
             try {
-                await signInCustomerAuth(currentUser.phone || '', current);
-            } catch (_) {
-                if (current !== currentUser.password) {
-                    showNotification('error', 'خطأ', 'كلمة المرور الحالية غير صحيحة');
-                    return;
+                if (!(firebase && firebase.auth && firebase.auth().currentUser)) {
+                    throw new Error('جلسة Firebase غير متاحة');
                 }
-            }
-            if (newPass !== confirm) { showNotification('error', 'خطأ', 'غير متطابقة'); return; }
-
-            const idx = users.findIndex(u => u.id === currentUser.id);
-            if (idx !== -1) {
-                try {
-                    if (firebase && firebase.auth && firebase.auth().currentUser) {
-                        await firebase.auth().currentUser.updatePassword(newPass);
-                    } else if (typeof updateCustomer === 'function') {
-                        // Legacy fallback only
-                        await updateCustomer(currentUser.id, { password: newPass });
-                    }
-                } catch (error) {
-                    console.error('change password firebase error:', error);
-                    if (navigator.onLine) {
-                        showNotification('error', 'خطأ', 'فشل تحديث كلمة المرور على الخادم');
-                        trackStoreEvent('PASSWORD_CHANGE_FAILED', 'Password change failed on server', 'error', {
-                            customerId: String(currentUser.id || '')
-                        });
-                        return;
-                    }
-                }
-                users[idx].password = newPass;
-                currentUser.password = newPass;
-                saveUsers();
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                const authUser = firebase.auth().currentUser;
+                const email = String(authUser.email || currentUser.email || '').trim().toLowerCase();
+                if (!email) throw new Error('البريد الإلكتروني غير متاح');
+                const cred = firebase.auth.EmailAuthProvider.credential(email, current);
+                await authUser.reauthenticateWithCredential(cred);
+                await authUser.updatePassword(newPass);
                 closeModal('passwordModal');
                 showNotification('success', 'تم', 'تم تغيير كلمة المرور');
                 trackStoreEvent('PASSWORD_CHANGED', 'Customer changed password', 'info', {
-                    customerId: String(currentUser.id || '')
+                    customerId: String(currentUser.id || currentUser.uid || '')
+                });
+            } catch (error) {
+                console.error('change password firebase error:', error);
+                showNotification('error', 'خطأ', 'فشل تغيير كلمة المرور. تحقق من كلمة المرور الحالية.');
+                trackStoreEvent('PASSWORD_CHANGE_FAILED', 'Password change failed on server', 'error', {
+                    customerId: String(currentUser && (currentUser.id || currentUser.uid) || '')
                 });
             }
         }
@@ -3252,16 +2939,48 @@
         // ============================================
         // 📦 Checkout
         // ============================================
-        function showCheckout() {
+        async function ensureVerifiedForSensitiveAction(actionKey = 'sensitive-action') {
+            if (!currentUser) {
+                showNotification('error', '🔒 تسجيل الدخول مطلوب', 'يجب تسجيل الدخول أولاً');
+                showLoginModal();
+                return false;
+            }
+
+            try {
+                if (typeof ensureEmailVerifiedOrThrow === 'function') {
+                    const verifiedUser = await ensureEmailVerifiedOrThrow({ reloadUser: true });
+                    currentUser.emailVerified = verifiedUser && verifiedUser.emailVerified === true;
+                } else if (firebase && firebase.auth && firebase.auth().currentUser) {
+                    const authUser = firebase.auth().currentUser;
+                    if (typeof authUser.reload === 'function') {
+                        await authUser.reload();
+                    }
+                    currentUser.emailVerified = authUser.emailVerified === true;
+                }
+            } catch (_) {
+                currentUser.emailVerified = false;
+            }
+
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            if (currentUser.emailVerified !== true) {
+                showNotification('warning', 'تفعيل البريد مطلوب', 'يجب تفعيل البريد الإلكتروني قبل إتمام الطلب أو استخدام الدعم الداخلي.');
+                trackStoreEvent('EMAIL_VERIFICATION_REQUIRED', 'Blocked sensitive action before email verification', 'warning', {
+                    action: String(actionKey || 'sensitive-action'),
+                    customerId: String(currentUser.id || currentUser.uid || '')
+                });
+                return false;
+            }
+            return true;
+        }
+
+        async function showCheckout() {
             if (cart.length === 0) { 
                 showNotification('error', 'خطأ', 'السلة فارغة'); 
                 return; 
             }
             
-            // ✅ Require login before checkout
-            if (!currentUser) {
-                showNotification('error', '🔒 تسجيل الدخول مطلوب', 'يجب تسجيل الدخول أولاً لإتمام الطلب');
-                showLoginModal();
+            const verified = await ensureVerifiedForSensitiveAction('checkout-open');
+            if (!verified) {
                 return;
             }
             
@@ -3281,8 +3000,11 @@
             document.getElementById('loginForm').classList.add('active');
         }
 
-        function handleCheckout(e) {
+        async function handleCheckout(e) {
             e.preventDefault();
+            const verified = await ensureVerifiedForSensitiveAction('checkout-submit');
+            if (!verified) return;
+
             const name = document.getElementById('checkoutName').value.trim();
             const phone = document.getElementById('checkoutPhone').value.trim();
             const address = document.getElementById('checkoutAddress').value.trim();
@@ -3338,13 +3060,15 @@
 
             // Update user points
             if (currentUser) {
-                const idx = users.findIndex(u => u.id === currentUser.id);
-                if (idx !== -1) {
-                    users[idx].loyaltyPoints = Math.max(0, (users[idx].loyaltyPoints || 0) - usedPoints + earnedPoints);
-                    currentUser.loyaltyPoints = users[idx].loyaltyPoints;
-                    saveUsers();
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    updateLoyaltyDisplay();
+                currentUser.loyaltyPoints = Math.max(0, Number(currentUser.loyaltyPoints || 0) - usedPoints + earnedPoints);
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                updateLoyaltyDisplay();
+                if (typeof upsertMyCustomerProfile === 'function') {
+                    upsertMyCustomerProfile(String(currentUser.uid || currentUser.id || ''), {
+                        phone: String(currentUser.phone || ''),
+                        address: String(currentUser.address || ''),
+                        displayName: String(currentUser.name || '')
+                    }).catch(() => null);
                 }
             }
 
@@ -3574,16 +3298,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         function buildSupportAuthAttempts() {
             if (!currentUser) return [];
-            const attempts = [];
             const email = String(currentUser.email || '').trim().toLowerCase();
-            const phone = String(currentUser.phone || currentUser.phoneNormalized || '').trim();
-            if (email) {
-                attempts.push({ identifier: email, authEmail: email });
-            }
-            if (phone) {
-                attempts.push({ identifier: phone, authEmail: email || undefined });
-            }
-            return attempts;
+            return email ? [{ identifier: email }] : [];
         }
 
         async function waitForFirebaseAuthState(timeoutMs = 2500) {
@@ -3614,7 +3330,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             if (typeof showAuthModal === 'function') {
                 showAuthModal('login');
             }
-            const preferredIdentifier = String(currentUser && (currentUser.email || currentUser.phone || currentUser.phoneNormalized) || '').trim();
+            const preferredIdentifier = String(currentUser && currentUser.email || '').trim();
             const loginIdentifier = document.getElementById('loginIdentifier');
             if (loginIdentifier && !String(loginIdentifier.value || '').trim() && preferredIdentifier) {
                 loginIdentifier.value = preferredIdentifier;
@@ -3628,11 +3344,11 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             setChatStatus('الدردشة الداخلية (غير متاحة)', false);
             if (supportAccess.notifiedReason !== reasonKey) {
                 supportAccess.notifiedReason = reasonKey;
-                showNotification('warning', 'الدردشة الداخلية', 'يلزم إعادة تسجيل الدخول لاستخدام الدعم الداخلي.');
+                showNotification('warning', 'الدردشة الداخلية', 'يلزم تسجيل دخول Firebase بحسابك المفعّل لاستخدام الدعم الداخلي.');
             }
             console.info(`support auth session required (${source}):`, reason);
             promptSupportReLogin();
-            fallbackSupportChatToFaq('الدعم الداخلي يتطلب جلسة دخول Firebase صالحة. سجّل الدخول ثم جرّب مرة أخرى.');
+            fallbackSupportChatToFaq('الدعم الداخلي يتطلب جلسة Firebase صالحة وبريدًا مفعلًا. سجّل الدخول ثم جرّب مرة أخرى.');
             trackStoreEvent('SUPPORT_AUTH_SESSION_REQUIRED', 'Support chat requires Firebase Auth session', 'warning', {
                 customerId: String(currentUser && currentUser.id || ''),
                 source: String(source || 'support'),
@@ -3649,63 +3365,35 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
 
             const auth = firebase.auth();
-            const localUid = String(currentUser && currentUser.uid || '').trim();
             const restoredUser = await waitForFirebaseAuthState(2500);
             const activeUid = String(
                 (restoredUser && restoredUser.uid)
                 || (auth && auth.currentUser && auth.currentUser.uid)
                 || ''
             ).trim();
-
-            if (activeUid && (!localUid || localUid === activeUid)) {
-                syncCurrentUserSupportUid(activeUid);
-                return activeUid;
-            }
-
-            if (activeUid && localUid && localUid !== activeUid) {
-                // Keep active Firebase session and self-heal stale local uid instead of forcing sign-out.
-                syncCurrentUserSupportUid(activeUid);
-                return activeUid;
-            }
-
-            const password = String(currentUser && currentUser.password || '').trim();
-            if (!password) {
-                const sessionError = new Error('الدردشة الداخلية تتطلب إعادة تسجيل الدخول بكلمة المرور.');
+            if (!activeUid) {
+                const sessionError = new Error('الدردشة الداخلية تتطلب تسجيل الدخول.');
                 sessionError.code = 'auth/session-required';
                 throw sessionError;
             }
 
-            const attempts = buildSupportAuthAttempts();
-            if (!attempts.length) {
-                const profileError = new Error('بيانات الحساب غير مكتملة لتفعيل الدردشة الداخلية.');
-                profileError.code = 'auth/session-required';
-                throw profileError;
-            }
-
-            let lastError = null;
-            for (const attempt of attempts) {
-                try {
-                    const credential = await signInCustomerAuth(attempt.identifier, password, {
-                        authEmail: attempt.authEmail
-                    });
-                    const signedUid = String(
-                        (credential && credential.user && credential.user.uid)
-                        || (auth && auth.currentUser && auth.currentUser.uid)
-                        || ''
-                    ).trim();
-                    if (signedUid) {
-                        syncCurrentUserSupportUid(signedUid);
-                        return signedUid;
-                    }
-                } catch (error) {
-                    lastError = error;
+            if (typeof ensureEmailVerifiedOrThrow === 'function') {
+                await ensureEmailVerifiedOrThrow({ reloadUser: true });
+            } else if (restoredUser && typeof restoredUser.reload === 'function') {
+                await restoredUser.reload();
+                if (!restoredUser.emailVerified) {
+                    const verifyError = new Error('يجب تفعيل البريد الإلكتروني أولاً.');
+                    verifyError.code = 'auth/email-not-verified';
+                    throw verifyError;
                 }
             }
 
-            if (lastError) throw lastError;
-            const unknownError = new Error('تعذر إنشاء جلسة دخول Firebase للدعم.');
-            unknownError.code = 'auth/session-required';
-            throw unknownError;
+            syncCurrentUserSupportUid(activeUid);
+            if (currentUser) {
+                currentUser.emailVerified = true;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            }
+            return activeUid;
         }
 
         function toggleChat() {
@@ -3905,7 +3593,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         async function ensureSupportChatReady() {
             if (chatMode !== 'support') return false;
             if (!currentUser) return false;
-            if (typeof getOrCreateSupportThread !== 'function') {
+            if (typeof ensureSupportThreadByUid !== 'function' && typeof getOrCreateSupportThread !== 'function') {
                 addChatMessage('ميزة الدردشة الداخلية غير متاحة حاليًا.', 'meta');
                 return false;
             }
@@ -3925,7 +3613,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
 
             try {
-                const thread = await getOrCreateSupportThread(profile);
+                const thread = (typeof ensureSupportThreadByUid === 'function')
+                    ? await ensureSupportThreadByUid(String(profile.uid || ''), profile)
+                    : await getOrCreateSupportThread(profile);
                 if (!thread || !thread.id) {
                     addChatMessage('تعذر إنشاء محادثة الدعم. حاول لاحقًا.', 'meta');
                     return false;
@@ -3938,7 +3628,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 setChatStatus('الدردشة الداخلية', true);
                 return true;
             } catch (error) {
-                if (!handleSupportAccessError(error, 'ensureSupportChatReady.getOrCreateSupportThread')) {
+                if (!handleSupportAccessError(error, 'ensureSupportChatReady.ensureSupportThreadByUid')) {
                     addChatMessage('تعذر إنشاء محادثة الدعم. حاول لاحقًا.', 'meta');
                 }
                 return false;
@@ -3948,7 +3638,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         async function sendSupportMessageFromCustomer(messageText) {
             const text = String(messageText || '').trim();
             if (!text) return;
-            if (typeof addSupportMessage !== 'function') {
+            if (typeof sendSupportMessageByUid !== 'function' && typeof addSupportMessage !== 'function') {
                 showNotification('error', 'خطأ', 'ميزة الدردشة الداخلية غير متاحة');
                 return;
             }
@@ -3973,15 +3663,24 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             if (!profile) return;
 
             try {
-                await addSupportMessage({
-                    threadId: String(activeSupportThread.id || ''),
-                    senderRole: 'customer',
-                    senderUid: String(profile.uid || ''),
-                    senderName: String(profile.customerName || 'عميل'),
-                    message: text,
-                    createdAt: new Date().toISOString(),
-                    createdAtMs: Date.now()
-                });
+                if (typeof sendSupportMessageByUid === 'function') {
+                    await sendSupportMessageByUid(String(profile.uid || ''), text, {
+                        senderRole: 'customer',
+                        senderUid: String(profile.uid || ''),
+                        senderName: String(profile.customerName || 'عميل'),
+                        profile
+                    });
+                } else {
+                    await addSupportMessage({
+                        threadId: String(activeSupportThread.id || ''),
+                        senderRole: 'customer',
+                        senderUid: String(profile.uid || ''),
+                        senderName: String(profile.customerName || 'عميل'),
+                        message: text,
+                        createdAt: new Date().toISOString(),
+                        createdAtMs: Date.now()
+                    });
+                }
                 trackStoreEvent('SUPPORT_MESSAGE_SENT', 'Customer sent support message', 'info', {
                     customerId: String(currentUser && currentUser.id || ''),
                     threadId: String(activeSupportThread.id || '')

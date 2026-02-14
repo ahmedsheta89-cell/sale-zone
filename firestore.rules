@@ -1,16 +1,35 @@
-rules_version = '2';
+﻿rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    function isAdminEmail() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function hasAdminClaim() {
+      return isSignedIn()
+        && (
+          request.auth.token.admin == true
+          || request.auth.token.role == "admin"
+        );
+    }
+
+    function isBootstrapAdminEmail() {
+      return isVerifiedUser()
         && request.auth.token.email in ["ahmed.sheta89@gmail.com"];
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (hasAdminClaim() || isBootstrapAdminEmail());
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
     }
 
     function isValidOrderCreate() {
@@ -27,103 +46,71 @@ service cloud.firestore {
       && request.resource.data.total is number;
     }
 
-    function isValidCustomerCreate() {
-      return request.resource.data.keys().hasAll([
-        "name",
-        "phone",
-        "createdAt"
-      ])
-      && request.resource.data.keys().hasOnly([
-        "uid",
-        "name",
-        "phone",
-        "phoneNormalized",
-        "email",
-        "address",
-        "password",
-        "loyaltyPoints",
-        "status",
-        "createdAt",
-        "updatedAt"
-      ])
-      && (!("uid" in request.resource.data) || request.resource.data.uid is string)
-      && request.resource.data.name is string
-      && request.resource.data.phone is string
-      && request.resource.data.name.size() > 0
-      && request.resource.data.phone.size() > 0
-      && (!("phoneNormalized" in request.resource.data) || request.resource.data.phoneNormalized is string)
-      && (!("email" in request.resource.data) || request.resource.data.email is string)
-      && (!("address" in request.resource.data) || request.resource.data.address is string)
-      && (!("password" in request.resource.data) || (request.resource.data.password is string && request.resource.data.password.size() >= 4))
-      && (!("loyaltyPoints" in request.resource.data) || request.resource.data.loyaltyPoints is number)
-      && (!("status" in request.resource.data) || request.resource.data.status is string)
-      && (!("updatedAt" in request.resource.data) || request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp);
-    }
-
-    // Same shape rules as create, but `createdAt` is optional for legacy docs.
     function isValidCustomerDocument() {
       return request.resource.data.keys().hasAll([
-        "name",
-        "phone"
-      ])
-      && request.resource.data.keys().hasOnly([
         "uid",
-        "name",
-        "phone",
-        "phoneNormalized",
         "email",
+        "phone",
         "address",
-        "password",
-        "loyaltyPoints",
-        "status",
+        "displayName",
+        "role",
         "createdAt",
         "updatedAt"
       ])
-      && (!("uid" in request.resource.data) || request.resource.data.uid is string)
-      && request.resource.data.name is string
+      && request.resource.data.keys().hasOnly([
+        "uid",
+        "email",
+        "phone",
+        "address",
+        "displayName",
+        "role",
+        "createdAt",
+        "updatedAt",
+        "loyaltyPoints",
+        "status"
+      ])
+      && request.resource.data.uid is string
+      && request.resource.data.uid.size() > 0
+      && request.resource.data.email is string
+      && request.resource.data.email.size() > 3
       && request.resource.data.phone is string
-      && request.resource.data.name.size() > 0
       && request.resource.data.phone.size() > 0
-      && (!("phoneNormalized" in request.resource.data) || request.resource.data.phoneNormalized is string)
-      && (!("email" in request.resource.data) || request.resource.data.email is string)
-      && (!("address" in request.resource.data) || request.resource.data.address is string)
-      && (!("password" in request.resource.data) || (request.resource.data.password is string && request.resource.data.password.size() >= 4))
-      && (!("loyaltyPoints" in request.resource.data) || request.resource.data.loyaltyPoints is number)
-      && (!("status" in request.resource.data) || request.resource.data.status is string)
-      && (!("createdAt" in request.resource.data) || request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
-      && (!("updatedAt" in request.resource.data) || request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp);
+      && request.resource.data.address is string
+      && request.resource.data.address.size() > 0
+      && request.resource.data.displayName is string
+      && request.resource.data.role in ["customer", "admin"]
+      && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
+      && (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp)
+      && (!("loyaltyPoints" in request.resource.data) || (request.resource.data.loyaltyPoints is number && request.resource.data.loyaltyPoints >= 0))
+      && (!("status" in request.resource.data) || request.resource.data.status is string);
     }
 
-    // Allow customers (non-admin) to update ONLY their own profile in a safe way.
-    // This is required to:
-    // - attach `uid` to legacy customer docs
-    // - keep multi-device sessions consistent
-    function isCustomerSelfUpdate() {
-      return request.auth != null
-        && ("uid" in request.resource.data)
-        && request.resource.data.uid is string
+    function isCustomerOwnerCreate(uid) {
+      return isOwner(uid)
+        && isValidCustomerDocument()
         && request.resource.data.uid == request.auth.uid
-        // Prevent taking over an already-linked profile.
-        && (
-          (!("uid" in resource.data) || resource.data.uid == "")
-          || resource.data.uid == request.auth.uid
-        )
-        // Phone identity must not change on self-update.
-        && (!("phoneNormalized" in resource.data) || request.resource.data.phoneNormalized == resource.data.phoneNormalized)
-        && (!("phone" in resource.data) || request.resource.data.phone == resource.data.phone)
-        // Disallow changing sensitive/system fields from the client.
-        && request.resource.data.loyaltyPoints == resource.data.loyaltyPoints
+        && request.resource.data.role == "customer"
+        && request.resource.data.email == request.auth.token.email
+        && !("password" in request.resource.data);
+    }
+
+    function isCustomerOwnerUpdate(uid) {
+      return isOwner(uid)
+        && isValidCustomerDocument()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == resource.data.role
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.password == resource.data.password
-        // Only allow updating profile fields + optional first-time uid attach.
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
-          "uid",
-          "name",
-          "email",
-          "address",
-          // Legacy docs may be missing this field; allow setting it once.
-          "phoneNormalized"
-        ]);
+        && request.resource.data.email == resource.data.email
+        && (!("loyaltyPoints" in resource.data) || request.resource.data.loyaltyPoints == resource.data.loyaltyPoints)
+        && !("password" in request.resource.data);
+    }
+
+    function isCustomerAdminWrite(uid) {
+      return isAdmin()
+        && isValidCustomerDocument()
+        && request.resource.data.uid == uid
+        && !("password" in request.resource.data);
     }
 
     function isValidClientErrorCreate() {
@@ -142,31 +129,9 @@ service cloud.firestore {
         "context"
       ])
       && request.resource.data.type is string
-      && request.resource.data.type.size() > 0
-      && request.resource.data.type.size() <= 100
       && request.resource.data.message is string
-      && request.resource.data.message.size() > 0
-      && request.resource.data.message.size() <= 500
-      && (!("stack" in request.resource.data) || (request.resource.data.stack is string && request.resource.data.stack.size() <= 6000))
-      && (!("source" in request.resource.data) || (request.resource.data.source is string && request.resource.data.source.size() <= 300))
       && request.resource.data.timestamp is string
-      && request.resource.data.context is map
-      && request.resource.data.context.keys().hasAll([
-        "page",
-        "href",
-        "userAgent",
-        "language",
-        "platform",
-        "online",
-        "viewport"
-      ])
-      && request.resource.data.context.page is string
-      && request.resource.data.context.href is string
-      && request.resource.data.context.userAgent is string
-      && request.resource.data.context.language is string
-      && request.resource.data.context.platform is string
-      && request.resource.data.context.online is bool
-      && request.resource.data.context.viewport is map;
+      && request.resource.data.context is map;
     }
 
     function isValidStoreEventCreate() {
@@ -188,19 +153,9 @@ service cloud.firestore {
         "timestamp"
       ])
       && request.resource.data.type is string
-      && request.resource.data.type.size() > 0
-      && request.resource.data.type.size() <= 120
       && request.resource.data.level is string
-      && request.resource.data.level.size() > 0
-      && request.resource.data.level.size() <= 20
-      && (!("message" in request.resource.data) || request.resource.data.message is string)
       && request.resource.data.source is string
-      && request.resource.data.source.size() <= 120
-      && request.resource.data.timestamp is string
-      && (!("sessionId" in request.resource.data) || request.resource.data.sessionId is string)
-      && (!("customerId" in request.resource.data) || request.resource.data.customerId is string)
-      && (!("meta" in request.resource.data) || request.resource.data.meta is map)
-      && (!("context" in request.resource.data) || request.resource.data.context is map);
+      && request.resource.data.timestamp is string;
     }
 
     function isValidLiveSessionWrite() {
@@ -221,75 +176,42 @@ service cloud.firestore {
         "updatedAt"
       ])
       && request.resource.data.sessionId is string
-      && request.resource.data.sessionId.size() > 0
-      && request.resource.data.sessionId.size() <= 120
-      && request.resource.data.updatedAt is string
-      && (!("createdAt" in request.resource.data) || request.resource.data.createdAt is string)
-      && (!("page" in request.resource.data) || request.resource.data.page is string)
-      && (!("href" in request.resource.data) || request.resource.data.href is string)
-      && (!("online" in request.resource.data) || request.resource.data.online is bool)
-      && (!("customerId" in request.resource.data) || request.resource.data.customerId is string)
-      && (!("customerPhone" in request.resource.data) || request.resource.data.customerPhone is string)
-      && (!("device" in request.resource.data) || request.resource.data.device is string)
-      && (!("userAgent" in request.resource.data) || request.resource.data.userAgent is string);
+      && request.resource.data.updatedAt is string;
     }
 
-    function isSupportThreadOwnerData(data) {
-      return request.auth != null
-        && data is map
-        && ("customerUid" in data)
-        && data.customerUid is string
-        && data.customerUid == request.auth.uid;
-    }
-
-    function isSupportThreadOwner(threadId) {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/support_threads/$(threadId))
-        && get(/databases/$(database)/documents/support_threads/$(threadId)).data.customerUid == request.auth.uid;
-    }
-
-    function isSupportThreadIdOwner(threadId) {
-      return request.auth != null
-        && threadId is string
-        && threadId == ("thread_" + request.auth.uid);
-    }
-
-    function isValidSupportThreadWrite() {
+    function isValidSupportThreadWrite(threadId) {
       return request.resource.data.keys().hasOnly([
-        "customerUid",
-        "customerId",
-        "customerName",
-        "customerPhone",
-        "customerEmail",
+        "uid",
         "status",
         "lastMessage",
+        "updatedAt",
+        "createdAt",
         "lastMessageAt",
         "lastSenderRole",
         "unreadForAdmin",
         "unreadForCustomer",
-        "createdAt",
-        "updatedAt"
+        "customerName",
+        "customerPhone",
+        "customerEmail"
       ])
       && request.resource.data.keys().hasAll([
-        "customerUid",
+        "uid",
         "status",
         "updatedAt"
       ])
-      && request.resource.data.customerUid is string
-      && request.resource.data.customerUid.size() > 0
-      && request.resource.data.status is string
+      && request.resource.data.uid is string
+      && request.resource.data.uid == threadId
       && request.resource.data.status in ["open", "closed"]
-      && request.resource.data.updatedAt is string
-      && (!("customerId" in request.resource.data) || request.resource.data.customerId is string)
-      && (!("customerName" in request.resource.data) || request.resource.data.customerName is string)
-      && (!("customerPhone" in request.resource.data) || request.resource.data.customerPhone is string)
-      && (!("customerEmail" in request.resource.data) || request.resource.data.customerEmail is string)
+      && (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp)
+      && (!("createdAt" in request.resource.data) || (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp))
       && (!("lastMessage" in request.resource.data) || request.resource.data.lastMessage is string)
-      && (!("lastMessageAt" in request.resource.data) || request.resource.data.lastMessageAt is string)
+      && (!("lastMessageAt" in request.resource.data) || (request.resource.data.lastMessageAt is string || request.resource.data.lastMessageAt is timestamp))
       && (!("lastSenderRole" in request.resource.data) || request.resource.data.lastSenderRole in ["customer", "admin"])
       && (!("unreadForAdmin" in request.resource.data) || (request.resource.data.unreadForAdmin is number && request.resource.data.unreadForAdmin >= 0))
       && (!("unreadForCustomer" in request.resource.data) || (request.resource.data.unreadForCustomer is number && request.resource.data.unreadForCustomer >= 0))
-      && (!("createdAt" in request.resource.data) || request.resource.data.createdAt is string);
+      && (!("customerName" in request.resource.data) || request.resource.data.customerName is string)
+      && (!("customerPhone" in request.resource.data) || request.resource.data.customerPhone is string)
+      && (!("customerEmail" in request.resource.data) || request.resource.data.customerEmail is string);
     }
 
     function isValidSupportMessageCreate(threadId) {
@@ -299,6 +221,7 @@ service cloud.firestore {
         "senderUid",
         "senderName",
         "message",
+        "text",
         "createdAt",
         "createdAtMs"
       ])
@@ -306,21 +229,18 @@ service cloud.firestore {
         "threadId",
         "senderRole",
         "senderUid",
-        "message",
-        "createdAt",
-        "createdAtMs"
+        "createdAt"
       ])
       && request.resource.data.threadId is string
-      && request.resource.data.threadId.size() > 0
       && request.resource.data.threadId == threadId
       && request.resource.data.senderRole in ["customer", "admin"]
       && request.resource.data.senderUid is string
-      && request.resource.data.senderUid.size() > 0
-      && request.resource.data.message is string
-      && request.resource.data.message.size() > 0
-      && request.resource.data.message.size() <= 2000
-      && request.resource.data.createdAt is string
-      && request.resource.data.createdAtMs is number
+      && (
+        (("message" in request.resource.data) && request.resource.data.message is string && request.resource.data.message.size() > 0)
+        || (("text" in request.resource.data) && request.resource.data.text is string && request.resource.data.text.size() > 0)
+      )
+      && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
+      && (!("createdAtMs" in request.resource.data) || request.resource.data.createdAtMs is number)
       && (!("senderName" in request.resource.data) || request.resource.data.senderName is string);
     }
 
@@ -328,135 +248,117 @@ service cloud.firestore {
       return request.resource.data.name is string
       && request.resource.data.name.size() > 0
       && request.resource.data.price is number
-      && request.resource.data.price >= 0
-      && (!("costPrice" in request.resource.data) || (request.resource.data.costPrice is number && request.resource.data.costPrice >= 0))
-      && (!("marginPercent" in request.resource.data) || (request.resource.data.marginPercent is number && request.resource.data.marginPercent >= 0 && request.resource.data.marginPercent <= 1000))
-      && (!("sellPrice" in request.resource.data) || (request.resource.data.sellPrice is number && request.resource.data.sellPrice >= 0))
-      && (!("profitValue" in request.resource.data) || request.resource.data.profitValue is number)
-      && (!("profitMarginActual" in request.resource.data) || request.resource.data.profitMarginActual is number)
-      && (!("manualPriceOverride" in request.resource.data) || request.resource.data.manualPriceOverride is bool)
-      && (!("manualPriceReason" in request.resource.data) || request.resource.data.manualPriceReason is string)
-      && (!("supplierId" in request.resource.data) || request.resource.data.supplierId is string)
-      && (!("supplierName" in request.resource.data) || request.resource.data.supplierName is string)
-      && (!("supplierCode" in request.resource.data) || request.resource.data.supplierCode is string)
-      && (!("searchTokens" in request.resource.data) || request.resource.data.searchTokens is list)
-      && (!("isPublished" in request.resource.data) || request.resource.data.isPublished is bool)
-      && (!("visibilityState" in request.resource.data) || request.resource.data.visibilityState is string);
+      && request.resource.data.price >= 0;
     }
 
-    // Public readable content
     match /products/{productId} {
-      allow read: if (resource.data.isPublished != false) || isAdmin() || isAdminEmail();
-      allow create, update: if (isAdmin() || isAdminEmail()) && isValidProductWrite();
-      allow delete: if isAdmin() || isAdminEmail();
+      allow read: if (resource.data.isPublished != false) || isAdmin();
+      allow create, update: if isAdmin() && isValidProductWrite();
+      allow delete: if isAdmin();
     }
 
     match /coupons/{couponId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() || isAdminEmail();
+      allow create, update, delete: if isAdmin();
     }
 
     match /banners/{bannerId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() || isAdminEmail();
+      allow create, update, delete: if isAdmin();
     }
 
     match /settings/{settingId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() || isAdminEmail();
+      allow create, update, delete: if isAdmin();
     }
 
     match /suppliers/{supplierId} {
-      allow read, create, update, delete: if isAdmin() || isAdminEmail();
+      allow read, create, update, delete: if isAdmin();
     }
 
-    // Admin-only data
     match /orders/{orderId} {
-      allow read, update, delete: if isAdmin() || isAdminEmail();
-      allow create: if isAdmin() || isAdminEmail() || isValidOrderCreate();
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin() || (isVerifiedUser() && isValidOrderCreate());
     }
 
-    match /customers/{customerId} {
-      allow read: if true;
-      allow delete: if isAdmin() || isAdminEmail();
-      allow create: if isAdmin() || isAdminEmail() || isValidCustomerCreate();
-      allow update: if (isAdmin() || isAdminEmail())
-        || (isValidCustomerDocument() && isCustomerSelfUpdate());
+    match /customers/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isCustomerOwnerCreate(uid) || isCustomerAdminWrite(uid);
+      allow update: if isCustomerOwnerUpdate(uid) || isCustomerAdminWrite(uid);
+      allow delete: if isAdmin();
     }
 
     match /admins/{adminId} {
-      allow read, create, update, delete: if isAdmin() || isAdminEmail();
+      allow read, create, update, delete: if isAdmin();
     }
 
     match /analytics/{analyticsId} {
-      allow read, create, update, delete: if isAdmin() || isAdminEmail();
+      allow read, create, update, delete: if isAdmin();
     }
 
     match /logs/{logId} {
-      allow read, create, update, delete: if isAdmin() || isAdminEmail();
+      allow read, create, update, delete: if isAdmin();
     }
 
     match /errors/{errorId} {
-      allow read, create, update, delete: if isAdmin() || isAdminEmail();
+      allow read, create, update, delete: if isAdmin();
     }
 
     match /client_error_logs/{logId} {
-      allow read, update, delete: if isAdmin() || isAdminEmail();
+      allow read, update, delete: if isAdmin();
       allow create: if isValidClientErrorCreate();
     }
 
     match /store_events/{eventId} {
-      allow read, update, delete: if isAdmin() || isAdminEmail();
-      allow create: if isAdmin() || isAdminEmail() || isValidStoreEventCreate();
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin() || isValidStoreEventCreate();
     }
 
     match /store_live_sessions/{sessionId} {
-      allow read, delete: if isAdmin() || isAdminEmail();
-      allow create, update: if isAdmin() || isAdminEmail() || isValidLiveSessionWrite();
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin() || isValidLiveSessionWrite();
     }
 
-    match /support_threads/{threadId} {
-      allow read: if isAdmin() || isAdminEmail() || isSupportThreadOwnerData(resource.data) || isSupportThreadIdOwner(threadId);
-      allow create: if (
-          ((isAdmin() || isAdminEmail()) && isValidSupportThreadWrite())
-          || (request.auth != null && isValidSupportThreadWrite() && request.resource.data.customerUid == request.auth.uid)
+    match /support_threads/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isValidSupportThreadWrite(uid)
+        && (
+          (isOwner(uid) && isVerifiedUser())
+          || isAdmin()
         );
-      allow update: if (
-          (isAdmin() || isAdminEmail())
-          || (
-            request.auth != null
-            && isValidSupportThreadWrite()
-            && request.resource.data.customerUid == request.auth.uid
-            && (!("customerUid" in resource.data) || resource.data.customerUid == request.auth.uid)
-          )
+      allow update: if isValidSupportThreadWrite(uid)
+        && (
+          (isOwner(uid) && isVerifiedUser())
+          || isAdmin()
         );
-      allow delete: if isAdmin() || isAdminEmail();
+      allow delete: if isAdmin();
 
       match /messages/{messageId} {
-        allow read: if (isAdmin() || isAdminEmail()) || isSupportThreadOwner(threadId) || isSupportThreadIdOwner(threadId);
-        allow create: if isValidSupportMessageCreate(threadId) && (
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isValidSupportMessageCreate(uid)
+          && (
             (
-              request.auth != null
+              isOwner(uid)
+              && isVerifiedUser()
               && request.resource.data.senderRole == "customer"
               && request.resource.data.senderUid == request.auth.uid
-              && (isSupportThreadOwner(threadId) || isSupportThreadIdOwner(threadId))
             )
             || (
-              (isAdmin() || isAdminEmail())
+              isAdmin()
               && request.resource.data.senderRole == "admin"
               && request.resource.data.senderUid == request.auth.uid
             )
           );
-        allow update, delete: if isAdmin() || isAdminEmail();
+        allow update, delete: if isAdmin();
       }
     }
 
     match /sessions/{sessionId} {
-      allow read, create, update, delete: if isAdmin() || isAdminEmail();
+      allow read, create, update, delete: if isAdmin();
     }
 
     match /sync/{syncId} {
-      allow read, create, update, delete: if isAdmin() || isAdminEmail();
+      allow read, create, update, delete: if isAdmin();
     }
   }
 }

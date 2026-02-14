@@ -154,6 +154,28 @@ function persistSyncedCollection(storageKey, list, fallbackRender) {
     }
 }
 
+function persistSyncedCollectionSafe(storageKey, list, fallbackRender, options = {}) {
+    const normalizedList = Array.isArray(list) ? list : [];
+    const allowEmptyOverwrite = options && options.allowEmptyOverwrite !== false;
+
+    if (!allowEmptyOverwrite && normalizedList.length === 0) {
+        let localList = [];
+        try {
+            if (typeof getStorageData === 'function') {
+                const cached = getStorageData(storageKey);
+                localList = Array.isArray(cached) ? cached : [];
+            }
+        } catch (_) {}
+
+        if (localList.length > 0) {
+            console.warn(`[WARN] Skipping empty overwrite for ${storageKey}; keeping local cache (${localList.length}).`);
+            return;
+        }
+    }
+
+    persistSyncedCollection(storageKey, normalizedList, fallbackRender);
+}
+
 function teardownRealtimeListeners(reason = '') {
     if (!realtimeUnsubscribers.length) return;
 

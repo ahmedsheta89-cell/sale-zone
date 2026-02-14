@@ -21,6 +21,13 @@ function getFirebaseDB() {
     throw new Error('Firebase Firestore not available');
 }
 
+function getFirebaseAuth() {
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+        return firebase.auth();
+    }
+    throw new Error('Firebase Auth not available');
+}
+
 // ==========================================
 // COUPONS
 // ==========================================
@@ -495,6 +502,7 @@ async function getAllOrders() {
 
 async function addOrder(order) {
     try {
+        const db = getFirebaseDB();
         const docRef = await db.collection('orders').add(order);
         console.log('[OK] Order added to Firebase:', docRef.id);
         return docRef.id;
@@ -506,6 +514,7 @@ async function addOrder(order) {
 
 async function updateOrderStatus(id, status) {
     try {
+        const db = getFirebaseDB();
         await db.collection('orders').doc(id).update({ status: status });
         console.log('[OK] Order status updated:', id);
     } catch (e) {
@@ -518,14 +527,180 @@ async function updateOrderStatus(id, status) {
 // USERS
 // ==========================================
 async function getAllUsers() {
-    try {
-        const db = getFirebaseDB();
-        const snapshot = await db.collection('customers').get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (e) {
-        console.error('getAllUsers error:', e);
-        return null;
+    const error = new Error('getAllUsers is deprecated. Use listCustomersPage() instead.');
+    error.code = 'api/deprecated-getAllUsers';
+    throw error;
+}
+
+function normalizeCustomerProfilePayload(payload, defaults = {}, options = {}) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const base = defaults && typeof defaults === 'object' ? defaults : {};
+    const opts = options && typeof options === 'object' ? options : {};
+    const nowIso = new Date().toISOString();
+
+    const uid = String(opts.uid || source.uid || base.uid || '').trim();
+    const email = String(opts.email || source.email || base.email || '').trim().toLowerCase();
+    const role = String(base.role || source.role || 'customer').trim().toLowerCase() || 'customer';
+    const parsedPoints = Number(source.loyaltyPoints);
+    const basePoints = Number(base.loyaltyPoints);
+    const loyaltyPoints = Number.isFinite(parsedPoints)
+        ? Math.max(0, parsedPoints)
+        : (Number.isFinite(basePoints) ? Math.max(0, basePoints) : 0);
+    const status = String(source.status || base.status || 'active').trim() || 'active';
+
+    return {
+        uid,
+        email,
+        phone: String(source.phone || base.phone || '').trim(),
+        address: String(source.address || base.address || '').trim(),
+        displayName: String(source.displayName || base.displayName || source.name || base.name || '').trim(),
+        role: role === 'admin' ? 'admin' : 'customer',
+        loyaltyPoints,
+        status,
+        createdAt: String(base.createdAt || source.createdAt || nowIso).trim() || nowIso,
+        updatedAt: nowIso
+    };
+}
+
+async function registerCustomerByEmail(payload = {}) {
+    const auth = getFirebaseAuth();
+    const db = getFirebaseDB();
+    const email = String(payload.email || '').trim().toLowerCase();
+    const password = String(payload.password || '');
+    const phone = String(payload.phone || '').trim();
+    const address = String(payload.address || '').trim();
+    const displayName = String(payload.displayName || '').trim();
+
+    if (!email) throw new Error('email is required');
+    if (!password || password.length < 6) throw new Error('password must be at least 6 characters');
+    if (!phone) throw new Error('phone is required');
+    if (!address) throw new Error('address is required');
+
+    const credential = await auth.createUserWithEmailAndPassword(email, password);
+    const user = credential && credential.user ? credential.user : null;
+    if (!user || !user.uid) throw new Error('firebase auth registration failed');
+
+    if (displayName && typeof user.updateProfile === 'function') {
+        try {
+            await user.updateProfile({ displayName });
+        } catch (_) {
+            // Non-blocking profile update.
+        }
     }
+
+    if (typeof user.sendEmailVerification === 'function') {
+        await user.sendEmailVerification();
+    }
+
+    const profile = normalizeCustomerProfilePayload(
+        { phone, address, displayName, role: 'customer' },
+        {},
+        { uid: String(user.uid), email: String(user.email || email) }
+    );
+
+    await db.collection('customers').doc(profile.uid).set(profile, { merge: true });
+    return { user, profile };
+}
+
+async function loginCustomerByEmail(email, password) {
+    const auth = getFirebaseAuth();
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedPassword = String(password || '');
+    if (!normalizedEmail) throw new Error('email is required');
+    if (!normalizedPassword) throw new Error('password is required');
+    return auth.signInWithEmailAndPassword(normalizedEmail, normalizedPassword);
+}
+
+async function ensureEmailVerifiedOrThrow(options = {}) {
+    const auth = getFirebaseAuth();
+    const user = auth.currentUser;
+    if (!user) {
+        const notAuthError = new Error('User is not authenticated.');
+        notAuthError.code = 'auth/not-authenticated';
+        throw notAuthError;
+    }
+
+    const shouldReload = !options || options.reloadUser !== false;
+    if (shouldReload && typeof user.reload === 'function') {
+        await user.reload();
+    }
+    if (typeof user.getIdToken === 'function') {
+        await user.getIdToken(true).catch(() => null);
+    }
+
+    if (!user.emailVerified) {
+        const verifyError = new Error('Please verify your email first.');
+        verifyError.code = 'auth/email-not-verified';
+        verifyError.emailVerified = false;
+        throw verifyError;
+    }
+    return user;
+}
+
+async function getMyCustomerProfile(uid = '') {
+    const db = getFirebaseDB();
+    let normalizedUid = String(uid || '').trim();
+    if (!normalizedUid) {
+        try {
+            const auth = getFirebaseAuth();
+            normalizedUid = String(auth.currentUser && auth.currentUser.uid || '').trim();
+        } catch (_) {}
+    }
+    if (!normalizedUid) return null;
+
+    const snapshot = await db.collection('customers').doc(normalizedUid).get();
+    if (!snapshot.exists) return null;
+    return { id: snapshot.id, ...snapshot.data() };
+}
+
+async function upsertMyCustomerProfile(uid = '', payload = {}) {
+    const auth = getFirebaseAuth();
+    const db = getFirebaseDB();
+    const authUid = String(auth.currentUser && auth.currentUser.uid || '').trim();
+    const targetUid = String(uid || authUid).trim();
+    if (!targetUid || !authUid || targetUid !== authUid) {
+        const uidError = new Error('profile uid mismatch');
+        uidError.code = 'auth/uid-mismatch';
+        throw uidError;
+    }
+
+    const docRef = db.collection('customers').doc(targetUid);
+    const existingSnapshot = await docRef.get();
+    const existing = existingSnapshot.exists ? (existingSnapshot.data() || {}) : {};
+    const profile = normalizeCustomerProfilePayload(
+        payload,
+        existing,
+        { uid: targetUid, email: String(auth.currentUser && auth.currentUser.email || existing.email || '') }
+    );
+    await docRef.set(profile, { merge: true });
+    return { id: targetUid, ...profile };
+}
+
+async function listCustomersPage(options = {}) {
+    const db = getFirebaseDB();
+    const safeLimit = Math.max(1, Math.min(100, Number(options && options.limit) || 20));
+    const cursorId = String(options && options.cursor || '').trim();
+    let query = db.collection('customers').orderBy('createdAt', 'desc').limit(safeLimit + 1);
+
+    if (cursorId) {
+        const cursorSnapshot = await db.collection('customers').doc(cursorId).get();
+        if (cursorSnapshot.exists) {
+            query = query.startAfter(cursorSnapshot);
+        }
+    }
+
+    const snapshot = await query.get();
+    const docs = snapshot.docs || [];
+    const hasMore = docs.length > safeLimit;
+    const pageDocs = hasMore ? docs.slice(0, safeLimit) : docs;
+    const items = pageDocs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const nextCursor = hasMore && pageDocs.length ? String(pageDocs[pageDocs.length - 1].id) : '';
+
+    return {
+        items,
+        hasMore,
+        nextCursor
+    };
 }
 
 async function searchProductsIndexed(query, filters = {}, sort = 'default', page = 1, pageSize = 24) {
@@ -771,68 +946,24 @@ function normalizePhoneForCustomer(value) {
     return digits;
 }
 
-async function addCustomer(customer) {
-    try {
-        const db = getFirebaseDB();
-        const normalizedPhone = normalizePhoneForCustomer(customer && (customer.phoneNormalized || customer.phone));
-        const payload = {
-            ...(customer || {}),
-            phoneNormalized: normalizedPhone || String(customer && customer.phoneNormalized || '')
-        };
-
-        if (normalizedPhone) {
-            const existingSnapshot = await db
-                .collection('customers')
-                .where('phoneNormalized', '==', normalizedPhone)
-                .limit(1)
-                .get();
-
-            if (!existingSnapshot.empty) {
-                const existingDoc = existingSnapshot.docs[0];
-
-                // When upserting an existing customer from the store client, we must not
-                // accidentally change system fields (createdAt / loyaltyPoints / password).
-                // This also keeps Firestore rules self-update checks happy.
-                const existingData = existingDoc.data() || {};
-                const existingUid = String(existingData.uid || '').trim();
-                const incomingUid = String(payload.uid || '').trim();
-                if (existingUid && incomingUid && existingUid !== incomingUid) {
-                    const conflict = new Error('Customer phone is linked to another account.');
-                    conflict.code = 'customer/uid-mismatch';
-                    throw conflict;
-                }
-                const safePayload = { ...payload };
-                if ('createdAt' in existingData) safePayload.createdAt = existingData.createdAt;
-                else delete safePayload.createdAt;
-                if ('loyaltyPoints' in existingData) safePayload.loyaltyPoints = existingData.loyaltyPoints;
-                else delete safePayload.loyaltyPoints;
-                if ('password' in existingData) safePayload.password = existingData.password;
-                else delete safePayload.password;
-
-                await db.collection('customers').doc(existingDoc.id).set(safePayload, { merge: true });
-                console.log('✅ Customer upserted in Firebase:', existingDoc.id);
-                return existingDoc.id;
-            }
-
-            const deterministicId = `phone_${normalizedPhone}`;
-            await db.collection('customers').doc(deterministicId).set(payload, { merge: true });
-            console.log('✅ Customer added to Firebase:', deterministicId);
-            return deterministicId;
-        }
-
-        const docRef = await db.collection('customers').add(payload);
-        console.log('✅ Customer added to Firebase:', docRef.id);
-        return docRef.id;
-    } catch (e) {
-        console.error('addCustomer error:', e);
-        throw e;
-    }
+async function addCustomer() {
+    const error = new Error('addCustomer is deprecated. Use registerCustomerByEmail() or upsertMyCustomerProfile().');
+    error.code = 'api/deprecated-addCustomer';
+    throw error;
 }
 
 async function updateCustomer(id, data) {
     try {
         const db = getFirebaseDB();
-        await db.collection('customers').doc(String(id)).set(data, { merge: true });
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('customer id is required');
+        const snapshot = await db.collection('customers').doc(docId).get();
+        const existing = snapshot.exists ? (snapshot.data() || {}) : {};
+        const normalized = normalizeCustomerProfilePayload(data, existing, {
+            uid: String(existing.uid || docId),
+            email: String(existing.email || data && data.email || '')
+        });
+        await db.collection('customers').doc(docId).set(normalized, { merge: true });
         console.log('✅ Customer updated in Firebase:', id);
     } catch (e) {
         console.error('updateCustomer error:', e);
@@ -1192,10 +1323,10 @@ function normalizeSupportThreadPayload(payload, defaults = {}) {
     const source = payload && typeof payload === 'object' ? payload : {};
     const base = defaults && typeof defaults === 'object' ? defaults : {};
     const now = new Date().toISOString();
+    const threadUid = normalizeSupportText(source.uid || base.uid || source.customerUid || base.customerUid, 200);
 
     return {
-        customerUid: normalizeSupportText(source.customerUid || base.customerUid, 200),
-        customerId: normalizeSupportText(source.customerId || base.customerId, 200),
+        uid: threadUid,
         customerName: normalizeSupportText(source.customerName || base.customerName, 200),
         customerPhone: normalizeSupportText(source.customerPhone || base.customerPhone, 50),
         customerEmail: normalizeSupportText(source.customerEmail || base.customerEmail, 200).toLowerCase(),
@@ -1222,8 +1353,9 @@ function normalizeSupportThreadRecord(data, threadId = '') {
     const base = normalizeSupportThreadPayload(data || {});
     return {
         id: String(threadId || data && data.id || ''),
-        customerUid: base.customerUid,
-        customerId: base.customerId,
+        uid: base.uid,
+        customerUid: base.uid,
+        customerId: String(base.uid || ''),
         customerName: base.customerName,
         customerPhone: base.customerPhone,
         customerEmail: base.customerEmail,
@@ -1255,14 +1387,49 @@ function normalizeSupportMessagePayload(payload) {
 }
 
 function buildSupportThreadId(customerUid) {
-    return `thread_${normalizeSupportText(customerUid, 200)}`;
+    return normalizeSupportText(customerUid, 200);
+}
+
+async function ensureSupportThreadByUid(uid, profile = {}) {
+    const normalizedUid = normalizeSupportText(uid, 200);
+    if (!normalizedUid) throw new Error('uid is required');
+    return getOrCreateSupportThread({
+        uid: normalizedUid,
+        customerUid: normalizedUid,
+        customerName: profile.customerName || profile.displayName || profile.name || '',
+        customerEmail: profile.customerEmail || profile.email || '',
+        customerPhone: profile.customerPhone || profile.phone || ''
+    });
+}
+
+async function sendSupportMessageByUid(uid, text, options = {}) {
+    const normalizedUid = normalizeSupportText(uid, 200);
+    const normalizedText = normalizeSupportText(text, 2000);
+    if (!normalizedUid) throw new Error('uid is required');
+    if (!normalizedText) throw new Error('message required');
+
+    const authUid = normalizeSupportText(options.senderUid || '', 200) || normalizedUid;
+    const senderRole = options.senderRole === 'admin' ? 'admin' : 'customer';
+    const senderName = normalizeSupportText(options.senderName || '', 200);
+
+    await ensureSupportThreadByUid(normalizedUid, options.profile || {});
+
+    return addSupportMessage({
+        threadId: normalizedUid,
+        senderRole,
+        senderUid: authUid,
+        senderName,
+        message: normalizedText,
+        createdAt: new Date().toISOString(),
+        createdAtMs: Date.now()
+    });
 }
 
 async function getOrCreateSupportThread(customerProfile) {
     try {
         const db = getFirebaseDB();
         const profile = customerProfile && typeof customerProfile === 'object' ? customerProfile : {};
-        const customerUid = normalizeSupportText(profile.customerUid || profile.uid, 200);
+        const customerUid = normalizeSupportText(profile.uid || profile.customerUid, 200);
         if (!customerUid) throw new Error('customer uid required');
 
         const threadId = buildSupportThreadId(customerUid);
@@ -1282,8 +1449,7 @@ async function getOrCreateSupportThread(customerProfile) {
 
         const normalized = normalizeSupportThreadPayload({
             ...base,
-            customerUid,
-            customerId: profile.customerId || profile.id || base.customerId || '',
+            uid: customerUid,
             customerName: profile.customerName || profile.name || base.customerName || '',
             customerPhone: profile.customerPhone || profile.phone || profile.phoneNormalized || base.customerPhone || '',
             customerEmail: profile.customerEmail || profile.email || base.customerEmail || '',

@@ -1163,7 +1163,7 @@
                     <div class="section-header">
                         <h3 class="section-title">👥 العملاء</h3>
                         <div class="header-actions">
-                            <button class="btn btn-info" onclick="syncCustomersFromFirebaseNow()">🔄 مزامنة فورية</button>
+                            <button class="btn btn-info" onclick="syncCustomersFromFirebaseNow()">🔄 تحديث العملاء</button>
                             <button class="btn btn-success" onclick="exportUsersExcel()">📤 Excel</button>
                         </div>
                     </div>
@@ -1173,6 +1173,13 @@
                                 <thead><tr><th>الاسم</th><th>الهاتف</th><th>البريد</th><th>النقاط</th><th>التسجيل</th><th>إجراءات</th></tr></thead>
                                 <tbody id="usersTable"></tbody>
                             </table>
+                        </div>
+                        <div id="usersPagination" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;">
+                            <span id="usersPaginationMeta" style="font-size:12px;color:#666;">0 عميل</span>
+                            <div style="display:flex;gap:8px;">
+                                <button type="button" class="btn btn-light" onclick="loadCustomersPage({ reset: true, showToast: true })">↻ إعادة تحميل</button>
+                                <button type="button" class="btn btn-navy" id="usersLoadMoreBtn" onclick="loadCustomersPage({ reset: false, showToast: false })" disabled>تحميل المزيد</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2076,7 +2083,11 @@
         let banners = [];
         let users = [];
         let suppliers = [];
-        let customersUnsubscribe = null;
+        let customersPageCursor = '';
+        let customersHasMore = false;
+        let customersTotalLoaded = 0;
+        let customersPageSize = 20;
+        let customersLoading = false;
         let clientErrorLogs = [];
         let storeEvents = [];
         let liveSessions = [];
@@ -2546,7 +2557,6 @@
                     console.log('🔥 Admin: Loading from Firebase...');
                     const fbProducts = await getAllProducts();
                     const fbOrders = await getAllOrders();
-                    const fbUsers = await getAllUsers();
                     const fbCoupons = await getAllCoupons();
                     const fbBanners = await getAllBanners();
                     const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
@@ -2571,7 +2581,7 @@
                         ? fbProducts
                         : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
                     orders = Array.isArray(fbOrders) ? fbOrders : (getStorageData('ORDERS') || []);
-                    users = Array.isArray(fbUsers) ? fbUsers : (getStorageData('CUSTOMERS') || []);
+                    users = [];
                     coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
                     banners = Array.isArray(fbBanners) ? fbBanners : (getStorageData('BANNERS') || []);
                     suppliers = Array.isArray(fbSuppliers) ? fbSuppliers : (getStorageData('SUPPLIERS') || []);
@@ -2599,7 +2609,7 @@
                 orders = getStorageData('ORDERS') || [];
                 coupons = getStorageData('COUPONS') || [];
                 banners = getStorageData('BANNERS') || [];
-                users = getStorageData('CUSTOMERS') || [];
+                users = [];
                 suppliers = getStorageData('SUPPLIERS') || [];
                 supportThreads = [];
                 try {
@@ -2628,6 +2638,9 @@
             saveSuppliers();
             renderProductCategoryOptions();
             updateSupportAccessUi();
+            await loadCustomersPage({ reset: true, showToast: false }).catch((error) => {
+                console.warn('customers initial page load warning:', error);
+            });
             
             // كلمة المرور دائماً من localStorage
             const saved = getStorageData('SETTINGS');
@@ -2658,7 +2671,7 @@
         function saveOrders() { setStorageData('ORDERS', orders); }
         function saveCoupons() { setStorageData('COUPONS', coupons); }
         function saveBanners() { setStorageData('BANNERS', banners); }
-        function saveUsers() { setStorageData('CUSTOMERS', users); }
+        function saveUsers() { users = Array.isArray(users) ? users : []; }
         function saveSuppliers() { setStorageData('SUPPLIERS', suppliers); }
         function saveAdminPassword() {}
         function saveStoreSettings() {
@@ -2685,7 +2698,7 @@
           const user = firebase.auth().currentUser;
           if (!user) throw new Error('not-authenticated');
           const token = await user.getIdTokenResult(true);
-          const isClaimAdmin = token?.claims?.admin === true;
+          const isClaimAdmin = token?.claims?.admin === true || token?.claims?.role === 'admin';
           const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
           if (!isClaimAdmin && !isBootstrapAdmin) throw new Error('not-admin');
           return { isClaimAdmin, isBootstrapAdmin, user };
@@ -2710,7 +2723,7 @@
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
     const user = userCred.user;
     const token = await user.getIdTokenResult(true);
-    const isAdmin = token?.claims?.admin === true;
+    const isAdmin = token?.claims?.admin === true || token?.claims?.role === 'admin';
     const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
 
     if (!user.emailVerified) {
@@ -2747,7 +2760,7 @@
     await loadAllData();
     await flushPendingProductOps();
     initDashboard();
-    startCustomersRealtimeSync();
+    await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
     
     if (!isAdmin && isBootstrapAdmin) {
       showNotification('info', 'تنبيه أمني', 'الدخول تم بوضع مؤقت. فعّل Custom Claims ثم عطّل ALLOW_BOOTSTRAP_ADMIN.');
@@ -2828,22 +2841,21 @@ async function sendPasswordReset() {
       }
 
       const token = await user.getIdTokenResult();
-      const isAdmin = token?.claims?.admin === true;
+      const isAdmin = token?.claims?.admin === true || token?.claims?.role === 'admin';
       const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
       if (!user.emailVerified) {
         await firebase.auth().signOut();
         return;
       }
-        if (isAdmin || isBootstrapAdmin) {
+      if (isAdmin || isBootstrapAdmin) {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').classList.add('active');
-        startCustomersRealtimeSync();
         if (!products.length) {
           loadAllData().then(async () => {
             await flushPendingProductOps();
             initDashboard();
             autoPurgeSamplesOnce();
-            startCustomersRealtimeSync();
+            await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
           });
         }
       } else {
@@ -4399,39 +4411,110 @@ function adminLogout(){
         // ============================================
         // Users
         // ============================================
+        function updateUsersPaginationUi() {
+            const metaEl = document.getElementById('usersPaginationMeta');
+            const loadMoreBtn = document.getElementById('usersLoadMoreBtn');
+            if (metaEl) {
+                if (customersLoading) {
+                    metaEl.textContent = `جاري التحميل... (${customersTotalLoaded})`;
+                } else {
+                    metaEl.textContent = `تم تحميل ${customersTotalLoaded} عميل`;
+                }
+            }
+            if (loadMoreBtn) {
+                loadMoreBtn.disabled = customersLoading || !customersHasMore;
+                loadMoreBtn.textContent = customersLoading ? 'جاري التحميل...' : 'تحميل المزيد';
+            }
+        }
+
+        function getUserDisplayName(user) {
+            const safe = user && typeof user === 'object' ? user : {};
+            const name = String(safe.displayName || safe.name || '').trim();
+            return name || 'عميل';
+        }
+
         function renderUsersTable() {
             const tbody = document.getElementById('usersTable');
             if (users.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">👥</div><p>لا يوجد عملاء</p></div></td></tr>';
+                updateUsersPaginationUi();
                 return;
             }
             tbody.innerHTML = users.map(u => `
                 <tr>
-                    <td><strong>${u.name}</strong></td>
-                    <td>${u.phone}</td>
+                    <td><strong>${getUserDisplayName(u)}</strong></td>
+                    <td>${u.phone || '-'}</td>
                     <td>${u.email || '-'}</td>
                     <td><strong style="color: var(--gold-dark);">${u.loyaltyPoints || 0}</strong></td>
                     <td>${formatDate(u.createdAt)}</td>
                     <td>
-                        <button class="action-btn" onclick="resetCustomerPassword('${u.id}')" title="تعيين كلمة مرور">🔑</button>
                         <button class="action-btn edit" onclick="editCustomer('${u.id}')">✏️</button>
                         <button class="action-btn delete" onclick="deleteCustomer('${u.id}')">🗑️</button>
                     </td>
                 </tr>
             `).join('');
+            updateUsersPaginationUi();
         }
 
-        async function syncCustomersFromFirebaseNow(showToastMessage = true) {
+        async function loadCustomersPage(options = {}) {
+            const settings = options && typeof options === 'object' ? options : {};
+            const reset = settings.reset === true;
+            const showToastMessage = settings.showToast === true;
+            if (customersLoading) return;
+
+            if (typeof listCustomersPage !== 'function') {
+                const apiError = new Error('listCustomersPage unavailable');
+                if (showToastMessage) showNotification('error', 'فشل تحميل العملاء');
+                throw apiError;
+            }
+
+            customersLoading = true;
+            updateUsersPaginationUi();
             try {
-                if (typeof getAllUsers !== 'function') throw new Error('getAllUsers unavailable');
-                const freshUsers = await getAllUsers();
-                if (!Array.isArray(freshUsers)) throw new Error('customers fetch failed');
-                users = freshUsers;
+                if (reset) {
+                    users = [];
+                    customersPageCursor = '';
+                    customersHasMore = false;
+                    customersTotalLoaded = 0;
+                }
+
+                const response = await listCustomersPage({
+                    limit: customersPageSize,
+                    cursor: reset ? '' : customersPageCursor
+                });
+                const pageRows = Array.isArray(response && response.items) ? response.items : [];
+                const normalizedRows = pageRows.map((row) => ({ id: String(row && row.id || row && row.uid || ''), ...row }));
+
+                if (reset) {
+                    users = normalizedRows;
+                } else if (normalizedRows.length) {
+                    const map = new Map((users || []).map((row) => [String(row && row.id || ''), row]));
+                    normalizedRows.forEach((row) => map.set(String(row && row.id || ''), row));
+                    users = Array.from(map.values());
+                }
+
+                customersHasMore = response && response.hasMore === true;
+                customersPageCursor = String(response && response.nextCursor || '').trim();
+                customersTotalLoaded = Array.isArray(users) ? users.length : 0;
+
                 saveUsers();
                 renderUsersTable();
                 renderLoyaltySection();
                 updateStats();
-                if (showToastMessage) showNotification('success', 'تمت مزامنة العملاء');
+                if (showToastMessage) showNotification('success', 'تم تحديث العملاء');
+            } catch (error) {
+                console.error('loadCustomersPage error:', error);
+                if (showToastMessage) showNotification('error', 'فشل تحميل العملاء');
+                throw error;
+            } finally {
+                customersLoading = false;
+                updateUsersPaginationUi();
+            }
+        }
+
+        async function syncCustomersFromFirebaseNow(showToastMessage = true) {
+            try {
+                await loadCustomersPage({ reset: true, showToast: showToastMessage });
             } catch (error) {
                 console.error('syncCustomersFromFirebaseNow error:', error);
                 if (showToastMessage) showNotification('error', 'فشل مزامنة العملاء');
@@ -4439,35 +4522,18 @@ function adminLogout(){
         }
 
         function startCustomersRealtimeSync() {
-            try {
-                if (customersUnsubscribe || typeof db === 'undefined' || !db || !db.collection) return;
-                customersUnsubscribe = db.collection('customers').onSnapshot((snapshot) => {
-                    users = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-                    saveUsers();
-                    renderUsersTable();
-                    renderLoyaltySection();
-                    updateStats();
-                }, (error) => {
-                    console.error('customers realtime listener error:', error);
-                });
-                console.log('✅ Customers realtime sync enabled');
-            } catch (error) {
-                console.error('startCustomersRealtimeSync error:', error);
-            }
+            return null;
         }
 
         function stopCustomersRealtimeSync() {
-            if (typeof customersUnsubscribe === 'function') {
-                customersUnsubscribe();
-            }
-            customersUnsubscribe = null;
+            return null;
         }
 
         async function editCustomer(userId) {
             const user = users.find(u => String(u.id) === String(userId));
             if (!user) return;
 
-            const name = prompt('اسم العميل:', user.name || '');
+            const name = prompt('اسم العميل:', user.displayName || user.name || '');
             if (name === null) return;
             const phone = prompt('هاتف العميل:', user.phone || '');
             if (phone === null) return;
@@ -4475,17 +4541,21 @@ function adminLogout(){
             if (email === null) return;
 
             const payload = {
-                ...user,
-                name: String(name).trim(),
+                uid: String(user.uid || user.id || ''),
+                displayName: String(name).trim(),
                 phone: String(phone).trim(),
-                email: String(email).trim()
+                email: String(email).trim().toLowerCase(),
+                address: String(user.address || '').trim(),
+                role: String(user.role || 'customer'),
+                loyaltyPoints: Number(user.loyaltyPoints || 0),
+                createdAt: String(user.createdAt || new Date().toISOString())
             };
 
             try {
                 if (typeof updateCustomer === 'function') {
                     await updateCustomer(user.id, payload);
                 }
-                users = users.map(u => String(u.id) === String(user.id) ? payload : u);
+                users = users.map(u => String(u.id) === String(user.id) ? { ...u, ...payload } : u);
                 saveUsers();
                 renderUsersTable();
                 renderLoyaltySection();
@@ -4518,29 +4588,8 @@ function adminLogout(){
             }
         }
 
-        async function resetCustomerPassword(userId) {
-            const user = users.find(u => String(u.id) === String(userId));
-            if (!user) return;
-            const newPassword = prompt(`كلمة مرور جديدة للعميل ${user.name}:`);
-            if (newPassword === null) return;
-            const pass = String(newPassword).trim();
-            if (pass.length < 4) {
-                showNotification('error', 'كلمة المرور قصيرة (4 أحرف على الأقل)');
-                return;
-            }
-
-            try {
-                if (typeof updateCustomer === 'function') {
-                    await updateCustomer(user.id, { password: pass });
-                }
-                users = users.map(u => String(u.id) === String(user.id) ? { ...u, password: pass } : u);
-                saveUsers();
-                renderUsersTable();
-                showNotification('success', 'تم تعيين كلمة المرور للعميل');
-            } catch (error) {
-                console.error('resetCustomerPassword error:', error);
-                showNotification('error', 'فشل تعيين كلمة المرور');
-            }
+        async function resetCustomerPassword() {
+            showNotification('warning', 'غير متاح', 'تم تعطيل إدارة كلمات مرور العملاء. استخدم Firebase Auth reset email.');
         }
 
         // ============================================
@@ -4998,8 +5047,8 @@ function adminLogout(){
             list.innerHTML = users.map(u => `
                 <div class="user-points-card">
                     <div class="user-points-info">
-                        <div class="user-points-avatar">${u.name.charAt(0)}</div>
-                        <div><strong>${u.name}</strong><div style="font-size:11px;color:#666;">${u.phone}</div></div>
+                        <div class="user-points-avatar">${getUserDisplayName(u).charAt(0)}</div>
+                        <div><strong>${getUserDisplayName(u)}</strong><div style="font-size:11px;color:#666;">${u.phone || '-'}</div></div>
                     </div>
                     <strong style="color: var(--gold-dark); font-size: 18px;">${u.loyaltyPoints || 0}</strong>
                     <div class="user-points-actions">
@@ -5009,7 +5058,7 @@ function adminLogout(){
                 </div>
             `).join('');
 
-            select.innerHTML = '<option value="">اختر</option>' + users.map(u => `<option value="${u.id}">${u.name} (${u.loyaltyPoints || 0})</option>`).join('');
+            select.innerHTML = '<option value="">اختر</option>' + users.map(u => `<option value="${u.id}">${getUserDisplayName(u)} (${u.loyaltyPoints || 0})</option>`).join('');
         }
 
         function saveLoyaltySettings(e) {
@@ -5447,7 +5496,7 @@ function adminLogout(){
         }
 
         function exportUsersExcel() {
-            const data = users.map(u => ({ 'الاسم': u.name, 'الهاتف': u.phone, 'البريد': u.email || '', 'العنوان': u.address, 'النقاط': u.loyaltyPoints || 0, 'التسجيل': formatDateTime(u.createdAt) }));
+            const data = users.map(u => ({ 'الاسم': getUserDisplayName(u), 'الهاتف': u.phone || '', 'البريد': u.email || '', 'العنوان': u.address || '', 'النقاط': u.loyaltyPoints || 0, 'التسجيل': formatDateTime(u.createdAt) }));
             exportToExcel(data, 'users');
         }
 
@@ -5469,7 +5518,7 @@ function adminLogout(){
                 'دفعة الاستيراد': p.importBatchId || ''
             }))), 'المنتجات');
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orders.map(o => ({ 'رقم': o.orderNumber, 'العميل': o.customer?.name, 'المبلغ': o.total, 'الحالة': getStatusName(o.status) }))), 'الطلبات');
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users.map(u => ({ 'الاسم': u.name, 'الهاتف': u.phone, 'النقاط': u.loyaltyPoints || 0 }))), 'العملاء');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users.map(u => ({ 'الاسم': getUserDisplayName(u), 'الهاتف': u.phone || '', 'النقاط': u.loyaltyPoints || 0 }))), 'العملاء');
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ 'المنتجات': products.length, 'الطلبات': orders.length, 'العملاء': users.length, 'الإيرادات': orders.reduce((s, o) => s + (o.total || 0), 0) }]), 'ملخص');
             XLSX.writeFile(wb, `تقرير-${Date.now()}.xlsx`);
             showNotification('success', 'تم التصدير');
