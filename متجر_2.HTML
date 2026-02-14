@@ -1443,18 +1443,8 @@
             const remote = Array.isArray(remoteUsers) ? remoteUsers : [];
             const local = Array.isArray(localUsers) ? localUsers : [];
             if (remote.length > 0 || local.length === 0) return false;
-
-            const syncStatus = window.__FIREBASE_SYNC_STATUS__ || {};
-            const hasRecentSyncError = Number(syncStatus.consecutiveErrors || 0) > 0 || !!syncStatus.lastError;
-            const lastSuccessAt = Number(syncStatus.lastSuccessAt || 0);
-            const hasFreshSync = lastSuccessAt > 0 && (Date.now() - lastSuccessAt) < 120000;
-
-            if (!navigator.onLine || hasRecentSyncError || !hasFreshSync) {
-                console.warn(`⚠️ Preserving local CUSTOMERS cache (${source}) to avoid destructive empty overwrite.`);
-                return true;
-            }
-
-            return false;
+            console.warn(`⚠️ Preserving local CUSTOMERS cache (${source}) to avoid destructive empty overwrite.`);
+            return true;
         }
 
         function mergeRemoteCustomersWithLocal(remoteUsers, localUsers) {
@@ -1462,15 +1452,18 @@
             const local = Array.isArray(localUsers) ? localUsers : [];
             const localByPhone = new Map(local.map((u) => [normalizePhone(u && (u.phone || u.phoneNormalized) || ''), u]));
             const localById = new Map(local.map((u) => [String(u && u.id || ''), u]));
+            const localByUid = new Map(local.map((u) => [String(u && u.uid || ''), u]));
             return remote.map((u) => {
                 const sourcePhone = normalizePhone((u && (u.phone || u.phoneNormalized)) || '');
                 const sourceId = String(u && u.id || '');
+                const sourceUid = String(u && u.uid || '');
                 const localMatch = localByPhone.get(sourcePhone) || localById.get(sourceId) || null;
+                const resolvedLocalMatch = localMatch || localByUid.get(sourceUid) || null;
                 return sanitizeCustomerRecord(u, {
-                    id: sourceId || (localMatch && localMatch.id) || '',
-                    uid: (u && u.uid) || (localMatch && localMatch.uid) || '',
+                    id: sourceId || (resolvedLocalMatch && resolvedLocalMatch.id) || '',
+                    uid: (u && u.uid) || (resolvedLocalMatch && resolvedLocalMatch.uid) || '',
                     phoneNormalized: sourcePhone,
-                    password: (u && u.password) || (localMatch && localMatch.password) || ''
+                    password: (u && u.password) || (resolvedLocalMatch && resolvedLocalMatch.password) || ''
                 });
             });
         }
