@@ -2740,7 +2740,7 @@
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
     const user = userCred.user;
     const token = await user.getIdTokenResult(true);
-    const isAdmin = hasAdminClaimFromTokenResult(token);
+    const isClaimAdmin = hasAdminClaimFromTokenResult(token);
 
     if (!user.emailVerified) {
       await firebase.auth().signOut();
@@ -2749,7 +2749,7 @@
       return;
     }
 
-    if (!isAdmin) {
+    if (!isClaimAdmin) {
       await firebase.auth().signOut();
       rateLimiter.recordAttempt(clientIP);
       const remaining = rateLimiter.getRemainingAttempts(clientIP);
@@ -2853,18 +2853,18 @@ async function sendPasswordReset() {
         return;
       }
 
-      const token = await user.getIdTokenResult();
-      const isAdmin = hasAdminClaimFromTokenResult(token);
+       const token = await user.getIdTokenResult();
+      const isClaimAdmin = hasAdminClaimFromTokenResult(token);
       if (!user.emailVerified) {
         await firebase.auth().signOut();
         return;
       }
-      if (isAdmin) {
+      if (isClaimAdmin) {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').classList.add('active');
         if (!products.length) {
-           loadAllData().then(async () => {
-             await flushPendingProductOps();
+          loadAllData().then(async () => {
+            await flushPendingProductOps();
              initDashboard();
              await loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
              autoPurgeSamplesOnce();
