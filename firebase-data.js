@@ -42,6 +42,8 @@ function shouldEnableRealtimeListeners() {
 
 const REALTIME_LISTENERS_ENABLED = shouldEnableRealtimeListeners();
 
+// Production lockdown: polling fallback disabled to avoid duplicate Firestore channels.
+const FIREBASE_POLLING_ENABLED = false;
 const FIREBASE_SYNC_POLL_INTERVAL_MS = 15000;
 const FIREBASE_SYNC_STALE_MS = 45000;
 const FIREBASE_SYNC_STATUS = window.__FIREBASE_SYNC_STATUS__ || {
@@ -62,6 +64,7 @@ let realtimeUnsubscribers = [];
 let realtimeErroredPermanently = false;
 let realtimeErrorWindowStart = 0;
 let realtimeErrorCount = 0;
+const REMOTE_COLLECTION_STORAGE_KEYS = new Set(['PRODUCTS', 'COUPONS', 'BANNERS']);
 const FIREBASE_DATA_SIGNATURES = window.__FIREBASE_DATA_SIGNATURES__ || {};
 window.__FIREBASE_DATA_SIGNATURES__ = FIREBASE_DATA_SIGNATURES;
 
@@ -142,6 +145,13 @@ function persistSyncedCollection(storageKey, list, fallbackRender) {
         return;
     }
 
+    if (REMOTE_COLLECTION_STORAGE_KEYS.has(String(storageKey || ''))) {
+        if (typeof fallbackRender === 'function') {
+            try { fallbackRender(); } catch (_) {}
+        }
+        return;
+    }
+
     let persisted = false;
     try {
         if (typeof setStorageData === 'function') {
@@ -188,28 +198,17 @@ function teardownRealtimeListeners(reason = '') {
     setFirebaseSyncStatus({ realtimeEnabled: false });
 
     const reasonText = String(reason || 'unknown');
-    console.warn(`Realtime listeners disabled for this session (${reasonText}). Polling fallback remains active.`);
+    console.warn(`Realtime listeners disabled for this session (${reasonText}).`);
 }
 
 function handleRealtimeListenerError(source, error) {
     markFirebaseSyncError(source, error);
 
-    const now = Date.now();
-    const windowMs = 60000;
-
-    if (!realtimeErrorWindowStart || (now - realtimeErrorWindowStart) > windowMs) {
-        realtimeErrorWindowStart = now;
-        realtimeErrorCount = 1;
-    } else {
-        realtimeErrorCount += 1;
-    }
-
+    const code = String((error && error.code) || '').toLowerCase();
     const message = error && error.message ? String(error.message) : String(error || '');
-    const isTransportLike = /(unavailable|network|cors|webchannel|transport|listen\/channel)/i.test(message);
-    const threshold = isTransportLike ? 2 : 4;
-
-    if (realtimeErrorCount >= threshold) {
-        teardownRealtimeListeners(`${source}: ${message || 'repeated errors'}`);
+    const fatalPermission = code.includes('permission-denied') || /permission/i.test(message);
+    if (fatalPermission) {
+        teardownRealtimeListeners(`${source}: ${message || 'permission denied'}`);
     }
 }
 
@@ -298,6 +297,15 @@ async function runPollingSync({ force = false, reason = 'interval' } = {}) {
 }
 
 function startPollingSyncFallback() {
+    if (!FIREBASE_POLLING_ENABLED) {
+        if (firebasePollingTimer) {
+            clearInterval(firebasePollingTimer);
+            firebasePollingTimer = null;
+        }
+        setFirebaseSyncStatus({ pollingEnabled: false });
+        return;
+    }
+
     if (firebasePollingTimer) return;
 
     setFirebaseSyncStatus({ pollingEnabled: true });

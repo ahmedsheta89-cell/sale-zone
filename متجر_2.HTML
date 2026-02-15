@@ -1037,8 +1037,6 @@
             STORE_BOOT: 30000,
             STORE_DATA_SYNC: 15000
         };
-        const LOCAL_ORDER_CACHE_SCHEMA = '2026.02.15.01';
-        const LOCAL_ORDER_CACHE_MARKER = '_localFallbackCache';
         const LIVE_SESSION_HEARTBEAT_MS = 45000;
         const STORE_SESSION_KEY = 'sale_zone_live_session_id';
         const STORE_SESSION_ID = (() => {
@@ -1450,9 +1448,9 @@
         }
 
         async function loadData() {
-            const localProducts = normalizeStoreProducts(getStorageData('PRODUCTS') || (allowLocalSeedDefaults ? [...defaultProducts] : []));
-            const localCoupons = getStorageData('COUPONS') || (allowLocalSeedDefaults ? [...defaultCoupons] : []);
-            const localBanners = getStorageData('BANNERS') || (allowLocalSeedDefaults ? [...defaultBanners] : []);
+            const localProducts = normalizeStoreProducts(allowLocalSeedDefaults ? [...defaultProducts] : []);
+            const localCoupons = allowLocalSeedDefaults ? [...defaultCoupons] : [];
+            const localBanners = allowLocalSeedDefaults ? [...defaultBanners] : [];
 
             const resolveList = (result, storageKey, localFallback, label) => {
                 if (result.status === 'fulfilled' && Array.isArray(result.value)) {
@@ -1500,7 +1498,8 @@
             // هذه البيانات دائماً من localStorage (السلة، المفضلات، إلخ)
             cart = getStorageData('CART') || [];
             favorites = (getStorageData('WISHLIST') || []).map(id => String(id));
-            orders = loadLocalFallbackOrders();
+            orders = [];
+            try { removeStorageData('ORDERS'); } catch (_) {}
             
             const savedSettings = getStorageData('SETTINGS');
             if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
@@ -1517,11 +1516,8 @@
                     }])
             ).values());
 
-            // حفظ مرة واحدة فقط لتقليل تكلفة الكتابة مع أحجام البيانات الكبيرة.
-            persistCollectionIfChanged('PRODUCTS', 'PRODUCTS', products);
-            persistCollectionIfChanged('COUPONS', 'COUPONS', coupons);
-            persistCollectionIfChanged('BANNERS', 'BANNERS', banners);
-            console.log('💾 Data saved to localStorage for persistence');
+            // Firebase remains source of truth for products/coupons/banners.
+            console.log('📡 Data bound to Firebase realtime source');
             updateLiveSessionState({
                 customerId: currentUser && currentUser.id ? String(currentUser.id) : ''
             });
@@ -1556,18 +1552,11 @@
 
         function saveCart() { setStorageData('CART', cart); }
         function saveFavorites() { setStorageData('WISHLIST', favorites); }
-        function saveOrders() {
-            const fallbackOrders = Array.isArray(orders) ? orders.filter(isValidLocalFallbackOrder) : [];
-            if (fallbackOrders.length === 0) {
-                removeStorageData('ORDERS');
-                return;
-            }
-            setStorageData('ORDERS', fallbackOrders);
-        }
+        function saveOrders() { orders = []; try { removeStorageData('ORDERS'); } catch (_) {} }
         function saveUsers() {
             users = Array.isArray(users) ? users : [];
         }
-        function saveProducts() { persistCollectionIfChanged('PRODUCTS', 'PRODUCTS', products); }
+        function saveProducts() { /* no-op: products are Firebase-managed */ }
 
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
@@ -2423,32 +2412,6 @@
             return 'desktop';
         }
 
-        function isValidLocalFallbackOrder(order) {
-            return Boolean(
-                order &&
-                typeof order === 'object' &&
-                order[LOCAL_ORDER_CACHE_MARKER] === true &&
-                String(order.cacheSchema || '') === LOCAL_ORDER_CACHE_SCHEMA
-            );
-        }
-
-        function loadLocalFallbackOrders() {
-            const raw = getStorageData('ORDERS');
-            if (!Array.isArray(raw) || raw.length === 0) {
-                return [];
-            }
-
-            const filtered = raw.filter(isValidLocalFallbackOrder);
-            if (filtered.length !== raw.length) {
-                if (filtered.length > 0) {
-                    setStorageData('ORDERS', filtered);
-                } else {
-                    removeStorageData('ORDERS');
-                }
-            }
-            return filtered;
-        }
-
         async function trackStoreEvent(type, message, level = 'info', meta = {}) {
             try {
                 if (typeof addStoreEvent !== 'function') return;
@@ -3065,42 +3028,30 @@
                 createdAt: new Date().toISOString()
             };
 
-            // 🔥 حفظ في Firebase أولاً، ثم localStorage كـ backup
-            if (typeof addOrder === 'function') {
-                addOrder(order).then(() => {
-                    console.log('✅ Order saved to Firebase');
-                    trackStoreEvent('ORDER_CREATED', 'Order saved to Firebase', 'info', {
-                        orderNumber: order.orderNumber,
-                        total: order.total,
-                        itemsCount: order.items.length
-                    });
-                }).catch(error => {
-                    console.error('❌ Firebase error:', error);
-                    // حفظ في localStorage كـ fallback
-                    orders.push({
-                        ...order,
-                        [LOCAL_ORDER_CACHE_MARKER]: true,
-                        cacheSchema: LOCAL_ORDER_CACHE_SCHEMA,
-                        cachedAt: new Date().toISOString()
-                    });
-                    saveOrders();
-                    trackStoreEvent('ORDER_FALLBACK_LOCAL', 'Order failed on Firebase and saved locally', 'warning', {
-                        orderNumber: order.orderNumber,
-                        error: error && error.message ? String(error.message) : String(error)
-                    });
-                });
-            } else {
-                // حفظ في localStorage فقط
-                orders.push({
-                    ...order,
-                    [LOCAL_ORDER_CACHE_MARKER]: true,
-                    cacheSchema: LOCAL_ORDER_CACHE_SCHEMA,
-                    cachedAt: new Date().toISOString()
-                });
-                saveOrders();
-                trackStoreEvent('ORDER_LOCAL_ONLY', 'Order saved locally (Firebase unavailable)', 'warning', {
+            if (typeof addOrder !== 'function') {
+                showNotification('error', 'تعذر إنشاء الطلب', 'خدمة الطلبات غير متاحة حالياً، حاول مرة أخرى.');
+                trackStoreEvent('ORDER_API_UNAVAILABLE', 'Order API unavailable during checkout', 'error', {
                     orderNumber: order.orderNumber
                 });
+                return;
+            }
+
+            try {
+                await addOrder(order);
+                console.log('✅ Order saved to Firebase');
+                trackStoreEvent('ORDER_CREATED', 'Order saved to Firebase', 'info', {
+                    orderNumber: order.orderNumber,
+                    total: order.total,
+                    itemsCount: order.items.length
+                });
+            } catch (error) {
+                console.error('❌ Firebase error:', error);
+                showNotification('error', 'فشل حفظ الطلب', 'تعذر حفظ الطلب الآن. تأكد من الاتصال ثم حاول مرة أخرى.');
+                trackStoreEvent('ORDER_SAVE_FAILED', 'Order save failed on Firebase', 'error', {
+                    orderNumber: order.orderNumber,
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                return;
             }
 
             // Update user points

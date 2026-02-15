@@ -24,6 +24,9 @@ const adminHtml = read('\u0627\u062f\u0645\u0646_2.HTML');
 const storeHtml = read('\u0645\u062a\u062c\u0631_2.HTML');
 const firebaseApi = read('firebase-api.js');
 const firebaseConfig = read('firebase-config.js');
+const firebaseData = read('firebase-data.js');
+const realtimeSync = read('REAL_TIME_SYNC.js');
+const serviceWorker = read('sw.js');
 const firestoreRules = read('firestore.rules');
 
 assertContains(firebaseApi, /function\s+getSuppliers\s*\(/, 'firebase-api.js: missing getSuppliers()', errors);
@@ -68,9 +71,17 @@ assertContains(storeHtml, /function\s+handleRegister\s*\(/, 'store HTML: registe
 assertContains(storeHtml, /function\s+handleLogin\s*\(/, 'store HTML: login handler missing', errors);
 assertNotContains(storeHtml, /getAllUsers\s*\(/, 'store HTML: legacy getAllUsers() usage still present', errors);
 assertNotContains(storeHtml, /setStorageData\s*\(\s*['"]CUSTOMERS['"]/, 'store HTML: legacy CUSTOMERS cache write still present', errors);
+assertNotContains(storeHtml, /getStorageData\s*\(\s*['"]ORDERS['"]\s*\)/, 'store HTML: legacy ORDERS local source still present', errors);
+assertNotContains(storeHtml, /setStorageData\s*\(\s*['"]ORDERS['"]\s*,/, 'store HTML: legacy ORDERS local write still present', errors);
 assertNotContains(storeHtml, /customer_[^'"]+@salezone\.customer/, 'store HTML: legacy phone-auth email pattern still present', errors);
 
 assertContains(firebaseConfig, /experimentalForceLongPolling:\s*true/, 'firebase-config.js: force long-polling not enabled', errors);
+assertContains(firebaseData, /const\s+FIREBASE_POLLING_ENABLED\s*=\s*false/, 'firebase-data.js: polling fallback must be disabled', errors);
+assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]PRODUCTS['"]\s*\)/, 'REAL_TIME_SYNC.js: products local sync should be removed', errors);
+assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]COUPONS['"]\s*\)/, 'REAL_TIME_SYNC.js: coupons local sync should be removed', errors);
+assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]BANNERS['"]\s*\)/, 'REAL_TIME_SYNC.js: banners local sync should be removed', errors);
+assertContains(serviceWorker, /version\.json/, 'sw.js: version.json bypass guard missing', errors);
+assertContains(serviceWorker, /CACHE_VERSION\s*=\s*'v6\.2\.0'/, 'sw.js: cache version was not bumped for rollout', errors);
 assertContains(firestoreRules, /function\s+isAdmin\s*\(/, 'firestore.rules: isAdmin() missing', errors);
 assertContains(firestoreRules, /request\.auth\.token\.email_verified\s*==\s*true/, 'firestore.rules: email_verified gate missing', errors);
 assertContains(firestoreRules, /match\s+\/customers\/\{uid\}/, 'firestore.rules: customers uid match missing', errors);

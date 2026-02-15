@@ -1,7 +1,7 @@
 ﻿// PROFESSIONAL SERVICE WORKER - 2025 standards
 // Progressive Web App (PWA) with offline-first safeguards
 
-const CACHE_VERSION = 'v6.1.1';
+const CACHE_VERSION = 'v6.2.0';
 const CACHE_PREFIX = 'salezone';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic-${CACHE_VERSION}`;
@@ -160,6 +160,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   if (request.method !== 'GET' || url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Never intercept runtime version checks to avoid stale/invalid SW responses.
+  if (/\/version\.json$/i.test(url.pathname)) {
     return;
   }
 
