@@ -10,6 +10,9 @@ cloudinary-service.js
 serviceAccount*.json
 service-account*.json
 firebase-service-account*.json
+*firebase-adminsdk*.json
+*adminsdk*.json
+tools/.secrets/
 
 # Logs
 *.log
