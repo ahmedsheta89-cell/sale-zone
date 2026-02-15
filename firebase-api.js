@@ -924,6 +924,16 @@ function isTransientTransportError(error) {
     );
 }
 
+function isAlreadyExistsWriteError(error) {
+    const message = getErrorMessage(error).toLowerCase();
+    const code = String((error && (error.code || error.status)) || "").toLowerCase();
+    return (
+        code.includes("already-exists") ||
+        message.includes("document already exists") ||
+        message.includes("already exists")
+    );
+}
+
 function isTelemetryWriteSuspended() {
     return Date.now() < telemetryWriteBackoffUntil;
 }
@@ -1163,6 +1173,9 @@ async function addStoreEvent(payload) {
     } catch (e) {
         if (isTransientTransportError(e)) {
             suspendTelemetryWrites(getErrorMessage(e), 45000);
+        }
+        if (isAlreadyExistsWriteError(e)) {
+            return { ok: true, duplicate: true, id: "", error: "already-exists" };
         }
         console.warn('addStoreEvent warning:', e && e.message ? e.message : e);
         return { ok: false, error: e && e.message ? e.message : String(e) };
