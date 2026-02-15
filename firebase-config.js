@@ -82,6 +82,13 @@ if (!firebase.apps.length) {
 // Initialize Firestore
 const db = firebase.firestore();
 
+// Reduce Firestore SDK noise in production consoles (transport retries are handled internally).
+try {
+    if (firebase && firebase.firestore && typeof firebase.firestore.setLogLevel === "function") {
+        firebase.firestore.setLogLevel("error");
+    }
+} catch (_) {}
+
 // Some networks/browsers break WebChannel. Stabilize transport consistently.
 if (shouldApplyStableTransport) {
     try {

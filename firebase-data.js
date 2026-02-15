@@ -65,6 +65,7 @@ let realtimeErroredPermanently = false;
 let realtimeErrorWindowStart = 0;
 let realtimeErrorCount = 0;
 const REMOTE_COLLECTION_STORAGE_KEYS = new Set(['PRODUCTS', 'COUPONS', 'BANNERS']);
+const realtimeListenerLogState = Object.create(null);
 const FIREBASE_DATA_SIGNATURES = window.__FIREBASE_DATA_SIGNATURES__ || {};
 window.__FIREBASE_DATA_SIGNATURES__ = FIREBASE_DATA_SIGNATURES;
 
@@ -210,6 +211,41 @@ function handleRealtimeListenerError(source, error) {
     if (fatalPermission) {
         teardownRealtimeListeners(`${source}: ${message || 'permission denied'}`);
     }
+}
+
+function isTransientRealtimeError(error) {
+    const code = String((error && error.code) || '').toLowerCase();
+    const message = error && error.message ? String(error.message) : String(error || '');
+    const normalized = message.toLowerCase();
+
+    return (
+        code.includes('unavailable') ||
+        code.includes('deadline-exceeded') ||
+        code.includes('cancelled') ||
+        normalized.includes('transport errored') ||
+        normalized.includes('webchannel') ||
+        normalized.includes('cors') ||
+        normalized.includes('network') ||
+        normalized.includes('listen/channel') ||
+        normalized.includes('status: 1')
+    );
+}
+
+function logRealtimeListenerError(source, error) {
+    const key = String(source || 'realtime:unknown');
+    const now = Date.now();
+    const state = realtimeListenerLogState[key] || { lastTransientAt: 0 };
+    realtimeListenerLogState[key] = state;
+
+    const message = error && error.message ? String(error.message) : String(error || 'unknown');
+    if (isTransientRealtimeError(error)) {
+        if ((now - Number(state.lastTransientAt || 0)) < 45000) return;
+        state.lastTransientAt = now;
+        console.warn(`[WARN] ${key} transient transport issue (auto-retry): ${message}`);
+        return;
+    }
+
+    console.error(`${key} listener error:`, error);
 }
 
 async function pullStoreCollectionsFromFirebase(source = 'poll') {
@@ -512,7 +548,7 @@ function setupRealtimeListeners() {
         markFirebaseSyncSuccess('realtime:banners', { banners: banners.length });
     }, (error) => {
         handleRealtimeListenerError('realtime:banners', error);
-        console.error('Banners listener error:', error);
+        logRealtimeListenerError('realtime:banners', error);
     });
 
     const unsubCoupons = db.collection('coupons').onSnapshot((snapshot) => {
@@ -528,7 +564,7 @@ function setupRealtimeListeners() {
         markFirebaseSyncSuccess('realtime:coupons', { coupons: coupons.length });
     }, (error) => {
         handleRealtimeListenerError('realtime:coupons', error);
-        console.error('Coupons listener error:', error);
+        logRealtimeListenerError('realtime:coupons', error);
     });
 
     const productsRef = isStorePage
@@ -551,7 +587,7 @@ function setupRealtimeListeners() {
         markFirebaseSyncSuccess('realtime:products', { products: products.length });
     }, (error) => {
         handleRealtimeListenerError('realtime:products', error);
-        console.error('Products listener error:', error);
+        logRealtimeListenerError('realtime:products', error);
     });
 
     realtimeUnsubscribers = [unsubBanners, unsubCoupons, unsubProducts];
