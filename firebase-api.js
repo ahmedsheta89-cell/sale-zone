@@ -489,6 +489,289 @@ async function deleteProductFromFirebase(id) {
 // ==========================================
 // ORDERS
 // ==========================================
+const ORDER_QUEUE_STORAGE_KEY = 'sale_zone_order_queue';
+const ORDER_QUEUE_SCHEMA_VERSION = '2026.02.15.01';
+let orderQueueFlushInFlight = false;
+let orderQueueAutoSyncStarted = false;
+let orderQueueRetryTimer = null;
+
+function buildDeterministicHash(value) {
+    const input = String(value || '');
+    let hash = 2166136261;
+    for (let i = 0; i < input.length; i += 1) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function buildOrderIdempotencyKey(order = {}) {
+    const source = order && typeof order === 'object' ? order : {};
+    const explicit = String(source.idempotencyKey || '').trim();
+    if (explicit) return explicit;
+
+    const items = Array.isArray(source.items) ? source.items : [];
+    const fingerprint = items
+        .map((item) => `${String(item && item.id || item && item.name || '')}:${Number(item && item.quantity || 0)}:${Number(item && item.price || 0)}`)
+        .join('|');
+    const nowBucket = Math.floor(Date.now() / 1000);
+    const raw = [
+        String(source.orderNumber || ''),
+        String(source.uid || ''),
+        String(source.customer && source.customer.phone || ''),
+        Number(source.total || 0).toFixed(2),
+        fingerprint,
+        String(nowBucket)
+    ].join('||');
+    return `ok_${buildDeterministicHash(raw)}_${buildDeterministicHash(raw + ':v2')}`;
+}
+
+function normalizeOrderDocId(idempotencyKey = '') {
+    const normalized = String(idempotencyKey || '')
+        .replace(/[^a-zA-Z0-9_-]/g, '')
+        .slice(0, 120);
+    return normalized ? `ord_${normalized}` : `ord_${Date.now()}`;
+}
+
+function readOrderQueueLocal() {
+    try {
+        const raw = localStorage.getItem(ORDER_QUEUE_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((item) => item && typeof item === 'object' && item.schemaVersion === ORDER_QUEUE_SCHEMA_VERSION);
+    } catch (_) {
+        return [];
+    }
+}
+
+function writeOrderQueueLocal(queue = []) {
+    try {
+        const safeQueue = Array.isArray(queue) ? queue : [];
+        if (safeQueue.length === 0) {
+            localStorage.removeItem(ORDER_QUEUE_STORAGE_KEY);
+            return;
+        }
+        localStorage.setItem(ORDER_QUEUE_STORAGE_KEY, JSON.stringify(safeQueue));
+    } catch (_) {}
+}
+
+function normalizeOrderPayloadForWrite(order = {}, options = {}) {
+    const source = order && typeof order === 'object' ? order : {};
+    const auth = getFirebaseAuth();
+    const user = auth && auth.currentUser ? auth.currentUser : null;
+    const nowIso = new Date().toISOString();
+    const normalizedUid = String(source.uid || source.userId || (user && user.uid) || '').trim();
+    const normalizedEmail = String(source.email || (user && user.email) || '').trim().toLowerCase();
+    const idempotencyKey = buildOrderIdempotencyKey({ ...source, uid: normalizedUid });
+    const orderDocId = normalizeOrderDocId(idempotencyKey);
+
+    return {
+        ...source,
+        id: String(source.id || orderDocId),
+        uid: normalizedUid,
+        email: normalizedEmail,
+        idempotencyKey,
+        version: Number(source.version) > 0 ? Number(source.version) : 1,
+        source: String(source.source || options.source || 'store-web').trim() || 'store-web',
+        createdAt: String(source.createdAt || nowIso),
+        updatedAt: nowIso,
+        status: String(source.status || 'pending'),
+        statusHistory: Array.isArray(source.statusHistory) ? source.statusHistory : [
+            { status: String(source.status || 'pending'), date: nowIso, note: 'تم استلام الطلب' }
+        ]
+    };
+}
+
+function enqueueOrderLocally(orderPayload, reason = 'offline') {
+    const queue = readOrderQueueLocal();
+    const existingIndex = queue.findIndex((entry) => String(entry.idempotencyKey || '') === String(orderPayload.idempotencyKey || ''));
+    const queueItem = {
+        queueId: existingIndex >= 0 ? queue[existingIndex].queueId : `oq_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        schemaVersion: ORDER_QUEUE_SCHEMA_VERSION,
+        idempotencyKey: String(orderPayload.idempotencyKey || ''),
+        payload: orderPayload,
+        status: 'queued',
+        retryCount: existingIndex >= 0 ? Number(queue[existingIndex].retryCount || 0) : 0,
+        reason: String(reason || 'offline'),
+        queuedAt: existingIndex >= 0 ? String(queue[existingIndex].queuedAt || new Date().toISOString()) : new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+
+    if (existingIndex >= 0) {
+        queue[existingIndex] = queueItem;
+    } else {
+        queue.push(queueItem);
+    }
+
+    writeOrderQueueLocal(queue);
+    return queueItem;
+}
+
+async function appendOrderEvent(dbRef, eventType, orderPayload = {}, meta = {}) {
+    const type = String(eventType || '').trim().toUpperCase();
+    if (!type) return null;
+
+    const eventDoc = {
+        type,
+        orderId: String(orderPayload.id || ''),
+        uid: String(orderPayload.uid || ''),
+        idempotencyKey: String(orderPayload.idempotencyKey || ''),
+        payload: meta && typeof meta.payload === 'object' ? meta.payload : {},
+        source: String(meta && meta.source || orderPayload.source || 'store-web'),
+        createdAt: new Date().toISOString(),
+        actorUid: String(meta && meta.actorUid || orderPayload.uid || '')
+    };
+
+    return dbRef.collection('order_events').add(eventDoc);
+}
+
+async function appendAuditLog(dbRef, action, payload = {}) {
+    const auth = getFirebaseAuth();
+    const user = auth && auth.currentUser ? auth.currentUser : null;
+    const row = {
+        action: String(action || 'UNKNOWN_ACTION'),
+        uid: String((payload && payload.uid) || (user && user.uid) || ''),
+        targetId: String(payload && payload.targetId || ''),
+        scope: String(payload && payload.scope || 'orders'),
+        details: payload && payload.details && typeof payload.details === 'object' ? payload.details : {},
+        createdAt: new Date().toISOString()
+    };
+    return dbRef.collection('audit_logs').add(row);
+}
+
+async function upsertOrderQueueDocument(dbRef, queueItem, status = 'queued', details = {}) {
+    const queueId = String(queueItem && queueItem.queueId || '');
+    if (!queueId) return false;
+
+    const payload = {
+        queueId,
+        uid: String(queueItem && queueItem.payload && queueItem.payload.uid || ''),
+        idempotencyKey: String(queueItem && queueItem.idempotencyKey || ''),
+        status: String(status || 'queued'),
+        retryCount: Number(queueItem && queueItem.retryCount || 0),
+        source: String(queueItem && queueItem.payload && queueItem.payload.source || 'store-web'),
+        queuedAt: String(queueItem && queueItem.queuedAt || new Date().toISOString()),
+        updatedAt: new Date().toISOString(),
+        lastError: String(details && details.lastError || '')
+    };
+
+    await dbRef.collection('order_queue').doc(queueId).set(payload, { merge: true });
+    return true;
+}
+
+async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
+    const orderId = normalizeOrderDocId(orderPayload.idempotencyKey);
+    const orderRef = dbRef.collection('orders').doc(orderId);
+    const snapshot = await orderRef.get();
+    if (snapshot.exists) {
+        return { id: orderId, status: 'duplicate', duplicate: true, queued: false };
+    }
+
+    const writePayload = {
+        ...orderPayload,
+        id: orderId,
+        updatedAt: new Date().toISOString(),
+        syncState: String(meta && meta.syncState || 'synced')
+    };
+
+    await orderRef.set(writePayload, { merge: false });
+    await appendOrderEvent(dbRef, 'ORDER_CREATED', writePayload, {
+        source: meta && meta.source ? meta.source : 'order-create',
+        payload: {
+            orderNumber: writePayload.orderNumber,
+            total: writePayload.total,
+            itemsCount: Array.isArray(writePayload.items) ? writePayload.items.length : 0
+        }
+    });
+    await appendAuditLog(dbRef, 'ORDER_CREATED', {
+        uid: writePayload.uid,
+        targetId: orderId,
+        details: {
+            orderNumber: writePayload.orderNumber,
+            idempotencyKey: writePayload.idempotencyKey
+        }
+    });
+    return { id: orderId, status: 'saved', duplicate: false, queued: false };
+}
+
+async function flushOrderQueue(options = {}) {
+    if (orderQueueFlushInFlight) return { flushed: 0, pending: readOrderQueueLocal().length };
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return { flushed: 0, pending: readOrderQueueLocal().length };
+    }
+
+    const source = String(options.source || 'manual');
+    const maxItems = Math.max(1, Math.min(50, Number(options.maxItems || 20)));
+    const dbRef = getFirebaseDB();
+    let queue = readOrderQueueLocal();
+    if (!queue.length) return { flushed: 0, pending: 0 };
+
+    orderQueueFlushInFlight = true;
+    let flushed = 0;
+
+    try {
+        for (const item of queue.slice(0, maxItems)) {
+            try {
+                const result = await persistOrderOnline(dbRef, item.payload, { source: `queue:${source}`, syncState: 'synced' });
+                await upsertOrderQueueDocument(dbRef, item, 'processed');
+                queue = queue.filter((entry) => String(entry.queueId) !== String(item.queueId));
+                writeOrderQueueLocal(queue);
+                flushed += 1;
+
+                await appendOrderEvent(dbRef, 'ORDER_SYNCED_FROM_QUEUE', {
+                    ...item.payload,
+                    id: String(result.id || item.payload.id || '')
+                }, {
+                    source: `queue:${source}`,
+                    payload: { queueId: item.queueId, result: result.status || 'saved' }
+                });
+            } catch (error) {
+                item.retryCount = Number(item.retryCount || 0) + 1;
+                item.updatedAt = new Date().toISOString();
+                item.lastError = error && error.message ? String(error.message) : String(error);
+                await upsertOrderQueueDocument(dbRef, item, 'failed', { lastError: item.lastError }).catch(() => null);
+            }
+        }
+    } finally {
+        writeOrderQueueLocal(queue);
+        orderQueueFlushInFlight = false;
+    }
+
+    return { flushed, pending: queue.length };
+}
+
+function setupOrderQueueAutoSync() {
+    if (orderQueueAutoSyncStarted) return;
+    orderQueueAutoSyncStarted = true;
+
+    const tryFlush = (source) => {
+        flushOrderQueue({ source, maxItems: 20 }).catch((error) => {
+            const message = error && error.message ? error.message : String(error || '');
+            if (!/permission|denied/i.test(message)) {
+                console.warn(`[WARN] flushOrderQueue (${source}) failed:`, message);
+            }
+        });
+    };
+
+    if (typeof window !== 'undefined') {
+        window.addEventListener('online', () => tryFlush('online'));
+        window.addEventListener('focus', () => {
+            if (navigator.onLine !== false) tryFlush('focus');
+        });
+    }
+
+    if (orderQueueRetryTimer) clearInterval(orderQueueRetryTimer);
+    orderQueueRetryTimer = setInterval(() => {
+        if (navigator.onLine === false) return;
+        tryFlush('interval');
+    }, 30000);
+
+    if (navigator.onLine !== false) {
+        setTimeout(() => tryFlush('startup'), 2000);
+    }
+}
+
 async function getAllOrders() {
     try {
         const db = getFirebaseDB();
@@ -500,12 +783,69 @@ async function getAllOrders() {
     }
 }
 
-async function addOrder(order) {
+async function getOrdersByCustomerUid(uid = '', limitCount = 50) {
     try {
-        const db = getFirebaseDB();
-        const docRef = await db.collection('orders').add(order);
-        console.log('[OK] Order added to Firebase:', docRef.id);
-        return docRef.id;
+        const dbRef = getFirebaseDB();
+        const normalizedUid = String(uid || '').trim();
+        if (!normalizedUid) return [];
+        const safeLimit = Math.max(1, Math.min(200, Number(limitCount) || 50));
+        const snapshot = await dbRef
+            .collection('orders')
+            .where('uid', '==', normalizedUid)
+            .limit(safeLimit)
+            .get();
+        const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        rows.sort((a, b) => {
+            const aTime = Date.parse(String(a && a.createdAt || '')) || 0;
+            const bTime = Date.parse(String(b && b.createdAt || '')) || 0;
+            return bTime - aTime;
+        });
+        return rows;
+    } catch (error) {
+        console.error('getOrdersByCustomerUid error:', error);
+        return [];
+    }
+}
+
+async function addOrder(order, options = {}) {
+    try {
+        const dbRef = getFirebaseDB();
+        const normalizedOrder = normalizeOrderPayloadForWrite(order, options);
+        const allowQueue = options && options.allowQueue !== false;
+        const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+
+        if (isOffline && allowQueue) {
+            const queueItem = enqueueOrderLocally(normalizedOrder, 'offline');
+            await upsertOrderQueueDocument(dbRef, queueItem, 'queued').catch(() => null);
+            return {
+                id: queueItem.queueId,
+                queueId: queueItem.queueId,
+                idempotencyKey: queueItem.idempotencyKey,
+                status: 'queued',
+                queued: true
+            };
+        }
+
+        try {
+            const result = await persistOrderOnline(dbRef, normalizedOrder, { source: 'direct-create', syncState: 'synced' });
+            return result;
+        } catch (error) {
+            if (allowQueue && isTransientTransportError(error)) {
+                const queueItem = enqueueOrderLocally(normalizedOrder, 'transient-failure');
+                await upsertOrderQueueDocument(dbRef, queueItem, 'queued', {
+                    lastError: error && error.message ? String(error.message) : String(error)
+                }).catch(() => null);
+
+                return {
+                    id: queueItem.queueId,
+                    queueId: queueItem.queueId,
+                    idempotencyKey: queueItem.idempotencyKey,
+                    status: 'queued',
+                    queued: true
+                };
+            }
+            throw error;
+        }
     } catch (e) {
         console.error('addOrder error:', e);
         throw e;
@@ -514,14 +854,65 @@ async function addOrder(order) {
 
 async function updateOrderStatus(id, status) {
     try {
-        const db = getFirebaseDB();
-        await db.collection('orders').doc(id).update({ status: status });
-        console.log('[OK] Order status updated:', id);
+        const dbRef = getFirebaseDB();
+        const orderId = String(id || '').trim();
+        const nextStatus = String(status || '').trim().toLowerCase();
+        if (!orderId || !nextStatus) throw new Error('order id and status are required');
+
+        const orderRef = dbRef.collection('orders').doc(orderId);
+        const snapshot = await orderRef.get();
+        if (!snapshot.exists) throw new Error('order not found');
+
+        const data = snapshot.data() || {};
+        const nowIso = new Date().toISOString();
+        const statusHistory = Array.isArray(data.statusHistory) ? [...data.statusHistory] : [];
+        statusHistory.push({
+            status: nextStatus,
+            date: nowIso
+        });
+
+        await orderRef.set({
+            status: nextStatus,
+            statusHistory,
+            updatedAt: nowIso,
+            version: Math.max(1, Number(data.version || 1)) + 1
+        }, { merge: true });
+
+        await appendOrderEvent(dbRef, 'ORDER_STATUS_CHANGED', {
+            id: orderId,
+            uid: String(data.uid || ''),
+            idempotencyKey: String(data.idempotencyKey || ''),
+            source: 'admin-panel'
+        }, {
+            payload: {
+                previousStatus: String(data.status || 'pending'),
+                nextStatus
+            }
+        });
+
+        await appendAuditLog(dbRef, 'ORDER_STATUS_CHANGED', {
+            uid: String(data.uid || ''),
+            targetId: orderId,
+            details: {
+                previousStatus: String(data.status || 'pending'),
+                nextStatus
+            }
+        });
+
+        console.log('[OK] Order status updated:', orderId);
     } catch (e) {
         console.error('updateOrderStatus error:', e);
         throw e;
     }
 }
+
+if (typeof window !== 'undefined') {
+    window.__firebaseApiUpdateOrderStatus = updateOrderStatus;
+    window.__firebaseApiAddOrder = addOrder;
+    window.flushOrderQueue = flushOrderQueue;
+}
+
+setupOrderQueueAutoSync();
 
 // ==========================================
 // USERS

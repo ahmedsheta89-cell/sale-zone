@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone Store Admin - لوحة التحكم">
+    <meta name="firebase-app-check-site-key" content="">
     <link rel="icon" href="./icon-192.png">
     <link rel="shortcut icon" href="./icon-192.png">
     <link rel="apple-touch-icon" href="./icon-192.png">
@@ -14,6 +15,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-check-compat.js"></script>
     <!-- Error Detection System -->
     <script src="ERROR_DETECTION_SYSTEM.js"></script>
     
@@ -2686,11 +2688,8 @@
         // ============================================
         // Auth
         // ============================================
-        const ADMIN_EMAILS = ["ahmed.sheta89@gmail.com"];
-        const ALLOW_BOOTSTRAP_ADMIN = true; // Temporary until custom claims are set
-
-        function isEmailAllowed(email) {
-          return ADMIN_EMAILS.includes(String(email || '').toLowerCase());
+        function hasAdminClaimFromTokenResult(token) {
+          return token?.claims?.admin === true || token?.claims?.role === 'admin';
         }
 
         async function requireAdminPermission() {
@@ -2698,10 +2697,9 @@
           const user = firebase.auth().currentUser;
           if (!user) throw new Error('not-authenticated');
           const token = await user.getIdTokenResult(true);
-          const isClaimAdmin = token?.claims?.admin === true || token?.claims?.role === 'admin';
-          const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
-          if (!isClaimAdmin && !isBootstrapAdmin) throw new Error('not-admin');
-          return { isClaimAdmin, isBootstrapAdmin, user };
+          const isClaimAdmin = hasAdminClaimFromTokenResult(token);
+          if (user.emailVerified !== true || !isClaimAdmin) throw new Error('not-admin');
+          return { isClaimAdmin, user };
         }
 
         async function handleLogin(e){
@@ -2723,8 +2721,7 @@
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
     const user = userCred.user;
     const token = await user.getIdTokenResult(true);
-    const isAdmin = token?.claims?.admin === true || token?.claims?.role === 'admin';
-    const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
+    const isAdmin = hasAdminClaimFromTokenResult(token);
 
     if (!user.emailVerified) {
       await firebase.auth().signOut();
@@ -2733,7 +2730,7 @@
       return;
     }
 
-    if (!isAdmin && !isBootstrapAdmin) {
+    if (!isAdmin) {
       await firebase.auth().signOut();
       rateLimiter.recordAttempt(clientIP);
       const remaining = rateLimiter.getRemainingAttempts(clientIP);
@@ -2762,11 +2759,7 @@
     initDashboard();
     await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
     
-    if (!isAdmin && isBootstrapAdmin) {
-      showNotification('info', 'تنبيه أمني', 'الدخول تم بوضع مؤقت. فعّل Custom Claims ثم عطّل ALLOW_BOOTSTRAP_ADMIN.');
-    } else {
-      showNotification('success', 'تم تسجيل الدخول بنجاح');
-    }
+    showNotification('success', 'تم تسجيل الدخول بنجاح');
 
   }catch(err){
     console.error('Login error:', err);
@@ -2841,13 +2834,12 @@ async function sendPasswordReset() {
       }
 
       const token = await user.getIdTokenResult();
-      const isAdmin = token?.claims?.admin === true || token?.claims?.role === 'admin';
-      const isBootstrapAdmin = ALLOW_BOOTSTRAP_ADMIN && user.emailVerified === true && isEmailAllowed(user.email);
+      const isAdmin = hasAdminClaimFromTokenResult(token);
       if (!user.emailVerified) {
         await firebase.auth().signOut();
         return;
       }
-      if (isAdmin || isBootstrapAdmin) {
+      if (isAdmin) {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').classList.add('active');
         if (!products.length) {
@@ -4235,12 +4227,28 @@ function adminLogout(){
             openModal('orderModal');
         }
 
-        function updateOrderStatus(id, status) {
+        async function updateOrderStatus(id, status) {
             const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
-            o.status = status;
+
+            const previousStatus = String(o.status || 'pending');
+            const nextStatus = String(status || '').trim().toLowerCase();
+            if (!nextStatus || nextStatus === previousStatus) return;
+
+            try {
+                if (typeof window.__firebaseApiUpdateOrderStatus === 'function') {
+                    await window.__firebaseApiUpdateOrderStatus(String(id), nextStatus);
+                }
+            } catch (error) {
+                console.error('updateOrderStatus sync error:', error);
+                showNotification('error', 'فشل تحديث الحالة', 'تعذر مزامنة الحالة مع Firebase. حاول مرة أخرى.');
+                renderOrdersTable();
+                return;
+            }
+
+            o.status = nextStatus;
             if (!o.statusHistory) o.statusHistory = [];
-            o.statusHistory.push({ status, date: new Date().toISOString() });
+            o.statusHistory.push({ status: nextStatus, date: new Date().toISOString() });
             saveOrders();
             renderOrdersTable();
             renderRecentOrders();

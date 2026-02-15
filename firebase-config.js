@@ -59,6 +59,10 @@ function resolveFirestoreTransportPolicy() {
         return { forceLongPolling: true, source: "local-default" };
     }
 
+    if (isGithubPages) {
+        return { forceLongPolling: true, source: "github-pages-default" };
+    }
+
     return { forceLongPolling: false, source: "default" };
 }
 
@@ -88,6 +92,101 @@ try {
         firebase.firestore.setLogLevel("error");
     }
 } catch (_) {}
+
+function resolveAppCheckSiteKey() {
+    if (typeof window.FIREBASE_APP_CHECK_SITE_KEY === 'string' && window.FIREBASE_APP_CHECK_SITE_KEY.trim()) {
+        return window.FIREBASE_APP_CHECK_SITE_KEY.trim();
+    }
+
+    const meta = document.querySelector('meta[name="firebase-app-check-site-key"]');
+    const keyFromMeta = meta && meta.getAttribute('content') ? String(meta.getAttribute('content')).trim() : '';
+    if (keyFromMeta) return keyFromMeta;
+
+    return '';
+}
+
+function setupFirebaseAppCheck() {
+    try {
+        if (!(firebase && typeof firebase.appCheck === 'function')) {
+            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+            window.__FIREBASE_APP_CHECK_REASON__ = 'sdk-missing';
+            return;
+        }
+
+        const appCheckKey = resolveAppCheckSiteKey();
+        if (!appCheckKey) {
+            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+            window.__FIREBASE_APP_CHECK_REASON__ = 'site-key-missing';
+            console.info('[INFO] Firebase App Check not activated (missing site key).');
+            return;
+        }
+
+        const appCheck = firebase.appCheck();
+        appCheck.activate(appCheckKey, true);
+        window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
+        window.__FIREBASE_APP_CHECK_REASON__ = 'active';
+        console.log('[OK] Firebase App Check activated');
+    } catch (error) {
+        window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+        window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';
+        console.warn('Firebase App Check activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
+    }
+}
+
+function setupFirestoreAutoReconnect() {
+    if (window.__FIRESTORE_AUTO_RECONNECT_READY__) return;
+    window.__FIRESTORE_AUTO_RECONNECT_READY__ = true;
+
+    let enableInFlight = false;
+
+    const safeEnableNetwork = async (source = 'manual') => {
+        if (enableInFlight) return;
+        enableInFlight = true;
+        try {
+            if (typeof db.enableNetwork === 'function') {
+                await db.enableNetwork();
+            }
+            window.__FIRESTORE_LAST_ENABLE_NETWORK_SOURCE__ = source;
+        } catch (error) {
+            const message = error && error.message ? String(error.message) : String(error || '');
+            if (!/already enabled/i.test(message)) {
+                console.warn(`[WARN] Firestore enableNetwork failed (${source}):`, message);
+            }
+        } finally {
+            enableInFlight = false;
+        }
+    };
+
+    const safeDisableNetwork = async (source = 'manual') => {
+        try {
+            if (typeof db.disableNetwork === 'function') {
+                await db.disableNetwork();
+            }
+            window.__FIRESTORE_LAST_DISABLE_NETWORK_SOURCE__ = source;
+        } catch (error) {
+            const message = error && error.message ? String(error.message) : String(error || '');
+            if (!/already disabled/i.test(message)) {
+                console.warn(`[WARN] Firestore disableNetwork failed (${source}):`, message);
+            }
+        }
+    };
+
+    window.addEventListener('offline', () => {
+        safeDisableNetwork('offline').catch(() => null);
+    });
+
+    window.addEventListener('online', () => {
+        safeEnableNetwork('online').catch(() => null);
+        if (typeof window.flushOrderQueue === 'function') {
+            window.flushOrderQueue({ source: 'firestore-online', maxItems: 20 }).catch(() => null);
+        }
+    });
+
+    setInterval(() => {
+        if (navigator.onLine === false) return;
+        safeEnableNetwork('interval').catch(() => null);
+    }, 30000);
+}
 
 // Some networks/browsers break WebChannel. Stabilize transport consistently.
 if (shouldApplyStableTransport) {
@@ -137,3 +236,6 @@ if (isGithubPages) {
         console.log("Firebase initialized");
     }
 }
+
+setupFirebaseAppCheck();
+setupFirestoreAutoReconnect();

@@ -19,13 +19,8 @@ service cloud.firestore {
         );
     }
 
-    function isBootstrapAdminEmail() {
-      return isVerifiedUser()
-        && request.auth.token.email in ["ahmed.sheta89@gmail.com"];
-    }
-
     function isAdmin() {
-      return isVerifiedUser() && (hasAdminClaim() || isBootstrapAdminEmail());
+      return isVerifiedUser() && hasAdminClaim();
     }
 
     function isOwner(uid) {
@@ -34,16 +29,141 @@ service cloud.firestore {
 
     function isValidOrderCreate() {
       return request.resource.data.keys().hasAll([
+        "uid",
         "orderNumber",
         "customer",
         "items",
         "total",
-        "createdAt"
+        "status",
+        "createdAt",
+        "idempotencyKey"
       ])
+      && request.resource.data.keys().hasOnly([
+        "id",
+        "uid",
+        "email",
+        "requestId",
+        "deviceId",
+        "orderNumber",
+        "customer",
+        "items",
+        "subtotal",
+        "discount",
+        "couponCode",
+        "usedPoints",
+        "pointsDiscount",
+        "total",
+        "earnedPoints",
+        "status",
+        "statusHistory",
+        "createdAt",
+        "updatedAt",
+        "version",
+        "source",
+        "syncState",
+        "idempotencyKey"
+      ])
+      && request.resource.data.uid is string
+      && request.resource.data.uid.size() > 0
+      && request.resource.data.orderNumber is string
+      && request.resource.data.orderNumber.size() > 0
+      && request.resource.data.idempotencyKey is string
+      && request.resource.data.idempotencyKey.size() >= 12
       && request.resource.data.customer is map
       && request.resource.data.items is list
       && request.resource.data.items.size() > 0
-      && request.resource.data.total is number;
+      && request.resource.data.total is number
+      && request.resource.data.total >= 0
+      && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "completed", "cancelled"]
+      && (!("subtotal" in request.resource.data) || (request.resource.data.subtotal is number && request.resource.data.subtotal >= 0))
+      && (!("discount" in request.resource.data) || (request.resource.data.discount is number && request.resource.data.discount >= 0))
+      && (!("pointsDiscount" in request.resource.data) || (request.resource.data.pointsDiscount is number && request.resource.data.pointsDiscount >= 0))
+      && (!("usedPoints" in request.resource.data) || (request.resource.data.usedPoints is number && request.resource.data.usedPoints >= 0))
+      && (!("earnedPoints" in request.resource.data) || (request.resource.data.earnedPoints is number && request.resource.data.earnedPoints >= 0))
+      && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
+      && (!("updatedAt" in request.resource.data) || (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp))
+      && (!("version" in request.resource.data) || (request.resource.data.version is number && request.resource.data.version >= 1));
+    }
+
+    function isValidOrderOwnerCreate() {
+      return isVerifiedUser()
+        && isValidOrderCreate()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == "pending";
+    }
+
+    function isValidOrderAdminUpdate() {
+      return isAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.orderNumber == resource.data.orderNumber
+        && request.resource.data.idempotencyKey == resource.data.idempotencyKey
+        && request.resource.data.items == resource.data.items
+        && request.resource.data.customer == resource.data.customer
+        && request.resource.data.total == resource.data.total
+        && (!("subtotal" in resource.data) || request.resource.data.subtotal == resource.data.subtotal)
+        && (!("discount" in resource.data) || request.resource.data.discount == resource.data.discount)
+        && (!("pointsDiscount" in resource.data) || request.resource.data.pointsDiscount == resource.data.pointsDiscount)
+        && (!("usedPoints" in resource.data) || request.resource.data.usedPoints == resource.data.usedPoints)
+        && (!("earnedPoints" in resource.data) || request.resource.data.earnedPoints == resource.data.earnedPoints)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "completed", "cancelled"]
+        && (!("version" in resource.data) || request.resource.data.version == resource.data.version + 1);
+    }
+
+    function isValidOrderQueueWrite() {
+      return request.resource.data.keys().hasAll([
+        "queueId",
+        "uid",
+        "idempotencyKey",
+        "status",
+        "queuedAt",
+        "updatedAt"
+      ])
+      && request.resource.data.uid is string
+      && request.resource.data.uid.size() > 0
+      && request.resource.data.queueId is string
+      && request.resource.data.queueId.size() > 0
+      && request.resource.data.idempotencyKey is string
+      && request.resource.data.idempotencyKey.size() >= 12
+      && request.resource.data.status in ["queued", "pending", "processing", "processed", "failed"]
+      && (request.resource.data.queuedAt is string || request.resource.data.queuedAt is timestamp)
+      && (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp)
+      && (!("retryCount" in request.resource.data) || (request.resource.data.retryCount is number && request.resource.data.retryCount >= 0))
+      && (!("lastError" in request.resource.data) || request.resource.data.lastError is string);
+    }
+
+    function isValidOrderEventWrite() {
+      return request.resource.data.keys().hasAll([
+        "type",
+        "orderId",
+        "uid",
+        "createdAt"
+      ])
+      && request.resource.data.type is string
+      && request.resource.data.type.size() > 0
+      && request.resource.data.orderId is string
+      && request.resource.data.orderId.size() > 0
+      && request.resource.data.uid is string
+      && request.resource.data.uid.size() > 0
+      && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
+      && (!("idempotencyKey" in request.resource.data) || request.resource.data.idempotencyKey is string)
+      && (!("payload" in request.resource.data) || request.resource.data.payload is map);
+    }
+
+    function isValidAuditLogWrite() {
+      return request.resource.data.keys().hasAll([
+        "action",
+        "uid",
+        "createdAt"
+      ])
+      && request.resource.data.action is string
+      && request.resource.data.action.size() > 0
+      && request.resource.data.uid is string
+      && request.resource.data.uid.size() > 0
+      && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
+      && (!("scope" in request.resource.data) || request.resource.data.scope is string)
+      && (!("targetId" in request.resource.data) || request.resource.data.targetId is string)
+      && (!("details" in request.resource.data) || request.resource.data.details is map);
     }
 
     function isValidCustomerDocument() {
@@ -277,8 +397,49 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin() || isValidOrderOwnerCreate();
+      allow update: if isValidOrderAdminUpdate();
+      allow delete: if false;
+    }
+
+    match /order_queue/{queueId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isValidOrderQueueWrite()
+        && (
+          isAdmin()
+          || (isVerifiedUser() && request.resource.data.uid == request.auth.uid)
+        );
+      allow update: if isValidOrderQueueWrite()
+        && (
+          isAdmin()
+          || (
+            isVerifiedUser()
+            && resource.data.uid == request.auth.uid
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.idempotencyKey == resource.data.idempotencyKey
+          )
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /order_events/{eventId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isValidOrderEventWrite()
+        && (
+          isAdmin()
+          || (isVerifiedUser() && request.resource.data.uid == request.auth.uid)
+        );
+      allow update, delete: if isAdmin();
+    }
+
+    match /audit_logs/{logId} {
       allow read, update, delete: if isAdmin();
-      allow create: if isAdmin() || (isVerifiedUser() && isValidOrderCreate());
+      allow create: if isValidAuditLogWrite()
+        && (
+          isAdmin()
+          || (isSignedIn() && request.resource.data.uid == request.auth.uid)
+        );
     }
 
     match /customers/{uid} {

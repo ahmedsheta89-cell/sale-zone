@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
+    <meta name="firebase-app-check-site-key" content="">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="icon" href="./icon-192.png">
@@ -17,6 +18,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-check-compat.js"></script>
     <!-- Error Detection System -->
     <script src="ERROR_DETECTION_SYSTEM.js"></script>
     
@@ -3014,18 +3016,26 @@
             const total = Math.max(0, totalAfterCoupon - pointsDiscount);
             const loyaltyRate = storeSettings.loyalty?.rate || 5;
             const earnedPoints = Math.floor(total * (loyaltyRate / 100));
+            const nowIso = new Date().toISOString();
+            const requestId = `rq_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            const normalizedUid = String(currentUser?.uid || currentUser?.id || '').trim();
 
             const order = {
                 id: Date.now(),
                 orderNumber: `SZ-${Date.now().toString().slice(-8)}`,
+                requestId,
+                idempotencyKey: `${requestId}_${normalizedUid || 'anonymous'}`,
+                uid: normalizedUid,
+                email: String(currentUser?.email || '').trim().toLowerCase(),
+                deviceId: STORE_SESSION_ID,
                 customer: { name, phone, address, notes },
                 items: [...cart],
                 subtotal, discount,
                 couponCode: appliedCoupon?.code || null,
                 usedPoints, pointsDiscount, total, earnedPoints,
                 status: 'pending',
-                statusHistory: [{ status: 'pending', date: new Date().toISOString(), note: 'تم استلام الطلب' }],
-                createdAt: new Date().toISOString()
+                statusHistory: [{ status: 'pending', date: nowIso, note: 'تم استلام الطلب' }],
+                createdAt: nowIso
             };
 
             if (typeof addOrder !== 'function') {
@@ -3036,14 +3046,26 @@
                 return;
             }
 
+            let addOrderResult = null;
             try {
-                await addOrder(order);
-                console.log('✅ Order saved to Firebase');
-                trackStoreEvent('ORDER_CREATED', 'Order saved to Firebase', 'info', {
-                    orderNumber: order.orderNumber,
-                    total: order.total,
-                    itemsCount: order.items.length
-                });
+                addOrderResult = await addOrder(order, { allowQueue: true });
+                const isQueued = addOrderResult && addOrderResult.queued === true;
+                if (isQueued) {
+                    console.log('🟠 Order queued locally for sync:', addOrderResult.queueId || '');
+                    trackStoreEvent('ORDER_QUEUED', 'Order queued locally and will sync when online', 'warning', {
+                        orderNumber: order.orderNumber,
+                        idempotencyKey: order.idempotencyKey,
+                        queueId: addOrderResult.queueId || ''
+                    });
+                } else {
+                    console.log('✅ Order saved to Firebase');
+                    trackStoreEvent('ORDER_CREATED', 'Order saved to Firebase', 'info', {
+                        orderNumber: order.orderNumber,
+                        total: order.total,
+                        itemsCount: order.items.length,
+                        orderId: addOrderResult && addOrderResult.id ? String(addOrderResult.id) : ''
+                    });
+                }
             } catch (error) {
                 console.error('❌ Firebase error:', error);
                 showNotification('error', 'فشل حفظ الطلب', 'تعذر حفظ الطلب الآن. تأكد من الاتصال ثم حاول مرة أخرى.');
@@ -3068,8 +3090,11 @@
                 }
             }
 
-            // Send WhatsApp notification
-            sendWhatsAppNotification(order);
+            const isQueuedOrder = addOrderResult && addOrderResult.queued === true;
+            if (!isQueuedOrder) {
+                // Send WhatsApp notification only after confirmed Firebase write.
+                sendWhatsAppNotification(order);
+            }
 
             cart = [];
             appliedCoupon = null;
@@ -3080,7 +3105,11 @@
             toggleCart();
             updateStats();
             
-            showNotification('success', '🎉 تم الطلب!', `رقم: ${order.orderNumber}`);
+            if (isQueuedOrder) {
+                showNotification('warning', '📦 تم حفظ الطلب محليًا', 'سيتم إرسال الطلب تلقائيًا عند عودة الإنترنت.');
+            } else {
+                showNotification('success', '🎉 تم الطلب!', `رقم: ${order.orderNumber}`);
+            }
             updateLiveSessionState();
             document.getElementById('checkoutForm').reset();
         }
@@ -3122,9 +3151,26 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             document.getElementById('trackingResult').innerHTML = '';
         }
 
-        function showMyOrders() {
+        async function loadMyOrdersFromFirebase() {
+            if (!currentUser) return [];
+            const uid = String(currentUser.uid || currentUser.id || '').trim();
+            if (!uid) return [];
+            if (typeof getOrdersByCustomerUid !== 'function') return [];
+
+            const remoteOrders = await getOrdersByCustomerUid(uid, 100);
+            if (Array.isArray(remoteOrders) && remoteOrders.length >= 0) {
+                orders = remoteOrders;
+                return remoteOrders;
+            }
+            return [];
+        }
+
+        async function showMyOrders() {
             if (!currentUser) { showAuthModal('login'); return; }
-            const myOrders = orders.filter(o => o.customer?.phone === currentUser.phone);
+            let myOrders = await loadMyOrdersFromFirebase();
+            if (!Array.isArray(myOrders) || myOrders.length === 0) {
+                myOrders = orders.filter(o => String(o.uid || '') === String(currentUser.uid || currentUser.id || ''));
+            }
             
             document.getElementById('ordersModalBody').innerHTML = myOrders.length === 0 
                 ? '<div style="text-align: center; padding: 30px; color: #666;"><div style="font-size: 50px;">📦</div><p>لا توجد طلبات</p></div>'
@@ -3145,12 +3191,17 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             openModal('ordersModal');
         }
 
-        function trackOrder() {
+        async function trackOrder() {
             const orderNumber = document.getElementById('trackOrderNumber').value.trim();
-            trackOrderById(orderNumber);
+            await trackOrderById(orderNumber, { refreshRemote: true });
         }
 
-        function trackOrderById(orderNumber) {
+        async function trackOrderById(orderNumber, options = {}) {
+            const refreshRemote = options && options.refreshRemote === true;
+            if (refreshRemote && currentUser) {
+                await loadMyOrdersFromFirebase();
+            }
+
             const order = orders.find(o => o.orderNumber === orderNumber || o.id.toString() === orderNumber);
             
             if (!order) {

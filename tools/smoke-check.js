@@ -55,9 +55,11 @@ assertContains(adminHtml, /id="supportAccessNotice"/, 'admin HTML: support acces
 assertContains(adminHtml, /id="usersPaginationMeta"/, 'admin HTML: users pagination meta missing', errors);
 assertContains(adminHtml, /function\s+loadCustomersPage\s*\(/, 'admin HTML: loadCustomersPage() missing', errors);
 assertContains(adminHtml, /listCustomersPage\s*\(/, 'admin HTML: listCustomersPage() usage missing', errors);
+assertContains(adminHtml, /function\s+hasAdminClaimFromTokenResult\s*\(/, 'admin HTML: admin claim validator missing', errors);
 assertNotContains(adminHtml, /getAllUsers\s*\(/, 'admin HTML: legacy getAllUsers() usage still present', errors);
 assertNotContains(adminHtml, /setStorageData\s*\(\s*['"]CUSTOMERS['"]/, 'admin HTML: legacy CUSTOMERS cache write still present', errors);
 assertNotContains(adminHtml, /resetCustomerPassword\s*\('/, 'admin HTML: reset customer password action still present', errors);
+assertNotContains(adminHtml, /ALLOW_BOOTSTRAP_ADMIN/, 'admin HTML: bootstrap admin flag must be removed', errors);
 
 assertContains(storeHtml, /product-search-worker\.js/, 'store HTML: missing worker reference path', errors);
 assertContains(storeHtml, /id="productsPagination"/, 'store HTML: missing pagination container', errors);
@@ -69,6 +71,7 @@ assertContains(storeHtml, /function\s+fallbackSupportChatToFaq\s*\(/, 'store HTM
 assertContains(storeHtml, /function\s+ensureVerifiedForSensitiveAction\s*\(/, 'store HTML: ensureVerifiedForSensitiveAction() missing', errors);
 assertContains(storeHtml, /function\s+handleRegister\s*\(/, 'store HTML: register handler missing', errors);
 assertContains(storeHtml, /function\s+handleLogin\s*\(/, 'store HTML: login handler missing', errors);
+assertContains(storeHtml, /idempotencyKey/, 'store HTML: order idempotency key wiring missing', errors);
 assertNotContains(storeHtml, /getAllUsers\s*\(/, 'store HTML: legacy getAllUsers() usage still present', errors);
 assertNotContains(storeHtml, /setStorageData\s*\(\s*['"]CUSTOMERS['"]/, 'store HTML: legacy CUSTOMERS cache write still present', errors);
 assertNotContains(storeHtml, /getStorageData\s*\(\s*['"]ORDERS['"]\s*\)/, 'store HTML: legacy ORDERS local source still present', errors);
@@ -77,6 +80,7 @@ assertNotContains(storeHtml, /customer_[^'"]+@salezone\.customer/, 'store HTML: 
 
 assertContains(firebaseConfig, /experimentalForceLongPolling:\s*true/, 'firebase-config.js: force long-polling not enabled', errors);
 assertContains(firebaseData, /const\s+FIREBASE_POLLING_ENABLED\s*=\s*false/, 'firebase-data.js: polling fallback must be disabled', errors);
+assertContains(firebaseData, /createResubscribingSnapshot\s*\(/, 'firebase-data.js: realtime auto-resubscribe guard missing', errors);
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]PRODUCTS['"]\s*\)/, 'REAL_TIME_SYNC.js: products local sync should be removed', errors);
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]COUPONS['"]\s*\)/, 'REAL_TIME_SYNC.js: coupons local sync should be removed', errors);
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]BANNERS['"]\s*\)/, 'REAL_TIME_SYNC.js: banners local sync should be removed', errors);
@@ -84,9 +88,13 @@ assertContains(serviceWorker, /version\.json/, 'sw.js: version.json bypass guard
 assertContains(serviceWorker, /CACHE_VERSION\s*=\s*'v6\.2\.0'/, 'sw.js: cache version was not bumped for rollout', errors);
 assertContains(firestoreRules, /function\s+isAdmin\s*\(/, 'firestore.rules: isAdmin() missing', errors);
 assertContains(firestoreRules, /request\.auth\.token\.email_verified\s*==\s*true/, 'firestore.rules: email_verified gate missing', errors);
+assertNotContains(firestoreRules, /isBootstrapAdminEmail/, 'firestore.rules: bootstrap admin fallback must be removed', errors);
 assertContains(firestoreRules, /match\s+\/customers\/\{uid\}/, 'firestore.rules: customers uid match missing', errors);
 assertContains(firestoreRules, /!\(\"password\"\s+in\s+request\.resource\.data\)/, 'firestore.rules: password field guard missing', errors);
 assertContains(firestoreRules, /request\.resource\.data\.uid\s*==\s*request\.auth\.uid/, 'firestore.rules: uid ownership guard missing', errors);
+assertContains(firestoreRules, /match\s+\/order_queue\/\{queueId\}/, 'firestore.rules: order_queue match missing', errors);
+assertContains(firestoreRules, /match\s+\/order_events\/\{eventId\}/, 'firestore.rules: order_events match missing', errors);
+assertContains(firestoreRules, /match\s+\/audit_logs\/\{logId\}/, 'firestore.rules: audit_logs match missing', errors);
 assertContains(firestoreRules, /match\s+\/support_threads\/\{uid\}/, 'firestore.rules: support_threads uid match missing', errors);
 
 if (errors.length) {

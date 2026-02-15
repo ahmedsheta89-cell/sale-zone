@@ -248,6 +248,67 @@ function logRealtimeListenerError(source, error) {
     console.error(`${key} listener error:`, error);
 }
 
+function isPermissionDeniedRealtimeError(error) {
+    const code = String((error && error.code) || '').toLowerCase();
+    const message = error && error.message ? String(error.message).toLowerCase() : '';
+    return code.includes('permission-denied') || message.includes('permission');
+}
+
+function createResubscribingSnapshot(source, queryFactory, onData) {
+    let unsubscribeInner = null;
+    let retryTimer = null;
+    let stopped = false;
+
+    const clearRetry = () => {
+        if (retryTimer) {
+            clearTimeout(retryTimer);
+            retryTimer = null;
+        }
+    };
+
+    const subscribe = () => {
+        if (stopped) return;
+        clearRetry();
+
+        let queryRef = null;
+        try {
+            queryRef = queryFactory();
+        } catch (error) {
+            logRealtimeListenerError(`${source}:factory`, error);
+            retryTimer = setTimeout(subscribe, 5000);
+            return;
+        }
+
+        unsubscribeInner = queryRef.onSnapshot(
+            (snapshot) => {
+                if (stopped) return;
+                onData(snapshot);
+            },
+            (error) => {
+                handleRealtimeListenerError(source, error);
+                logRealtimeListenerError(source, error);
+
+                if (stopped || isPermissionDeniedRealtimeError(error)) {
+                    return;
+                }
+
+                clearRetry();
+                retryTimer = setTimeout(subscribe, 5000);
+            }
+        );
+    };
+
+    subscribe();
+
+    return () => {
+        stopped = true;
+        clearRetry();
+        if (typeof unsubscribeInner === 'function') {
+            try { unsubscribeInner(); } catch (_) {}
+        }
+    };
+}
+
 async function pullStoreCollectionsFromFirebase(source = 'poll') {
     const productReader = (isStorePage && typeof getPublishedProducts === 'function')
         ? getPublishedProducts
@@ -535,7 +596,7 @@ function setupRealtimeListeners() {
     }
     setFirebaseSyncStatus({ realtimeEnabled: true });
 
-    const unsubBanners = db.collection('banners').onSnapshot((snapshot) => {
+    const unsubBanners = createResubscribingSnapshot('realtime:banners', () => db.collection('banners'), (snapshot) => {
         banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('🟦 Banners updated in real-time:', banners.length);
         persistSyncedCollection('BANNERS', banners, () => {
@@ -546,12 +607,9 @@ function setupRealtimeListeners() {
             }
         });
         markFirebaseSyncSuccess('realtime:banners', { banners: banners.length });
-    }, (error) => {
-        handleRealtimeListenerError('realtime:banners', error);
-        logRealtimeListenerError('realtime:banners', error);
     });
 
-    const unsubCoupons = db.collection('coupons').onSnapshot((snapshot) => {
+    const unsubCoupons = createResubscribingSnapshot('realtime:coupons', () => db.collection('coupons'), (snapshot) => {
         coupons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('🟨 Coupons updated in real-time:', coupons.length);
         persistSyncedCollection('COUPONS', coupons, () => {
@@ -562,16 +620,13 @@ function setupRealtimeListeners() {
             }
         });
         markFirebaseSyncSuccess('realtime:coupons', { coupons: coupons.length });
-    }, (error) => {
-        handleRealtimeListenerError('realtime:coupons', error);
-        logRealtimeListenerError('realtime:coupons', error);
     });
 
-    const productsRef = isStorePage
-        ? db.collection('products').where('isPublished', '==', true)
-        : db.collection('products');
-
-    const unsubProducts = productsRef.onSnapshot((snapshot) => {
+    const unsubProducts = createResubscribingSnapshot('realtime:products', () => (
+        isStorePage
+            ? db.collection('products').where('isPublished', '==', true)
+            : db.collection('products')
+    ), (snapshot) => {
         products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('🛍️ Products updated in real-time:', products.length);
         persistSyncedCollection('PRODUCTS', products, () => {
@@ -585,9 +640,6 @@ function setupRealtimeListeners() {
             }
         });
         markFirebaseSyncSuccess('realtime:products', { products: products.length });
-    }, (error) => {
-        handleRealtimeListenerError('realtime:products', error);
-        logRealtimeListenerError('realtime:products', error);
     });
 
     realtimeUnsubscribers = [unsubBanners, unsubCoupons, unsubProducts];
