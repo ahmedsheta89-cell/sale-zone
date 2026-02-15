@@ -41,6 +41,7 @@ assertContains(firebaseApi, /function\s+ensureEmailVerifiedOrThrow\s*\(/, 'fireb
 assertContains(firebaseApi, /function\s+getMyCustomerProfile\s*\(/, 'firebase-api.js: missing getMyCustomerProfile()', errors);
 assertContains(firebaseApi, /function\s+upsertMyCustomerProfile\s*\(/, 'firebase-api.js: missing upsertMyCustomerProfile()', errors);
 assertContains(firebaseApi, /function\s+listCustomersPage\s*\(/, 'firebase-api.js: missing listCustomersPage()', errors);
+assertContains(firebaseApi, /function\s+listOrdersPage\s*\(/, 'firebase-api.js: missing listOrdersPage()', errors);
 assertContains(firebaseApi, /function\s+ensureSupportThreadByUid\s*\(/, 'firebase-api.js: missing ensureSupportThreadByUid()', errors);
 assertContains(firebaseApi, /function\s+sendSupportMessageByUid\s*\(/, 'firebase-api.js: missing sendSupportMessageByUid()', errors);
 assertContains(firebaseApi, /function\s+getSupportThreads\s*\(\s*limitCount\s*=\s*100\s*,\s*options\s*=\s*\{\}\s*\)/, 'firebase-api.js: getSupportThreads strict options missing', errors);
@@ -55,6 +56,8 @@ assertContains(adminHtml, /id="supportAccessNotice"/, 'admin HTML: support acces
 assertContains(adminHtml, /id="usersPaginationMeta"/, 'admin HTML: users pagination meta missing', errors);
 assertContains(adminHtml, /function\s+loadCustomersPage\s*\(/, 'admin HTML: loadCustomersPage() missing', errors);
 assertContains(adminHtml, /listCustomersPage\s*\(/, 'admin HTML: listCustomersPage() usage missing', errors);
+assertContains(adminHtml, /id="ordersPaginationMeta"/, 'admin HTML: orders pagination meta missing', errors);
+assertContains(adminHtml, /function\s+loadOrdersPage\s*\(/, 'admin HTML: loadOrdersPage() missing', errors);
 assertContains(adminHtml, /function\s+hasAdminClaimFromTokenResult\s*\(/, 'admin HTML: admin claim validator missing', errors);
 assertNotContains(adminHtml, /getAllUsers\s*\(/, 'admin HTML: legacy getAllUsers() usage still present', errors);
 assertNotContains(adminHtml, /setStorageData\s*\(\s*['"]CUSTOMERS['"]/, 'admin HTML: legacy CUSTOMERS cache write still present', errors);

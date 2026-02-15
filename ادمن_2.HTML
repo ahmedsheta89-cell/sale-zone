@@ -1116,6 +1116,13 @@
                                 <tbody id="ordersTable"></tbody>
                             </table>
                         </div>
+                        <div id="ordersPagination" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;">
+                            <span id="ordersPaginationMeta" style="font-size:12px;color:#666;">0 طلب</span>
+                            <div style="display:flex;gap:8px;">
+                                <button type="button" class="btn btn-light" onclick="loadOrdersPage({ reset: true, showToast: true })">↻ إعادة تحميل</button>
+                                <button type="button" class="btn btn-navy" id="ordersLoadMoreBtn" onclick="loadOrdersPage({ reset: false, showToast: false })" disabled>تحميل المزيد</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -2090,6 +2097,11 @@
         let customersTotalLoaded = 0;
         let customersPageSize = 20;
         let customersLoading = false;
+        let ordersPageCursor = '';
+        let ordersHasMore = false;
+        let ordersTotalLoaded = 0;
+        let ordersPageSize = 50;
+        let ordersLoading = false;
         let clientErrorLogs = [];
         let storeEvents = [];
         let liveSessions = [];
@@ -2555,14 +2567,13 @@
         async function loadAllData() {
             try {
                 // محاولة تحميل من Firebase أولاً
-                if (typeof getAllProducts === 'function') {
-                    console.log('🔥 Admin: Loading from Firebase...');
-                    const fbProducts = await getAllProducts();
-                    const fbOrders = await getAllOrders();
-                    const fbCoupons = await getAllCoupons();
-                    const fbBanners = await getAllBanners();
-                    const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
-                    let fbSupportThreads = null;
+                     if (typeof getAllProducts === 'function') {
+                     console.log('🔥 Admin: Loading from Firebase...');
+                     const fbProducts = await getAllProducts();
+                     const fbCoupons = await getAllCoupons();
+                     const fbBanners = await getAllBanners();
+                     const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
+                     let fbSupportThreads = null;
                     if (typeof getSupportThreads === 'function') {
                         try {
                             await requireAdminPermission();
@@ -2579,15 +2590,19 @@
 
                     const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
                     const cachedStoreProducts = getStorageData('PRODUCTS');
-                    products = Array.isArray(fbProducts)
-                        ? fbProducts
-                        : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
-                    orders = Array.isArray(fbOrders) ? fbOrders : (getStorageData('ORDERS') || []);
-                    users = [];
-                    coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
-                    banners = Array.isArray(fbBanners) ? fbBanners : (getStorageData('BANNERS') || []);
-                    suppliers = Array.isArray(fbSuppliers) ? fbSuppliers : (getStorageData('SUPPLIERS') || []);
-                    supportThreads = Array.isArray(fbSupportThreads) ? fbSupportThreads : [];
+                     products = Array.isArray(fbProducts)
+                         ? fbProducts
+                         : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
+                     const cachedOrders = getStorageData('ORDERS');
+                     orders = Array.isArray(cachedOrders) ? cachedOrders : [];
+                     ordersPageCursor = '';
+                     ordersHasMore = false;
+                     ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
+                     users = [];
+                     coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
+                     banners = Array.isArray(fbBanners) ? fbBanners : (getStorageData('BANNERS') || []);
+                     suppliers = Array.isArray(fbSuppliers) ? fbSuppliers : (getStorageData('SUPPLIERS') || []);
+                     supportThreads = Array.isArray(fbSupportThreads) ? fbSupportThreads : [];
                     
                     const settings = await getSettings();
                     if (settings) storeSettings = { ...storeSettings, ...settings };
@@ -2670,7 +2685,11 @@
             }
             setStorageData('PRODUCTS_ADMIN', source);
         }
-        function saveOrders() { setStorageData('ORDERS', orders); }
+        function saveOrders() {
+            const source = Array.isArray(orders) ? orders : [];
+            const compact = source.length > 400 ? source.slice(0, 400) : source;
+            setStorageData('ORDERS', compact);
+        }
         function saveCoupons() { setStorageData('COUPONS', coupons); }
         function saveBanners() { setStorageData('BANNERS', banners); }
         function saveUsers() { users = Array.isArray(users) ? users : []; }
@@ -2754,12 +2773,13 @@
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('dashboard').classList.add('active');
 
-    await loadAllData();
-    await flushPendingProductOps();
-    initDashboard();
-    await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
-    
-    showNotification('success', 'تم تسجيل الدخول بنجاح');
+     await loadAllData();
+     await flushPendingProductOps();
+     initDashboard();
+     await loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
+     await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
+     
+     showNotification('success', 'تم تسجيل الدخول بنجاح');
 
   }catch(err){
     console.error('Login error:', err);
@@ -2843,13 +2863,14 @@ async function sendPasswordReset() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').classList.add('active');
         if (!products.length) {
-          loadAllData().then(async () => {
-            await flushPendingProductOps();
-            initDashboard();
-            autoPurgeSamplesOnce();
-            await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
-          });
-        }
+           loadAllData().then(async () => {
+             await flushPendingProductOps();
+             initDashboard();
+             await loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
+             autoPurgeSamplesOnce();
+             await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
+           });
+         }
       } else {
         await firebase.auth().signOut();
       }
@@ -4110,10 +4131,27 @@ function adminLogout(){
         // ============================================
         // Orders
         // ============================================
+        function updateOrdersPaginationUi() {
+            const metaEl = document.getElementById('ordersPaginationMeta');
+            const loadMoreBtn = document.getElementById('ordersLoadMoreBtn');
+            if (metaEl) {
+                if (ordersLoading) {
+                    metaEl.textContent = `جاري التحميل... (${ordersTotalLoaded})`;
+                } else {
+                    metaEl.textContent = `تم تحميل ${ordersTotalLoaded} طلب`;
+                }
+            }
+            if (loadMoreBtn) {
+                loadMoreBtn.disabled = ordersLoading || !ordersHasMore;
+                loadMoreBtn.textContent = ordersLoading ? 'جاري التحميل...' : 'تحميل المزيد';
+            }
+        }
+
         function renderOrdersTable() {
             const tbody = document.getElementById('ordersTable');
             if (orders.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🛍️</div><p>لا توجد طلبات</p></div></td></tr>';
+                updateOrdersPaginationUi();
                 return;
             }
             tbody.innerHTML = orders.map(o => `
@@ -4132,6 +4170,64 @@ function adminLogout(){
                     </td>
                 </tr>
             `).join('');
+            updateOrdersPaginationUi();
+        }
+
+        async function loadOrdersPage(options = {}) {
+            const settings = options && typeof options === 'object' ? options : {};
+            const reset = settings.reset === true;
+            const showToastMessage = settings.showToast === true;
+            if (ordersLoading) return;
+
+            if (typeof listOrdersPage !== 'function') {
+                const apiError = new Error('listOrdersPage unavailable');
+                if (showToastMessage) showNotification('error', 'فشل تحميل الطلبات');
+                throw apiError;
+            }
+
+            ordersLoading = true;
+            updateOrdersPaginationUi();
+            try {
+                if (reset) {
+                    orders = [];
+                    ordersPageCursor = '';
+                    ordersHasMore = false;
+                    ordersTotalLoaded = 0;
+                }
+
+                const response = await listOrdersPage({
+                    limit: ordersPageSize,
+                    cursor: reset ? '' : ordersPageCursor
+                });
+                const pageRows = Array.isArray(response && response.items) ? response.items : [];
+                const normalizedRows = pageRows.map((row) => ({ id: String(row && row.id || ''), ...row }));
+
+                if (reset) {
+                    orders = normalizedRows;
+                } else if (normalizedRows.length) {
+                    const map = new Map((orders || []).map((row) => [String(row && row.id || ''), row]));
+                    normalizedRows.forEach((row) => map.set(String(row && row.id || ''), row));
+                    orders = Array.from(map.values());
+                }
+
+                ordersHasMore = response && response.hasMore === true;
+                ordersPageCursor = String(response && response.nextCursor || '').trim();
+                ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
+
+                saveOrders();
+                renderOrdersTable();
+                renderRecentOrders();
+                updateBadges();
+                updateStats();
+                if (showToastMessage) showNotification('success', 'تم تحديث الطلبات');
+            } catch (error) {
+                console.error('loadOrdersPage error:', error);
+                if (showToastMessage) showNotification('error', 'فشل تحميل الطلبات');
+                throw error;
+            } finally {
+                ordersLoading = false;
+                updateOrdersPaginationUi();
+            }
         }
 
         function renderRecentOrders() {

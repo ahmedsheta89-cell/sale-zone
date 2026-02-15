@@ -774,6 +774,7 @@ function setupOrderQueueAutoSync() {
 
 async function getAllOrders() {
     try {
+        console.warn('[WARN] getAllOrders() is deprecated. Use listOrdersPage() for paginated admin views.');
         const db = getFirebaseDB();
         const snapshot = await db.collection('orders').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -781,6 +782,34 @@ async function getAllOrders() {
         console.error('getAllOrders error:', e);
         return null;
     }
+}
+
+async function listOrdersPage(options = {}) {
+    const db = getFirebaseDB();
+    const safeLimit = Math.max(1, Math.min(200, Number(options && options.limit) || 50));
+    const cursorId = String(options && options.cursor || '').trim();
+
+    let query = db.collection('orders').orderBy('createdAt', 'desc').limit(safeLimit + 1);
+
+    if (cursorId) {
+        const cursorSnapshot = await db.collection('orders').doc(cursorId).get();
+        if (cursorSnapshot.exists) {
+            query = query.startAfter(cursorSnapshot);
+        }
+    }
+
+    const snapshot = await query.get();
+    const docs = snapshot.docs || [];
+    const hasMore = docs.length > safeLimit;
+    const pageDocs = hasMore ? docs.slice(0, safeLimit) : docs;
+    const items = pageDocs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const nextCursor = hasMore && pageDocs.length ? String(pageDocs[pageDocs.length - 1].id) : '';
+
+    return {
+        items,
+        hasMore,
+        nextCursor
+    };
 }
 
 async function getOrdersByCustomerUid(uid = '', limitCount = 50) {
