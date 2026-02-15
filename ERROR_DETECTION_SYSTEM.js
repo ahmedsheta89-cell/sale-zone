@@ -68,25 +68,90 @@ class ErrorDetectionSystem {
 
     // 📊 مراقبة الأداء
     setupPerformanceMonitoring() {
-        // مراقبة وقت تحميل الصفحة
-        window.addEventListener('load', () => {
-            const loadTime = performance.now();
-            this.performance.pageLoadTime = loadTime;
-            
-            if (loadTime > 3000) {
-                this.logWarning({
-                    type: 'SLOW_PAGE_LOAD',
-                    message: `Page load time: ${loadTime.toFixed(2)}ms`,
-                    timestamp: new Date().toISOString()
-                });
-            }
-        });
-
         // مراقبة الـ DOMContentLoaded
         document.addEventListener('DOMContentLoaded', () => {
             const domTime = performance.now();
             this.performance.domLoadTime = domTime;
         });
+
+        // Monitor page load using navigation timing to avoid inflated values on suspended tabs.
+        window.addEventListener('load', () => {
+            const metrics = this.resolvePageLoadMetrics();
+            this.performance.pageLoadTime = metrics.effectiveLoadMs;
+            this.performance.pageLoadRaw = metrics.rawLoadMs;
+            this.performance.pageLoadSource = metrics.source;
+            this.performance.navigationType = metrics.navigationType;
+            this.performance.visibilityAtLoad = document.visibilityState;
+
+            const SLOW_PAGE_THRESHOLD_MS = 8000;
+            const MAX_ACTIONABLE_LOAD_MS = 60000;
+            const isVisibleLoad = document.visibilityState === 'visible';
+            const isBackForward = metrics.navigationType === 'back_forward';
+            const shouldWarn =
+                isVisibleLoad &&
+                !isBackForward &&
+                metrics.effectiveLoadMs > SLOW_PAGE_THRESHOLD_MS &&
+                metrics.effectiveLoadMs <= MAX_ACTIONABLE_LOAD_MS;
+
+            if (shouldWarn) {
+                this.logWarning({
+                    type: 'SLOW_PAGE_LOAD',
+                    message: `Page load time: ${metrics.effectiveLoadMs.toFixed(2)}ms`,
+                    rawLoadMs: Number(metrics.rawLoadMs.toFixed(2)),
+                    timingSource: metrics.source,
+                    navigationType: metrics.navigationType,
+                    timestamp: new Date().toISOString()
+                });
+                return;
+            }
+
+            // Skip noisy false positives caused by background-tab resumes or stalled external assets.
+            if (metrics.rawLoadMs > MAX_ACTIONABLE_LOAD_MS && metrics.effectiveLoadMs <= SLOW_PAGE_THRESHOLD_MS) {
+                console.info('[INFO] SLOW_PAGE_LOAD skipped (inflated raw load timing):', {
+                    rawLoadMs: Number(metrics.rawLoadMs.toFixed(2)),
+                    effectiveLoadMs: Number(metrics.effectiveLoadMs.toFixed(2)),
+                    timingSource: metrics.source,
+                    navigationType: metrics.navigationType
+                });
+            }
+        });
+    }
+
+    resolvePageLoadMetrics() {
+        const rawLoadMs = Number(performance.now() || 0);
+        const nav = (typeof performance.getEntriesByType === 'function')
+            ? performance.getEntriesByType('navigation')[0]
+            : null;
+
+        const navigationType = nav && nav.type ? String(nav.type) : '';
+        const loadEventEndMs = nav && Number(nav.loadEventEnd) > 0 ? Number(nav.loadEventEnd) : 0;
+        const domContentLoadedMs = nav && Number(nav.domContentLoadedEventEnd) > 0 ? Number(nav.domContentLoadedEventEnd) : 0;
+        const domInteractiveMs = nav && Number(nav.domInteractive) > 0 ? Number(nav.domInteractive) : 0;
+
+        let effectiveLoadMs = rawLoadMs;
+        let source = 'performance.now';
+
+        if (rawLoadMs > 60000 && domContentLoadedMs > 0) {
+            // If raw load is massively inflated, prefer stable lifecycle checkpoint.
+            effectiveLoadMs = domContentLoadedMs;
+            source = 'navigation.domContentLoadedEventEnd';
+        } else if (loadEventEndMs > 0) {
+            effectiveLoadMs = loadEventEndMs;
+            source = 'navigation.loadEventEnd';
+        } else if (domContentLoadedMs > 0) {
+            effectiveLoadMs = domContentLoadedMs;
+            source = 'navigation.domContentLoadedEventEnd';
+        } else if (domInteractiveMs > 0) {
+            effectiveLoadMs = domInteractiveMs;
+            source = 'navigation.domInteractive';
+        }
+
+        return {
+            rawLoadMs,
+            effectiveLoadMs,
+            source,
+            navigationType
+        };
     }
 
     // 👤 تتبع إجراءات المستخدم
