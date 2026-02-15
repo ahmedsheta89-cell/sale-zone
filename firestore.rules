@@ -74,7 +74,7 @@ service cloud.firestore {
       && request.resource.data.items.size() > 0
       && request.resource.data.total is number
       && request.resource.data.total >= 0
-      && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "completed", "cancelled"]
+      && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"]
       && (!("subtotal" in request.resource.data) || (request.resource.data.subtotal is number && request.resource.data.subtotal >= 0))
       && (!("discount" in request.resource.data) || (request.resource.data.discount is number && request.resource.data.discount >= 0))
       && (!("pointsDiscount" in request.resource.data) || (request.resource.data.pointsDiscount is number && request.resource.data.pointsDiscount >= 0))
@@ -106,7 +106,7 @@ service cloud.firestore {
         && (!("usedPoints" in resource.data) || request.resource.data.usedPoints == resource.data.usedPoints)
         && (!("earnedPoints" in resource.data) || request.resource.data.earnedPoints == resource.data.earnedPoints)
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "completed", "cancelled"]
+        && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"]
         && (!("version" in resource.data) || request.resource.data.version == resource.data.version + 1);
     }
 
