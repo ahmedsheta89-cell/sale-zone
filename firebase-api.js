@@ -28,6 +28,27 @@ function getFirebaseAuth() {
     throw new Error('Firebase Auth not available');
 }
 
+function getFirebaseAuthUserSafe() {
+    try {
+        const auth = getFirebaseAuth();
+        return auth && auth.currentUser ? auth.currentUser : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function canClientWriteTelemetry(options = {}) {
+    const requireVerified = options && options.requireVerified !== false;
+    const user = getFirebaseAuthUserSafe();
+    if (!user) return false;
+    if (!requireVerified) return true;
+    return user.emailVerified === true;
+}
+
+if (typeof window !== 'undefined') {
+    window.canClientWriteTelemetry = canClientWriteTelemetry;
+}
+
 // ==========================================
 // COUPONS
 // ==========================================
@@ -1524,6 +1545,9 @@ async function addClientErrorLog(payload) {
         if (isTelemetryWriteSuspended()) {
             return { ok: false, error: "telemetry-write-paused" };
         }
+        if (!canClientWriteTelemetry({ requireVerified: true })) {
+            return { ok: false, error: "telemetry-auth-required" };
+        }
         const fireDB = getFirebaseDB();
         const normalized = normalizeClientErrorPayload(payload);
         const docRef = await fireDB.collection('client_error_logs').add(normalized);
@@ -1585,6 +1609,9 @@ async function addStoreEvent(payload) {
     try {
         if (isTelemetryWriteSuspended()) {
             return { ok: false, error: "telemetry-write-paused" };
+        }
+        if (!canClientWriteTelemetry({ requireVerified: true })) {
+            return { ok: false, error: "telemetry-auth-required" };
         }
         const fireDB = getFirebaseDB();
         const normalized = normalizeStoreEventPayload(payload);
@@ -1663,9 +1690,16 @@ async function upsertLiveSession(payload) {
         if (isTelemetryWriteSuspended()) {
             return { ok: false, error: "telemetry-write-paused" };
         }
+        if (!canClientWriteTelemetry({ requireVerified: false })) {
+            return { ok: false, error: "telemetry-auth-required" };
+        }
         const fireDB = getFirebaseDB();
         const normalized = normalizeLiveSessionPayload(payload);
         if (!normalized.sessionId) throw new Error('sessionId required');
+        if (!normalized.customerId) {
+            const user = getFirebaseAuthUserSafe();
+            normalized.customerId = user && user.uid ? String(user.uid) : '';
+        }
         await fireDB.collection('store_live_sessions').doc(normalized.sessionId).set(normalized, { merge: true });
         return { ok: true, id: normalized.sessionId };
     } catch (e) {

@@ -767,6 +767,9 @@ class ErrorDetectionSystem {
             if (typeof window.addClientErrorLog !== 'function') {
                 return;
             }
+            if (typeof window.canClientWriteTelemetry === 'function' && !window.canClientWriteTelemetry({ requireVerified: true })) {
+                return;
+            }
             if (!this.shouldPushClientError(error)) {
                 return;
             }

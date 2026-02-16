@@ -16,15 +16,23 @@ class EnhancedUI {
         const notification = document.createElement('div');
         notification.className = `enhanced-notification notification-${type}`;
         notification.innerHTML = `
-            <div class="notification-icon">
-                ${EnhancedUI.getNotificationIcon(type)}
-            </div>
+            <div class="notification-icon"></div>
             <div class="notification-content">
-                <div class="notification-title">${title}</div>
-                <div class="notification-message">${message}</div>
+                <div class="notification-title"></div>
+                <div class="notification-message"></div>
             </div>
-            <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+            <button class="notification-close" type="button">×</button>
         `;
+        const iconNode = notification.querySelector('.notification-icon');
+        const titleNode = notification.querySelector('.notification-title');
+        const messageNode = notification.querySelector('.notification-message');
+        const closeBtn = notification.querySelector('.notification-close');
+        if (iconNode) iconNode.textContent = EnhancedUI.getNotificationIcon(type);
+        if (titleNode) titleNode.textContent = String(title || '');
+        if (messageNode) messageNode.textContent = String(message || '');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => notification.remove());
+        }
         
         // Add styles if not exists
         if (!document.querySelector('#enhanced-notification-styles')) {

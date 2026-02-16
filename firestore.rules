@@ -250,8 +250,17 @@ service cloud.firestore {
       ])
       && request.resource.data.type is string
       && request.resource.data.message is string
+      && request.resource.data.type.size() > 0
+      && request.resource.data.type.size() <= 64
+      && request.resource.data.message.size() > 0
+      && request.resource.data.message.size() <= 1000
       && request.resource.data.timestamp is string
-      && request.resource.data.context is map;
+      && request.resource.data.timestamp.size() > 0
+      && request.resource.data.timestamp.size() <= 64
+      && request.resource.data.context is map
+      && request.resource.data.context.keys().size() <= 20
+      && (!("stack" in request.resource.data) || (request.resource.data.stack is string && request.resource.data.stack.size() <= 4000))
+      && (!("source" in request.resource.data) || (request.resource.data.source is string && request.resource.data.source.size() <= 240));
     }
 
     function isValidStoreEventCreate() {
@@ -275,7 +284,19 @@ service cloud.firestore {
       && request.resource.data.type is string
       && request.resource.data.level is string
       && request.resource.data.source is string
-      && request.resource.data.timestamp is string;
+      && request.resource.data.timestamp is string
+      && request.resource.data.type.size() > 0
+      && request.resource.data.type.size() <= 64
+      && request.resource.data.level in ["debug", "info", "warn", "warning", "error"]
+      && request.resource.data.source.size() > 0
+      && request.resource.data.source.size() <= 120
+      && request.resource.data.timestamp.size() > 0
+      && request.resource.data.timestamp.size() <= 64
+      && (!("message" in request.resource.data) || (request.resource.data.message is string && request.resource.data.message.size() <= 1000))
+      && (!("sessionId" in request.resource.data) || (request.resource.data.sessionId is string && request.resource.data.sessionId.size() <= 160))
+      && (!("customerId" in request.resource.data) || (request.resource.data.customerId is string && request.resource.data.customerId.size() <= 160))
+      && (!("meta" in request.resource.data) || request.resource.data.meta is map)
+      && (!("context" in request.resource.data) || (request.resource.data.context is map && request.resource.data.context.keys().size() <= 20));
     }
 
     function isValidLiveSessionWrite() {
@@ -296,7 +317,19 @@ service cloud.firestore {
         "updatedAt"
       ])
       && request.resource.data.sessionId is string
-      && request.resource.data.updatedAt is string;
+      && request.resource.data.sessionId.size() >= 8
+      && request.resource.data.sessionId.size() <= 160
+      && request.resource.data.updatedAt is string
+      && request.resource.data.updatedAt.size() > 0
+      && request.resource.data.updatedAt.size() <= 64
+      && (!("createdAt" in request.resource.data) || (request.resource.data.createdAt is string && request.resource.data.createdAt.size() > 0 && request.resource.data.createdAt.size() <= 64))
+      && (!("page" in request.resource.data) || (request.resource.data.page is string && request.resource.data.page.size() <= 240))
+      && (!("href" in request.resource.data) || (request.resource.data.href is string && request.resource.data.href.size() <= 2000))
+      && (!("customerId" in request.resource.data) || (request.resource.data.customerId is string && request.resource.data.customerId.size() <= 160))
+      && (!("customerPhone" in request.resource.data) || (request.resource.data.customerPhone is string && request.resource.data.customerPhone.size() <= 40))
+      && (!("device" in request.resource.data) || (request.resource.data.device is string && request.resource.data.device.size() <= 32))
+      && (!("userAgent" in request.resource.data) || (request.resource.data.userAgent is string && request.resource.data.userAgent.size() <= 512))
+      && (!("online" in request.resource.data) || request.resource.data.online is bool);
     }
 
     function isValidSupportThreadWrite(threadId) {
@@ -467,17 +500,23 @@ service cloud.firestore {
 
     match /client_error_logs/{logId} {
       allow read, update, delete: if isAdmin();
-      allow create: if isValidClientErrorCreate();
+      allow create: if isVerifiedUser() && isValidClientErrorCreate();
     }
 
     match /store_events/{eventId} {
       allow read, update, delete: if isAdmin();
-      allow create: if isAdmin() || isValidStoreEventCreate();
+      allow create: if isAdmin() || (isVerifiedUser() && isValidStoreEventCreate());
     }
 
     match /store_live_sessions/{sessionId} {
       allow read, delete: if isAdmin();
-      allow create, update: if isAdmin() || isValidLiveSessionWrite();
+      allow create, update: if isAdmin()
+        || (
+          isSignedIn()
+          && isValidLiveSessionWrite()
+          && request.resource.data.sessionId == sessionId
+          && (!("createdAt" in request.resource.data) || resource == null || request.resource.data.createdAt == resource.data.createdAt)
+        );
     }
 
     match /support_threads/{uid} {

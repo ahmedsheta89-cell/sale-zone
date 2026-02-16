@@ -28,6 +28,7 @@ const firebaseData = read('firebase-data.js');
 const realtimeSync = read('REAL_TIME_SYNC.js');
 const serviceWorker = read('sw.js');
 const firestoreRules = read('firestore.rules');
+const securityUtils = read('security-utils.js');
 
 assertContains(firebaseApi, /function\s+getSuppliers\s*\(/, 'firebase-api.js: missing getSuppliers()', errors);
 assertContains(firebaseApi, /function\s+addSupplier\s*\(/, 'firebase-api.js: missing addSupplier()', errors);
@@ -48,6 +49,7 @@ assertContains(firebaseApi, /function\s+getSupportThreads\s*\(\s*limitCount\s*=\
 assertContains(firebaseApi, /function\s+getSupportMessages\s*\(\s*threadId\s*,\s*limitCount\s*=\s*200\s*,\s*options\s*=\s*\{\}\s*\)/, 'firebase-api.js: getSupportMessages strict options missing', errors);
 
 assertContains(adminHtml, /id="suppliersSection"/, 'admin HTML: missing suppliers section', errors);
+assertContains(adminHtml, /security-utils\.js/, 'admin HTML: missing security-utils.js include', errors);
 assertContains(adminHtml, /id="productCostPrice"/, 'admin HTML: missing product cost input', errors);
 assertContains(adminHtml, /function\s+runProductsSchemaMigration\s*\(/, 'admin HTML: missing schema migration action', errors);
 assertContains(adminHtml, /supportAccess\s*=\s*\{/, 'admin HTML: supportAccess state missing', errors);
@@ -63,8 +65,11 @@ assertNotContains(adminHtml, /getAllUsers\s*\(/, 'admin HTML: legacy getAllUsers
 assertNotContains(adminHtml, /setStorageData\s*\(\s*['"]CUSTOMERS['"]/, 'admin HTML: legacy CUSTOMERS cache write still present', errors);
 assertNotContains(adminHtml, /resetCustomerPassword\s*\('/, 'admin HTML: reset customer password action still present', errors);
 assertNotContains(adminHtml, /ALLOW_BOOTSTRAP_ADMIN/, 'admin HTML: bootstrap admin flag must be removed', errors);
+assertNotContains(adminHtml, /\$\{o\.customer\?\.name\s*\|\|\s*'-'\}/, 'admin HTML: orders table still renders raw customer name', errors);
+assertNotContains(adminHtml, /\$\{u\.email\s*\|\|\s*'-'\}/, 'admin HTML: users table still renders raw email', errors);
 
 assertContains(storeHtml, /product-search-worker\.js/, 'store HTML: missing worker reference path', errors);
+assertContains(storeHtml, /security-utils\.js/, 'store HTML: missing security-utils.js include', errors);
 assertContains(storeHtml, /id="productsPagination"/, 'store HTML: missing pagination container', errors);
 assertContains(storeHtml, /function\s+runProductSearch\s*\(/, 'store HTML: missing runProductSearch()', errors);
 assertContains(storeHtml, /id="loginIdentifier"/, 'store HTML: login identifier input not found', errors);
@@ -80,6 +85,9 @@ assertNotContains(storeHtml, /setStorageData\s*\(\s*['"]CUSTOMERS['"]/, 'store H
 assertNotContains(storeHtml, /getStorageData\s*\(\s*['"]ORDERS['"]\s*\)/, 'store HTML: legacy ORDERS local source still present', errors);
 assertNotContains(storeHtml, /setStorageData\s*\(\s*['"]ORDERS['"]\s*,/, 'store HTML: legacy ORDERS local write still present', errors);
 assertNotContains(storeHtml, /customer_[^'"]+@salezone\.customer/, 'store HTML: legacy phone-auth email pattern still present', errors);
+assertNotContains(storeHtml, /onclick="filterByCategory\('\$\{b\.category/, 'store HTML: banner category still injected into inline handler', errors);
+assertNotContains(storeHtml, /onclick="copyCoupon\('\$\{c\.code\}'\)"/, 'store HTML: coupon code still injected into inline handler', errors);
+assertNotContains(storeHtml, /<div class="notification-title">\$\{title\}<\/div>/, 'store HTML: notification title still injected via innerHTML', errors);
 
 assertContains(firebaseConfig, /experimentalForceLongPolling:\s*true/, 'firebase-config.js: force long-polling not enabled', errors);
 assertContains(firebaseData, /const\s+FIREBASE_POLLING_ENABLED\s*=\s*false/, 'firebase-data.js: polling fallback must be disabled', errors);
@@ -88,7 +96,7 @@ assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]PRODUCTS['"]\s*\)/, '
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]COUPONS['"]\s*\)/, 'REAL_TIME_SYNC.js: coupons local sync should be removed', errors);
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]BANNERS['"]\s*\)/, 'REAL_TIME_SYNC.js: banners local sync should be removed', errors);
 assertContains(serviceWorker, /version\.json/, 'sw.js: version.json bypass guard missing', errors);
-assertContains(serviceWorker, /CACHE_VERSION\s*=\s*'v6\.2\.0'/, 'sw.js: cache version was not bumped for rollout', errors);
+assertContains(serviceWorker, /CACHE_VERSION\s*=\s*'v6\.2\.1'/, 'sw.js: cache version was not bumped for rollout', errors);
 assertContains(firestoreRules, /function\s+isAdmin\s*\(/, 'firestore.rules: isAdmin() missing', errors);
 assertContains(firestoreRules, /request\.auth\.token\.email_verified\s*==\s*true/, 'firestore.rules: email_verified gate missing', errors);
 assertNotContains(firestoreRules, /isBootstrapAdminEmail/, 'firestore.rules: bootstrap admin fallback must be removed', errors);
@@ -99,6 +107,10 @@ assertContains(firestoreRules, /match\s+\/order_queue\/\{queueId\}/, 'firestore.
 assertContains(firestoreRules, /match\s+\/order_events\/\{eventId\}/, 'firestore.rules: order_events match missing', errors);
 assertContains(firestoreRules, /match\s+\/audit_logs\/\{logId\}/, 'firestore.rules: audit_logs match missing', errors);
 assertContains(firestoreRules, /match\s+\/support_threads\/\{uid\}/, 'firestore.rules: support_threads uid match missing', errors);
+assertContains(firestoreRules, /allow create:\s*if isVerifiedUser\(\)\s*&&\s*isValidClientErrorCreate\(\)/, 'firestore.rules: client_error_logs create must require verified user', errors);
+assertContains(firestoreRules, /allow create:\s*if isAdmin\(\)\s*\|\|\s*\(isVerifiedUser\(\)\s*&&\s*isValidStoreEventCreate\(\)\)/, 'firestore.rules: store_events create must require admin or verified user', errors);
+assertContains(firestoreRules, /request\.resource\.data\.sessionId == sessionId/, 'firestore.rules: live session path/sessionId guard missing', errors);
+assertContains(securityUtils, /function\s+escapeHtml\s*\(/, 'security-utils.js: escapeHtml helper missing', errors);
 
 if (errors.length) {
   console.error('Smoke check FAILED:');

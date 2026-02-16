@@ -24,6 +24,7 @@
     <script src="firebase-api.js"></script>
     <script src="firebase-data.js"></script>
     <script src="auth-utils.js"></script>
+    <script src="security-utils.js"></script>
     <script src="enhancement-utils.js"></script>
     <script src="storage-keys.js"></script>
     <script src="cloudinary-service.js"></script>
@@ -2721,16 +2722,27 @@
           return { isClaimAdmin, user };
         }
 
-        async function handleLogin(e){
+async function handleLogin(e){
   e.preventDefault();
   const email = document.getElementById('adminEmail').value.trim();
+  const normalizedEmail = String(email || '').trim().toLowerCase();
   const pass = document.getElementById('adminPassword').value;
   const loginError = document.getElementById('loginError');
 
-  // Rate limiting check
-  const clientIP = 'client_' + Math.random().toString(36).substr(2, 9);
-  if (rateLimiter.isBlocked(clientIP)) {
-    const blockTime = Math.ceil(rateLimiter.getBlockTimeRemaining(clientIP) / 60000);
+  // Rate limiting check (stable per email/device instead of random token)
+  let adminLoginDeviceId = '';
+  try {
+    adminLoginDeviceId = String(localStorage.getItem('admin_login_device') || '');
+    if (!adminLoginDeviceId) {
+      adminLoginDeviceId = `device_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      localStorage.setItem('admin_login_device', adminLoginDeviceId);
+    }
+  } catch (_) {
+    adminLoginDeviceId = `device_${Math.random().toString(36).slice(2, 9)}`;
+  }
+  const rateLimitKey = normalizedEmail ? `admin_login_${normalizedEmail}` : `admin_login_${adminLoginDeviceId}`;
+  if (rateLimiter.isBlocked(rateLimitKey)) {
+    const blockTime = Math.ceil(rateLimiter.getBlockTimeRemaining(rateLimitKey) / 60000);
     loginError.style.display = 'block';
     loginError.textContent = `تم حظر المحاولات. حاول مرة أخرى بعد ${blockTime} دقيقة`;
     return;
@@ -2751,15 +2763,15 @@
 
     if (!isClaimAdmin) {
       await firebase.auth().signOut();
-      rateLimiter.recordAttempt(clientIP);
-      const remaining = rateLimiter.getRemainingAttempts(clientIP);
+      rateLimiter.recordAttempt(rateLimitKey);
+      const remaining = rateLimiter.getRemainingAttempts(rateLimitKey);
       loginError.style.display = 'block';
       loginError.textContent = `غير مصرح لك بالدخول. محاولات متبقية: ${remaining}`;
       return;
     }
 
     // Reset rate limiting on successful login
-    rateLimiter.attempts.delete(clientIP);
+    rateLimiter.attempts.delete(rateLimitKey);
     
     // Create secure session
     const sessionId = sessionManager.createSession(userCred.user.uid, { 
@@ -2783,8 +2795,8 @@
 
   }catch(err){
     console.error('Login error:', err);
-    rateLimiter.recordAttempt(clientIP);
-    const remaining = rateLimiter.getRemainingAttempts(clientIP);
+    rateLimiter.recordAttempt(rateLimitKey);
+    const remaining = rateLimiter.getRemainingAttempts(rateLimitKey);
     loginError.style.display='block';
     loginError.textContent = `بيانات الدخول غير صحيحة. محاولات متبقية: ${remaining}`;
   }
@@ -4154,22 +4166,33 @@ function adminLogout(){
                 updateOrdersPaginationUi();
                 return;
             }
-            tbody.innerHTML = orders.map(o => `
+            tbody.innerHTML = orders.map((o) => {
+                const rawOrderId = String(o && o.id || '');
+                const safeOrderNumber = escapeHtml(o && (o.orderNumber || o.id) || '-');
+                const safeCustomerName = escapeHtml(o && o.customer && o.customer.name || '-');
+                const safeCustomerPhone = escapeHtml(o && o.customer && o.customer.phone || '-');
+                const safeTotal = escapeHtml(Number(o && o.total || 0).toFixed(2));
+                const safeStatus = escapeHtml(getStatusName(o && o.status));
+                const safeStatusClass = escapeHtml(String(o && o.status || 'pending').toLowerCase().replace(/[^a-z0-9_-]/g, ''));
+                const safeCreatedAt = escapeHtml(formatDateTime(o && o.createdAt));
+                const safeOrderIdAttr = escapeHtml(rawOrderId);
+                return `
                 <tr>
-                    <td><strong>${o.orderNumber || o.id}</strong></td>
-                    <td>${o.customer?.name || '-'}</td>
-                    <td>${o.customer?.phone || '-'}</td>
-                    <td><strong>${o.total || 0} ج.م</strong></td>
-                    <td><span class="status-badge status-${o.status}">${getStatusName(o.status)}</span></td>
-                    <td>${formatDateTime(o.createdAt)}</td>
+                    <td><strong>${safeOrderNumber}</strong></td>
+                    <td>${safeCustomerName}</td>
+                    <td>${safeCustomerPhone}</td>
+                    <td><strong>${safeTotal} ج.م</strong></td>
+                    <td><span class="status-badge status-${safeStatusClass}">${safeStatus}</span></td>
+                    <td>${safeCreatedAt}</td>
                     <td>
                         <div class="action-btns">
-                            <button class="action-btn view" onclick="viewOrder('${o.id}')">👁️</button>
-                            <button class="action-btn delete" onclick="deleteOrder('${o.id}')">🗑️</button>
+                            <button class="action-btn view" data-order-id="${safeOrderIdAttr}" onclick="viewOrder(this.dataset.orderId)">👁️</button>
+                            <button class="action-btn delete" data-order-id="${safeOrderIdAttr}" onclick="deleteOrder(this.dataset.orderId)">🚫</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
             updateOrdersPaginationUi();
         }
 
@@ -4237,15 +4260,23 @@ function adminLogout(){
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">لا توجد طلبات</td></tr>';
                 return;
             }
-            tbody.innerHTML = recent.map(o => `
+            tbody.innerHTML = recent.map((o) => {
+                const safeOrderNumber = escapeHtml(o && (o.orderNumber || o.id) || '-');
+                const safeCustomerName = escapeHtml(o && o.customer && o.customer.name || '-');
+                const safeTotal = escapeHtml(Number(o && o.total || 0).toFixed(2));
+                const safeStatus = escapeHtml(getStatusName(o && o.status));
+                const safeStatusClass = escapeHtml(String(o && o.status || 'pending').toLowerCase().replace(/[^a-z0-9_-]/g, ''));
+                const safeCreatedAt = escapeHtml(formatDateTime(o && o.createdAt));
+                return `
                 <tr>
-                    <td><strong>${o.orderNumber || o.id}</strong></td>
-                    <td>${o.customer?.name || '-'}</td>
-                    <td><strong>${o.total || 0} ج.م</strong></td>
-                    <td><span class="status-badge status-${o.status}">${getStatusName(o.status)}</span></td>
-                    <td>${formatDateTime(o.createdAt)}</td>
+                    <td><strong>${safeOrderNumber}</strong></td>
+                    <td>${safeCustomerName}</td>
+                    <td><strong>${safeTotal} ج.م</strong></td>
+                    <td><span class="status-badge status-${safeStatusClass}">${safeStatus}</span></td>
+                    <td>${safeCreatedAt}</td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function getStatusName(s) {
@@ -4269,20 +4300,40 @@ function adminLogout(){
             const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
 
-            let itemsHtml = o.items?.map(i => `
+            const safeOrderId = escapeHtml(String(o.id || ''));
+            const safeOrderNumber = escapeHtml(o.orderNumber || o.id || '-');
+            const safeCreatedAt = escapeHtml(formatDateTime(o.createdAt));
+            const safeCustomerName = escapeHtml(o.customer && o.customer.name || '-');
+            const safeCustomerPhone = escapeHtml(o.customer && o.customer.phone || '-');
+            const safeCustomerAddress = escapeHtml(o.customer && o.customer.address || '-');
+            const safeCustomerNotes = escapeHtml(o.customer && o.customer.notes || '');
+            const safeSubtotal = escapeHtml(Number(o.subtotal || 0).toFixed(2));
+            const safeCouponCode = escapeHtml(o.couponCode || '');
+            const safeDiscount = escapeHtml(Number(o.discount || 0).toFixed(2));
+            const safeUsedPoints = escapeHtml(Number(o.usedPoints || 0).toFixed(0));
+            const safePointsDiscount = escapeHtml(Number(o.pointsDiscount || 0).toFixed(2));
+            const safeEarnedPoints = escapeHtml(Number(o.earnedPoints || 0).toFixed(0));
+            const safeTotal = escapeHtml(Number(o.total || 0).toFixed(2));
+            const itemsHtml = (Array.isArray(o.items) ? o.items : []).map((i) => {
+                const name = escapeHtml(i && i.name || '-');
+                const quantity = Number(i && i.quantity || 0);
+                const linePrice = Number(i && i.price || 0);
+                const lineTotal = escapeHtml((linePrice * quantity).toFixed(2));
+                return `
                 <div class="order-item">
-                    <span>${i.name} × ${i.quantity}</span>
-                    <strong>${i.price * i.quantity} ج.م</strong>
+                    <span>${name} × ${escapeHtml(quantity)}</span>
+                    <strong>${lineTotal} ج.م</strong>
                 </div>
-            `).join('') || '';
+            `;
+            }).join('');
 
             document.getElementById('orderModalBody').innerHTML = `
                 <div class="order-detail-section">
                     <h4>📋 الطلب</h4>
-                    <p><strong>رقم:</strong> ${o.orderNumber || o.id}</p>
-                    <p><strong>التاريخ:</strong> ${formatDateTime(o.createdAt)}</p>
+                    <p><strong>رقم:</strong> ${safeOrderNumber}</p>
+                    <p><strong>التاريخ:</strong> ${safeCreatedAt}</p>
                     <p><strong>الحالة:</strong> 
-                        <select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">
+                        <select class="status-select" data-order-id="${safeOrderId}" onchange="updateOrderStatus(this.dataset.orderId, this.value)">
                             <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>جديد</option>
                             <option value="confirmed" ${o.status === 'confirmed' ? 'selected' : ''}>مؤكد</option>
                             <option value="processing" ${o.status === 'processing' ? 'selected' : ''}>تجهيز</option>
@@ -4296,10 +4347,10 @@ function adminLogout(){
 
                 <div class="order-detail-section">
                     <h4>👤 العميل</h4>
-                    <p><strong>الاسم:</strong> ${o.customer?.name}</p>
-                    <p><strong>الهاتف:</strong> ${o.customer?.phone}</p>
-                    <p><strong>العنوان:</strong> ${o.customer?.address}</p>
-                    ${o.customer?.notes ? `<p><strong>ملاحظات:</strong> ${o.customer.notes}</p>` : ''}
+                    <p><strong>الاسم:</strong> ${safeCustomerName}</p>
+                    <p><strong>الهاتف:</strong> ${safeCustomerPhone}</p>
+                    <p><strong>العنوان:</strong> ${safeCustomerAddress}</p>
+                    ${safeCustomerNotes ? `<p><strong>ملاحظات:</strong> ${safeCustomerNotes}</p>` : ''}
                 </div>
 
                 <div class="order-detail-section">
@@ -4307,17 +4358,17 @@ function adminLogout(){
                     ${itemsHtml || '<p>لا توجد</p>'}
                     
                     <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #ddd;">
-                        <div class="order-item"><span>المجموع:</span><span>${o.subtotal || 0} ج.م</span></div>
-                        ${o.couponCode ? `<div class="order-item" style="color: var(--success);"><span>🎫 ${o.couponCode}</span><span>- ${o.discount || 0} ج.م</span></div>` : ''}
-                        ${o.usedPoints > 0 ? `<div class="order-item" style="color: var(--info);"><span>💎 نقاط (${o.usedPoints})</span><span>- ${o.pointsDiscount || 0} ج.م</span></div>` : ''}
-                        ${o.earnedPoints > 0 ? `<div class="order-item" style="color: var(--burgundy);"><span>⭐ نقاط مكتسبة</span><span>+${o.earnedPoints}</span></div>` : ''}
+                        <div class="order-item"><span>المجموع:</span><span>${safeSubtotal} ج.م</span></div>
+                        ${o.couponCode ? `<div class="order-item" style="color: var(--success);"><span>🎫 ${safeCouponCode}</span><span>- ${safeDiscount} ج.م</span></div>` : ''}
+                        ${o.usedPoints > 0 ? `<div class="order-item" style="color: var(--info);"><span>💎 نقاط (${safeUsedPoints})</span><span>- ${safePointsDiscount} ج.م</span></div>` : ''}
+                        ${o.earnedPoints > 0 ? `<div class="order-item" style="color: var(--burgundy);"><span>⭐ نقاط مكتسبة</span><span>+${safeEarnedPoints}</span></div>` : ''}
                     </div>
-                    <div class="order-total"><span>الإجمالي:</span><span>${o.total || 0} ج.م</span></div>
+                    <div class="order-total"><span>الإجمالي:</span><span>${safeTotal} ج.م</span></div>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button class="btn btn-navy" onclick="printOrder('${o.id}')" style="flex: 1;">🖨️ طباعة</button>
-                    <button class="btn btn-success" onclick="sendWhatsAppUpdate('${o.id}')" style="flex: 1;">💬 واتساب</button>
+                    <button class="btn btn-navy" data-order-id="${safeOrderId}" onclick="printOrder(this.dataset.orderId)" style="flex: 1;">🖨️ طباعة</button>
+                    <button class="btn btn-success" data-order-id="${safeOrderId}" onclick="sendWhatsAppUpdate(this.dataset.orderId)" style="flex: 1;">💬 واتساب</button>
                 </div>
             `;
             openModal('orderModal');
@@ -4364,36 +4415,52 @@ function adminLogout(){
             const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
             const w = window.open('', '_blank');
+            if (!w) return;
+            const safeOrderNumber = escapeHtml(o.orderNumber || o.id || '-');
+            const safeCreatedAt = escapeHtml(formatDateTime(o.createdAt));
+            const safeCustomerName = escapeHtml(o.customer && o.customer.name || '-');
+            const safeCustomerPhone = escapeHtml(o.customer && o.customer.phone || '-');
+            const safeCustomerAddress = escapeHtml(o.customer && o.customer.address || '-');
+            const safeStorePhone = escapeHtml(storeSettings && storeSettings.contact && storeSettings.contact.phone || '');
+            const itemsRows = (Array.isArray(o.items) ? o.items : []).map((i) => {
+                const itemName = escapeHtml(i && i.name || '-');
+                const quantity = Number(i && i.quantity || 0);
+                const price = Number(i && i.price || 0);
+                const total = (price * quantity).toFixed(2);
+                return `<tr><td>${itemName}</td><td>${escapeHtml(quantity)}</td><td>${escapeHtml(price.toFixed(2))}</td><td>${escapeHtml(total)}</td></tr>`;
+            }).join('');
+            const safeTotal = escapeHtml(Number(o.total || 0).toFixed(2));
             w.document.write(`
                 <!DOCTYPE html>
-                <html dir="rtl"><head><title>فاتورة ${o.orderNumber}</title>
+                <html dir="rtl"><head><title>فاتورة ${safeOrderNumber}</title>
                 <style>body{font-family:Arial;padding:20px}h1{color:#D4AF37;text-align:center}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#f5f5f5;font-weight:700;color:#0A1128}.total{font-size:20px;font-weight:bold}</style></head>
                 <body>
                 <h1>Sale Zone Store</h1>
-                <h2>فاتورة: ${o.orderNumber}</h2>
-                <p><strong>التاريخ:</strong> ${formatDateTime(o.createdAt)}</p>
-                <p><strong>العميل:</strong> ${o.customer?.name}</p>
-                <p><strong>الهاتف:</strong> ${o.customer?.phone}</p>
-                <p><strong>العنوان:</strong> ${o.customer?.address}</p>
+                <h2>فاتورة: ${safeOrderNumber}</h2>
+                <p><strong>التاريخ:</strong> ${safeCreatedAt}</p>
+                <p><strong>العميل:</strong> ${safeCustomerName}</p>
+                <p><strong>الهاتف:</strong> ${safeCustomerPhone}</p>
+                <p><strong>العنوان:</strong> ${safeCustomerAddress}</p>
                 <table><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>
-                ${o.items?.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${i.price}</td><td>${i.price * i.quantity}</td></tr>`).join('')}
+                ${itemsRows}
                 </table>
-                <p class="total">الإجمالي: ${o.total} ج.م</p>
-                <p style="text-align:center">شكراً لتسوقك معنا! 📞 ${storeSettings.contact?.phone}</p>
+                <p class="total">الإجمالي: ${safeTotal} ج.م</p>
+                <p style="text-align:center">شكراً لتسوقك معنا! 📞 ${safeStorePhone}</p>
                 </body></html>
             `);
             w.document.close();
             w.print();
         }
 
-        function deleteOrder(id) {
-            if (!confirm('حذف الطلب؟')) return;
-            orders = orders.filter(o => String(o.id) !== String(id));
-            saveOrders();
-            renderOrdersTable();
-            renderRecentOrders();
-            updateStats();
-            showNotification('success', 'تم الحذف');
+        async function deleteOrder(id) {
+            const o = orders.find((entry) => String(entry && entry.id) === String(id));
+            if (!o) return;
+            if (String(o.status || '') === 'cancelled') {
+                showNotification('info', 'الطلب ملغي بالفعل');
+                return;
+            }
+            if (!confirm('إلغاء الطلب؟ لن يتم حذف السجل من قاعدة البيانات.')) return;
+            await updateOrderStatus(id, 'cancelled');
         }
 
         // ============================================
@@ -4405,15 +4472,22 @@ function adminLogout(){
                 tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎠</div><p>لا توجد بانرات</p></div></td></tr>';
                 return;
             }
-            tbody.innerHTML = banners.map(b => `
+            tbody.innerHTML = banners.map((b) => {
+                const safeBannerId = escapeHtml(String(b && b.id || ''));
+                const safeIcon = escapeHtml(b && b.icon || '🎉');
+                const safeTitle = escapeHtml(b && b.title || '-');
+                const safeText = escapeHtml(b && b.text || '-');
+                const safeCategory = escapeHtml(getCategoryName(b && b.category) || 'الكل');
+                return `
                 <tr>
-                    <td style="font-size: 24px;">${b.icon || '🎉'}</td>
-                    <td><strong>${b.title}</strong></td>
-                    <td>${b.text || '-'}</td>
-                    <td>${getCategoryName(b.category) || 'الكل'}</td>
-                    <td><button class="action-btn delete" onclick="deleteBanner('${b.id}')">🗑️</button></td>
+                    <td style="font-size: 24px;">${safeIcon}</td>
+                    <td><strong>${safeTitle}</strong></td>
+                    <td>${safeText}</td>
+                    <td>${safeCategory}</td>
+                    <td><button class="action-btn delete" data-banner-id="${safeBannerId}" onclick="deleteBanner(this.dataset.bannerId)">🗑️</button></td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function saveBanner(e) {
@@ -4465,15 +4539,23 @@ function adminLogout(){
                 tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎫</div><p>لا توجد كوبونات</p></div></td></tr>';
                 return;
             }
-            tbody.innerHTML = coupons.map(c => `
+            tbody.innerHTML = coupons.map((c) => {
+                const safeCouponId = escapeHtml(String(c && c.id || ''));
+                const safeCode = escapeHtml(c && c.code || '-');
+                const safeDesc = escapeHtml(c && c.desc || '-');
+                const safeType = escapeHtml(c && c.type === 'percentage' ? 'نسبة' : 'ثابت');
+                const safeValue = escapeHtml(Number(c && c.value || 0).toFixed(2));
+                const safeUnit = c && c.type === 'percentage' ? '%' : ' ج.م';
+                return `
                 <tr>
-                    <td><strong style="color: var(--burgundy);">${c.code}</strong></td>
-                    <td>${c.desc}</td>
-                    <td>${c.type === 'percentage' ? 'نسبة' : 'ثابت'}</td>
-                    <td><strong>${c.value}${c.type === 'percentage' ? '%' : ' ج.م'}</strong></td>
-                    <td><button class="action-btn delete" onclick="deleteCoupon('${c.id}')">🗑️</button></td>
+                    <td><strong style="color: var(--burgundy);">${safeCode}</strong></td>
+                    <td>${safeDesc}</td>
+                    <td>${safeType}</td>
+                    <td><strong>${safeValue}${safeUnit}</strong></td>
+                    <td><button class="action-btn delete" data-coupon-id="${safeCouponId}" onclick="deleteCoupon(this.dataset.couponId)">🗑️</button></td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function saveCoupon(e) {
@@ -4544,19 +4626,27 @@ function adminLogout(){
                 updateUsersPaginationUi();
                 return;
             }
-            tbody.innerHTML = users.map(u => `
+            tbody.innerHTML = users.map((u) => {
+                const safeCustomerId = escapeHtml(String(u && u.id || ''));
+                const safeName = escapeHtml(getUserDisplayName(u));
+                const safePhone = escapeHtml(u && u.phone || '-');
+                const safeEmail = escapeHtml(u && u.email || '-');
+                const safeLoyalty = escapeHtml(Number(u && u.loyaltyPoints || 0).toFixed(0));
+                const safeCreatedAt = escapeHtml(formatDate(u && u.createdAt));
+                return `
                 <tr>
-                    <td><strong>${getUserDisplayName(u)}</strong></td>
-                    <td>${u.phone || '-'}</td>
-                    <td>${u.email || '-'}</td>
-                    <td><strong style="color: var(--gold-dark);">${u.loyaltyPoints || 0}</strong></td>
-                    <td>${formatDate(u.createdAt)}</td>
+                    <td><strong>${safeName}</strong></td>
+                    <td>${safePhone}</td>
+                    <td>${safeEmail}</td>
+                    <td><strong style="color: var(--gold-dark);">${safeLoyalty}</strong></td>
+                    <td>${safeCreatedAt}</td>
                     <td>
-                        <button class="action-btn edit" onclick="editCustomer('${u.id}')">✏️</button>
-                        <button class="action-btn delete" onclick="deleteCustomer('${u.id}')">🗑️</button>
+                        <button class="action-btn edit" data-customer-id="${safeCustomerId}" onclick="editCustomer(this.dataset.customerId)">✏️</button>
+                        <button class="action-btn delete" data-customer-id="${safeCustomerId}" onclick="deleteCustomer(this.dataset.customerId)">🗑️</button>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
             updateUsersPaginationUi();
         }
 
@@ -5344,7 +5434,10 @@ function adminLogout(){
         // Client Error Logs (Mobile / Tablet Monitoring)
         // ============================================
         function escapeHtml(value) {
-            return String(value || '')
+            if (window.SecurityUtils && typeof window.SecurityUtils.escapeHtml === 'function') {
+                return window.SecurityUtils.escapeHtml(value);
+            }
+            return String(value === null || value === undefined ? '' : value)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')

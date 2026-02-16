@@ -27,6 +27,7 @@
     <script src="firebase-api.js"></script>
     <script src="firebase-data.js"></script>
     <script src="auth-utils.js"></script>
+    <script src="security-utils.js"></script>
     <script src="enhancement-utils.js"></script>
     <script src="storage-keys.js"></script>
     <script src="REAL_TIME_SYNC.js"></script>
@@ -1623,6 +1624,35 @@
             renderDynamicCategoryCards();
         }
 
+        function escapeHtml(value) {
+            if (window.SecurityUtils && typeof window.SecurityUtils.escapeHtml === 'function') {
+                return window.SecurityUtils.escapeHtml(value);
+            }
+            return String(value === null || value === undefined ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getFirebaseCurrentUserSafe() {
+            try {
+                if (!(firebase && firebase.auth)) return null;
+                const auth = firebase.auth();
+                return auth && auth.currentUser ? auth.currentUser : null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function canWriteTelemetry(requireVerified = false) {
+            const user = getFirebaseCurrentUserSafe();
+            if (!user) return false;
+            if (!requireVerified) return true;
+            return user.emailVerified === true;
+        }
+
         // ============================================
         // 🎠 Banner Slider
         // ============================================
@@ -1641,16 +1671,23 @@
                 return;
             }
 
-            slider.innerHTML = banners.map((b, i) => `
+            slider.innerHTML = banners.map((b) => {
+                const safeIcon = escapeHtml(b && b.icon || '🎉');
+                const safeTitle = escapeHtml(b && b.title || '');
+                const safeText = escapeHtml(b && b.text || '');
+                const safeButton = escapeHtml(b && b.btn || 'تسوق الآن');
+                const safeCategory = escapeHtml(b && b.category || 'all');
+                return `
                 <div class="banner-slide">
                     <div class="banner-content">
-                        <div class="banner-icon">${b.icon || '🎉'}</div>
-                        <div class="banner-title">${b.title}</div>
-                        <div class="banner-text">${b.text || ''}</div>
-                        <a href="#" class="banner-btn" onclick="filterByCategory('${b.category || 'all'}')">${b.btn || 'تسوق الآن'}</a>
+                        <div class="banner-icon">${safeIcon}</div>
+                        <div class="banner-title">${safeTitle}</div>
+                        <div class="banner-text">${safeText}</div>
+                        <a href="#" class="banner-btn" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</a>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             dots.innerHTML = banners.map((_, i) => `<div class="banner-dot ${i === 0 ? 'active' : ''}" onclick="goToBanner(${i})"></div>`).join('');
         }
@@ -1821,34 +1858,50 @@
                 return;
             }
 
-            grid.innerHTML = displayProducts.map(p => `
+            grid.innerHTML = displayProducts.map((p) => {
+                const safeProductId = escapeHtml(String(p && p.id || ''));
+                const safeName = escapeHtml(p && p.name || '');
+                const safeDesc = escapeHtml(p && p.desc || '');
+                const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
+                const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+                const isFav = favorites.includes(String(p && p.id));
+                const currentPrice = escapeHtml(Number(p && (p.sellPrice || p.price) || 0).toFixed(2));
+                const oldPriceValue = Number(p && p.oldPrice);
+                const hasOldPrice = Number.isFinite(oldPriceValue) && oldPriceValue > 0;
+                const oldPrice = escapeHtml(hasOldPrice ? oldPriceValue.toFixed(2) : '');
+                const ratingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
+                const discountPercent = hasOldPrice
+                    ? Math.round((1 - (Number(p && (p.sellPrice || p.price) || 0) / oldPriceValue)) * 100)
+                    : 0;
+                return `
                 <div class="product-card">
-                    ${p.oldPrice ? `<div class="product-badge">-${Math.round((1 - (Number(p.sellPrice || p.price || 0) / Number(p.oldPrice))) * 100)}%</div>` : ''}
-                    <div class="product-fav ${favorites.includes(String(p.id)) ? 'active' : ''}" onclick="toggleFav('${p.id}')">
-                        ${favorites.includes(String(p.id)) ? '❤️' : '🤍'}
+                    ${hasOldPrice ? `<div class="product-badge">-${escapeHtml(discountPercent)}%</div>` : ''}
+                    <div class="product-fav ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" onclick="toggleFav(this.dataset.productId)">
+                        ${isFav ? '❤️' : '🤍'}
                     </div>
                     <div class="product-image">
-                        <img src="${sanitizeImageUrl(p.image)}" alt="${p.name}" onerror="this.src='${sanitizeImageUrl('')}'" loading="lazy">
+                        <img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="lazy">
                         <div class="product-actions">
-                            <button class="action-btn" onclick="showProductDetails('${p.id}')">👁️</button>
-                            <button class="action-btn" onclick="addToCart('${p.id}')">🛒</button>
+                            <button class="action-btn" data-product-id="${safeProductId}" onclick="showProductDetails(this.dataset.productId)">👁️</button>
+                            <button class="action-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)">🛒</button>
                         </div>
                     </div>
                     <div class="product-info">
-                        <h3 class="product-name">${p.name}</h3>
-                        <p class="product-desc">${p.desc}</p>
-                        <div class="product-rating" onclick="showRatingModal('${p.id}')">
-                            <div class="stars">${getStars(p.rating)}</div>
-                            <span class="rating-count">(${p.ratingCount || 0})</span>
+                        <h3 class="product-name">${safeName}</h3>
+                        <p class="product-desc">${safeDesc}</p>
+                        <div class="product-rating" data-product-id="${safeProductId}" onclick="showRatingModal(this.dataset.productId)">
+                            <div class="stars">${getStars(p && p.rating)}</div>
+                            <span class="rating-count">(${ratingCount})</span>
                         </div>
                         <div class="product-price">
-                            <span class="current-price">${Number(p.sellPrice || p.price || 0).toFixed(2)} ج.م</span>
-                            ${p.oldPrice ? `<span class="old-price">${Number(p.oldPrice).toFixed(2)} ج.م</span>` : ''}
+                            <span class="current-price">${currentPrice} ج.م</span>
+                            ${hasOldPrice ? `<span class="old-price">${oldPrice} ج.م</span>` : ''}
                         </div>
-                        <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">🛒 أضف للسلة</button>
+                        <button class="add-to-cart-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)">🛒 أضف للسلة</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function getAdvancedFilters() {
@@ -2388,19 +2441,24 @@
                 grid.innerHTML = '<p style="text-align: center; color: #666; grid-column: 1/-1;">لا توجد كوبونات</p>';
                 return;
             }
-            grid.innerHTML = coupons.map(c => `
+            grid.innerHTML = coupons.map((c) => {
+                const safeCode = escapeHtml(c && c.code || '');
+                const safeDesc = escapeHtml(c && c.desc || '');
+                return `
                 <div class="coupon-card">
                     <div class="coupon-content">
-                        <div class="coupon-code">${c.code}</div>
-                        <p class="coupon-desc">${c.desc}</p>
-                        <button class="copy-coupon-btn" onclick="copyCoupon('${c.code}')">📋 نسخ</button>
+                        <div class="coupon-code">${safeCode}</div>
+                        <p class="coupon-desc">${safeDesc}</p>
+                        <button class="copy-coupon-btn" data-code="${safeCode}" onclick="copyCoupon(this.dataset.code)">📋 نسخ</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function copyCoupon(code) {
-            navigator.clipboard.writeText(code).then(() => showNotification('success', 'تم', `الكود: ${code}`));
+            const normalizedCode = String(code || '').trim();
+            navigator.clipboard.writeText(normalizedCode).then(() => showNotification('success', 'تم', `الكود: ${normalizedCode}`));
         }
 
         // ============================================
@@ -2417,6 +2475,7 @@
         async function trackStoreEvent(type, message, level = 'info', meta = {}) {
             try {
                 if (typeof addStoreEvent !== 'function') return;
+                if (!canWriteTelemetry(true)) return;
                 const eventType = String(type || 'STORE_EVENT');
                 const throttleMs = STORE_EVENT_THROTTLE_MS[eventType] || 0;
                 if (throttleMs > 0) {
@@ -2451,6 +2510,7 @@
         async function updateLiveSessionState(extra = {}) {
             try {
                 if (typeof upsertLiveSession !== 'function') return;
+                if (!canWriteTelemetry(false)) return;
                 await upsertLiveSession({
                     sessionId: STORE_SESSION_ID,
                     page: window.location.pathname || '',
@@ -3813,13 +3873,21 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const n = document.createElement('div');
             n.className = `notification ${type}`;
             n.innerHTML = `
-                <div class="notification-icon">${icons[type]}</div>
+                <div class="notification-icon"></div>
                 <div class="notification-content">
-                    <div class="notification-title">${title}</div>
-                    <div class="notification-message">${message}</div>
+                    <div class="notification-title"></div>
+                    <div class="notification-message"></div>
                 </div>
-                <button class="notification-close" onclick="this.parentElement.remove()">✕</button>
+                <button class="notification-close" type="button">✕</button>
             `;
+            const iconNode = n.querySelector('.notification-icon');
+            const titleNode = n.querySelector('.notification-title');
+            const messageNode = n.querySelector('.notification-message');
+            const closeBtn = n.querySelector('.notification-close');
+            if (iconNode) iconNode.textContent = icons[type] || icons.info;
+            if (titleNode) titleNode.textContent = String(title || '');
+            if (messageNode) messageNode.textContent = String(message || '');
+            if (closeBtn) closeBtn.addEventListener('click', () => n.remove());
             container.appendChild(n);
             setTimeout(() => n.remove(), 4000);
 
