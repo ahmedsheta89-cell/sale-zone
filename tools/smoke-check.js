@@ -67,6 +67,9 @@ assertNotContains(adminHtml, /resetCustomerPassword\s*\('/, 'admin HTML: reset c
 assertNotContains(adminHtml, /ALLOW_BOOTSTRAP_ADMIN/, 'admin HTML: bootstrap admin flag must be removed', errors);
 assertNotContains(adminHtml, /\$\{o\.customer\?\.name\s*\|\|\s*'-'\}/, 'admin HTML: orders table still renders raw customer name', errors);
 assertNotContains(adminHtml, /\$\{u\.email\s*\|\|\s*'-'\}/, 'admin HTML: users table still renders raw email', errors);
+assertNotContains(adminHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*o\.customer/, 'admin HTML: innerHTML contains raw order customer payload', errors);
+assertNotContains(adminHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*u\.email/, 'admin HTML: innerHTML contains raw user email payload', errors);
+assertNotContains(adminHtml, /onclick="[^"]*'\$\{[^"]+\}'[^"]*"/, 'admin HTML: inline onclick still injects dynamic string payload', errors);
 
 assertContains(storeHtml, /product-search-worker\.js/, 'store HTML: missing worker reference path', errors);
 assertContains(storeHtml, /security-utils\.js/, 'store HTML: missing security-utils.js include', errors);
@@ -88,6 +91,9 @@ assertNotContains(storeHtml, /customer_[^'"]+@salezone\.customer/, 'store HTML: 
 assertNotContains(storeHtml, /onclick="filterByCategory\('\$\{b\.category/, 'store HTML: banner category still injected into inline handler', errors);
 assertNotContains(storeHtml, /onclick="copyCoupon\('\$\{c\.code\}'\)"/, 'store HTML: coupon code still injected into inline handler', errors);
 assertNotContains(storeHtml, /<div class="notification-title">\$\{title\}<\/div>/, 'store HTML: notification title still injected via innerHTML', errors);
+assertNotContains(storeHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*p\.(name|desc)\b/, 'store HTML: innerHTML contains raw product text payload', errors);
+assertNotContains(storeHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*c\.(code|desc)\b/, 'store HTML: innerHTML contains raw coupon payload', errors);
+assertNotContains(storeHtml, /onclick="[^"]*'\$\{[^"]+\}'[^"]*"/, 'store HTML: inline onclick still injects dynamic string payload', errors);
 
 assertContains(firebaseConfig, /experimentalForceLongPolling:\s*true/, 'firebase-config.js: force long-polling not enabled', errors);
 assertContains(firebaseData, /const\s+FIREBASE_POLLING_ENABLED\s*=\s*false/, 'firebase-data.js: polling fallback must be disabled', errors);
