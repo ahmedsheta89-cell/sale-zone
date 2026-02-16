@@ -1,12 +1,5 @@
 #!/usr/bin/env sh
 set -eu
 
-echo "[pre-push] syntax checks"
-node --check firebase-config.js
-node --check firebase-api.js
-node --check firebase-data.js
-node --check ERROR_DETECTION_SYSTEM.js
-echo "[pre-push] running tools/preflight.js"
-node tools/preflight.js
-echo "[pre-push] running tools/smoke-check.js"
-node tools/smoke-check.js
+echo "[pre-push] running required release gate checks"
+node tools/run-required-checks.js

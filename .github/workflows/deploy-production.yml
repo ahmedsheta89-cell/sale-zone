@@ -1,0 +1,116 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Commit SHA to deploy (optional, defaults to current SHA)"
+        required: false
+        type: string
+      checklist_path:
+        description: "Path to release checklist JSON"
+        required: false
+        default: "release/release-checklist.json"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  verify-gates:
+    name: verify-gates
+    runs-on: ubuntu-latest
+    outputs:
+      target_sha: ${{ steps.sha.outputs.value }}
+    steps:
+      - name: Resolve target SHA
+        id: sha
+        run: |
+          if [ -n "${{ inputs.target_sha }}" ]; then
+            echo "value=${{ inputs.target_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure release gate and staging succeeded for target SHA
+        uses: actions/github-script@v7
+        env:
+          TARGET_SHA: ${{ steps.sha.outputs.value }}
+        with:
+          script: |
+            const targetSha = process.env.TARGET_SHA;
+            const requiredWorkflows = [
+              { id: "release-gate.yml", label: "Release Gate" },
+              { id: "deploy-staging.yml", label: "Deploy Staging" }
+            ];
+
+            for (const wf of requiredWorkflows) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: wf.id,
+                head_sha: targetSha,
+                per_page: 30
+              });
+
+              const successRun = runs.data.workflow_runs.find((run) => (
+                run.status === "completed" && run.conclusion === "success"
+              ));
+
+              if (!successRun) {
+                core.setFailed(`${wf.label} is not successful for SHA ${targetSha}`);
+                return;
+              }
+            }
+
+            core.info(`All upstream gates passed for SHA ${targetSha}`);
+
+  package-production:
+    name: package-production
+    needs:
+      - verify-gates
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout target SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-gates.outputs.target_sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Re-run full required checks on target SHA
+        run: node tools/run-required-checks.js
+
+      - name: Validate release checklist
+        run: node tools/validate-release-checklist.js "${{ inputs.checklist_path }}"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload production artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy-production:
+    name: deploy-production
+    needs:
+      - package-production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

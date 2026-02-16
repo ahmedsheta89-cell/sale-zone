@@ -1,0 +1,14 @@
+{
+  "releaseId": "2026-02-16-hotfix-001",
+  "targetSha": "abcdef1",
+  "failureId": "INC-2026-02-16-001",
+  "rootCause": "Root cause summary (actual cause, not symptom)",
+  "fixCommit": "abcdef1",
+  "validationEvidence": [
+    "node tools/run-required-checks.js",
+    "Release Gate workflow run success",
+    "Deploy Staging workflow run success"
+  ],
+  "approvedBy": "release-owner",
+  "approvedAt": "2026-02-16T12:00:00Z"
+}

@@ -1,0 +1,96 @@
+name: Release Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run preflight
+        run: node tools/preflight.js
+
+  smoke-check:
+    name: smoke-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run smoke-check
+        run: node tools/smoke-check.js
+
+  rules:
+    name: rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run rules gate
+        run: node tools/rules-test.js
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run E2E gate
+        run: node tools/e2e-check.js
+
+  release-gate:
+    name: release-gate
+    needs:
+      - preflight
+      - smoke-check
+      - rules
+      - e2e
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required checks status
+        run: |
+          set -euo pipefail
+          results=(
+            "${{ needs.preflight.result }}"
+            "${{ needs.smoke-check.result }}"
+            "${{ needs.rules.result }}"
+            "${{ needs.e2e.result }}"
+          )
+          names=(preflight smoke-check rules e2e)
+          for i in "${!results[@]}"; do
+            if [[ "${results[$i]}" != "success" ]]; then
+              echo "::error::${names[$i]} check is ${results[$i]}"
+              exit 1
+            fi
+          done
+          echo "All required checks succeeded."

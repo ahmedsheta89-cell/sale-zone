@@ -1,0 +1,67 @@
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Commit SHA to stage (optional, defaults to current SHA)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    name: staging
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Resolve target SHA
+        id: sha
+        run: |
+          if [ -n "${{ inputs.target_sha }}" ]; then
+            echo "value=${{ inputs.target_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout target SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.value }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run full required checks
+        run: node tools/run-required-checks.js
+
+      - name: Build staging bundle
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          tar -czf output/staging-${{ steps.sha.outputs.value }}.tar.gz \
+            --exclude=.git \
+            --exclude=node_modules \
+            --exclude=output \
+            .
+
+      - name: Upload staging artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-${{ steps.sha.outputs.value }}
+          path: output/staging-${{ steps.sha.outputs.value }}.tar.gz
+          retention-days: 7
+
+      - name: Staging acceptance check
+        run: |
+          echo "Staging gate passed for SHA: ${{ steps.sha.outputs.value }}"
+          echo "Use artifact + logs for quick acceptance validation."
