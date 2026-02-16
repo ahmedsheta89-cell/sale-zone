@@ -227,7 +227,9 @@ self.addEventListener('message', (event) => {
       break;
 
     default:
-      console.log(`[SW] unknown message type: ${type}`);
+      if (typeof type !== 'undefined' && type !== null && String(type).trim()) {
+        console.log(`[SW] unknown message type: ${type}`);
+      }
   }
 });
 

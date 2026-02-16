@@ -138,36 +138,76 @@ function setupFirestoreAutoReconnect() {
     window.__FIRESTORE_AUTO_RECONNECT_READY__ = true;
 
     let enableInFlight = false;
+    let disableInFlight = false;
+    let networkState = navigator.onLine === false ? 'disabled' : 'enabled';
+    let reconnectLocked = false;
+    let lastEnableAttemptAt = 0;
+    const MIN_ENABLE_RETRY_MS = 15000;
 
-    const safeEnableNetwork = async (source = 'manual') => {
-        if (enableInFlight) return;
+    const safeEnableNetwork = async (source = 'manual', options = {}) => {
+        const force = options && options.force === true;
+        if (reconnectLocked && !force) return { ok: false, skipped: 'locked' };
+        if (networkState === 'enabled' && !force) return { ok: true, skipped: 'already-enabled' };
+        if (enableInFlight) return { ok: false, skipped: 'enable-in-flight' };
+
+        const now = Date.now();
+        if (!force && (now - lastEnableAttemptAt) < MIN_ENABLE_RETRY_MS) {
+            return { ok: false, skipped: 'throttled' };
+        }
+
         enableInFlight = true;
+        lastEnableAttemptAt = now;
         try {
             if (typeof db.enableNetwork === 'function') {
                 await db.enableNetwork();
             }
+            networkState = 'enabled';
             window.__FIRESTORE_LAST_ENABLE_NETWORK_SOURCE__ = source;
+            return { ok: true };
         } catch (error) {
             const message = error && error.message ? String(error.message) : String(error || '');
+            if (/internal assertion failed/i.test(message)) {
+                reconnectLocked = true;
+                window.__FIRESTORE_AUTO_RECONNECT_LOCK_REASON__ = message;
+                console.warn('[WARN] Firestore auto-reconnect paused due to SDK internal assertion. Reload page to recover cleanly.');
+                return { ok: false, locked: true, error: message };
+            }
+            if (/already enabled/i.test(message)) {
+                networkState = 'enabled';
+                return { ok: true, skipped: 'already-enabled' };
+            }
             if (!/already enabled/i.test(message)) {
                 console.warn(`[WARN] Firestore enableNetwork failed (${source}):`, message);
             }
+            return { ok: false, error: message };
         } finally {
             enableInFlight = false;
         }
     };
 
     const safeDisableNetwork = async (source = 'manual') => {
+        if (disableInFlight) return { ok: false, skipped: 'disable-in-flight' };
+        if (networkState === 'disabled') return { ok: true, skipped: 'already-disabled' };
+        disableInFlight = true;
         try {
             if (typeof db.disableNetwork === 'function') {
                 await db.disableNetwork();
             }
+            networkState = 'disabled';
             window.__FIRESTORE_LAST_DISABLE_NETWORK_SOURCE__ = source;
+            return { ok: true };
         } catch (error) {
             const message = error && error.message ? String(error.message) : String(error || '');
+            if (/already disabled/i.test(message)) {
+                networkState = 'disabled';
+                return { ok: true, skipped: 'already-disabled' };
+            }
             if (!/already disabled/i.test(message)) {
                 console.warn(`[WARN] Firestore disableNetwork failed (${source}):`, message);
             }
+            return { ok: false, error: message };
+        } finally {
+            disableInFlight = false;
         }
     };
 
@@ -182,10 +222,20 @@ function setupFirestoreAutoReconnect() {
         }
     });
 
-    setInterval(() => {
-        if (navigator.onLine === false) return;
-        safeEnableNetwork('interval').catch(() => null);
-    }, 30000);
+    // Do NOT force-enable Firestore on a timer by default.
+    // Repeated enableNetwork() calls can destabilize some browsers/SDK states on long-polling transport.
+    const allowIntervalReconnect = parseOptionalBooleanFlag(urlParams.get('firestore_reconnect_interval')) === true
+        || window.__FIRESTORE_ENABLE_NETWORK_INTERVAL__ === true;
+    if (allowIntervalReconnect) {
+        setInterval(() => {
+            if (navigator.onLine === false) return;
+            safeEnableNetwork('interval').catch(() => null);
+        }, 120000);
+        console.log('[INFO] Firestore interval reconnect watchdog enabled (override mode).');
+    }
+
+    window.__FIRESTORE_SAFE_ENABLE_NETWORK__ = safeEnableNetwork;
+    window.__FIRESTORE_SAFE_DISABLE_NETWORK__ = safeDisableNetwork;
 }
 
 // Some networks/browsers break WebChannel. Stabilize transport consistently.
