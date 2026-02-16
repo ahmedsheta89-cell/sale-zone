@@ -119,6 +119,38 @@ requirePattern(
   'banner title must be escaped in admin table'
 );
 
+// Admin monitoring flow: UI must expose redacted monitor report only.
+requirePattern(
+  adminHtml,
+  'admin-monitor-table',
+  /id="adminFunctionsTable"/,
+  'admin function monitor table is missing'
+);
+requirePattern(
+  adminHtml,
+  'admin-monitor-loader',
+  /function\s+refreshAdminFunctionMonitorView\s*\(/,
+  'admin function monitor loader is missing'
+);
+requirePattern(
+  adminHtml,
+  'admin-monitor-filters',
+  /function\s+applyAdminFunctionFilters\s*\(/,
+  'admin function monitor filters are missing'
+);
+forbidPattern(
+  adminHtml,
+  'admin-monitor-sensitive-patterns',
+  /requiredPatterns/,
+  'admin monitor UI must not expose requiredPatterns internals'
+);
+forbidPattern(
+  adminHtml,
+  'admin-monitor-sensitive-regex-findings',
+  /regexValidationFindings/,
+  'admin monitor UI must not expose regex validation internals'
+);
+
 if (failures.length) {
   console.error('E2E gate FAILED:');
   for (const failure of failures) {

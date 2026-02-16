@@ -41,6 +41,19 @@ jobs:
       - name: Run smoke-check
         run: node tools/smoke-check.js
 
+  admin-function-monitor:
+    name: admin-function-monitor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run admin function monitor
+        run: node tools/admin-function-monitor.js
+
   rules:
     name: rules
     runs-on: ubuntu-latest
@@ -72,6 +85,7 @@ jobs:
     needs:
       - preflight
       - smoke-check
+      - admin-function-monitor
       - rules
       - e2e
     if: always()
@@ -83,10 +97,11 @@ jobs:
           results=(
             "${{ needs.preflight.result }}"
             "${{ needs.smoke-check.result }}"
+            "${{ needs.admin-function-monitor.result }}"
             "${{ needs.rules.result }}"
             "${{ needs.e2e.result }}"
           )
-          names=(preflight smoke-check rules e2e)
+          names=(preflight smoke-check admin-function-monitor rules e2e)
           for i in "${!results[@]}"; do
             if [[ "${results[$i]}" != "success" ]]; then
               echo "::error::${names[$i]} check is ${results[$i]}"

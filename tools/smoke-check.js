@@ -29,6 +29,11 @@ const realtimeSync = read('REAL_TIME_SYNC.js');
 const serviceWorker = read('sw.js');
 const firestoreRules = read('firestore.rules');
 const securityUtils = read('security-utils.js');
+const coreLogger = read('core/logger.js');
+const adminMonitorScript = read('tools/admin-function-monitor.js');
+const adminRegistryGeneratorScript = read('tools/generate-admin-function-registry.js');
+const adminFunctionPolicy = read('monitoring/admin-function-policy.json');
+const adminFunctionRegistry = read('monitoring/admin-function-registry.json');
 
 assertContains(firebaseApi, /function\s+getSuppliers\s*\(/, 'firebase-api.js: missing getSuppliers()', errors);
 assertContains(firebaseApi, /function\s+addSupplier\s*\(/, 'firebase-api.js: missing addSupplier()', errors);
@@ -50,6 +55,7 @@ assertContains(firebaseApi, /function\s+getSupportMessages\s*\(\s*threadId\s*,\s
 
 assertContains(adminHtml, /id="suppliersSection"/, 'admin HTML: missing suppliers section', errors);
 assertContains(adminHtml, /security-utils\.js/, 'admin HTML: missing security-utils.js include', errors);
+assertContains(adminHtml, /core\/logger\.js/, 'admin HTML: missing core/logger.js include', errors);
 assertContains(adminHtml, /id="productCostPrice"/, 'admin HTML: missing product cost input', errors);
 assertContains(adminHtml, /function\s+runProductsSchemaMigration\s*\(/, 'admin HTML: missing schema migration action', errors);
 assertContains(adminHtml, /supportAccess\s*=\s*\{/, 'admin HTML: supportAccess state missing', errors);
@@ -61,6 +67,9 @@ assertContains(adminHtml, /listCustomersPage\s*\(/, 'admin HTML: listCustomersPa
 assertContains(adminHtml, /id="ordersPaginationMeta"/, 'admin HTML: orders pagination meta missing', errors);
 assertContains(adminHtml, /function\s+loadOrdersPage\s*\(/, 'admin HTML: loadOrdersPage() missing', errors);
 assertContains(adminHtml, /function\s+hasAdminClaimFromTokenResult\s*\(/, 'admin HTML: admin claim validator missing', errors);
+assertContains(adminHtml, /id="adminFunctionsTable"/, 'admin HTML: admin function monitor table missing', errors);
+assertContains(adminHtml, /function\s+refreshAdminFunctionMonitorView\s*\(/, 'admin HTML: admin function monitor loader missing', errors);
+assertContains(adminHtml, /function\s+applyAdminFunctionFilters\s*\(/, 'admin HTML: admin function monitor filters missing', errors);
 assertNotContains(adminHtml, /getAllUsers\s*\(/, 'admin HTML: legacy getAllUsers() usage still present', errors);
 assertNotContains(adminHtml, /setStorageData\s*\(\s*['"]CUSTOMERS['"]/, 'admin HTML: legacy CUSTOMERS cache write still present', errors);
 assertNotContains(adminHtml, /resetCustomerPassword\s*\('/, 'admin HTML: reset customer password action still present', errors);
@@ -70,9 +79,14 @@ assertNotContains(adminHtml, /\$\{u\.email\s*\|\|\s*'-'\}/, 'admin HTML: users t
 assertNotContains(adminHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*o\.customer/, 'admin HTML: innerHTML contains raw order customer payload', errors);
 assertNotContains(adminHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*u\.email/, 'admin HTML: innerHTML contains raw user email payload', errors);
 assertNotContains(adminHtml, /onclick="[^"]*'\$\{[^"]+\}'[^"]*"/, 'admin HTML: inline onclick still injects dynamic string payload', errors);
+assertNotContains(adminHtml, /window\.onerror\s*=/, 'admin HTML: direct window.onerror assignment is not allowed', errors);
+assertNotContains(adminHtml, /window\.onunhandledrejection\s*=/, 'admin HTML: direct window.onunhandledrejection assignment is not allowed', errors);
+assertNotContains(adminHtml, /requiredPatterns/, 'admin HTML: sensitive pattern internals must not be rendered in UI', errors);
+assertNotContains(adminHtml, /regexValidationFindings/, 'admin HTML: sensitive regex internals must not be rendered in UI', errors);
 
 assertContains(storeHtml, /product-search-worker\.js/, 'store HTML: missing worker reference path', errors);
 assertContains(storeHtml, /security-utils\.js/, 'store HTML: missing security-utils.js include', errors);
+assertContains(storeHtml, /core\/logger\.js/, 'store HTML: missing core/logger.js include', errors);
 assertContains(storeHtml, /id="productsPagination"/, 'store HTML: missing pagination container', errors);
 assertContains(storeHtml, /function\s+runProductSearch\s*\(/, 'store HTML: missing runProductSearch()', errors);
 assertContains(storeHtml, /id="loginIdentifier"/, 'store HTML: login identifier input not found', errors);
@@ -94,8 +108,13 @@ assertNotContains(storeHtml, /<div class="notification-title">\$\{title\}<\/div>
 assertNotContains(storeHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*p\.(name|desc)\b/, 'store HTML: innerHTML contains raw product text payload', errors);
 assertNotContains(storeHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*c\.(code|desc)\b/, 'store HTML: innerHTML contains raw coupon payload', errors);
 assertNotContains(storeHtml, /onclick="[^"]*'\$\{[^"]+\}'[^"]*"/, 'store HTML: inline onclick still injects dynamic string payload', errors);
+assertNotContains(storeHtml, /window\.onerror\s*=/, 'store HTML: direct window.onerror assignment is not allowed', errors);
+assertNotContains(storeHtml, /window\.onunhandledrejection\s*=/, 'store HTML: direct window.onunhandledrejection assignment is not allowed', errors);
 
 assertContains(firebaseConfig, /experimentalForceLongPolling:\s*true/, 'firebase-config.js: force long-polling not enabled', errors);
+assertContains(firebaseConfig, /intervalReconnectRequested/, 'firebase-config.js: interval reconnect request guard missing', errors);
+assertContains(firebaseConfig, /&&\s*isGithubPages\s*!==\s*true/, 'firebase-config.js: interval reconnect must be blocked on GitHub Pages', errors);
+assertContains(firebaseConfig, /&&\s*forcePollingTransport\s*!==\s*true/, 'firebase-config.js: interval reconnect must be blocked on long-polling mode', errors);
 assertContains(firebaseData, /const\s+FIREBASE_POLLING_ENABLED\s*=\s*false/, 'firebase-data.js: polling fallback must be disabled', errors);
 assertContains(firebaseData, /createResubscribingSnapshot\s*\(/, 'firebase-data.js: realtime auto-resubscribe guard missing', errors);
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]PRODUCTS['"]\s*\)/, 'REAL_TIME_SYNC.js: products local sync should be removed', errors);
@@ -117,6 +136,24 @@ assertContains(firestoreRules, /allow create:\s*if isVerifiedUser\(\)\s*&&\s*isV
 assertContains(firestoreRules, /allow create:\s*if isAdmin\(\)\s*\|\|\s*\(isVerifiedUser\(\)\s*&&\s*isValidStoreEventCreate\(\)\)/, 'firestore.rules: store_events create must require admin or verified user', errors);
 assertContains(firestoreRules, /request\.resource\.data\.sessionId == sessionId/, 'firestore.rules: live session path/sessionId guard missing', errors);
 assertContains(securityUtils, /function\s+escapeHtml\s*\(/, 'security-utils.js: escapeHtml helper missing', errors);
+assertContains(coreLogger, /__isCentralLogger/, 'core/logger.js: central logger marker missing', errors);
+assertContains(coreLogger, /global\.logger\s*=\s*logger/, 'core/logger.js: global logger export missing', errors);
+assertContains(coreLogger, /addEventListener\('error'/, 'core/logger.js: global error handler missing', errors);
+assertContains(coreLogger, /addEventListener\('unhandledrejection'/, 'core/logger.js: global rejection handler missing', errors);
+assertContains(coreLogger, /addClientErrorLog/, 'core/logger.js: remote client error logging hook missing', errors);
+assertContains(adminMonitorScript, /compileCriticalRegex/, 'admin-function-monitor.js: compileCriticalRegex helper missing', errors);
+assertContains(adminMonitorScript, /new\s+RegExp\(/, 'admin-function-monitor.js: regex-based validation missing', errors);
+assertContains(adminMonitorScript, /POLICY_INVALID_REGEX/, 'admin-function-monitor.js: invalid policy regex guard missing', errors);
+assertContains(adminMonitorScript, /CRITICAL_FUNCTION_MISSING/, 'admin-function-monitor.js: missing critical function guard missing', errors);
+assertContains(adminMonitorScript, /REGISTRY_DRIFT|REGISTRY_HASH_MISMATCH/, 'admin-function-monitor.js: registry drift guard missing', errors);
+assertContains(adminRegistryGeneratorScript, /function\s+generateRegistryArtifact\s*\(/, 'generate-admin-function-registry.js: registry generator entry missing', errors);
+assertContains(adminRegistryGeneratorScript, /registryHash/, 'generate-admin-function-registry.js: registry hash generation missing', errors);
+assertContains(adminFunctionPolicy, /"policyVersion"\s*:/, 'admin-function-policy.json: policyVersion field missing', errors);
+assertContains(adminFunctionPolicy, /"criticalFunctions"\s*:/, 'admin-function-policy.json: criticalFunctions section missing', errors);
+assertContains(adminFunctionPolicy, /"groupRules"\s*:/, 'admin-function-policy.json: groupRules section missing', errors);
+assertContains(adminFunctionRegistry, /"registryHash"\s*:/, 'admin-function-registry.json: registryHash field missing', errors);
+assertContains(adminFunctionRegistry, /"sourceHash"\s*:/, 'admin-function-registry.json: sourceHash field missing', errors);
+assertContains(adminFunctionRegistry, /"policyHash"\s*:/, 'admin-function-registry.json: policyHash field missing', errors);
 
 if (errors.length) {
   console.error('Smoke check FAILED:');
