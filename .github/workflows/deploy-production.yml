@@ -12,6 +12,13 @@ on:
         required: false
         default: "release/release-checklist.json"
         type: string
+  workflow_run:
+    workflows:
+      - Deploy Staging
+    types:
+      - completed
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -26,17 +33,33 @@ concurrency:
 jobs:
   verify-gates:
     name: verify-gates
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       target_sha: ${{ steps.sha.outputs.value }}
+      checklist_path: ${{ steps.meta.outputs.checklist_path }}
     steps:
       - name: Resolve target SHA
         id: sha
         run: |
-          if [ -n "${{ inputs.target_sha }}" ]; then
-            echo "value=${{ inputs.target_sha }}" >> "$GITHUB_OUTPUT"
+          manual_sha="${{ github.event.inputs.target_sha || '' }}"
+          workflow_sha="${{ github.event.workflow_run.head_sha || '' }}"
+          if [ -n "$manual_sha" ]; then
+            echo "value=$manual_sha" >> "$GITHUB_OUTPUT"
+          elif [ -n "$workflow_sha" ]; then
+            echo "value=$workflow_sha" >> "$GITHUB_OUTPUT"
           else
             echo "value=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve checklist path
+        id: meta
+        run: |
+          manual_path="${{ github.event.inputs.checklist_path || '' }}"
+          if [ -n "$manual_path" ]; then
+            echo "checklist_path=$manual_path" >> "$GITHUB_OUTPUT"
+          else
+            echo "checklist_path=release/release-checklist.json" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Ensure release gate and staging succeeded for target SHA
@@ -93,7 +116,7 @@ jobs:
         run: node tools/run-required-checks.js
 
       - name: Validate release checklist
-        run: node tools/validate-release-checklist.js "${{ inputs.checklist_path }}"
+        run: node tools/validate-release-checklist.js "${{ needs.verify-gates.outputs.checklist_path }}"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

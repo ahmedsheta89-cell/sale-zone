@@ -1,0 +1,14 @@
+{
+  "releaseId": "2026-02-16-release-gate-bootstrap",
+  "targetSha": "3de43b0",
+  "failureId": "INC-2026-02-16-RELEASE-GATE",
+  "rootCause": "Repeated production instability due to missing mandatory gate sequence and missing enforced checklist validation.",
+  "fixCommit": "3de43b0",
+  "validationEvidence": [
+    "node tools/run-required-checks.js",
+    "Release Gate workflow success on main",
+    "Deploy Staging workflow success before production"
+  ],
+  "approvedBy": "release-owner",
+  "approvedAt": "2026-02-16T13:00:00Z"
+}
