@@ -3012,27 +3012,41 @@ function adminLogout(){
                 tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📦</div><p>لا توجد منتجات</p></div></td></tr>';
                 return;
             }
-            tbody.innerHTML = visibleRows.map(p => `
+            tbody.innerHTML = visibleRows.map((p) => {
+                const safeProductId = escapeHtml(String(p && p.id || ''));
+                const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
+                const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+                const safeName = escapeHtml(p && p.name || '-');
+                const safeCategory = escapeHtml(getCategoryName(p && p.category) || '-');
+                const safeSupplier = escapeHtml(p && p.supplierName || '-');
+                const safeCost = escapeHtml(Number(p && p.costPrice || 0).toFixed(2));
+                const safePrice = escapeHtml(Number(p && p.price || 0).toFixed(2));
+                const safeProfit = escapeHtml(Number(p && p.profitValue || 0).toFixed(2));
+                const safeProfitMargin = escapeHtml(Number(p && p.profitMarginActual || 0).toFixed(2));
+                const isHidden = p && p.isPublished === false;
+                const safeImportBatchId = escapeHtml(p && p.importBatchId || '');
+                return `
                 <tr>
-                    <td><div class="product-cell"><img src="${sanitizeImageUrl(p.image)}" class="product-img" onerror="this.src='${sanitizeImageUrl('')}'"><div><strong>${p.name}</strong></div></div></td>
-                    <td>${getCategoryName(p.category)}</td>
-                    <td>${escapeHtml(p.supplierName || '-')}</td>
-                    <td><strong>${Number(p.costPrice || 0).toFixed(2)} ج.م</strong></td>
-                    <td><strong>${Number(p.price || 0).toFixed(2)} ج.م</strong>${p.manualPriceOverride === true ? '<div style="font-size:11px;color:#b8960c;">يدوي</div>' : ''}</td>
-                    <td><strong>${Number(p.profitValue || 0).toFixed(2)} ج.م</strong><div style="font-size:11px;color:#666;">${Number(p.profitMarginActual || 0).toFixed(2)}%</div></td>
-                    <td><span class="status-badge ${p.isPublished === false ? 'status-hidden' : 'status-published'}">${p.isPublished === false ? 'مخفي' : 'منشور'}</span></td>
-                    <td>${p.importBatchId ? `<span class="batch-chip" title="${escapeHtml(p.importBatchId)}">${escapeHtml(p.importBatchId)}</span>` : '-'}</td>
+                    <td><div class="product-cell"><img src="${safeImageSrc}" class="product-img" onerror="this.src='${safeFallbackImage}'"><div><strong>${safeName}</strong></div></div></td>
+                    <td>${safeCategory}</td>
+                    <td>${safeSupplier}</td>
+                    <td><strong>${safeCost} ج.م</strong></td>
+                    <td><strong>${safePrice} ج.م</strong>${p && p.manualPriceOverride === true ? '<div style="font-size:11px;color:#b8960c;">يدوي</div>' : ''}</td>
+                    <td><strong>${safeProfit} ج.م</strong><div style="font-size:11px;color:#666;">${safeProfitMargin}%</div></td>
+                    <td><span class="status-badge ${isHidden ? 'status-hidden' : 'status-published'}">${isHidden ? 'مخفي' : 'منشور'}</span></td>
+                    <td>${safeImportBatchId ? `<span class="batch-chip" title="${safeImportBatchId}">${safeImportBatchId}</span>` : '-'}</td>
                     <td>
                         <div class="action-btns">
-                            <button class="action-btn edit" onclick="editProduct('${p.id}')">✏️</button>
-                            ${p.isPublished === false
-                                ? `<button class="action-btn publish" title="نشر" onclick="toggleProductPublish('${p.id}', true)">👁️</button>`
-                                : `<button class="action-btn hide" title="إخفاء" onclick="toggleProductPublish('${p.id}', false)">🙈</button>`}
-                            <button class="action-btn delete" onclick="deleteProduct('${p.id}')">🗑️</button>
+                            <button class="action-btn edit" data-product-id="${safeProductId}" onclick="editProduct(this.dataset.productId)">✏️</button>
+                            ${isHidden
+                                ? `<button class="action-btn publish" title="نشر" data-product-id="${safeProductId}" onclick="toggleProductPublish(this.dataset.productId, true)">👁️</button>`
+                                : `<button class="action-btn hide" title="إخفاء" data-product-id="${safeProductId}" onclick="toggleProductPublish(this.dataset.productId, false)">🙈</button>`}
+                            <button class="action-btn delete" data-product-id="${safeProductId}" onclick="deleteProduct(this.dataset.productId)">🗑️</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function renderAdminSupplierFilterOptions() {
@@ -3041,7 +3055,7 @@ function adminLogout(){
             const currentValue = String(select.value || '');
             const options = (suppliers || []).filter((item) => item && item.active !== false);
             select.innerHTML = '<option value="">كل الموردين</option>' + options.map((item) => (
-                `<option value="${String(item.id || '')}">${escapeHtml(item.name || '')}</option>`
+                `<option value="${escapeHtml(String(item.id || ''))}">${escapeHtml(item.name || '')}</option>`
             )).join('');
             if (currentValue) select.value = currentValue;
         }
@@ -3189,7 +3203,7 @@ function adminLogout(){
             const categories = getAllCategoryDefinitions();
             const current = String(selectedValue || select.value || '');
             select.innerHTML = '<option value="">اختر</option>' + categories.map((item) => (
-                `<option value="${item.id}">${item.icon} ${escapeHtml(item.name)}</option>`
+                `<option value="${escapeHtml(String(item.id || ''))}">${escapeHtml(item.icon || '')} ${escapeHtml(item.name || '')}</option>`
             )).join('');
             if (current && categories.some((item) => item.id === current)) {
                 select.value = current;
@@ -3246,7 +3260,7 @@ function adminLogout(){
             const activeSuppliers = (suppliers || []).filter((item) => item && item.active !== false);
             const currentValue = String(select.value || '');
             select.innerHTML = '<option value="">بدون مورد</option>' + activeSuppliers.map((item) => (
-                `<option value="${String(item.id || '')}">${escapeHtml(item.name || 'مورد بدون اسم')}</option>`
+                `<option value="${escapeHtml(String(item.id || ''))}">${escapeHtml(item.name || 'مورد بدون اسم')}</option>`
             )).join('');
             if (currentValue) select.value = currentValue;
         }
@@ -3878,21 +3892,29 @@ function adminLogout(){
             }
 
             const rows = [...suppliers].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
-            tbody.innerHTML = rows.map((supplier) => `
+            tbody.innerHTML = rows.map((supplier) => {
+                const safeSupplierId = escapeHtml(String(supplier && supplier.id || ''));
+                const safeName = escapeHtml(supplier && supplier.name || '-');
+                const safeCode = escapeHtml(supplier && supplier.code || '-');
+                const safeMargin = escapeHtml(Number(supplier && supplier.defaultMarginPercent || 0).toFixed(2));
+                const safeContact = escapeHtml(supplier && (supplier.contactName || supplier.phone) || '-');
+                const isArchived = supplier && supplier.active === false;
+                return `
                 <tr>
-                    <td><strong>${escapeHtml(supplier.name || '-')}</strong></td>
-                    <td>${escapeHtml(supplier.code || '-')}</td>
-                    <td>${Number(supplier.defaultMarginPercent || 0).toFixed(2)}%</td>
-                    <td>${escapeHtml(supplier.contactName || supplier.phone || '-')}</td>
-                    <td><span class="status-badge ${supplier.active === false ? 'status-hidden' : 'status-published'}">${supplier.active === false ? 'مؤرشف' : 'نشط'}</span></td>
+                    <td><strong>${safeName}</strong></td>
+                    <td>${safeCode}</td>
+                    <td>${safeMargin}%</td>
+                    <td>${safeContact}</td>
+                    <td><span class="status-badge ${isArchived ? 'status-hidden' : 'status-published'}">${isArchived ? 'مؤرشف' : 'نشط'}</span></td>
                     <td>
                         <div class="action-btns">
-                            <button class="action-btn edit" onclick="editSupplier('${supplier.id}')">✏️</button>
-                            <button class="action-btn ${supplier.active === false ? 'publish' : 'hide'}" onclick="toggleSupplierArchive('${supplier.id}', ${supplier.active === false ? 'true' : 'false'})">${supplier.active === false ? '♻️' : '🗂️'}</button>
+                            <button class="action-btn edit" data-supplier-id="${safeSupplierId}" onclick="editSupplier(this.dataset.supplierId)">✏️</button>
+                            <button class="action-btn ${isArchived ? 'publish' : 'hide'}" data-supplier-id="${safeSupplierId}" onclick="toggleSupplierArchive(this.dataset.supplierId, ${isArchived ? 'true' : 'false'})">${isArchived ? '♻️' : '🗂️'}</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function openSupplierModal() {
@@ -4925,8 +4947,9 @@ function adminLogout(){
                 const lastMessage = escapeHtml(thread && thread.lastMessage || 'بدون رسائل');
                 const status = getSupportThreadStatusLabel(String(thread && thread.status || 'open'));
                 const statusClass = getSupportThreadStatusClass(String(thread && thread.status || 'open'));
+                const safeId = escapeHtml(id);
                 return `
-                    <div class="support-thread-item ${activeClass}" onclick="selectSupportThread('${id}')">
+                    <div class="support-thread-item ${activeClass}" data-thread-id="${safeId}" onclick="selectSupportThread(this.dataset.threadId)">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                             <strong style="font-size:13px;">${name}</strong>
                             ${unread > 0 ? `<span class="support-unread-badge">${unread}</span>` : ''}
@@ -5238,21 +5261,33 @@ function adminLogout(){
                 return;
             }
 
-            list.innerHTML = users.map(u => `
+            list.innerHTML = users.map((u) => {
+                const safeUserId = escapeHtml(String(u && u.id || ''));
+                const safeName = escapeHtml(getUserDisplayName(u));
+                const safeAvatar = escapeHtml(getUserDisplayName(u).charAt(0));
+                const safePhone = escapeHtml(u && u.phone || '-');
+                const safePoints = escapeHtml(Number(u && u.loyaltyPoints || 0).toFixed(0));
+                return `
                 <div class="user-points-card">
                     <div class="user-points-info">
-                        <div class="user-points-avatar">${getUserDisplayName(u).charAt(0)}</div>
-                        <div><strong>${getUserDisplayName(u)}</strong><div style="font-size:11px;color:#666;">${u.phone || '-'}</div></div>
+                        <div class="user-points-avatar">${safeAvatar}</div>
+                        <div><strong>${safeName}</strong><div style="font-size:11px;color:#666;">${safePhone}</div></div>
                     </div>
-                    <strong style="color: var(--gold-dark); font-size: 18px;">${u.loyaltyPoints || 0}</strong>
+                    <strong style="color: var(--gold-dark); font-size: 18px;">${safePoints}</strong>
                     <div class="user-points-actions">
-                        <button class="points-btn add" onclick="quickAddPoints('${u.id}')">➕</button>
-                        <button class="points-btn sub" onclick="quickSubPoints('${u.id}')">➖</button>
+                        <button class="points-btn add" data-user-id="${safeUserId}" onclick="quickAddPoints(this.dataset.userId)">➕</button>
+                        <button class="points-btn sub" data-user-id="${safeUserId}" onclick="quickSubPoints(this.dataset.userId)">➖</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
-            select.innerHTML = '<option value="">اختر</option>' + users.map(u => `<option value="${u.id}">${getUserDisplayName(u)} (${u.loyaltyPoints || 0})</option>`).join('');
+            select.innerHTML = '<option value="">اختر</option>' + users.map((u) => {
+                const safeUserId = escapeHtml(String(u && u.id || ''));
+                const safeName = escapeHtml(getUserDisplayName(u));
+                const safePoints = escapeHtml(Number(u && u.loyaltyPoints || 0).toFixed(0));
+                return `<option value="${safeUserId}">${safeName} (${safePoints})</option>`;
+            }).join('');
         }
 
         function saveLoyaltySettings(e) {
@@ -6748,7 +6783,15 @@ function adminLogout(){
             const container = document.getElementById('notificationsContainer');
             const n = document.createElement('div');
             n.className = `notification ${type}`;
-            n.innerHTML = `<div class="notification-icon">${type === 'success' ? '✓' : '✕'}</div><div class="notification-content"><div class="notification-title">${type === 'success' ? 'نجاح' : 'خطأ'}</div><div class="notification-message">${message}</div></div><button class="notification-close" onclick="this.parentElement.remove()">✕</button>`;
+            n.innerHTML = '<div class="notification-icon"></div><div class="notification-content"><div class="notification-title"></div><div class="notification-message"></div></div><button class="notification-close" type="button">✕</button>';
+            const iconNode = n.querySelector('.notification-icon');
+            const titleNode = n.querySelector('.notification-title');
+            const messageNode = n.querySelector('.notification-message');
+            const closeBtn = n.querySelector('.notification-close');
+            if (iconNode) iconNode.textContent = type === 'success' ? '✓' : '✕';
+            if (titleNode) titleNode.textContent = type === 'success' ? 'نجاح' : 'خطأ';
+            if (messageNode) messageNode.textContent = String(message || '');
+            if (closeBtn) closeBtn.addEventListener('click', () => n.remove());
             container.appendChild(n);
             setTimeout(() => n.remove(), 4000);
         }

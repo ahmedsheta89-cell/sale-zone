@@ -1807,7 +1807,7 @@
             }
             const options = Array.from(map.entries()).sort((a, b) => String(a[1]).localeCompare(String(b[1]), 'ar'));
             select.innerHTML = '<option value="">الكل</option>' + options.map(([id, name]) => (
-                `<option value="${id}">${name}</option>`
+                `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`
             )).join('');
             if (current) select.value = current;
         }
@@ -2061,11 +2061,13 @@
                 card.className = `category-card dynamic-category-card${currentCategory === item.id ? ' active' : ''}`;
                 card.dataset.category = item.id;
                 card.onclick = () => filterByCategory(item.id);
-                card.innerHTML = `
-                    <div class="category-icon">${item.icon || '🏷️'}</div>
-                    <div class="category-name">${item.name}</div>
-                    <div class="category-count">0</div>
-                `;
+                card.innerHTML = '<div class="category-icon"></div><div class="category-name"></div><div class="category-count">0</div>';
+                const iconText = String(item && item.icon || '🏷️');
+                const nameText = String(item && item.name || '');
+                const iconNode = card.querySelector('.category-icon');
+                const nameNode = card.querySelector('.category-name');
+                if (iconNode) iconNode.textContent = iconText;
+                if (nameNode) nameNode.textContent = nameText;
                 const iconElement = card.querySelector('.category-icon');
                 if (iconElement) {
                     iconElement.style.background = 'linear-gradient(135deg, var(--gold), var(--gold-dark))';
@@ -2132,22 +2134,32 @@
         function showProductDetails(id) {
             const p = getVisibleProductsList().find((x) => String(x.id) === String(id));
             if (!p) return;
+            const safeProductId = escapeHtml(String(p && p.id || ''));
+            const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
+            const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+            const safeName = escapeHtml(p && p.name || '');
+            const safeDesc = escapeHtml(p && p.desc || '');
+            const safeRatingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
+            const safePrice = escapeHtml(Number(p && (p.sellPrice || p.price) || 0).toFixed(2));
+            const hasOldPrice = Number.isFinite(Number(p && p.oldPrice)) && Number(p && p.oldPrice) > 0;
+            const safeOldPrice = escapeHtml(hasOldPrice ? Number(p.oldPrice).toFixed(2) : '');
+            const isFav = favorites.includes(String(p && p.id));
             document.getElementById('productModalBody').innerHTML = `
                 <div style="text-align: center;">
-                    <img src="${sanitizeImageUrl(p.image)}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;" onerror="this.src='${sanitizeImageUrl('')}'">
-                    <h2 style="font-size: 20px; color: var(--navy); margin-bottom: 8px;">${p.name}</h2>
-                    <p style="color: #666; margin-bottom: 15px; font-size: 13px;">${p.desc}</p>
-                    <div style="margin-bottom: 15px;" onclick="showRatingModal('${p.id}')">
+                    <img src="${safeImageSrc}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;" onerror="this.src='${safeFallbackImage}'">
+                    <h2 style="font-size: 20px; color: var(--navy); margin-bottom: 8px;">${safeName}</h2>
+                    <p style="color: #666; margin-bottom: 15px; font-size: 13px;">${safeDesc}</p>
+                    <div style="margin-bottom: 15px;" data-product-id="${safeProductId}" onclick="showRatingModal(this.dataset.productId)">
                         <span style="font-size: 18px;">${getStars(p.rating)}</span>
-                        <span style="color: #999; font-size: 12px;">(${p.ratingCount || 0} تقييم)</span>
+                        <span style="color: #999; font-size: 12px;">(${safeRatingCount} تقييم)</span>
                     </div>
                     <div style="margin-bottom: 18px;">
-                        <span style="font-size: 26px; font-weight: 800; color: var(--gold-dark);">${Number(p.sellPrice || p.price || 0).toFixed(2)} ج.م</span>
-                        ${p.oldPrice ? `<span style="font-size: 16px; color: #999; text-decoration: line-through; margin-right: 10px;">${Number(p.oldPrice).toFixed(2)} ج.م</span>` : ''}
+                        <span style="font-size: 26px; font-weight: 800; color: var(--gold-dark);">${safePrice} ج.م</span>
+                        ${hasOldPrice ? `<span style="font-size: 16px; color: #999; text-decoration: line-through; margin-right: 10px;">${safeOldPrice} ج.م</span>` : ''}
                     </div>
                     <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button class="submit-btn" onclick="addToCart('${p.id}'); closeModal('productModal');" style="flex: 1; max-width: 200px;">🛒 أضف للسلة</button>
-                        <button class="submit-btn" onclick="toggleFav('${p.id}')" style="width: 50px; background: ${favorites.includes(String(p.id)) ? 'var(--error)' : 'var(--cream)'}; color: ${favorites.includes(String(p.id)) ? 'white' : 'var(--error)'};">${favorites.includes(String(p.id)) ? '❤️' : '🤍'}</button>
+                        <button class="submit-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId); closeModal('productModal');" style="flex: 1; max-width: 200px;">🛒 أضف للسلة</button>
+                        <button class="submit-btn" data-product-id="${safeProductId}" onclick="toggleFav(this.dataset.productId)" style="width: 50px; background: ${isFav ? 'var(--error)' : 'var(--cream)'}; color: ${isFav ? 'white' : 'var(--error)'};">${isFav ? '❤️' : '🤍'}</button>
                     </div>
                 </div>
             `;
@@ -2188,13 +2200,16 @@
         function showRatingModal(productId) {
             const p = getVisibleProductsList().find((x) => String(x.id) === String(productId));
             if (!p) return;
+            const safeProductId = escapeHtml(String(productId || ''));
+            const safeProductName = escapeHtml(p && p.name || '');
+            const safeRatingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
             
             document.getElementById('ratingModalBody').innerHTML = `
                 <div style="text-align: center;">
-                    <h3 style="margin-bottom: 15px;">${p.name}</h3>
-                    <p style="margin-bottom: 20px;">التقييم الحالي: ${getStars(p.rating)} (${p.ratingCount || 0})</p>
+                    <h3 style="margin-bottom: 15px;">${safeProductName}</h3>
+                    <p style="margin-bottom: 20px;">التقييم الحالي: ${getStars(p.rating)} (${safeRatingCount})</p>
                     <div style="font-size: 36px; margin-bottom: 20px;" id="ratingStars">
-                        ${[1,2,3,4,5].map(i => `<span style="cursor: pointer;" onclick="rateProduct('${productId}', ${i})">${i <= (p.rating || 0) ? '⭐' : '☆'}</span>`).join('')}
+                        ${[1,2,3,4,5].map((i) => `<span style="cursor: pointer;" data-product-id="${safeProductId}" data-rating="${i}" onclick="rateProduct(this.dataset.productId, Number(this.dataset.rating))">${i <= (p.rating || 0) ? '⭐' : '☆'}</span>`).join('')}
                     </div>
                     <p style="color: #666; font-size: 12px;">اضغط على النجوم للتقييم</p>
                 </div>
@@ -2271,16 +2286,21 @@
             container.innerHTML = visibleFavoriteIds.map((id) => {
                 const p = visibleProducts.find((x) => String(x.id) === String(id));
                 if (!p) return '';
+                const safeProductId = escapeHtml(String(p && p.id || ''));
+                const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
+                const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+                const safeName = escapeHtml(p && p.name || '');
+                const safePrice = escapeHtml(Number(p && (p.sellPrice || p.price) || 0).toFixed(2));
                 return `
                     <div class="fav-item">
-                        <div class="fav-item-image"><img src="${sanitizeImageUrl(p.image)}" onerror="this.src='${sanitizeImageUrl('')}'"></div>
+                        <div class="fav-item-image"><img src="${safeImageSrc}" onerror="this.src='${safeFallbackImage}'"></div>
                         <div class="fav-item-details">
-                            <div class="fav-item-name">${p.name}</div>
-                            <div class="fav-item-price">${Number(p.sellPrice || p.price || 0).toFixed(2)} ج.م</div>
+                            <div class="fav-item-name">${safeName}</div>
+                            <div class="fav-item-price">${safePrice} ج.م</div>
                         </div>
                         <div class="fav-item-actions">
-                            <button class="fav-add-btn" onclick="addToCart('${p.id}')">🛒</button>
-                            <button class="fav-remove-btn" onclick="toggleFav('${p.id}')">🗑️</button>
+                            <button class="fav-add-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)">🛒</button>
+                            <button class="fav-remove-btn" data-product-id="${safeProductId}" onclick="toggleFav(this.dataset.productId)">🗑️</button>
                         </div>
                     </div>
                 `;
@@ -2314,7 +2334,7 @@
         }
 
         function updateQuantity(id, change) {
-            const item = cart.find(x => x.id === id);
+            const item = cart.find((x) => String(x && x.id) === String(id));
             if (!item) return;
             item.quantity += change;
             if (item.quantity <= 0) removeFromCart(id);
@@ -2332,21 +2352,29 @@
                 return;
             }
 
-            cartItems.innerHTML = cart.map(item => `
+            cartItems.innerHTML = cart.map((item) => {
+                const safeItemId = escapeHtml(String(item && item.id || ''));
+                const safeImageSrc = escapeHtml(sanitizeImageUrl(item && item.image));
+                const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+                const safeItemName = escapeHtml(item && item.name || '');
+                const safeItemPrice = escapeHtml(Number(item && item.price || 0).toFixed(2));
+                const safeQuantity = escapeHtml(Number(item && item.quantity || 0).toFixed(0));
+                return `
                 <div class="cart-item">
-                    <div class="cart-item-image"><img src="${sanitizeImageUrl(item.image)}" onerror="this.src='${sanitizeImageUrl('')}'"></div>
+                    <div class="cart-item-image"><img src="${safeImageSrc}" onerror="this.src='${safeFallbackImage}'"></div>
                     <div class="cart-item-details">
-                        <div class="cart-item-name">${item.name}</div>
-                        <div class="cart-item-price">${item.price} ج.م</div>
+                        <div class="cart-item-name">${safeItemName}</div>
+                        <div class="cart-item-price">${safeItemPrice} ج.م</div>
                         <div class="cart-item-controls">
-                            <button class="qty-btn" onclick="updateQuantity('${item.id}', -1)">-</button>
-                            <span class="qty-value">${item.quantity}</span>
-                            <button class="qty-btn" onclick="updateQuantity('${item.id}', 1)">+</button>
+                            <button class="qty-btn" data-item-id="${safeItemId}" onclick="updateQuantity(this.dataset.itemId, -1)">-</button>
+                            <span class="qty-value">${safeQuantity}</span>
+                            <button class="qty-btn" data-item-id="${safeItemId}" onclick="updateQuantity(this.dataset.itemId, 1)">+</button>
                         </div>
                     </div>
-                    <button class="remove-item" onclick="removeFromCart('${item.id}')">🗑️</button>
+                    <button class="remove-item" data-item-id="${safeItemId}" onclick="removeFromCart(this.dataset.itemId)">🗑️</button>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             let discount = 0;
@@ -3234,19 +3262,30 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             
             document.getElementById('ordersModalBody').innerHTML = myOrders.length === 0 
                 ? '<div style="text-align: center; padding: 30px; color: #666;"><div style="font-size: 50px;">📦</div><p>لا توجد طلبات</p></div>'
-                : myOrders.reverse().map(o => `
+                : myOrders.reverse().map((o) => {
+                    const safeOrderNumber = escapeHtml(o && o.orderNumber || o && o.id || '');
+                    const safeStatus = escapeHtml(getStatusName(o && o.status));
+                    const safeDate = escapeHtml(new Date(o && o.createdAt || '').toLocaleDateString('ar-EG'));
+                    const safeTotal = escapeHtml(Number(o && o.total || 0).toFixed(2));
+                    const statusColor = o && o.status === 'completed'
+                        ? 'var(--success)'
+                        : o && o.status === 'shipped'
+                            ? 'var(--info)'
+                            : 'var(--warning)';
+                    return `
                     <div style="background: var(--cream); border-radius: 12px; padding: 15px; margin-bottom: 12px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <strong>${o.orderNumber}</strong>
-                            <span class="status-badge" style="padding: 4px 10px; border-radius: 15px; font-size: 11px; background: ${o.status === 'completed' ? 'var(--success)' : o.status === 'shipped' ? 'var(--info)' : 'var(--warning)'}; color: white;">
-                                ${getStatusName(o.status)}
+                            <strong>${safeOrderNumber}</strong>
+                            <span class="status-badge" style="padding: 4px 10px; border-radius: 15px; font-size: 11px; background: ${statusColor}; color: white;">
+                                ${safeStatus}
                             </span>
                         </div>
-                        <p style="font-size: 12px; color: #666;">${new Date(o.createdAt).toLocaleDateString('ar-EG')}</p>
-                        <p style="font-size: 14px; font-weight: 700; color: var(--gold-dark);">${o.total} ج.م</p>
-                        <button onclick="trackOrderById('${o.orderNumber}')" style="margin-top: 8px; padding: 6px 15px; background: var(--navy); color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer;">تتبع 🚚</button>
+                        <p style="font-size: 12px; color: #666;">${safeDate}</p>
+                        <p style="font-size: 14px; font-weight: 700; color: var(--gold-dark);">${safeTotal} ج.م</p>
+                        <button data-order-id="${safeOrderNumber}" onclick="trackOrderById(this.dataset.orderId)" style="margin-top: 8px; padding: 6px 15px; background: var(--navy); color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer;">تتبع 🚚</button>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             
             openModal('ordersModal');
         }
@@ -3262,7 +3301,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 await loadMyOrdersFromFirebase();
             }
 
-            const order = orders.find(o => o.orderNumber === orderNumber || o.id.toString() === orderNumber);
+            const normalizedOrderNumber = String(orderNumber || '').trim();
+            const order = orders.find((o) => String(o && o.orderNumber || '') === normalizedOrderNumber || String(o && o.id || '') === normalizedOrderNumber);
             
             if (!order) {
                 document.getElementById('trackingResult').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--error);"><div style="font-size: 40px;">❌</div><p>لم يتم العثور على الطلب</p></div>';
@@ -3279,12 +3319,14 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             ];
 
             const currentIdx = statuses.findIndex(s => s.key === order.status);
+            const safeOrderNumber = escapeHtml(order && order.orderNumber || order && order.id || '');
+            const safeCreatedAt = escapeHtml(new Date(order && order.createdAt || '').toLocaleDateString('ar-EG'));
 
             document.getElementById('trackingResult').innerHTML = `
                 <div class="tracking-card" style="background: var(--cream); border-radius: 14px; padding: 20px;">
                     <div class="tracking-header" style="text-align: center; margin-bottom: 20px;">
-                        <div style="font-size: 22px; color: var(--gold-dark); font-weight: 700;">${order.orderNumber}</div>
-                        <div style="font-size: 12px; color: #666;">${new Date(order.createdAt).toLocaleDateString('ar-EG')}</div>
+                        <div style="font-size: 22px; color: var(--gold-dark); font-weight: 700;">${safeOrderNumber}</div>
+                        <div style="font-size: 12px; color: #666;">${safeCreatedAt}</div>
                     </div>
                     <div class="tracking-timeline">
                         ${statuses.map((s, i) => `
@@ -3293,7 +3335,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                                 <div style="flex: 1;">
                                     <div style="font-weight: 700; color: ${i <= currentIdx ? 'var(--navy)' : '#999'}; font-size: 13px;">${s.title}</div>
                                     <div style="font-size: 11px; color: #666;">${s.desc}</div>
-                                    ${order.statusHistory?.find(h => h.status === s.key) ? `<div style="font-size: 10px; color: var(--gold-dark); margin-top: 3px;">${new Date(order.statusHistory.find(h => h.status === s.key).date).toLocaleString('ar-EG')}</div>` : ''}
+                                    ${order.statusHistory?.find(h => h.status === s.key) ? `<div style="font-size: 10px; color: var(--gold-dark); margin-top: 3px;">${escapeHtml(new Date(order.statusHistory.find(h => h.status === s.key).date).toLocaleString('ar-EG'))}</div>` : ''}
                                 </div>
                             </div>
                         `).join('')}
