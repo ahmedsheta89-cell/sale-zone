@@ -102,7 +102,7 @@ assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]PRODUCTS['"]\s*\)/, '
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]COUPONS['"]\s*\)/, 'REAL_TIME_SYNC.js: coupons local sync should be removed', errors);
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]BANNERS['"]\s*\)/, 'REAL_TIME_SYNC.js: banners local sync should be removed', errors);
 assertContains(serviceWorker, /version\.json/, 'sw.js: version.json bypass guard missing', errors);
-assertContains(serviceWorker, /CACHE_VERSION\s*=\s*'v6\.2\.2'/, 'sw.js: cache version was not bumped for rollout', errors);
+assertContains(serviceWorker, /CACHE_VERSION\s*=\s*'v6\.2\.3'/, 'sw.js: cache version was not bumped for rollout', errors);
 assertContains(firestoreRules, /function\s+isAdmin\s*\(/, 'firestore.rules: isAdmin() missing', errors);
 assertContains(firestoreRules, /request\.auth\.token\.email_verified\s*==\s*true/, 'firestore.rules: email_verified gate missing', errors);
 assertNotContains(firestoreRules, /isBootstrapAdminEmail/, 'firestore.rules: bootstrap admin fallback must be removed', errors);
