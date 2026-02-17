@@ -1,0 +1,21 @@
+{
+  "name": "sale-zone",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "governance:quick": "node ../tools/pre-push-quick-check.js",
+    "prepare": "node ../tools/ensure-githooks.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@upstash/context7-mcp": "^2.1.1",
+    "acorn": "^8.15.0",
+    "astring": "^1.9.0",
+    "parse5": "^7.3.0"
+  }
+}

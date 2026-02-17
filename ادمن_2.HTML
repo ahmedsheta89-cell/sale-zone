@@ -25,6 +25,7 @@
     <script src="firebase-data.js"></script>
     <script src="auth-utils.js"></script>
     <script src="security-utils.js"></script>
+    <script src="core/logger.js"></script>
     <script src="enhancement-utils.js"></script>
     <script src="storage-keys.js"></script>
     <script src="cloudinary-service.js"></script>
@@ -1408,6 +1409,130 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="section-card" style="margin-top: 20px;">
+                    <div class="section-header">
+                        <h3 class="section-title">🧭 مراقبة وظائف الأدمن</h3>
+                        <div class="header-actions">
+                            <button class="btn btn-gold" onclick="refreshAdminFunctionMonitorView()">🔄 تحديث</button>
+                        </div>
+                    </div>
+                    <div class="section-body">
+                        <div class="stats-grid" style="margin-bottom: 14px;">
+                            <div class="stat-card">
+                                <div class="stat-icon">🧩</div>
+                                <div class="stat-value" id="adminFunctionsTotal">0</div>
+                                <div class="stat-label">إجمالي الدوال</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">🚨</div>
+                                <div class="stat-value" id="adminFunctionsCritical">0</div>
+                                <div class="stat-label">دوال حرجة</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">🛒</div>
+                                <div class="stat-value" id="adminFunctionsStoreDirect">0</div>
+                                <div class="stat-label">تأثير مباشر على المتجر</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">📱</div>
+                                <div class="stat-value" id="adminFunctionsMobileDirect">0</div>
+                                <div class="stat-label">تأثير مباشر على الموبايل</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">⛔</div>
+                                <div class="stat-value" id="adminFunctionsFailures">0</div>
+                                <div class="stat-label">حالات فشل حرجة</div>
+                            </div>
+                        </div>
+
+                        <p id="adminFunctionsMeta" style="color: #666; margin-bottom: 12px; font-size: 13px;">
+                            جارٍ تحميل سجل وظائف الأدمن...
+                        </p>
+
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label>بحث بالاسم</label>
+                                <input type="text" id="adminFunctionsSearch" placeholder="مثال: saveProduct" oninput="applyAdminFunctionFilters()">
+                            </div>
+                            <div class="form-group">
+                                <label>المستوى</label>
+                                <select id="adminFunctionsLevelFilter" onchange="applyAdminFunctionFilters()">
+                                    <option value="">الكل</option>
+                                    <option value="critical">حرج</option>
+                                    <option value="warning">تحذيري</option>
+                                    <option value="info">معلوماتي</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>القسم</label>
+                                <select id="adminFunctionsGroupFilter" onchange="applyAdminFunctionFilters()">
+                                    <option value="">الكل</option>
+                                    <option value="products">المنتجات</option>
+                                    <option value="orders">الطلبات</option>
+                                    <option value="banners">البانرات</option>
+                                    <option value="coupons">الكوبونات</option>
+                                    <option value="users">العملاء</option>
+                                    <option value="support">الدعم</option>
+                                    <option value="loyalty">الولاء</option>
+                                    <option value="settings">الإعدادات</option>
+                                    <option value="reports">التقارير</option>
+                                    <option value="system">النظام</option>
+                                    <option value="utility">مساعدة</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label>تأثير المتجر</label>
+                                <select id="adminFunctionsStoreImpactFilter" onchange="applyAdminFunctionFilters()">
+                                    <option value="">الكل</option>
+                                    <option value="direct">مباشر</option>
+                                    <option value="indirect">غير مباشر</option>
+                                    <option value="none">لا يوجد</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>تأثير الموبايل</label>
+                                <select id="adminFunctionsMobileImpactFilter" onchange="applyAdminFunctionFilters()">
+                                    <option value="">الكل</option>
+                                    <option value="direct">مباشر</option>
+                                    <option value="indirect">غير مباشر</option>
+                                    <option value="none">لا يوجد</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>نمط التخزين</label>
+                                <select id="adminFunctionsPersistenceFilter" onchange="applyAdminFunctionFilters()">
+                                    <option value="">الكل</option>
+                                    <option value="firebase_online">أونلاين</option>
+                                    <option value="hybrid">هجين</option>
+                                    <option value="local_temporary">محلي مؤقت</option>
+                                    <option value="memory_only">ذاكرة فقط</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>الدالة</th>
+                                        <th>المستوى</th>
+                                        <th>الحالة</th>
+                                        <th>السبب العام</th>
+                                        <th>القسم</th>
+                                        <th>تأثير المتجر</th>
+                                        <th>تأثير الموبايل</th>
+                                        <th>نمط التخزين</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminFunctionsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section class="content-section" id="suppliersSection">
@@ -2106,6 +2231,9 @@
         let clientErrorLogs = [];
         let storeEvents = [];
         let liveSessions = [];
+        let adminFunctionRegistry = [];
+        let adminFunctionRegistryFiltered = [];
+        let adminFunctionRegistryMeta = null;
         let supportThreads = [];
         let supportMessages = [];
         let activeSupportThreadId = '';
@@ -2696,11 +2824,22 @@
         function saveUsers() { users = Array.isArray(users) ? users : []; }
         function saveSuppliers() { setStorageData('SUPPLIERS', suppliers); }
         function saveAdminPassword() {}
+        function logAdmin(level, code, message, meta) {
+            try {
+                if (window.logger && typeof window.logger[level] === 'function') {
+                    window.logger[level](code, message, 'admin.panel', meta || {});
+                    return;
+                }
+            } catch (_) {}
+            const writer = (console && typeof console[level] === 'function') ? console[level].bind(console) : console.log.bind(console);
+            if (typeof meta === 'undefined') writer(`[${code}] ${message}`);
+            else writer(`[${code}] ${message}`, meta);
+        }
         function saveStoreSettings() {
             setStorageData('SETTINGS', storeSettings);
             if (navigator.onLine === true && typeof saveSettings === 'function') {
                 saveSettings(storeSettings).catch((error) => {
-                    console.warn('saveStoreSettings firebase sync warning:', error);
+                    logAdmin('warn', 'ADMIN_SETTINGS_SYNC_WARN', 'Store settings Firebase sync warning', { error: error && error.message ? String(error.message) : String(error) });
                 });
             }
         }
@@ -4514,44 +4653,66 @@ function adminLogout(){
 
         async function saveBanner(e) {
             e.preventDefault();
+            if (navigator.onLine !== true) {
+                showNotification('error', '\u0644\u0627 \u064a\u0645\u0643\u0646 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0628\u0627\u0646\u0631 \u0628\u062f\u0648\u0646 \u0627\u062a\u0635\u0627\u0644 \u0625\u0646\u062a\u0631\u0646\u062a');
+                return;
+            }
+
             const data = {
-                id: Date.now(),
-                icon: document.getElementById('bannerIcon').value || '🎉',
+                icon: document.getElementById('bannerIcon').value || '\uD83C\uDF89',
                 title: document.getElementById('bannerTitle').value.trim(),
                 text: document.getElementById('bannerText').value.trim(),
-                btn: document.getElementById('bannerBtn').value.trim() || 'تسوق الآن',
+                btn: document.getElementById('bannerBtn').value.trim() || '\u062a\u0633\u0648\u0642 \u0627\u0644\u0622\u0646',
                 category: document.getElementById('bannerCategory').value
             };
+
             try {
-                if (typeof addBanner === 'function') {
-                    const firebaseId = await addBanner(data);
-                    data.id = firebaseId;
-                }
-            } catch (error) { console.error('Firebase error:', error); if (!data.id) data.id = Date.now(); }
-            banners.push(data);
+                await requireAdminPermission();
+                if (typeof addBanner !== 'function') throw new Error('addBanner unavailable');
+                const firebaseId = await addBanner(data);
+                banners.push({ ...data, id: String(firebaseId) });
+            } catch (error) {
+                logAdmin('error', 'ADMIN_BANNER_CREATE_FAILED', 'Failed to create banner in Firebase', {
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                showNotification('error', '\u0641\u0634\u0644 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0628\u0627\u0646\u0631 \u0639\u0644\u0649 Firebase');
+                return;
+            }
+
             saveBanners();
             renderBannersTable();
             closeModal('bannerModal');
-            showNotification('success', 'تمت الإضافة ✅');
+            showNotification('success', '\u062a\u0645\u062a \u0627\u0644\u0625\u0636\u0627\u0641\u0629 \u2705');
             document.getElementById('bannerIcon').value = '';
             document.getElementById('bannerTitle').value = '';
             document.getElementById('bannerText').value = '';
             document.getElementById('bannerBtn').value = '';
         }
-
         async function deleteBanner(id) {
-            if (!confirm('حذف البانر؟')) return;
+            if (!confirm('\u062d\u0630\u0641 \u0627\u0644\u0628\u0627\u0646\u0631\u061f')) return;
+            if (navigator.onLine !== true) {
+                showNotification('error', '\u0644\u0627 \u064a\u0645\u0643\u0646 \u062d\u0630\u0641 \u0627\u0644\u0628\u0627\u0646\u0631 \u0628\u062f\u0648\u0646 \u0627\u062a\u0635\u0627\u0644 \u0625\u0646\u062a\u0631\u0646\u062a');
+                return;
+            }
+
             try {
-                if (typeof deleteBannerFromFirebase === 'function') {
-                    await deleteBannerFromFirebase(id);
-                }
-            } catch (error) { console.error('Firebase delete error:', error); }
-            banners = banners.filter(b => String(b.id) !== String(id));
+                await requireAdminPermission();
+                if (typeof deleteBannerFromFirebase !== 'function') throw new Error('deleteBannerFromFirebase unavailable');
+                await deleteBannerFromFirebase(String(id));
+            } catch (error) {
+                logAdmin('error', 'ADMIN_BANNER_DELETE_FAILED', 'Failed to delete banner from Firebase', {
+                    bannerId: String(id || ''),
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                showNotification('error', '\u0641\u0634\u0644 \u062d\u0630\u0641 \u0627\u0644\u0628\u0627\u0646\u0631 \u0645\u0646 Firebase');
+                return;
+            }
+
+            banners = banners.filter((b) => String(b.id) !== String(id));
             saveBanners();
             renderBannersTable();
-            showNotification('success', 'تم الحذف ✅');
+            showNotification('success', '\u062a\u0645 \u0627\u0644\u062d\u0630\u0641 \u2705');
         }
-
         // ============================================
         // Coupons
         // ============================================
@@ -4583,39 +4744,79 @@ function adminLogout(){
         async function saveCoupon(e) {
             e.preventDefault();
             const code = document.getElementById('couponCode').value.trim().toUpperCase();
-            if (coupons.find(c => c.code === code)) {
-                showNotification('error', 'الكود موجود');
+            if (!code) {
+                showNotification('error', '\u0627\u0644\u0643\u0648\u062f \u0645\u0637\u0644\u0648\u0628');
                 return;
             }
-            coupons.push({
-                id: Date.now(),
+            if (coupons.find((c) => String(c.code || '').toUpperCase() === code)) {
+                showNotification('error', '\u0627\u0644\u0643\u0648\u062f \u0645\u0648\u062c\u0648\u062f');
+                return;
+            }
+            if (navigator.onLine !== true) {
+                showNotification('error', '\u0644\u0627 \u064a\u0645\u0643\u0646 \u0625\u0636\u0627\u0641\u0629 \u0643\u0648\u0628\u0648\u0646 \u0628\u062f\u0648\u0646 \u0627\u062a\u0635\u0627\u0644 \u0625\u0646\u062a\u0631\u0646\u062a');
+                return;
+            }
+
+            const value = parseFloat(document.getElementById('couponValue').value);
+            if (!Number.isFinite(value) || value <= 0) {
+                showNotification('error', '\u0642\u064a\u0645\u0629 \u0627\u0644\u062e\u0635\u0645 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d\u0629');
+                return;
+            }
+
+            const data = {
                 code,
                 desc: document.getElementById('couponDesc').value.trim(),
                 type: document.getElementById('couponType').value,
-                value: parseFloat(document.getElementById('couponValue').value)
-            });
+                value
+            };
+
+            try {
+                await requireAdminPermission();
+                if (typeof addCoupon !== 'function') throw new Error('addCoupon unavailable');
+                const firebaseId = await addCoupon(data);
+                coupons.push({ ...data, id: String(firebaseId) });
+            } catch (error) {
+                logAdmin('error', 'ADMIN_COUPON_CREATE_FAILED', 'Failed to create coupon in Firebase', {
+                    code,
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                showNotification('error', '\u0641\u0634\u0644 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0643\u0648\u0628\u0648\u0646 \u0639\u0644\u0649 Firebase');
+                return;
+            }
+
             saveCoupons();
             renderCouponsTable();
             closeModal('couponModal');
-            showNotification('success', 'تمت الإضافة');
+            showNotification('success', '\u062a\u0645\u062a \u0627\u0644\u0625\u0636\u0627\u0641\u0629');
             document.getElementById('couponCode').value = '';
             document.getElementById('couponDesc').value = '';
             document.getElementById('couponValue').value = '';
         }
-
         async function deleteCoupon(id) {
-            if (!confirm('حذف الكوبون؟')) return;
+            if (!confirm('\u062d\u0630\u0641 \u0627\u0644\u0643\u0648\u0628\u0648\u0646\u061f')) return;
+            if (navigator.onLine !== true) {
+                showNotification('error', '\u0644\u0627 \u064a\u0645\u0643\u0646 \u062d\u0630\u0641 \u0627\u0644\u0643\u0648\u0628\u0648\u0646 \u0628\u062f\u0648\u0646 \u0627\u062a\u0635\u0627\u0644 \u0625\u0646\u062a\u0631\u0646\u062a');
+                return;
+            }
+
             try {
-                if (typeof deleteCouponFromFirebase === 'function') {
-                    await deleteCouponFromFirebase(id);
-                }
-            } catch (error) { console.error('Firebase delete error:', error); }
-            coupons = coupons.filter(c => String(c.id) !== String(id));
+                await requireAdminPermission();
+                if (typeof deleteCouponFromFirebase !== 'function') throw new Error('deleteCouponFromFirebase unavailable');
+                await deleteCouponFromFirebase(String(id));
+            } catch (error) {
+                logAdmin('error', 'ADMIN_COUPON_DELETE_FAILED', 'Failed to delete coupon from Firebase', {
+                    couponId: String(id || ''),
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                showNotification('error', '\u0641\u0634\u0644 \u062d\u0630\u0641 \u0627\u0644\u0643\u0648\u0628\u0648\u0646 \u0645\u0646 Firebase');
+                return;
+            }
+
+            coupons = coupons.filter((c) => String(c.id) !== String(id));
             saveCoupons();
             renderCouponsTable();
-            showNotification('success', 'تم الحذف ✅');
+            showNotification('success', '\u062a\u0645 \u0627\u0644\u062d\u0630\u0641 \u2705');
         }
-
         // ============================================
         // Users
         // ============================================
@@ -5696,6 +5897,211 @@ function adminLogout(){
             }
         }
 
+        function getAdminFunctionLevelLabel(level) {
+            const normalized = String(level || '').toLowerCase();
+            if (normalized === 'critical') return 'حرج';
+            if (normalized === 'warning') return 'تحذيري';
+            return 'معلوماتي';
+        }
+
+        function getAdminFunctionGroupLabel(group) {
+            const map = {
+                products: 'المنتجات',
+                orders: 'الطلبات',
+                banners: 'البانرات',
+                coupons: 'الكوبونات',
+                users: 'العملاء',
+                support: 'الدعم',
+                loyalty: 'الولاء',
+                settings: 'الإعدادات',
+                reports: 'التقارير',
+                system: 'النظام',
+                utility: 'مساعدة'
+            };
+            return map[String(group || '').toLowerCase()] || 'غير مصنف';
+        }
+
+        function getImpactLabel(value) {
+            const normalized = String(value || '').toLowerCase();
+            if (normalized === 'direct') return 'مباشر';
+            if (normalized === 'indirect') return 'غير مباشر';
+            return 'لا يوجد';
+        }
+
+        function getPersistenceLabel(value) {
+            const normalized = String(value || '').toLowerCase();
+            if (normalized === 'firebase_online') return 'أونلاين';
+            if (normalized === 'hybrid') return 'هجين';
+            if (normalized === 'local_temporary') return 'محلي مؤقت';
+            return 'ذاكرة فقط';
+        }
+
+        function getAdminFunctionStatusClass(status) {
+            const normalized = String(status || '').toLowerCase();
+            if (normalized === 'fail') return 'status-cancelled';
+            if (normalized === 'warn') return 'status-pending';
+            return 'status-confirmed';
+        }
+
+        function sanitizeAdminFunctionEntry(entry) {
+            const safe = entry && typeof entry === 'object' ? entry : {};
+            const status = ['ok', 'warn', 'fail'].includes(String(safe.status || '').toLowerCase())
+                ? String(safe.status || '').toLowerCase()
+                : 'ok';
+            const level = ['critical', 'warning', 'info'].includes(String(safe.monitorLevel || '').toLowerCase())
+                ? String(safe.monitorLevel || '').toLowerCase()
+                : 'info';
+            const storeImpact = ['direct', 'indirect', 'none'].includes(String(safe.storeImpact || '').toLowerCase())
+                ? String(safe.storeImpact || '').toLowerCase()
+                : 'none';
+            const mobileImpact = ['direct', 'indirect', 'none'].includes(String(safe.mobileImpact || '').toLowerCase())
+                ? String(safe.mobileImpact || '').toLowerCase()
+                : 'none';
+            const persistenceMode = ['firebase_online', 'hybrid', 'local_temporary', 'memory_only'].includes(String(safe.persistenceMode || '').toLowerCase())
+                ? String(safe.persistenceMode || '').toLowerCase()
+                : 'memory_only';
+            return {
+                name: String(safe.name || ''),
+                monitorLevel: level,
+                status,
+                reasonCode: String(safe.reasonCode || ''),
+                reasonText: String(safe.reasonText || ''),
+                group: String(safe.group || 'utility').toLowerCase(),
+                storeImpact,
+                mobileImpact,
+                persistenceMode
+            };
+        }
+
+        function renderAdminFunctionSummary() {
+            const totalEl = document.getElementById('adminFunctionsTotal');
+            const criticalEl = document.getElementById('adminFunctionsCritical');
+            const storeDirectEl = document.getElementById('adminFunctionsStoreDirect');
+            const mobileDirectEl = document.getElementById('adminFunctionsMobileDirect');
+            const failuresEl = document.getElementById('adminFunctionsFailures');
+            const metaEl = document.getElementById('adminFunctionsMeta');
+
+            const total = Array.isArray(adminFunctionRegistry) ? adminFunctionRegistry.length : 0;
+            const critical = adminFunctionRegistry.filter((item) => item.monitorLevel === 'critical').length;
+            const storeDirect = adminFunctionRegistry.filter((item) => item.storeImpact === 'direct').length;
+            const mobileDirect = adminFunctionRegistry.filter((item) => item.mobileImpact === 'direct').length;
+            const failures = adminFunctionRegistry.filter((item) => item.status === 'fail').length;
+            const filtered = Array.isArray(adminFunctionRegistryFiltered) ? adminFunctionRegistryFiltered.length : 0;
+
+            if (totalEl) totalEl.textContent = String(total);
+            if (criticalEl) criticalEl.textContent = String(critical);
+            if (storeDirectEl) storeDirectEl.textContent = String(storeDirect);
+            if (mobileDirectEl) mobileDirectEl.textContent = String(mobileDirect);
+            if (failuresEl) failuresEl.textContent = String(failures);
+
+            if (metaEl) {
+                const generatedAt = adminFunctionRegistryMeta && adminFunctionRegistryMeta.generatedAt
+                    ? formatDateTime(adminFunctionRegistryMeta.generatedAt)
+                    : '-';
+                const generatorVersion = adminFunctionRegistryMeta && adminFunctionRegistryMeta.generatorVersion
+                    ? String(adminFunctionRegistryMeta.generatorVersion)
+                    : '-';
+                metaEl.textContent = `الدوال: ${total} | المعروضة: ${filtered} | نسخة المولد: ${generatorVersion} | التوليد: ${generatedAt}`;
+            }
+        }
+
+        function renderAdminFunctionTable() {
+            const tbody = document.getElementById('adminFunctionsTable');
+            if (!tbody) return;
+
+            const rows = Array.isArray(adminFunctionRegistryFiltered) ? adminFunctionRegistryFiltered : [];
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🧭</div><p>لا توجد نتائج مطابقة للفلاتر.</p></div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map((item) => {
+                const name = escapeHtml(item.name || '-');
+                const levelLabel = escapeHtml(getAdminFunctionLevelLabel(item.monitorLevel));
+                const statusLabel = item.status === 'fail' ? 'فشل' : (item.status === 'warn' ? 'تحذير' : 'سليم');
+                const reason = escapeHtml(item.reasonText || item.reasonCode || 'لا توجد ملاحظات');
+                const groupLabel = escapeHtml(getAdminFunctionGroupLabel(item.group));
+                const storeImpact = escapeHtml(getImpactLabel(item.storeImpact));
+                const mobileImpact = escapeHtml(getImpactLabel(item.mobileImpact));
+                const persistence = escapeHtml(getPersistenceLabel(item.persistenceMode));
+                const levelClassName = item.monitorLevel === 'critical' ? 'status-cancelled' : (item.monitorLevel === 'warning' ? 'status-pending' : 'status-confirmed');
+                const statusClassName = getAdminFunctionStatusClass(item.status);
+
+                return `
+                    <tr>
+                        <td><strong>${name}</strong></td>
+                        <td><span class="status-badge ${levelClassName}">${levelLabel}</span></td>
+                        <td><span class="status-badge ${statusClassName}">${escapeHtml(statusLabel)}</span></td>
+                        <td style="max-width: 280px; white-space: normal; word-break: break-word;">${reason}</td>
+                        <td>${groupLabel}</td>
+                        <td>${storeImpact}</td>
+                        <td>${mobileImpact}</td>
+                        <td>${persistence}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function applyAdminFunctionFilters() {
+            const searchValue = String(document.getElementById('adminFunctionsSearch')?.value || '').trim().toLowerCase();
+            const levelFilter = String(document.getElementById('adminFunctionsLevelFilter')?.value || '').trim().toLowerCase();
+            const groupFilter = String(document.getElementById('adminFunctionsGroupFilter')?.value || '').trim().toLowerCase();
+            const storeImpactFilter = String(document.getElementById('adminFunctionsStoreImpactFilter')?.value || '').trim().toLowerCase();
+            const mobileImpactFilter = String(document.getElementById('adminFunctionsMobileImpactFilter')?.value || '').trim().toLowerCase();
+            const persistenceFilter = String(document.getElementById('adminFunctionsPersistenceFilter')?.value || '').trim().toLowerCase();
+
+            adminFunctionRegistryFiltered = adminFunctionRegistry.filter((item) => {
+                if (searchValue && !String(item.name || '').toLowerCase().includes(searchValue)) return false;
+                if (levelFilter && String(item.monitorLevel || '').toLowerCase() !== levelFilter) return false;
+                if (groupFilter && String(item.group || '').toLowerCase() !== groupFilter) return false;
+                if (storeImpactFilter && String(item.storeImpact || '').toLowerCase() !== storeImpactFilter) return false;
+                if (mobileImpactFilter && String(item.mobileImpact || '').toLowerCase() !== mobileImpactFilter) return false;
+                if (persistenceFilter && String(item.persistenceMode || '').toLowerCase() !== persistenceFilter) return false;
+                return true;
+            });
+
+            renderAdminFunctionSummary();
+            renderAdminFunctionTable();
+        }
+
+        async function refreshAdminFunctionMonitorView() {
+            try {
+                const response = await fetch(`./monitoring/admin-function-registry.json?t=${Date.now()}`, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`registry-fetch-${response.status}`);
+                }
+                const payload = await response.json();
+                const rows = Array.isArray(payload && payload.functions) ? payload.functions : [];
+
+                adminFunctionRegistry = rows.map((item) => sanitizeAdminFunctionEntry(item));
+                adminFunctionRegistryFiltered = [...adminFunctionRegistry];
+                adminFunctionRegistryMeta = {
+                    generatedAt: String(payload && payload.generatedAt || ''),
+                    generatorVersion: String(payload && payload.generatorVersion || ''),
+                    registryHash: String(payload && payload.registryHash || '')
+                };
+
+                applyAdminFunctionFilters();
+                logAdmin('info', 'ADMIN_FUNCTION_MONITOR_LOADED', 'Admin function registry loaded for dashboard', {
+                    total: adminFunctionRegistry.length
+                });
+            } catch (error) {
+                adminFunctionRegistry = [];
+                adminFunctionRegistryFiltered = [];
+                adminFunctionRegistryMeta = {
+                    generatedAt: '',
+                    generatorVersion: '',
+                    registryHash: ''
+                };
+                renderAdminFunctionSummary();
+                renderAdminFunctionTable();
+                logAdmin('warn', 'ADMIN_FUNCTION_MONITOR_LOAD_FAILED', 'Failed to load admin function registry', {
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                showNotification('error', 'فشل تحميل تقرير وظائف الأدمن');
+            }
+        }
+
         // ============================================
         // Excel Export/Import
         // ============================================
@@ -6721,6 +7127,7 @@ function adminLogout(){
                 renderStoreEventsTable();
                 renderLiveSessionsTable();
                 refreshStoreOperationsNow();
+                refreshAdminFunctionMonitorView();
             } else if (name === 'support') {
                 renderSupportThreads();
                 renderSupportMessages();

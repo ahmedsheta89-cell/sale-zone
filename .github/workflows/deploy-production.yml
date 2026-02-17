@@ -12,13 +12,6 @@ on:
         required: false
         default: "release/release-checklist.json"
         type: string
-  workflow_run:
-    workflows:
-      - Deploy Staging
-    types:
-      - completed
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -33,7 +26,6 @@ concurrency:
 jobs:
   verify-gates:
     name: verify-gates
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       target_sha: ${{ steps.sha.outputs.value }}
@@ -43,11 +35,8 @@ jobs:
         id: sha
         run: |
           manual_sha="${{ github.event.inputs.target_sha || '' }}"
-          workflow_sha="${{ github.event.workflow_run.head_sha || '' }}"
           if [ -n "$manual_sha" ]; then
             echo "value=$manual_sha" >> "$GITHUB_OUTPUT"
-          elif [ -n "$workflow_sha" ]; then
-            echo "value=$workflow_sha" >> "$GITHUB_OUTPUT"
           else
             echo "value=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           fi
@@ -73,6 +62,7 @@ jobs:
               { id: "release-gate.yml", label: "Release Gate" },
               { id: "deploy-staging.yml", label: "Deploy Staging" }
             ];
+            let stagingSuccessRun = null;
 
             for (const wf of requiredWorkflows) {
               const runs = await github.rest.actions.listWorkflowRuns({
@@ -91,6 +81,28 @@ jobs:
                 core.setFailed(`${wf.label} is not successful for SHA ${targetSha}`);
                 return;
               }
+
+              if (wf.id === "deploy-staging.yml") {
+                stagingSuccessRun = successRun;
+              }
+            }
+
+            if (!stagingSuccessRun) {
+              core.setFailed(`Deploy Staging success run was not found for SHA ${targetSha}`);
+              return;
+            }
+
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: stagingSuccessRun.id,
+              per_page: 100
+            });
+            const expectedArtifactName = `staging-${targetSha}`;
+            const hasExpectedArtifact = artifacts.data.artifacts.some((artifact) => artifact.name === expectedArtifactName);
+            if (!hasExpectedArtifact) {
+              core.setFailed(`Deploy Staging artifact "${expectedArtifactName}" not found for SHA ${targetSha}`);
+              return;
             }
 
             core.info(`All upstream gates passed for SHA ${targetSha}`);
@@ -111,6 +123,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
+
+      - name: Verify checkout SHA matches target
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          target_sha="${{ needs.verify-gates.outputs.target_sha }}"
+          if [[ "$actual_sha" != "$target_sha" ]]; then
+            echo "::error::Checkout SHA mismatch (actual=$actual_sha, target=$target_sha)"
+            exit 1
+          fi
 
       - name: Re-run full required checks on target SHA
         run: node tools/run-required-checks.js

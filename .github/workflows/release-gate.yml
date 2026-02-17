@@ -25,8 +25,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run preflight
         run: node tools/preflight.js
+
+  hash-stability:
+    name: hash-stability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Run hash stability check
+        run: node tools/hash-stability-check.js
 
   smoke-check:
     name: smoke-check
@@ -38,8 +55,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run smoke-check
         run: node tools/smoke-check.js
+
+  admin-function-monitor:
+    name: admin-function-monitor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Run admin function monitor
+        run: node tools/admin-function-monitor.js
 
   rules:
     name: rules
@@ -51,6 +85,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run rules gate
         run: node tools/rules-test.js
 
@@ -64,6 +100,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run E2E gate
         run: node tools/e2e-check.js
 
@@ -71,7 +109,9 @@ jobs:
     name: release-gate
     needs:
       - preflight
+      - hash-stability
       - smoke-check
+      - admin-function-monitor
       - rules
       - e2e
     if: always()
@@ -82,11 +122,13 @@ jobs:
           set -euo pipefail
           results=(
             "${{ needs.preflight.result }}"
+            "${{ needs.hash-stability.result }}"
             "${{ needs.smoke-check.result }}"
+            "${{ needs.admin-function-monitor.result }}"
             "${{ needs.rules.result }}"
             "${{ needs.e2e.result }}"
           )
-          names=(preflight smoke-check rules e2e)
+          names=(preflight hash-stability smoke-check admin-function-monitor rules e2e)
           for i in "${!results[@]}"; do
             if [[ "${results[$i]}" != "success" ]]; then
               echo "::error::${names[$i]} check is ${results[$i]}"

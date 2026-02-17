@@ -224,8 +224,14 @@ function setupFirestoreAutoReconnect() {
 
     // Do NOT force-enable Firestore on a timer by default.
     // Repeated enableNetwork() calls can destabilize some browsers/SDK states on long-polling transport.
-    const allowIntervalReconnect = parseOptionalBooleanFlag(urlParams.get('firestore_reconnect_interval')) === true
+    const intervalReconnectRequested = parseOptionalBooleanFlag(urlParams.get('firestore_reconnect_interval')) === true
         || window.__FIRESTORE_ENABLE_NETWORK_INTERVAL__ === true;
+    const allowIntervalReconnect = intervalReconnectRequested === true
+        && isGithubPages !== true
+        && forcePollingTransport !== true;
+    if (intervalReconnectRequested === true && allowIntervalReconnect !== true) {
+        console.info('[INFO] Firestore interval reconnect override ignored for GitHub Pages/long-polling mode.');
+    }
     if (allowIntervalReconnect) {
         setInterval(() => {
             if (navigator.onLine === false) return;

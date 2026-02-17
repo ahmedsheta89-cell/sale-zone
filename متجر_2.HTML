@@ -28,6 +28,7 @@
     <script src="firebase-data.js"></script>
     <script src="auth-utils.js"></script>
     <script src="security-utils.js"></script>
+    <script src="core/logger.js"></script>
     <script src="enhancement-utils.js"></script>
     <script src="storage-keys.js"></script>
     <script src="REAL_TIME_SYNC.js"></script>
@@ -1174,26 +1175,26 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupAutoTooltips();
             setChatStatus('وضع FAQ', true);
-            // ?? Minimal client-side error capture for mobile debugging
+            // Minimal client-side error capture buffer for local inspection.
             window.__errors = window.__errors || [];
-            window.onerror = function(message, source, lineno, colno, error) {
+            window.addEventListener('error', function(event) {
                 window.__errors.push({
                     type: 'error',
-                    message: String(message || ''),
-                    source: String(source || ''),
-                    line: lineno || 0,
-                    col: colno || 0,
-                    stack: error && error.stack ? String(error.stack) : ''
+                    message: String(event && event.message ? event.message : ''),
+                    source: String(event && event.filename ? event.filename : ''),
+                    line: event && event.lineno ? Number(event.lineno) : 0,
+                    col: event && event.colno ? Number(event.colno) : 0,
+                    stack: event && event.error && event.error.stack ? String(event.error.stack) : ''
                 });
-            };
-            window.onunhandledrejection = function(event) {
-                const reason = event && event.reason ? event.reason : '';
+            }, true);
+            window.addEventListener('unhandledrejection', function(event) {
+                const reason = event && typeof event.reason !== 'undefined' ? event.reason : '';
                 window.__errors.push({
                     type: 'unhandledrejection',
                     message: String(reason && reason.message ? reason.message : reason),
                     stack: reason && reason.stack ? String(reason.stack) : ''
                 });
-            };
+            }, true);
             const checkAppVersionAndRefresh = async () => {
                 try {
                     const res = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' });
@@ -1450,10 +1451,23 @@
             return [];
         }
 
+        function logStore(level, code, message, meta) {
+            try {
+                if (window.logger && typeof window.logger[level] === 'function') {
+                    window.logger[level](code, message, 'store.front', meta || {});
+                    return;
+                }
+            } catch (_) {}
+            const writer = (console && typeof console[level] === 'function') ? console[level].bind(console) : console.log.bind(console);
+            if (typeof meta === 'undefined') writer(`[${code}] ${message}`);
+            else writer(`[${code}] ${message}`, meta);
+        }
+
         async function loadData() {
             const localProducts = normalizeStoreProducts(allowLocalSeedDefaults ? [...defaultProducts] : []);
             const localCoupons = allowLocalSeedDefaults ? [...defaultCoupons] : [];
             const localBanners = allowLocalSeedDefaults ? [...defaultBanners] : [];
+            const localSettings = getStorageData('SETTINGS');
 
             const resolveList = (result, storageKey, localFallback, label) => {
                 if (result.status === 'fulfilled' && Array.isArray(result.value)) {
@@ -1477,15 +1491,26 @@
                 const productsReader = (typeof getPublishedProducts === 'function')
                     ? getPublishedProducts
                     : (typeof getAllProducts === 'function' ? getAllProducts : null);
-                const [productsResult, couponsResult, bannersResult] = await Promise.allSettled([
+                const [productsResult, couponsResult, bannersResult, settingsResult] = await Promise.allSettled([
                     (typeof productsReader === 'function' ? productsReader() : Promise.resolve(null)),
                     (typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null)),
-                    (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null))
+                    (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null)),
+                    (typeof getSettings === 'function' ? getSettings() : Promise.resolve(null))
                 ]);
 
                 products = normalizeStoreProducts(resolveList(productsResult, 'PRODUCTS', localProducts, 'Products'));
                 coupons = resolveList(couponsResult, 'COUPONS', localCoupons, 'Coupons');
                 banners = resolveList(bannersResult, 'BANNERS', localBanners, 'Banners');
+
+                if (settingsResult.status === 'fulfilled' && settingsResult.value && typeof settingsResult.value === 'object') {
+                    storeSettings = { ...storeSettings, ...settingsResult.value };
+                    setStorageData('SETTINGS', storeSettings);
+                    logStore('info', 'STORE_SETTINGS_REMOTE_OK', 'Settings loaded from Firebase', { source: 'firebase' });
+                } else if (localSettings && typeof localSettings === 'object') {
+                    storeSettings = { ...storeSettings, ...localSettings };
+                    logStore('info', 'STORE_SETTINGS_LOCAL_FALLBACK', 'Settings loaded from localStorage', { source: 'localStorage' });
+                }
+
                 users = [];
             } catch (error) {
                 console.warn('⚠️ Firebase error, using localStorage:', error);
@@ -1495,6 +1520,9 @@
                 products = normalizeStoreProducts(localProducts);
                 coupons = localCoupons;
                 banners = localBanners;
+                if (localSettings && typeof localSettings === 'object') {
+                    storeSettings = { ...storeSettings, ...localSettings };
+                }
                 users = [];
             }
 
@@ -1504,8 +1532,6 @@
             orders = [];
             try { removeStorageData('ORDERS'); } catch (_) {}
             
-            const savedSettings = getStorageData('SETTINGS');
-            if (savedSettings) storeSettings = { ...storeSettings, ...savedSettings };
             
             removeSeedDataIfNeeded();
             products = normalizeStoreProducts(products);

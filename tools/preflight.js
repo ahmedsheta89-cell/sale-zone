@@ -3,12 +3,18 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const root = process.cwd();
 const errors = [];
 const sourceExtRegex = /\.(html?|js|css)$/i;
 const htmlExtRegex = /\.html?$/i;
 const ignoredDirs = new Set(['.git', 'node_modules', 'tools']);
+
+function isCiEnvironment() {
+  return String(process.env.CI || '').toLowerCase() === 'true'
+    || String(process.env.GITHUB_ACTIONS || '').toLowerCase() === 'true';
+}
 
 function hasUtf8Bom(buf) {
   return buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf;
@@ -55,6 +61,19 @@ function checkMojibake(file, text) {
 }
 
 const sourceFiles = walk(root);
+
+if (!isCiEnvironment()) {
+  let hooksPath = '';
+  try {
+    hooksPath = String(execSync('git config --get core.hooksPath', { cwd: root, encoding: 'utf8' }) || '').trim();
+  } catch (_) {
+    hooksPath = '';
+  }
+
+  if (hooksPath !== '.githooks') {
+    errors.push(`git core.hooksPath is "${hooksPath || '(unset)'}", expected ".githooks" (run: node tools/ensure-githooks.js)`);
+  }
+}
 
 for (const file of sourceFiles) {
   const filePath = path.join(root, file);

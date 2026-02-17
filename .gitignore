@@ -67,3 +67,6 @@ backups/
 diff_output.txt
 
 sale-zone/
+
+# Generated runtime reports
+output/

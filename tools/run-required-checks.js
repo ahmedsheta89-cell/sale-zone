@@ -5,7 +5,9 @@ const { spawnSync } = require('child_process');
 
 const checks = [
   { name: 'preflight', command: ['node', 'tools/preflight.js'] },
+  { name: 'hash-stability', command: ['node', 'tools/hash-stability-check.js'] },
   { name: 'smoke-check', command: ['node', 'tools/smoke-check.js'] },
+  { name: 'admin-function-monitor', command: ['node', 'tools/admin-function-monitor.js'] },
   { name: 'rules', command: ['node', 'tools/rules-test.js'] },
   { name: 'e2e', command: ['node', 'tools/e2e-check.js'] }
 ];

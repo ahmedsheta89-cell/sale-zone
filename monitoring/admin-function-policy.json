@@ -1,0 +1,368 @@
+{
+  "generatorVersion": "1.0.0",
+  "policyVersion": "1.0.0",
+  "adminSource": "ادمن_2.HTML",
+  "groups": {
+    "products": {
+      "monitorLevel": "warning",
+      "storeImpact": "direct",
+      "mobileImpact": "direct",
+      "persistenceMode": "hybrid"
+    },
+    "orders": {
+      "monitorLevel": "warning",
+      "storeImpact": "direct",
+      "mobileImpact": "direct",
+      "persistenceMode": "firebase_online"
+    },
+    "banners": {
+      "monitorLevel": "warning",
+      "storeImpact": "direct",
+      "mobileImpact": "direct",
+      "persistenceMode": "firebase_online"
+    },
+    "coupons": {
+      "monitorLevel": "warning",
+      "storeImpact": "direct",
+      "mobileImpact": "direct",
+      "persistenceMode": "firebase_online"
+    },
+    "users": {
+      "monitorLevel": "warning",
+      "storeImpact": "direct",
+      "mobileImpact": "direct",
+      "persistenceMode": "hybrid"
+    },
+    "support": {
+      "monitorLevel": "warning",
+      "storeImpact": "indirect",
+      "mobileImpact": "indirect",
+      "persistenceMode": "firebase_online"
+    },
+    "loyalty": {
+      "monitorLevel": "warning",
+      "storeImpact": "indirect",
+      "mobileImpact": "direct",
+      "persistenceMode": "hybrid"
+    },
+    "settings": {
+      "monitorLevel": "warning",
+      "storeImpact": "direct",
+      "mobileImpact": "direct",
+      "persistenceMode": "hybrid"
+    },
+    "reports": {
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only"
+    },
+    "system": {
+      "monitorLevel": "info",
+      "storeImpact": "indirect",
+      "mobileImpact": "indirect",
+      "persistenceMode": "memory_only"
+    },
+    "utility": {
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only"
+    }
+  },
+  "groupRules": [
+    {
+      "pattern": "(Product|Products|Category|Batch|Import|Wizard|Supplier|sanitizeAllImages|runProductsSchemaMigration)",
+      "flags": "i",
+      "group": "products"
+    },
+    {
+      "pattern": "(Order|Orders|Status|WhatsApp|printOrder)",
+      "flags": "i",
+      "group": "orders"
+    },
+    {
+      "pattern": "Banner",
+      "flags": "i",
+      "group": "banners"
+    },
+    {
+      "pattern": "Coupon",
+      "flags": "i",
+      "group": "coupons"
+    },
+    {
+      "pattern": "(Customer|Users?|User)",
+      "flags": "i",
+      "group": "users"
+    },
+    {
+      "pattern": "Support",
+      "flags": "i",
+      "group": "support"
+    },
+    {
+      "pattern": "(Loyalty|Points)",
+      "flags": "i",
+      "group": "loyalty"
+    },
+    {
+      "pattern": "(Settings|storeSettings|switchTab|changeAdminPassword)",
+      "flags": "i",
+      "group": "settings"
+    },
+    {
+      "pattern": "(export|Chart|ClientError|StoreEvents|LiveSessions|Monitoring|getDeviceLabel|levelClass|safeJsonPreview)",
+      "flags": "i",
+      "group": "reports"
+    },
+    {
+      "pattern": "(checkAppVersionAndRefresh|setupServiceWorkerAutoUpdate|checkAdminSession|adminLogout|initDashboard|showSection|toggleSidebar|showNotification|preflight|purgeSample|loadAllData|requireAdminPermission|handleLogin|sendVerificationLink|sendPasswordReset|applyAutoTooltips|setupAutoTooltips)",
+      "flags": "i",
+      "group": "system"
+    }
+  ],
+  "criticalFunctions": [
+    {
+      "name": "saveProduct",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+requireAdminPermission\\(",
+          "flags": "m",
+          "reasonCode": "AUTH_GUARD_MISSING",
+          "reasonText": "فحص صلاحيات الأدمن غير متحقق."
+        },
+        {
+          "pattern": "await\\s+addProduct\\(",
+          "flags": "m",
+          "reasonCode": "CREATE_SYNC_MISSING",
+          "reasonText": "مسار إنشاء المنتج على Firebase غير متحقق."
+        },
+        {
+          "pattern": "await\\s+updateProduct\\(",
+          "flags": "m",
+          "reasonCode": "UPDATE_SYNC_MISSING",
+          "reasonText": "مسار تحديث المنتج على Firebase غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "deleteProduct",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+requireAdminPermission\\(",
+          "flags": "m",
+          "reasonCode": "AUTH_GUARD_MISSING",
+          "reasonText": "فحص صلاحيات الأدمن غير متحقق."
+        },
+        {
+          "pattern": "await\\s+deleteProductFromFirebase\\(",
+          "flags": "m",
+          "reasonCode": "DELETE_SYNC_MISSING",
+          "reasonText": "مسار حذف المنتج من Firebase غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "setAllProductsVisibility",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+requireAdminPermission\\(",
+          "flags": "m",
+          "reasonCode": "AUTH_GUARD_MISSING",
+          "reasonText": "فحص صلاحيات الأدمن غير متحقق."
+        },
+        {
+          "pattern": "updateProductsVisibilityBatch|updateProductVisibility",
+          "flags": "m",
+          "reasonCode": "BULK_VISIBILITY_SYNC_MISSING",
+          "reasonText": "مسار مزامنة نشر/إخفاء المنتجات غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "deleteAllProducts",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+requireAdminPermission\\(",
+          "flags": "m",
+          "reasonCode": "AUTH_GUARD_MISSING",
+          "reasonText": "فحص صلاحيات الأدمن غير متحقق."
+        },
+        {
+          "pattern": "deleteProductsBatch|deleteProductFromFirebase",
+          "flags": "m",
+          "reasonCode": "BULK_DELETE_SYNC_MISSING",
+          "reasonText": "مسار حذف جماعي من Firebase غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "saveSupplier",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+requireAdminPermission\\(",
+          "flags": "m",
+          "reasonCode": "AUTH_GUARD_MISSING",
+          "reasonText": "فحص صلاحيات الأدمن غير متحقق."
+        },
+        {
+          "pattern": "await\\s+updateSupplier\\(|await\\s+addSupplier\\(",
+          "flags": "m",
+          "reasonCode": "SUPPLIER_SYNC_MISSING",
+          "reasonText": "مزامنة المورد مع Firebase غير متحققة."
+        }
+      ]
+    },
+    {
+      "name": "toggleSupplierArchive",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+requireAdminPermission\\(",
+          "flags": "m",
+          "reasonCode": "AUTH_GUARD_MISSING",
+          "reasonText": "فحص صلاحيات الأدمن غير متحقق."
+        },
+        {
+          "pattern": "await\\s+archiveSupplier\\(|await\\s+updateSupplier\\(",
+          "flags": "m",
+          "reasonCode": "SUPPLIER_ARCHIVE_SYNC_MISSING",
+          "reasonText": "مزامنة حالة المورد غير متحققة."
+        }
+      ]
+    },
+    {
+      "name": "updateOrderStatus",
+      "requiredPatterns": [
+        {
+          "pattern": "__firebaseApiUpdateOrderStatus\\(",
+          "flags": "m",
+          "reasonCode": "ORDER_STATUS_SYNC_MISSING",
+          "reasonText": "مزامنة حالة الطلب مع Firebase غير متحققة."
+        }
+      ]
+    },
+    {
+      "name": "deleteOrder",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+updateOrderStatus\\(\\s*id\\s*,\\s*['\"]cancelled['\"]\\s*\\)",
+          "flags": "m",
+          "reasonCode": "ORDER_SOFT_DELETE_MISSING",
+          "reasonText": "مسار إلغاء الطلب الآمن غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "saveBanner",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+requireAdminPermission\\(",
+          "flags": "m",
+          "reasonCode": "AUTH_GUARD_MISSING",
+          "reasonText": "فحص صلاحيات الأدمن غير متحقق."
+        },
+        {
+          "pattern": "await\\s+addBanner\\(",
+          "flags": "m",
+          "reasonCode": "BANNER_CREATE_SYNC_MISSING",
+          "reasonText": "مزامنة إضافة البانر مع Firebase غير متحققة."
+        }
+      ]
+    },
+    {
+      "name": "deleteBanner",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+deleteBannerFromFirebase\\(",
+          "flags": "m",
+          "reasonCode": "BANNER_DELETE_SYNC_MISSING",
+          "reasonText": "مزامنة حذف البانر مع Firebase غير متحققة."
+        }
+      ]
+    },
+    {
+      "name": "saveCoupon",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+addCoupon\\(",
+          "flags": "m",
+          "reasonCode": "COUPON_CREATE_SYNC_MISSING",
+          "reasonText": "مزامنة إضافة الكوبون مع Firebase غير متحققة."
+        }
+      ]
+    },
+    {
+      "name": "deleteCoupon",
+      "requiredPatterns": [
+        {
+          "pattern": "await\\s+deleteCouponFromFirebase\\(",
+          "flags": "m",
+          "reasonCode": "COUPON_DELETE_SYNC_MISSING",
+          "reasonText": "مزامنة حذف الكوبون مع Firebase غير متحققة."
+        }
+      ]
+    },
+    {
+      "name": "saveStoreSettings",
+      "requiredPatterns": [
+        {
+          "pattern": "setStorageData\\('SETTINGS',\\s*storeSettings\\)",
+          "flags": "m",
+          "reasonCode": "SETTINGS_LOCAL_CACHE_MISSING",
+          "reasonText": "تحديث الكاش المحلي للإعدادات غير متحقق."
+        },
+        {
+          "pattern": "saveSettings\\(storeSettings\\)\\.catch\\(",
+          "flags": "m",
+          "reasonCode": "SETTINGS_REMOTE_SYNC_MISSING",
+          "reasonText": "مسار مزامنة إعدادات المتجر مع Firebase غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "saveGeneralSettings",
+      "requiredPatterns": [
+        {
+          "pattern": "saveStoreSettings\\(",
+          "flags": "m",
+          "reasonCode": "SETTINGS_PIPELINE_MISSING",
+          "reasonText": "مسار تمرير إعدادات القسم العام غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "saveTopBarSettings",
+      "requiredPatterns": [
+        {
+          "pattern": "saveStoreSettings\\(",
+          "flags": "m",
+          "reasonCode": "SETTINGS_PIPELINE_MISSING",
+          "reasonText": "مسار تمرير إعدادات الشريط العلوي غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "saveFooterSettings",
+      "requiredPatterns": [
+        {
+          "pattern": "saveStoreSettings\\(",
+          "flags": "m",
+          "reasonCode": "SETTINGS_PIPELINE_MISSING",
+          "reasonText": "مسار تمرير إعدادات الفوتر غير متحقق."
+        }
+      ]
+    },
+    {
+      "name": "saveContactSettings",
+      "requiredPatterns": [
+        {
+          "pattern": "saveStoreSettings\\(",
+          "flags": "m",
+          "reasonCode": "SETTINGS_PIPELINE_MISSING",
+          "reasonText": "مسار تمرير إعدادات التواصل غير متحقق."
+        }
+      ]
+    }
+  ]
+}
