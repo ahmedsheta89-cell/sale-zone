@@ -138,6 +138,30 @@ requirePattern(
   /function\s+applyAdminFunctionFilters\s*\(/,
   'admin function monitor filters are missing'
 );
+requirePattern(
+  adminHtml,
+  'admin-store-ops-notice',
+  /id="storeOpsAccessNotice"/,
+  'store operations permission notice is missing'
+);
+requirePattern(
+  adminHtml,
+  'admin-store-ops-handler',
+  /function\s+handleStoreOpsAccessError\s*\(/,
+  'store operations permission handler is missing'
+);
+requirePattern(
+  adminHtml,
+  'admin-store-ops-guard',
+  /function\s+canUseStoreOps\s*\(/,
+  'store operations guard function is missing'
+);
+requirePattern(
+  adminHtml,
+  'admin-store-ops-require-admin',
+  /async\s+function\s+startStoreOperationsMonitoring\s*\([\s\S]*await\s+requireAdminPermission\(\)/,
+  'store operations realtime start must require admin permission first'
+);
 forbidPattern(
   adminHtml,
   'admin-monitor-sensitive-patterns',
@@ -149,6 +173,30 @@ forbidPattern(
   'admin-monitor-sensitive-regex-findings',
   /regexValidationFindings/,
   'admin monitor UI must not expose regex validation internals'
+);
+forbidPattern(
+  adminHtml,
+  'admin-noisy-store-events-console-error',
+  /console\.error\(\s*['"]store events listener error:/,
+  'store events listener should not spam console.error on permission denials'
+);
+forbidPattern(
+  adminHtml,
+  'admin-noisy-live-sessions-console-error',
+  /console\.error\(\s*['"]live sessions listener error:/,
+  'live sessions listener should not spam console.error on permission denials'
+);
+forbidPattern(
+  adminHtml,
+  'admin-noisy-support-messages-console-error',
+  /console\.error\(\s*['"]support messages listener error:/,
+  'support messages listener should not spam console.error on permission denials'
+);
+forbidPattern(
+  adminHtml,
+  'admin-noisy-support-threads-console-error',
+  /console\.error\(\s*['"]support threads listener error:/,
+  'support threads listener should not spam console.error on permission denials'
 );
 
 if (failures.length) {

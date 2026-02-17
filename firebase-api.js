@@ -1659,11 +1659,11 @@ function subscribeStoreEvents(onData, onError, limitCount = 100) {
                     if (typeof onData === 'function') onData(rows);
                 },
                 (error) => {
-                    if (typeof onError === 'function') onError(error);
+                    if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeStoreEvents.listener'));
                 }
             );
     } catch (e) {
-        if (typeof onError === 'function') onError(e);
+        if (typeof onError === 'function') onError(normalizeFirebaseError(e, 'subscribeStoreEvents.setup'));
         return null;
     }
 }
@@ -1741,11 +1741,11 @@ function subscribeLiveSessions(onData, onError, limitCount = 200) {
                     if (typeof onData === 'function') onData(rows);
                 },
                 (error) => {
-                    if (typeof onError === 'function') onError(error);
+                    if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeLiveSessions.listener'));
                 }
             );
     } catch (e) {
-        if (typeof onError === 'function') onError(e);
+        if (typeof onError === 'function') onError(normalizeFirebaseError(e, 'subscribeLiveSessions.setup'));
         return null;
     }
 }
@@ -2048,11 +2048,11 @@ function subscribeSupportThreads(onData, onError, limitCount = 100) {
                     if (typeof onData === 'function') onData(rows);
                 },
                 (error) => {
-                    if (typeof onError === 'function') onError(error);
+                    if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeSupportThreads.listener'));
                 }
             );
     } catch (e) {
-        if (typeof onError === 'function') onError(e);
+        if (typeof onError === 'function') onError(normalizeFirebaseError(e, 'subscribeSupportThreads.setup'));
         return null;
     }
 }
@@ -2071,11 +2071,11 @@ function subscribeSupportThread(threadId, onData, onError) {
                     }
                 },
                 (error) => {
-                    if (typeof onError === 'function') onError(error);
+                    if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeSupportThread.listener'));
                 }
             );
     } catch (e) {
-        if (typeof onError === 'function') onError(e);
+        if (typeof onError === 'function') onError(normalizeFirebaseError(e, 'subscribeSupportThread.setup'));
         return null;
     }
 }
@@ -2097,11 +2097,11 @@ function subscribeSupportMessages(threadId, onData, onError, limitCount = 200) {
                     if (typeof onData === 'function') onData(rows);
                 },
                 (error) => {
-                    if (typeof onError === 'function') onError(error);
+                    if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeSupportMessages.listener'));
                 }
             );
     } catch (e) {
-        if (typeof onError === 'function') onError(e);
+        if (typeof onError === 'function') onError(normalizeFirebaseError(e, 'subscribeSupportMessages.setup'));
         return null;
     }
 }

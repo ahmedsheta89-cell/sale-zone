@@ -51,7 +51,7 @@ jobs:
             echo "checklist_path=release/release-checklist.json" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Ensure release gate and staging succeeded for target SHA
+      - name: Ensure release gate, staging, and firestore rules deploy succeeded for target SHA
         uses: actions/github-script@v7
         env:
           TARGET_SHA: ${{ steps.sha.outputs.value }}
@@ -60,7 +60,8 @@ jobs:
             const targetSha = process.env.TARGET_SHA;
             const requiredWorkflows = [
               { id: "release-gate.yml", label: "Release Gate" },
-              { id: "deploy-staging.yml", label: "Deploy Staging" }
+              { id: "deploy-staging.yml", label: "Deploy Staging" },
+              { id: "deploy-firestore-rules.yml", label: "Deploy Firestore Rules" }
             ];
             let stagingSuccessRun = null;
 

@@ -59,8 +59,18 @@ assertContains(adminHtml, /core\/logger\.js/, 'admin HTML: missing core/logger.j
 assertContains(adminHtml, /id="productCostPrice"/, 'admin HTML: missing product cost input', errors);
 assertContains(adminHtml, /function\s+runProductsSchemaMigration\s*\(/, 'admin HTML: missing schema migration action', errors);
 assertContains(adminHtml, /supportAccess\s*=\s*\{/, 'admin HTML: supportAccess state missing', errors);
+assertContains(adminHtml, /storeOpsAccess\s*=\s*\{/, 'admin HTML: storeOpsAccess state missing', errors);
 assertContains(adminHtml, /function\s+handleSupportAccessError\s*\(/, 'admin HTML: support access error handler missing', errors);
+assertContains(adminHtml, /function\s+handleStoreOpsAccessError\s*\(/, 'admin HTML: store operations access error handler missing', errors);
+assertContains(adminHtml, /function\s+canUseStoreOps\s*\(/, 'admin HTML: canUseStoreOps guard missing', errors);
 assertContains(adminHtml, /id="supportAccessNotice"/, 'admin HTML: support access notice missing', errors);
+assertContains(adminHtml, /id="storeOpsAccessNotice"/, 'admin HTML: store operations access notice missing', errors);
+assertContains(
+  adminHtml,
+  /async\s+function\s+startStoreOperationsMonitoring\s*\([\s\S]*await\s+requireAdminPermission\(\)[\s\S]*subscribeStoreEvents\(/,
+  'admin HTML: store operations must require admin permission before subscriptions',
+  errors
+);
 assertContains(adminHtml, /id="usersPaginationMeta"/, 'admin HTML: users pagination meta missing', errors);
 assertContains(adminHtml, /function\s+loadCustomersPage\s*\(/, 'admin HTML: loadCustomersPage() missing', errors);
 assertContains(adminHtml, /listCustomersPage\s*\(/, 'admin HTML: listCustomersPage() usage missing', errors);
@@ -83,6 +93,10 @@ assertNotContains(adminHtml, /window\.onerror\s*=/, 'admin HTML: direct window.o
 assertNotContains(adminHtml, /window\.onunhandledrejection\s*=/, 'admin HTML: direct window.onunhandledrejection assignment is not allowed', errors);
 assertNotContains(adminHtml, /requiredPatterns/, 'admin HTML: sensitive pattern internals must not be rendered in UI', errors);
 assertNotContains(adminHtml, /regexValidationFindings/, 'admin HTML: sensitive regex internals must not be rendered in UI', errors);
+assertNotContains(adminHtml, /console\.error\(\s*['"]store events listener error:/, 'admin HTML: noisy store events listener console.error should be removed', errors);
+assertNotContains(adminHtml, /console\.error\(\s*['"]live sessions listener error:/, 'admin HTML: noisy live sessions listener console.error should be removed', errors);
+assertNotContains(adminHtml, /console\.error\(\s*['"]support messages listener error:/, 'admin HTML: noisy support messages listener console.error should be removed', errors);
+assertNotContains(adminHtml, /console\.error\(\s*['"]support threads listener error:/, 'admin HTML: noisy support threads listener console.error should be removed', errors);
 
 assertContains(storeHtml, /product-search-worker\.js/, 'store HTML: missing worker reference path', errors);
 assertContains(storeHtml, /security-utils\.js/, 'store HTML: missing security-utils.js include', errors);

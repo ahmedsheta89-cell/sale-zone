@@ -1,15 +1,15 @@
 {
   "generatorVersion": "1.0.0",
-  "generatedAt": "2026-02-17T04:06:00.797Z",
+  "generatedAt": "2026-02-17T16:59:30.803Z",
   "sourceFile": "ادمن_2.HTML",
   "policyFile": "monitoring/admin-function-policy.json",
-  "sourceHash": "ec22c1f07e4f83281df04b51f26b3d98bcd1eae74dbf825a81ebd6a3018f4875",
+  "sourceHash": "43c614dc89a87ab3c13884b49db10d5eef61435bfd546c75a1853b0e62eb6779",
   "policyHash": "21916e642fd098fb48953ad7499534b0b8b158a786c8ea91f5aadbee472eddc4",
   "functions": [
     {
       "name": "adminLogout",
       "isAsync": false,
-      "line": 3038,
+      "line": 3052,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -23,7 +23,7 @@
     {
       "name": "analyzeSheetForImportCompatibility",
       "isAsync": false,
-      "line": 6398,
+      "line": 6589,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -37,7 +37,7 @@
     {
       "name": "applyAdminFunctionFilters",
       "isAsync": false,
-      "line": 6045,
+      "line": 6236,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -51,7 +51,7 @@
     {
       "name": "applyAutoTooltips",
       "isAsync": false,
-      "line": 7142,
+      "line": 7333,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -65,7 +65,7 @@
     {
       "name": "applyLocalProductUpdate",
       "isAsync": false,
-      "line": 3508,
+      "line": 3529,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -79,7 +79,7 @@
     {
       "name": "applyLocalProductVisibility",
       "isAsync": false,
-      "line": 3521,
+      "line": 3542,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -93,7 +93,7 @@
     {
       "name": "applyProductOpOnline",
       "isAsync": true,
-      "line": 2482,
+      "line": 2496,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -107,7 +107,7 @@
     {
       "name": "assignSupplierToSelectionPrompt",
       "isAsync": true,
-      "line": 4200,
+      "line": 4221,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -121,7 +121,7 @@
     {
       "name": "autoPurgeSamplesOnce",
       "isAsync": true,
-      "line": 7312,
+      "line": 7503,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -135,7 +135,7 @@
     {
       "name": "buildColumnMapping",
       "isAsync": false,
-      "line": 6570,
+      "line": 6761,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -149,7 +149,7 @@
     {
       "name": "buildProductPayloadFromForm",
       "isAsync": false,
-      "line": 3451,
+      "line": 3472,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -163,7 +163,7 @@
     {
       "name": "buildProductSearchTokensSafe",
       "isAsync": false,
-      "line": 2368,
+      "line": 2382,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -175,9 +175,23 @@
       "reasonText": "تم تسجيل الدالة ضمن المتابعة."
     },
     {
+      "name": "canUseStoreOps",
+      "isAsync": false,
+      "line": 5912,
+      "scriptIndex": 0,
+      "group": "utility",
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
       "name": "canUseSupportChat",
       "isAsync": false,
-      "line": 5090,
+      "line": 5138,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -191,7 +205,7 @@
     {
       "name": "changeAdminPassword",
       "isAsync": true,
-      "line": 7060,
+      "line": 7251,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "warning",
@@ -205,7 +219,7 @@
     {
       "name": "checkAdminSession",
       "isAsync": false,
-      "line": 2992,
+      "line": 3006,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -219,7 +233,7 @@
     {
       "name": "checkAppVersionAndRefresh",
       "isAsync": true,
-      "line": 2567,
+      "line": 2581,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -233,7 +247,21 @@
     {
       "name": "clearAllData",
       "isAsync": false,
-      "line": 7051,
+      "line": 7242,
+      "scriptIndex": 0,
+      "group": "utility",
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
+      "name": "clearStoreOpsAccessState",
+      "isAsync": false,
+      "line": 5879,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -247,7 +275,7 @@
     {
       "name": "clearSupportAccessState",
       "isAsync": false,
-      "line": 5056,
+      "line": 5104,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -261,7 +289,7 @@
     {
       "name": "clearSupportMessageSubscription",
       "isAsync": false,
-      "line": 5235,
+      "line": 5283,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -275,7 +303,7 @@
     {
       "name": "clearSupportThreadSubscription",
       "isAsync": false,
-      "line": 5242,
+      "line": 5290,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -289,7 +317,7 @@
     {
       "name": "closeActiveSupportThread",
       "isAsync": true,
-      "line": 5417,
+      "line": 5484,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -303,7 +331,7 @@
     {
       "name": "closeModal",
       "isAsync": false,
-      "line": 7174,
+      "line": 7365,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -317,7 +345,7 @@
     {
       "name": "commitImportBatch",
       "isAsync": true,
-      "line": 6872,
+      "line": 7063,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -331,7 +359,7 @@
     {
       "name": "copyPreflightReport",
       "isAsync": false,
-      "line": 7448,
+      "line": 7639,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -345,7 +373,7 @@
     {
       "name": "createEmptyImportWizardState",
       "isAsync": false,
-      "line": 6174,
+      "line": 6365,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -359,7 +387,7 @@
     {
       "name": "deleteAllProducts",
       "isAsync": true,
-      "line": 3732,
+      "line": 3753,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "critical",
@@ -373,7 +401,7 @@
     {
       "name": "deleteBanner",
       "isAsync": true,
-      "line": 4691,
+      "line": 4712,
       "scriptIndex": 0,
       "group": "banners",
       "monitorLevel": "critical",
@@ -387,7 +415,7 @@
     {
       "name": "deleteCoupon",
       "isAsync": true,
-      "line": 4795,
+      "line": 4816,
       "scriptIndex": 0,
       "group": "coupons",
       "monitorLevel": "critical",
@@ -401,7 +429,7 @@
     {
       "name": "deleteCustomer",
       "isAsync": true,
-      "line": 4987,
+      "line": 5008,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -415,7 +443,7 @@
     {
       "name": "deleteOrder",
       "isAsync": true,
-      "line": 4616,
+      "line": 4637,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "critical",
@@ -429,7 +457,7 @@
     {
       "name": "deleteProduct",
       "isAsync": true,
-      "line": 3933,
+      "line": 3954,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "critical",
@@ -443,7 +471,7 @@
     {
       "name": "detectHeaderRow",
       "isAsync": false,
-      "line": 6337,
+      "line": 6528,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -457,7 +485,7 @@
     {
       "name": "detectNumericCandidateColumns",
       "isAsync": false,
-      "line": 6369,
+      "line": 6560,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -471,7 +499,7 @@
     {
       "name": "editCustomer",
       "isAsync": true,
-      "line": 4949,
+      "line": 4970,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -485,7 +513,7 @@
     {
       "name": "editProduct",
       "isAsync": false,
-      "line": 3894,
+      "line": 3915,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -499,7 +527,7 @@
     {
       "name": "editSupplier",
       "isAsync": false,
-      "line": 4076,
+      "line": 4097,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -513,7 +541,7 @@
     {
       "name": "enqueuePendingProductOp",
       "isAsync": false,
-      "line": 2470,
+      "line": 2484,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -527,7 +555,7 @@
     {
       "name": "ensureProductsSchema",
       "isAsync": false,
-      "line": 2410,
+      "line": 2424,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -541,7 +569,7 @@
     {
       "name": "ensureSuppliersSchema",
       "isAsync": false,
-      "line": 2416,
+      "line": 2430,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -555,7 +583,7 @@
     {
       "name": "escapeHtml",
       "isAsync": false,
-      "line": 5672,
+      "line": 5742,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -569,7 +597,7 @@
     {
       "name": "exportAllDataJSON",
       "isAsync": false,
-      "line": 7020,
+      "line": 7211,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -583,7 +611,7 @@
     {
       "name": "exportClientErrorsExcel",
       "isAsync": false,
-      "line": 5742,
+      "line": 5812,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -597,7 +625,7 @@
     {
       "name": "exportCouponsExcel",
       "isAsync": false,
-      "line": 6141,
+      "line": 6332,
       "scriptIndex": 0,
       "group": "coupons",
       "monitorLevel": "warning",
@@ -611,7 +639,7 @@
     {
       "name": "exportFullReport",
       "isAsync": false,
-      "line": 6146,
+      "line": 6337,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -625,7 +653,7 @@
     {
       "name": "exportOrdersExcel",
       "isAsync": false,
-      "line": 6131,
+      "line": 6322,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -639,7 +667,7 @@
     {
       "name": "exportProductsExcel",
       "isAsync": false,
-      "line": 6108,
+      "line": 6299,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -653,7 +681,7 @@
     {
       "name": "exportToExcel",
       "isAsync": false,
-      "line": 6165,
+      "line": 6356,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -667,7 +695,7 @@
     {
       "name": "exportUsersExcel",
       "isAsync": false,
-      "line": 6136,
+      "line": 6327,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -681,7 +709,7 @@
     {
       "name": "flushPendingProductOps",
       "isAsync": true,
-      "line": 2538,
+      "line": 2552,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -695,7 +723,7 @@
     {
       "name": "formatDate",
       "isAsync": false,
-      "line": 4448,
+      "line": 4469,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -709,7 +737,7 @@
     {
       "name": "formatDateTime",
       "isAsync": false,
-      "line": 4453,
+      "line": 4474,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -723,7 +751,7 @@
     {
       "name": "getAdminFunctionGroupLabel",
       "isAsync": false,
-      "line": 5907,
+      "line": 6080,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -737,7 +765,7 @@
     {
       "name": "getAdminFunctionLevelLabel",
       "isAsync": false,
-      "line": 5900,
+      "line": 6073,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -751,7 +779,7 @@
     {
       "name": "getAdminFunctionStatusClass",
       "isAsync": false,
-      "line": 5939,
+      "line": 6112,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -765,7 +793,7 @@
     {
       "name": "getAllCategoryDefinitions",
       "isAsync": false,
-      "line": 3326,
+      "line": 3347,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -779,7 +807,7 @@
     {
       "name": "getBestSheetForImport",
       "isAsync": false,
-      "line": 6488,
+      "line": 6679,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -793,7 +821,7 @@
     {
       "name": "getCategoryName",
       "isAsync": false,
-      "line": 3385,
+      "line": 3406,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -807,7 +835,7 @@
     {
       "name": "getCurrentSheetAnalysis",
       "isAsync": false,
-      "line": 6445,
+      "line": 6636,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -821,7 +849,7 @@
     {
       "name": "getDefaultCategoryDefinitions",
       "isAsync": false,
-      "line": 3310,
+      "line": 3331,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -835,7 +863,7 @@
     {
       "name": "getDeviceLabel",
       "isAsync": false,
-      "line": 5684,
+      "line": 5754,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -849,7 +877,7 @@
     {
       "name": "getImpactLabel",
       "isAsync": false,
-      "line": 5924,
+      "line": 6097,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -863,7 +891,7 @@
     {
       "name": "getMappedValue",
       "isAsync": false,
-      "line": 6712,
+      "line": 6903,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -877,7 +905,21 @@
     {
       "name": "getPendingOpEffectiveId",
       "isAsync": false,
-      "line": 2445,
+      "line": 2459,
+      "scriptIndex": 0,
+      "group": "utility",
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
+      "name": "getPermissionErrorCode",
+      "isAsync": false,
+      "line": 5036,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -891,7 +933,7 @@
     {
       "name": "getPersistenceLabel",
       "isAsync": false,
-      "line": 5931,
+      "line": 6104,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -905,7 +947,7 @@
     {
       "name": "getSamplePurgeTargets",
       "isAsync": false,
-      "line": 7211,
+      "line": 7402,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -919,7 +961,7 @@
     {
       "name": "getStatusName",
       "isAsync": false,
-      "line": 4443,
+      "line": 4464,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -933,7 +975,7 @@
     {
       "name": "getSupplierById",
       "isAsync": false,
-      "line": 3390,
+      "line": 3411,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -947,7 +989,7 @@
     {
       "name": "getSupportAccessErrorCode",
       "isAsync": false,
-      "line": 5015,
+      "line": 5072,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -961,7 +1003,7 @@
     {
       "name": "getSupportThreadById",
       "isAsync": false,
-      "line": 5101,
+      "line": 5149,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -975,7 +1017,7 @@
     {
       "name": "getSupportThreadStatusClass",
       "isAsync": false,
-      "line": 5110,
+      "line": 5158,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -989,7 +1031,7 @@
     {
       "name": "getSupportThreadStatusLabel",
       "isAsync": false,
-      "line": 5106,
+      "line": 5154,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -1003,7 +1045,7 @@
     {
       "name": "getUserDisplayName",
       "isAsync": false,
-      "line": 4839,
+      "line": 4860,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -1017,7 +1059,7 @@
     {
       "name": "handleLogin",
       "isAsync": true,
-      "line": 2864,
+      "line": 2878,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -1031,7 +1073,7 @@
     {
       "name": "handlePointsAction",
       "isAsync": true,
-      "line": 5549,
+      "line": 5619,
       "scriptIndex": 0,
       "group": "loyalty",
       "monitorLevel": "warning",
@@ -1045,7 +1087,7 @@
     {
       "name": "handleProductSupplierChange",
       "isAsync": false,
-      "line": 3440,
+      "line": 3461,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1057,9 +1099,23 @@
       "reasonText": "تم تسجيل الدالة ضمن المتابعة."
     },
     {
+      "name": "handleStoreOpsAccessError",
+      "isAsync": false,
+      "line": 5887,
+      "scriptIndex": 0,
+      "group": "utility",
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
       "name": "handleSupportAccessError",
       "isAsync": false,
-      "line": 5064,
+      "line": 5112,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -1073,7 +1129,7 @@
     {
       "name": "hasAdminClaimFromTokenResult",
       "isAsync": false,
-      "line": 2850,
+      "line": 2864,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1087,7 +1143,7 @@
     {
       "name": "importAllDataJSON",
       "isAsync": false,
-      "line": 7030,
+      "line": 7221,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1101,7 +1157,7 @@
     {
       "name": "importProductsExcel",
       "isAsync": false,
-      "line": 7012,
+      "line": 7203,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1115,7 +1171,7 @@
     {
       "name": "inferCategory",
       "isAsync": false,
-      "line": 2307,
+      "line": 2321,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1129,7 +1185,7 @@
     {
       "name": "initCharts",
       "isAsync": false,
-      "line": 7084,
+      "line": 7275,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -1143,7 +1199,7 @@
     {
       "name": "initDashboard",
       "isAsync": false,
-      "line": 3063,
+      "line": 3077,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -1157,7 +1213,21 @@
     {
       "name": "isExternalImageUrl",
       "isAsync": false,
-      "line": 3239,
+      "line": 3260,
+      "scriptIndex": 0,
+      "group": "utility",
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
+      "name": "isPermissionDenied",
+      "isAsync": false,
+      "line": 5042,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1171,7 +1241,7 @@
     {
       "name": "isSupportPermissionDenied",
       "isAsync": false,
-      "line": 5021,
+      "line": 5076,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -1185,7 +1255,7 @@
     {
       "name": "levelClass",
       "isAsync": false,
-      "line": 5762,
+      "line": 5832,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -1199,7 +1269,7 @@
     {
       "name": "loadAllData",
       "isAsync": true,
-      "line": 2696,
+      "line": 2710,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -1213,7 +1283,7 @@
     {
       "name": "loadCustomersPage",
       "isAsync": true,
-      "line": 4876,
+      "line": 4897,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -1227,7 +1297,7 @@
     {
       "name": "loadOrdersPage",
       "isAsync": true,
-      "line": 4360,
+      "line": 4381,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -1241,7 +1311,7 @@
     {
       "name": "loadPendingProductOps",
       "isAsync": false,
-      "line": 2432,
+      "line": 2446,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1255,7 +1325,7 @@
     {
       "name": "loadProductFilterView",
       "isAsync": false,
-      "line": 3216,
+      "line": 3237,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1269,7 +1339,7 @@
     {
       "name": "loadSettingsToForms",
       "isAsync": false,
-      "line": 5576,
+      "line": 5646,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "warning",
@@ -1283,7 +1353,21 @@
     {
       "name": "logAdmin",
       "isAsync": false,
-      "line": 2827,
+      "line": 2841,
+      "scriptIndex": 0,
+      "group": "utility",
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
+      "name": "logWarnOnce",
+      "isAsync": false,
+      "line": 5053,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1297,7 +1381,7 @@
     {
       "name": "makeImportBatchId",
       "isAsync": false,
-      "line": 2327,
+      "line": 2341,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1311,7 +1395,7 @@
     {
       "name": "markManualSellPriceOverride",
       "isAsync": false,
-      "line": 3433,
+      "line": 3454,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1325,7 +1409,7 @@
     {
       "name": "nextImportWizardStep",
       "isAsync": false,
-      "line": 6821,
+      "line": 7012,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1339,7 +1423,7 @@
     {
       "name": "normalizeArabicHeader",
       "isAsync": false,
-      "line": 2294,
+      "line": 2308,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1353,7 +1437,7 @@
     {
       "name": "normalizeProductForStorage",
       "isAsync": false,
-      "line": 2375,
+      "line": 2389,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1367,7 +1451,7 @@
     {
       "name": "openAddCategoryPrompt",
       "isAsync": false,
-      "line": 3354,
+      "line": 3375,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1381,7 +1465,7 @@
     {
       "name": "openImportWizard",
       "isAsync": false,
-      "line": 6245,
+      "line": 6436,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1395,7 +1479,7 @@
     {
       "name": "openModal",
       "isAsync": false,
-      "line": 7168,
+      "line": 7359,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1409,7 +1493,7 @@
     {
       "name": "openProductModal",
       "isAsync": false,
-      "line": 7169,
+      "line": 7360,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1423,7 +1507,7 @@
     {
       "name": "openSupplierModal",
       "isAsync": false,
-      "line": 4059,
+      "line": 4080,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1437,7 +1521,7 @@
     {
       "name": "parseMoney",
       "isAsync": false,
-      "line": 2318,
+      "line": 2332,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1451,7 +1535,7 @@
     {
       "name": "parseStockValue",
       "isAsync": false,
-      "line": 6720,
+      "line": 6911,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1465,7 +1549,7 @@
     {
       "name": "parseWorkbook",
       "isAsync": true,
-      "line": 6640,
+      "line": 6831,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1479,7 +1563,7 @@
     {
       "name": "patchPendingAddByTempId",
       "isAsync": false,
-      "line": 2452,
+      "line": 2466,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1493,7 +1577,7 @@
     {
       "name": "persistPendingProductOps",
       "isAsync": false,
-      "line": 2441,
+      "line": 2455,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1507,7 +1591,7 @@
     {
       "name": "prevImportWizardStep",
       "isAsync": false,
-      "line": 6866,
+      "line": 7057,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1521,7 +1605,7 @@
     {
       "name": "printOrder",
       "isAsync": false,
-      "line": 4575,
+      "line": 4596,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -1535,7 +1619,7 @@
     {
       "name": "publishBatchPrompt",
       "isAsync": true,
-      "line": 3663,
+      "line": 3684,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1549,7 +1633,7 @@
     {
       "name": "purgeSampleData",
       "isAsync": true,
-      "line": 7245,
+      "line": 7436,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -1563,7 +1647,7 @@
     {
       "name": "quickAddPoints",
       "isAsync": true,
-      "line": 5505,
+      "line": 5575,
       "scriptIndex": 0,
       "group": "loyalty",
       "monitorLevel": "warning",
@@ -1577,7 +1661,7 @@
     {
       "name": "quickSubPoints",
       "isAsync": true,
-      "line": 5527,
+      "line": 5597,
       "scriptIndex": 0,
       "group": "loyalty",
       "monitorLevel": "warning",
@@ -1591,7 +1675,7 @@
     {
       "name": "readWizardMappingFromUI",
       "isAsync": false,
-      "line": 6695,
+      "line": 6886,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1605,7 +1689,7 @@
     {
       "name": "recalculateProductPricingFromForm",
       "isAsync": false,
-      "line": 3407,
+      "line": 3428,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1619,7 +1703,7 @@
     {
       "name": "recalculateSupplierPrompt",
       "isAsync": true,
-      "line": 4259,
+      "line": 4280,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1633,7 +1717,7 @@
     {
       "name": "refreshAdminFunctionMonitorView",
       "isAsync": true,
-      "line": 6067,
+      "line": 6258,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1647,7 +1731,7 @@
     {
       "name": "refreshClientErrorLogs",
       "isAsync": true,
-      "line": 5721,
+      "line": 5791,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -1661,7 +1745,7 @@
     {
       "name": "refreshStoreOperationsNow",
       "isAsync": true,
-      "line": 5882,
+      "line": 6047,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1675,7 +1759,7 @@
     {
       "name": "refreshSupportThreads",
       "isAsync": true,
-      "line": 5300,
+      "line": 5353,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -1689,7 +1773,7 @@
     {
       "name": "removeQueuedOpsForProduct",
       "isAsync": false,
-      "line": 3538,
+      "line": 3559,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1703,7 +1787,7 @@
     {
       "name": "renderAdminFunctionSummary",
       "isAsync": false,
-      "line": 5976,
+      "line": 6149,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1717,7 +1801,7 @@
     {
       "name": "renderAdminFunctionTable",
       "isAsync": false,
-      "line": 6008,
+      "line": 6199,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1731,7 +1815,7 @@
     {
       "name": "renderAdminSupplierFilterOptions",
       "isAsync": false,
-      "line": 3191,
+      "line": 3212,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1745,7 +1829,7 @@
     {
       "name": "renderBannersTable",
       "isAsync": false,
-      "line": 4630,
+      "line": 4651,
       "scriptIndex": 0,
       "group": "banners",
       "monitorLevel": "warning",
@@ -1759,7 +1843,7 @@
     {
       "name": "renderClientErrorLogsTable",
       "isAsync": false,
-      "line": 5692,
+      "line": 5762,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -1773,7 +1857,7 @@
     {
       "name": "renderCouponsTable",
       "isAsync": false,
-      "line": 4719,
+      "line": 4740,
       "scriptIndex": 0,
       "group": "coupons",
       "monitorLevel": "warning",
@@ -1787,7 +1871,7 @@
     {
       "name": "renderLiveSessionsTable",
       "isAsync": false,
-      "line": 5809,
+      "line": 5953,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -1801,7 +1885,7 @@
     {
       "name": "renderLoyaltySection",
       "isAsync": false,
-      "line": 5449,
+      "line": 5519,
       "scriptIndex": 0,
       "group": "loyalty",
       "monitorLevel": "warning",
@@ -1815,7 +1899,7 @@
     {
       "name": "renderOrdersTable",
       "isAsync": false,
-      "line": 4323,
+      "line": 4344,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -1829,7 +1913,7 @@
     {
       "name": "renderProductCategoryOptions",
       "isAsync": false,
-      "line": 3339,
+      "line": 3360,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1843,7 +1927,7 @@
     {
       "name": "renderProductsTable",
       "isAsync": false,
-      "line": 3130,
+      "line": 3151,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1857,7 +1941,7 @@
     {
       "name": "renderRecentOrders",
       "isAsync": false,
-      "line": 4417,
+      "line": 4438,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -1871,7 +1955,7 @@
     {
       "name": "renderStoreEventsTable",
       "isAsync": false,
-      "line": 5779,
+      "line": 5923,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -1885,7 +1969,7 @@
     {
       "name": "renderSupplierOptions",
       "isAsync": false,
-      "line": 3396,
+      "line": 3417,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1899,7 +1983,7 @@
     {
       "name": "renderSuppliersTable",
       "isAsync": false,
-      "line": 4025,
+      "line": 4046,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1913,7 +1997,7 @@
     {
       "name": "renderSupportMessages",
       "isAsync": false,
-      "line": 5169,
+      "line": 5217,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -1927,7 +2011,7 @@
     {
       "name": "renderSupportThreads",
       "isAsync": false,
-      "line": 5118,
+      "line": 5166,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -1941,7 +2025,7 @@
     {
       "name": "renderUsersTable",
       "isAsync": false,
-      "line": 4845,
+      "line": 4866,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -1955,7 +2039,7 @@
     {
       "name": "renderWizardFileValidationReport",
       "isAsync": false,
-      "line": 6453,
+      "line": 6644,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1969,7 +2053,7 @@
     {
       "name": "renderWizardTable",
       "isAsync": false,
-      "line": 6277,
+      "line": 6468,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1983,7 +2067,7 @@
     {
       "name": "renderWizardValidationReport",
       "isAsync": false,
-      "line": 6726,
+      "line": 6917,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1997,7 +2081,7 @@
     {
       "name": "requireAdminPermission",
       "isAsync": true,
-      "line": 2854,
+      "line": 2868,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2011,7 +2095,7 @@
     {
       "name": "resetCustomerPassword",
       "isAsync": true,
-      "line": 5008,
+      "line": 5029,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -2025,7 +2109,7 @@
     {
       "name": "resetImportWizardState",
       "isAsync": false,
-      "line": 6210,
+      "line": 6401,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2039,7 +2123,7 @@
     {
       "name": "resetProductForm",
       "isAsync": false,
-      "line": 3970,
+      "line": 3991,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2053,7 +2137,7 @@
     {
       "name": "resetSupplierForm",
       "isAsync": false,
-      "line": 4064,
+      "line": 4085,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2067,7 +2151,7 @@
     {
       "name": "resolveAutoMapping",
       "isAsync": false,
-      "line": 6554,
+      "line": 6745,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2081,7 +2165,7 @@
     {
       "name": "resolveProductPricingFields",
       "isAsync": false,
-      "line": 2331,
+      "line": 2345,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2095,7 +2179,7 @@
     {
       "name": "runPreflightCheck",
       "isAsync": true,
-      "line": 7396,
+      "line": 7587,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2109,7 +2193,7 @@
     {
       "name": "runProductsSchemaMigration",
       "isAsync": true,
-      "line": 7318,
+      "line": 7509,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2123,7 +2207,7 @@
     {
       "name": "safeJsonPreview",
       "isAsync": false,
-      "line": 5769,
+      "line": 5839,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -2137,7 +2221,7 @@
     {
       "name": "safeSupportTime",
       "isAsync": false,
-      "line": 5114,
+      "line": 5162,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -2151,7 +2235,7 @@
     {
       "name": "sanitizeAdminFunctionEntry",
       "isAsync": false,
-      "line": 5946,
+      "line": 6119,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2165,7 +2249,7 @@
     {
       "name": "sanitizeAllImages",
       "isAsync": true,
-      "line": 3252,
+      "line": 3273,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2179,7 +2263,7 @@
     {
       "name": "sanitizeCategoryId",
       "isAsync": false,
-      "line": 3320,
+      "line": 3341,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2193,7 +2277,7 @@
     {
       "name": "sanitizeImageUrl",
       "isAsync": false,
-      "line": 3110,
+      "line": 3131,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2207,7 +2291,7 @@
     {
       "name": "saveAdminPassword",
       "isAsync": false,
-      "line": 2826,
+      "line": 2840,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2221,7 +2305,7 @@
     {
       "name": "saveBanner",
       "isAsync": true,
-      "line": 4654,
+      "line": 4675,
       "scriptIndex": 0,
       "group": "banners",
       "monitorLevel": "critical",
@@ -2235,7 +2319,7 @@
     {
       "name": "saveBanners",
       "isAsync": false,
-      "line": 2823,
+      "line": 2837,
       "scriptIndex": 0,
       "group": "banners",
       "monitorLevel": "warning",
@@ -2249,7 +2333,7 @@
     {
       "name": "saveContactSettings",
       "isAsync": false,
-      "line": 5650,
+      "line": 5720,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "critical",
@@ -2263,7 +2347,7 @@
     {
       "name": "saveCoupon",
       "isAsync": true,
-      "line": 4744,
+      "line": 4765,
       "scriptIndex": 0,
       "group": "coupons",
       "monitorLevel": "critical",
@@ -2277,7 +2361,7 @@
     {
       "name": "saveCoupons",
       "isAsync": false,
-      "line": 2822,
+      "line": 2836,
       "scriptIndex": 0,
       "group": "coupons",
       "monitorLevel": "warning",
@@ -2291,7 +2375,7 @@
     {
       "name": "saveFooterSettings",
       "isAsync": false,
-      "line": 5637,
+      "line": 5707,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "critical",
@@ -2305,7 +2389,7 @@
     {
       "name": "saveGeneralSettings",
       "isAsync": false,
-      "line": 5599,
+      "line": 5669,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "critical",
@@ -2319,7 +2403,7 @@
     {
       "name": "saveLoyaltySettings",
       "isAsync": false,
-      "line": 5494,
+      "line": 5564,
       "scriptIndex": 0,
       "group": "loyalty",
       "monitorLevel": "warning",
@@ -2333,7 +2417,7 @@
     {
       "name": "saveOrders",
       "isAsync": false,
-      "line": 2817,
+      "line": 2831,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -2347,7 +2431,7 @@
     {
       "name": "saveProduct",
       "isAsync": true,
-      "line": 3777,
+      "line": 3798,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "critical",
@@ -2361,7 +2445,7 @@
     {
       "name": "saveProductFilterView",
       "isAsync": false,
-      "line": 3202,
+      "line": 3223,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2375,7 +2459,7 @@
     {
       "name": "saveProducts",
       "isAsync": false,
-      "line": 2798,
+      "line": 2812,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2389,7 +2473,7 @@
     {
       "name": "saveStoreSettings",
       "isAsync": false,
-      "line": 2838,
+      "line": 2852,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "critical",
@@ -2403,7 +2487,7 @@
     {
       "name": "saveSupplier",
       "isAsync": true,
-      "line": 4092,
+      "line": 4113,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "critical",
@@ -2417,7 +2501,7 @@
     {
       "name": "saveSuppliers",
       "isAsync": false,
-      "line": 2825,
+      "line": 2839,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2431,7 +2515,7 @@
     {
       "name": "saveTopBarSettings",
       "isAsync": false,
-      "line": 5625,
+      "line": 5695,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "critical",
@@ -2445,7 +2529,7 @@
     {
       "name": "saveUsers",
       "isAsync": false,
-      "line": 2824,
+      "line": 2838,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -2459,7 +2543,7 @@
     {
       "name": "scoreHeaderCell",
       "isAsync": false,
-      "line": 6317,
+      "line": 6508,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2473,7 +2557,7 @@
     {
       "name": "selectImportSheet",
       "isAsync": false,
-      "line": 6511,
+      "line": 6702,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2487,7 +2571,7 @@
     {
       "name": "selectSupportThread",
       "isAsync": true,
-      "line": 5249,
+      "line": 5297,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -2501,7 +2585,7 @@
     {
       "name": "sendPasswordReset",
       "isAsync": true,
-      "line": 2972,
+      "line": 2986,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2515,7 +2599,7 @@
     {
       "name": "sendSupportReply",
       "isAsync": true,
-      "line": 5378,
+      "line": 5442,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -2529,7 +2613,7 @@
     {
       "name": "sendVerificationLink",
       "isAsync": true,
-      "line": 2944,
+      "line": 2958,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2543,7 +2627,7 @@
     {
       "name": "sendWhatsAppUpdate",
       "isAsync": false,
-      "line": 4567,
+      "line": 4588,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -2557,7 +2641,7 @@
     {
       "name": "setAllProductsVisibility",
       "isAsync": true,
-      "line": 3678,
+      "line": 3699,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "critical",
@@ -2571,7 +2655,7 @@
     {
       "name": "setHeaderRowManual",
       "isAsync": false,
-      "line": 6599,
+      "line": 6790,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2585,7 +2669,7 @@
     {
       "name": "setWizardProgress",
       "isAsync": false,
-      "line": 6202,
+      "line": 6393,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2599,7 +2683,7 @@
     {
       "name": "setupAutoTooltips",
       "isAsync": false,
-      "line": 7160,
+      "line": 7351,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2613,7 +2697,7 @@
     {
       "name": "setupServiceWorkerAutoUpdate",
       "isAsync": false,
-      "line": 2601,
+      "line": 2615,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2627,7 +2711,7 @@
     {
       "name": "showImportWizardStep",
       "isAsync": false,
-      "line": 6250,
+      "line": 6441,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2641,7 +2725,7 @@
     {
       "name": "showNotification",
       "isAsync": false,
-      "line": 7189,
+      "line": 7380,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2655,7 +2739,7 @@
     {
       "name": "showSection",
       "isAsync": false,
-      "line": 7115,
+      "line": 7306,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2669,7 +2753,7 @@
     {
       "name": "startCustomersRealtimeSync",
       "isAsync": false,
-      "line": 4941,
+      "line": 4962,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -2682,8 +2766,8 @@
     },
     {
       "name": "startStoreOperationsMonitoring",
-      "isAsync": false,
-      "line": 5856,
+      "isAsync": true,
+      "line": 6001,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -2697,7 +2781,7 @@
     {
       "name": "startSupportChatRealtime",
       "isAsync": true,
-      "line": 5323,
+      "line": 5379,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -2711,7 +2795,7 @@
     {
       "name": "stopCustomersRealtimeSync",
       "isAsync": false,
-      "line": 4945,
+      "line": 4966,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -2725,7 +2809,7 @@
     {
       "name": "stopStoreOperationsMonitoring",
       "isAsync": false,
-      "line": 5849,
+      "line": 5993,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -2739,7 +2823,7 @@
     {
       "name": "stopSupportChatRealtime",
       "isAsync": false,
-      "line": 5370,
+      "line": 5434,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -2753,7 +2837,7 @@
     {
       "name": "switchTab",
       "isAsync": false,
-      "line": 5662,
+      "line": 5732,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "warning",
@@ -2767,7 +2851,7 @@
     {
       "name": "syncCustomersFromFirebaseNow",
       "isAsync": true,
-      "line": 4932,
+      "line": 4953,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -2781,7 +2865,7 @@
     {
       "name": "toggleProductPublish",
       "isAsync": true,
-      "line": 3549,
+      "line": 3570,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2795,7 +2879,7 @@
     {
       "name": "toggleSidebar",
       "isAsync": false,
-      "line": 7137,
+      "line": 7328,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2809,7 +2893,7 @@
     {
       "name": "toggleSupplierArchive",
       "isAsync": true,
-      "line": 4167,
+      "line": 4188,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "critical",
@@ -2823,7 +2907,7 @@
     {
       "name": "updateBadges",
       "isAsync": false,
-      "line": 3095,
+      "line": 3116,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2837,7 +2921,7 @@
     {
       "name": "updateBatchVisibility",
       "isAsync": true,
-      "line": 3597,
+      "line": 3618,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2851,7 +2935,7 @@
     {
       "name": "updateOrderStatus",
       "isAsync": true,
-      "line": 4538,
+      "line": 4559,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "critical",
@@ -2865,7 +2949,7 @@
     {
       "name": "updateOrdersPaginationUi",
       "isAsync": false,
-      "line": 4307,
+      "line": 4328,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -2879,7 +2963,21 @@
     {
       "name": "updateStats",
       "isAsync": false,
-      "line": 3087,
+      "line": 3108,
+      "scriptIndex": 0,
+      "group": "utility",
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
+      "name": "updateStoreOpsAccessUi",
+      "isAsync": false,
+      "line": 5849,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2893,7 +2991,7 @@
     {
       "name": "updateSupportAccessUi",
       "isAsync": false,
-      "line": 5032,
+      "line": 5080,
       "scriptIndex": 0,
       "group": "support",
       "monitorLevel": "warning",
@@ -2907,7 +3005,7 @@
     {
       "name": "updateUsersPaginationUi",
       "isAsync": false,
-      "line": 4823,
+      "line": 4844,
       "scriptIndex": 0,
       "group": "users",
       "monitorLevel": "warning",
@@ -2921,7 +3019,7 @@
     {
       "name": "uploadAndPreview",
       "isAsync": true,
-      "line": 7458,
+      "line": 7649,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2935,7 +3033,7 @@
     {
       "name": "validateImportRows",
       "isAsync": false,
-      "line": 6741,
+      "line": 6932,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2949,7 +3047,7 @@
     {
       "name": "viewOrder",
       "isAsync": false,
-      "line": 4460,
+      "line": 4481,
       "scriptIndex": 0,
       "group": "orders",
       "monitorLevel": "warning",
@@ -2959,7 +3057,21 @@
       "status": "ok",
       "reasonCode": "BASELINE_OK",
       "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
+      "name": "warnPermissionDeniedOnce",
+      "isAsync": false,
+      "line": 5065,
+      "scriptIndex": 0,
+      "group": "utility",
+      "monitorLevel": "info",
+      "storeImpact": "none",
+      "mobileImpact": "none",
+      "persistenceMode": "memory_only",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
     }
   ],
-  "registryHash": "b7f4d4846134164cececbf0cd839f719e93a77d7c62bef72c16deee983fd7045"
+  "registryHash": "b47632c59eafcffac582cdbf8ecd9ce7111bb4cbfd162d961e1c6a11f9fea2b4"
 }

@@ -1355,6 +1355,7 @@
                         </div>
                     </div>
                     <div class="section-body">
+                        <div id="storeOpsAccessNotice" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:10px;background:#fff4e5;color:#8a4b08;font-size:12px;font-weight:600;"></div>
                         <div class="stats-grid" style="margin-bottom: 14px;">
                             <div class="stat-card users">
                                 <div class="stat-icon">🟢</div>
@@ -1448,6 +1449,12 @@
 
                         <p id="adminFunctionsMeta" style="color: #666; margin-bottom: 12px; font-size: 13px;">
                             جارٍ تحميل سجل وظائف الأدمن...
+                        </p>
+                        <p id="adminFunctionsImpactSummary" style="color: #666; margin-bottom: 6px; font-size: 12px;">
+                            تأثير المتجر/الموبايل: جارٍ التحميل...
+                        </p>
+                        <p id="adminFunctionsPersistenceSummary" style="color: #666; margin-bottom: 12px; font-size: 12px;">
+                            نمط الحفظ: جارٍ التحميل...
                         </p>
 
                         <div class="form-row-3">
@@ -2245,8 +2252,15 @@
             source: '',
             notifiedReason: ''
         };
+        let storeOpsAccess = {
+            denied: false,
+            reason: '',
+            source: '',
+            notifiedReason: ''
+        };
         let storeEventsUnsubscribe = null;
         let liveSessionsUnsubscribe = null;
+        const warningLogOnce = new Set();
         // 🔐 تحسين الأمان: كلمة مرور قوية افتراضياً
         // ⚠️ يُنصح بتغييرها فوراً بعد أول تسجيل دخول
         let adminPassword = null;
@@ -3076,11 +3090,18 @@ function adminLogout(){
             renderClientErrorLogsTable();
             renderStoreEventsTable();
             renderLiveSessionsTable();
+            updateStoreOpsAccessUi();
             renderSupportThreads();
             renderSupportMessages();
             loadSettingsToForms();
             initCharts();
-            startStoreOperationsMonitoring();
+            startStoreOperationsMonitoring().catch((error) => {
+                logWarnOnce(
+                    'startStoreOperationsMonitoring.init.warning',
+                    'store operations init warning:',
+                    String(error && error.message ? error.message : error)
+                );
+            });
             startSupportChatRealtime();
         }
 
@@ -5012,21 +5033,48 @@ function adminLogout(){
         // ============================================
         // Internal Support Chat
         // ============================================
-        function getSupportAccessErrorCode(error) {
+        function getPermissionErrorCode(error) {
             const rawCode = String(error && (error.code || error.errorCode) || '').trim().toLowerCase();
             if (!rawCode) return '';
             return rawCode.startsWith('firebase/') ? rawCode.slice('firebase/'.length) : rawCode;
         }
 
-        function isSupportPermissionDenied(error) {
+        function isPermissionDenied(error) {
             if (!error) return false;
             if (error.permissionDenied === true) return true;
-            const code = getSupportAccessErrorCode(error);
+            const code = getPermissionErrorCode(error);
             if (code === 'permission-denied' || code === 'permission_denied') return true;
             const message = String(error && (error.message || error.reason) || error || '').toLowerCase();
             return message.includes('missing or insufficient permissions')
                 || message.includes('insufficient permissions')
                 || message.includes('permission-denied');
+        }
+
+        function logWarnOnce(key, message, meta) {
+            const normalizedKey = String(key || '').trim();
+            if (!normalizedKey) return;
+            if (warningLogOnce.has(normalizedKey)) return;
+            warningLogOnce.add(normalizedKey);
+            if (typeof meta === 'undefined') {
+                console.warn(message);
+            } else {
+                console.warn(message, meta);
+            }
+        }
+
+        function warnPermissionDeniedOnce(source, error, prefix = 'permission denied') {
+            const code = getPermissionErrorCode(error) || 'unknown';
+            const key = `${String(source || 'permission')}|${code}`;
+            const reason = String(error && (error.message || error.reason) || error || 'unknown permission error').trim();
+            logWarnOnce(key, `${prefix} (${String(source || 'unknown')}): ${reason}`);
+        }
+
+        function getSupportAccessErrorCode(error) {
+            return getPermissionErrorCode(error);
+        }
+
+        function isSupportPermissionDenied(error) {
+            return isPermissionDenied(error);
         }
 
         function updateSupportAccessUi() {
@@ -5076,7 +5124,7 @@ function adminLogout(){
                 showNotification('error', 'تعذر تشغيل الدردشة الداخلية بسبب الصلاحيات. باقي لوحة الأدمن تعمل بشكل طبيعي.');
             }
 
-            console.warn(`support access denied (${normalizedSource}):`, reason);
+            warnPermissionDeniedOnce(normalizedSource, error, 'support access denied');
             stopSupportChatRealtime();
             supportThreads = [];
             supportMessages = [];
@@ -5280,10 +5328,15 @@ function adminLogout(){
                         renderSupportThreads();
                     },
                     (error) => {
-                        console.error('support messages listener error:', error);
                         if (handleSupportAccessError(error, 'selectSupportThread.listener')) {
                             clearSupportMessageSubscription();
+                            return;
                         }
+                        logWarnOnce(
+                            'selectSupportThread.listener.warning',
+                            'support messages listener warning:',
+                            String(error && error.message ? error.message : error)
+                        );
                     },
                     300
                 );
@@ -5313,10 +5366,13 @@ function adminLogout(){
                 }
                 showNotification('success', 'تم تحديث المحادثات');
             } catch (error) {
-                console.error('refreshSupportThreads error:', error);
-                if (!handleSupportAccessError(error, 'refreshSupportThreads')) {
-                    showNotification('error', 'فشل تحديث المحادثات');
-                }
+                if (handleSupportAccessError(error, 'refreshSupportThreads')) return;
+                logWarnOnce(
+                    'refreshSupportThreads.warning',
+                    'refreshSupportThreads warning:',
+                    String(error && error.message ? error.message : error)
+                );
+                showNotification('error', 'فشل تحديث المحادثات');
             }
         }
 
@@ -5336,9 +5392,12 @@ function adminLogout(){
             try {
                 await requireAdminPermission();
             } catch (error) {
-                if (!handleSupportAccessError(error, 'startSupportChatRealtime.requireAdminPermission')) {
-                    console.error('support realtime admin permission error:', error);
-                }
+                if (handleSupportAccessError(error, 'startSupportChatRealtime.requireAdminPermission')) return;
+                logWarnOnce(
+                    'startSupportChatRealtime.requireAdminPermission.warning',
+                    'support realtime admin permission warning:',
+                    String(error && error.message ? error.message : error)
+                );
                 return;
             }
 
@@ -5358,10 +5417,15 @@ function adminLogout(){
                     }
                 },
                 (error) => {
-                    console.error('support threads listener error:', error);
                     if (handleSupportAccessError(error, 'startSupportChatRealtime.listener')) {
                         stopSupportChatRealtime();
+                        return;
                     }
+                    logWarnOnce(
+                        'startSupportChatRealtime.listener.warning',
+                        'support threads listener warning:',
+                        String(error && error.message ? error.message : error)
+                    );
                 },
                 250
             );
@@ -5407,10 +5471,13 @@ function adminLogout(){
                 });
                 input.value = '';
             } catch (error) {
-                console.error('sendSupportReply error:', error);
-                if (!handleSupportAccessError(error, 'sendSupportReply')) {
-                    showNotification('error', 'فشل إرسال الرد');
-                }
+                if (handleSupportAccessError(error, 'sendSupportReply')) return;
+                logWarnOnce(
+                    'sendSupportReply.warning',
+                    'sendSupportReply warning:',
+                    String(error && error.message ? error.message : error)
+                );
+                showNotification('error', 'فشل إرسال الرد');
             }
         }
 
@@ -5436,10 +5503,13 @@ function adminLogout(){
                 renderSupportMessages();
                 showNotification('success', 'تم إغلاق المحادثة');
             } catch (error) {
-                console.error('closeActiveSupportThread error:', error);
-                if (!handleSupportAccessError(error, 'closeActiveSupportThread')) {
-                    showNotification('error', 'فشل إغلاق المحادثة');
-                }
+                if (handleSupportAccessError(error, 'closeActiveSupportThread')) return;
+                logWarnOnce(
+                    'closeActiveSupportThread.warning',
+                    'closeActiveSupportThread warning:',
+                    String(error && error.message ? error.message : error)
+                );
+                showNotification('error', 'فشل إغلاق المحادثة');
             }
         }
 
@@ -5776,6 +5846,80 @@ function adminLogout(){
             }
         }
 
+        function updateStoreOpsAccessUi() {
+            const noticeEl = document.getElementById('storeOpsAccessNotice');
+            const liveBadge = document.getElementById('storeOpsLiveBadge');
+
+            if (noticeEl) {
+                if (storeOpsAccess.denied) {
+                    const source = String(storeOpsAccess.source || 'store-ops');
+                    noticeEl.textContent = `تعذر تشغيل المراقبة اللحظية بسبب الصلاحيات (source: ${source}). باقي لوحة الأدمن تعمل طبيعي.`;
+                    noticeEl.style.display = 'block';
+                } else {
+                    noticeEl.style.display = 'none';
+                    noticeEl.textContent = '';
+                }
+            }
+
+            if (!liveBadge) return;
+            if (storeOpsAccess.denied) {
+                liveBadge.textContent = 'LOCKED';
+                liveBadge.className = 'status-badge status-cancelled';
+                return;
+            }
+            if (storeEventsUnsubscribe || liveSessionsUnsubscribe) {
+                liveBadge.textContent = 'LIVE';
+                liveBadge.className = 'status-badge status-confirmed';
+                return;
+            }
+            liveBadge.textContent = 'IDLE';
+            liveBadge.className = 'status-badge status-pending';
+        }
+
+        function clearStoreOpsAccessState() {
+            storeOpsAccess.denied = false;
+            storeOpsAccess.reason = '';
+            storeOpsAccess.source = '';
+            storeOpsAccess.notifiedReason = '';
+            updateStoreOpsAccessUi();
+        }
+
+        function handleStoreOpsAccessError(error, source = '') {
+            const denied = isPermissionDenied(error);
+            if (!denied) return false;
+
+            const reason = String(error && (error.message || error.reason) || error || 'unknown store ops access error').trim();
+            const normalizedSource = String(source || 'store-ops');
+            storeOpsAccess.denied = true;
+            storeOpsAccess.reason = reason;
+            storeOpsAccess.source = normalizedSource;
+
+            if (storeOpsAccess.notifiedReason !== reason) {
+                storeOpsAccess.notifiedReason = reason;
+                showNotification('error', 'تعذر تشغيل المراقبة اللحظية بسبب الصلاحيات. باقي لوحة الأدمن تعمل طبيعي.');
+            }
+
+            warnPermissionDeniedOnce(normalizedSource, error, 'store operations access denied');
+            stopStoreOperationsMonitoring();
+            storeEvents = [];
+            liveSessions = [];
+            renderStoreEventsTable();
+            renderLiveSessionsTable();
+            updateStoreOpsAccessUi();
+            return true;
+        }
+
+        function canUseStoreOps(notify = true) {
+            if (storeOpsAccess.denied) {
+                updateStoreOpsAccessUi();
+                if (notify) {
+                    showNotification('error', 'المراقبة اللحظية متوقفة حاليًا بسبب الصلاحيات.');
+                }
+                return false;
+            }
+            return true;
+        }
+
         function renderStoreEventsTable() {
             const tbody = document.getElementById('storeEventsTable');
             const meta = document.getElementById('storeEventsMeta');
@@ -5851,14 +5995,24 @@ function adminLogout(){
             if (typeof liveSessionsUnsubscribe === 'function') liveSessionsUnsubscribe();
             storeEventsUnsubscribe = null;
             liveSessionsUnsubscribe = null;
+            updateStoreOpsAccessUi();
         }
 
-        function startStoreOperationsMonitoring() {
+        async function startStoreOperationsMonitoring() {
             const liveBadge = document.getElementById('storeOpsLiveBadge');
             if (storeEventsUnsubscribe || liveSessionsUnsubscribe) return;
+            if (!canUseStoreOps(false)) return;
 
             if (typeof subscribeStoreEvents !== 'function' || typeof subscribeLiveSessions !== 'function') {
                 if (liveBadge) liveBadge.textContent = 'N/A';
+                return;
+            }
+
+            try {
+                await requireAdminPermission();
+                clearStoreOpsAccessState();
+            } catch (error) {
+                handleStoreOpsAccessError(error, 'startStoreOperationsMonitoring.requireAdminPermission');
                 return;
             }
 
@@ -5866,21 +6020,35 @@ function adminLogout(){
                 storeEvents = rows || [];
                 renderStoreEventsTable();
             }, (error) => {
-                console.error('store events listener error:', error);
+                if (handleStoreOpsAccessError(error, 'startStoreOperationsMonitoring.storeEventsListener')) return;
+                logWarnOnce(
+                    'startStoreOperationsMonitoring.storeEventsListener.warning',
+                    'store events listener warning:',
+                    String(error && error.message ? error.message : error)
+                );
             }, 100);
 
             liveSessionsUnsubscribe = subscribeLiveSessions((rows) => {
                 liveSessions = rows || [];
                 renderLiveSessionsTable();
             }, (error) => {
-                console.error('live sessions listener error:', error);
+                if (handleStoreOpsAccessError(error, 'startStoreOperationsMonitoring.liveSessionsListener')) return;
+                logWarnOnce(
+                    'startStoreOperationsMonitoring.liveSessionsListener.warning',
+                    'live sessions listener warning:',
+                    String(error && error.message ? error.message : error)
+                );
             }, 200);
 
             if (liveBadge) liveBadge.textContent = 'LIVE';
+            updateStoreOpsAccessUi();
         }
 
         async function refreshStoreOperationsNow() {
+            if (!canUseStoreOps()) return;
             try {
+                await requireAdminPermission();
+                clearStoreOpsAccessState();
                 if (typeof getStoreEvents === 'function') {
                     storeEvents = await getStoreEvents(100) || [];
                 }
@@ -5892,7 +6060,12 @@ function adminLogout(){
                 renderLiveSessionsTable();
                 showNotification('success', 'تم تحديث التشغيل اللحظي');
             } catch (error) {
-                console.error('refreshStoreOperationsNow error:', error);
+                if (handleStoreOpsAccessError(error, 'refreshStoreOperationsNow')) return;
+                logWarnOnce(
+                    'refreshStoreOperationsNow.warning',
+                    'refreshStoreOperationsNow warning:',
+                    String(error && error.message ? error.message : error)
+                );
                 showNotification('error', 'فشل تحديث التشغيل اللحظي');
             }
         }
@@ -5980,6 +6153,8 @@ function adminLogout(){
             const mobileDirectEl = document.getElementById('adminFunctionsMobileDirect');
             const failuresEl = document.getElementById('adminFunctionsFailures');
             const metaEl = document.getElementById('adminFunctionsMeta');
+            const impactSummaryEl = document.getElementById('adminFunctionsImpactSummary');
+            const persistenceSummaryEl = document.getElementById('adminFunctionsPersistenceSummary');
 
             const total = Array.isArray(adminFunctionRegistry) ? adminFunctionRegistry.length : 0;
             const critical = adminFunctionRegistry.filter((item) => item.monitorLevel === 'critical').length;
@@ -5987,6 +6162,14 @@ function adminLogout(){
             const mobileDirect = adminFunctionRegistry.filter((item) => item.mobileImpact === 'direct').length;
             const failures = adminFunctionRegistry.filter((item) => item.status === 'fail').length;
             const filtered = Array.isArray(adminFunctionRegistryFiltered) ? adminFunctionRegistryFiltered.length : 0;
+            const storeIndirect = adminFunctionRegistry.filter((item) => item.storeImpact === 'indirect').length;
+            const storeNone = adminFunctionRegistry.filter((item) => item.storeImpact === 'none').length;
+            const mobileIndirect = adminFunctionRegistry.filter((item) => item.mobileImpact === 'indirect').length;
+            const mobileNone = adminFunctionRegistry.filter((item) => item.mobileImpact === 'none').length;
+            const firebaseOnline = adminFunctionRegistry.filter((item) => item.persistenceMode === 'firebase_online').length;
+            const hybrid = adminFunctionRegistry.filter((item) => item.persistenceMode === 'hybrid').length;
+            const localTemporary = adminFunctionRegistry.filter((item) => item.persistenceMode === 'local_temporary').length;
+            const memoryOnly = adminFunctionRegistry.filter((item) => item.persistenceMode === 'memory_only').length;
 
             if (totalEl) totalEl.textContent = String(total);
             if (criticalEl) criticalEl.textContent = String(critical);
@@ -6002,6 +6185,14 @@ function adminLogout(){
                     ? String(adminFunctionRegistryMeta.generatorVersion)
                     : '-';
                 metaEl.textContent = `الدوال: ${total} | المعروضة: ${filtered} | نسخة المولد: ${generatorVersion} | التوليد: ${generatedAt}`;
+            }
+
+            if (impactSummaryEl) {
+                impactSummaryEl.textContent = `تأثير المتجر (مباشر: ${storeDirect} | غير مباشر: ${storeIndirect} | لا يوجد: ${storeNone}) • تأثير الموبايل (مباشر: ${mobileDirect} | غير مباشر: ${mobileIndirect} | لا يوجد: ${mobileNone})`;
+            }
+
+            if (persistenceSummaryEl) {
+                persistenceSummaryEl.textContent = `نمط الحفظ: Firebase أونلاين ${firebaseOnline} | هجين ${hybrid} | محلي مؤقت ${localTemporary} | ذاكرة فقط ${memoryOnly}`;
             }
         }
 

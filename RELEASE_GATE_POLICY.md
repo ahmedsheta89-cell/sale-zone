@@ -59,10 +59,14 @@ Runner:
 - Staging writes metadata file:
   - `output/staging-metadata.json`
   - fields: `targetSha`, `actualSha`, `createdAt`
+- Firestore rules must be deployed from the same SHA before production:
+  - workflow: `.github/workflows/deploy-firestore-rules.yml`
+  - input: `target_sha`
 - Production validates checkout SHA explicitly:
   - `git rev-parse HEAD` must match `target_sha`
 - Production checks that staging artifact exists for the same SHA:
   - `staging-<target_sha>`
+- Production also checks that `deploy-firestore-rules.yml` has a successful run on the same SHA.
 
 ## Periodic Sabotage Tests (Not Daily)
 Run these periodically (weekly) and on every `policy-change:` PR:
@@ -74,14 +78,15 @@ These are system validity checks, not per-push checks.
 ## Staging and Production Flow
 1. Merge PR with green checks.
 2. Run `Deploy Staging` on target SHA.
-3. Observe staging for 24 hours:
+3. Run `Deploy Firestore Rules` on the same target SHA.
+4. Observe staging for 24 hours:
    - `client_error_logs`
    - `store_events`
    - critical failures
    - drift findings
    - error spikes
-4. Promote to Production using the exact same SHA.
-5. Post-production watch:
+5. Promote to Production using the exact same SHA.
+6. Post-production watch:
    - first 30 minutes deep watch
    - regular review during first 24 hours
 
