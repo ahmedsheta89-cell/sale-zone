@@ -12,13 +12,6 @@ on:
         required: false
         default: "release/release-checklist.json"
         type: string
-  workflow_run:
-    workflows:
-      - Deploy Staging
-    types:
-      - completed
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -33,7 +26,6 @@ concurrency:
 jobs:
   verify-gates:
     name: verify-gates
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       target_sha: ${{ steps.sha.outputs.value }}
@@ -43,11 +35,8 @@ jobs:
         id: sha
         run: |
           manual_sha="${{ github.event.inputs.target_sha || '' }}"
-          workflow_sha="${{ github.event.workflow_run.head_sha || '' }}"
           if [ -n "$manual_sha" ]; then
             echo "value=$manual_sha" >> "$GITHUB_OUTPUT"
-          elif [ -n "$workflow_sha" ]; then
-            echo "value=$workflow_sha" >> "$GITHUB_OUTPUT"
           else
             echo "value=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           fi
