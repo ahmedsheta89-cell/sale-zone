@@ -1,0 +1,95 @@
+name: Deploy Firestore Rules
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Commit SHA to deploy Firestore rules from"
+        required: true
+        type: string
+      reason:
+        description: "Why this rules deployment is requested"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-firestore-rules
+  cancel-in-progress: false
+
+jobs:
+  deploy-firestore-rules:
+    name: deploy-firestore-rules
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout target SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_sha }}
+
+      - name: Verify checkout SHA matches target
+        id: verify_sha
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          target_sha="${{ github.event.inputs.target_sha }}"
+          if [[ "$actual_sha" != "$target_sha" ]]; then
+            echo "::error::Checkout SHA mismatch (actual=$actual_sha, target=$target_sha)"
+            exit 1
+          fi
+          echo "actual_sha=$actual_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Configure Firebase auth
+        id: auth
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${FIREBASE_SERVICE_ACCOUNT:-}" ]]; then
+            credentials_path="$RUNNER_TEMP/firebase-service-account.json"
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$credentials_path"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$credentials_path" >> "$GITHUB_ENV"
+            echo "auth_mode=service_account" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -n "${FIREBASE_TOKEN:-}" ]]; then
+            echo "FIREBASE_TOKEN=$FIREBASE_TOKEN" >> "$GITHUB_ENV"
+            echo "auth_mode=firebase_token" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::error::Missing Firebase credentials. Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_TOKEN secret."
+          exit 1
+
+      - name: Deploy firestore.rules
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          project_id="${FIREBASE_PROJECT_ID:-sale-zone-601f0}"
+          firebase deploy --only firestore:rules --project "$project_id" --non-interactive
+
+      - name: Deployment summary
+        run: |
+          {
+            echo "## Firestore Rules Deployment"
+            echo "- target_sha: \`${{ github.event.inputs.target_sha }}\`"
+            echo "- actual_sha: \`${{ steps.verify_sha.outputs.actual_sha }}\`"
+            echo "- deployed_rules_file: \`firestore.rules\`"
+            echo "- reason: ${{ github.event.inputs.reason }}"
+            echo "- timestamp_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "- auth_mode: ${{ steps.auth.outputs.auth_mode }}"
+          } >> "$GITHUB_STEP_SUMMARY"

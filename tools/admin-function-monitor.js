@@ -80,6 +80,23 @@ function indexRowsByName(rows) {
   return map;
 }
 
+function countBy(rows, field, allowedValues) {
+  const summary = {};
+  const values = Array.isArray(allowedValues) ? allowedValues : [];
+  for (const value of values) {
+    summary[value] = 0;
+  }
+
+  for (const row of rows) {
+    const key = String(row && row[field] || '').toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(summary, key)) {
+      summary[key] += 1;
+    }
+  }
+
+  return summary;
+}
+
 function runMonitor() {
   const nowIso = new Date().toISOString();
 
@@ -251,6 +268,9 @@ function runMonitor() {
     warningCount: rows.filter((row) => row.monitorLevel === 'warning').length,
     directStoreImpactCount: rows.filter((row) => row.storeImpact === 'direct').length,
     directMobileImpactCount: rows.filter((row) => row.mobileImpact === 'direct').length,
+    storeImpact: countBy(rows, 'storeImpact', ['direct', 'indirect', 'none']),
+    mobileImpact: countBy(rows, 'mobileImpact', ['direct', 'indirect', 'none']),
+    persistenceModes: countBy(rows, 'persistenceMode', ['firebase_online', 'hybrid', 'local_temporary', 'memory_only']),
     criticalFailures
   };
 

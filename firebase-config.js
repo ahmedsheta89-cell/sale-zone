@@ -137,15 +137,28 @@ function setupFirestoreAutoReconnect() {
     if (window.__FIRESTORE_AUTO_RECONNECT_READY__) return;
     window.__FIRESTORE_AUTO_RECONNECT_READY__ = true;
 
+    const autoToggleOverride = parseOptionalBooleanFlag(urlParams.get('firestore_auto_toggle'));
+    const shouldUseAutoNetworkToggle = autoToggleOverride !== null
+        ? autoToggleOverride === true
+        : (isGithubPages !== true && forcePollingTransport !== true);
+
     let enableInFlight = false;
     let disableInFlight = false;
     let networkState = navigator.onLine === false ? 'disabled' : 'enabled';
     let reconnectLocked = false;
     let lastEnableAttemptAt = 0;
+    let networkDisabledByApp = false;
     const MIN_ENABLE_RETRY_MS = 15000;
 
     const safeEnableNetwork = async (source = 'manual', options = {}) => {
         const force = options && options.force === true;
+        const automaticSource = source === 'online' || source === 'interval';
+        if (automaticSource && !shouldUseAutoNetworkToggle && !force) {
+            return { ok: false, skipped: 'auto-toggle-disabled' };
+        }
+        if (!networkDisabledByApp && !force) {
+            return { ok: true, skipped: 'never-disabled' };
+        }
         if (reconnectLocked && !force) return { ok: false, skipped: 'locked' };
         if (networkState === 'enabled' && !force) return { ok: true, skipped: 'already-enabled' };
         if (enableInFlight) return { ok: false, skipped: 'enable-in-flight' };
@@ -162,12 +175,14 @@ function setupFirestoreAutoReconnect() {
                 await db.enableNetwork();
             }
             networkState = 'enabled';
+            networkDisabledByApp = false;
             window.__FIRESTORE_LAST_ENABLE_NETWORK_SOURCE__ = source;
             return { ok: true };
         } catch (error) {
             const message = error && error.message ? String(error.message) : String(error || '');
             if (/internal assertion failed/i.test(message)) {
                 reconnectLocked = true;
+                networkDisabledByApp = false;
                 window.__FIRESTORE_AUTO_RECONNECT_LOCK_REASON__ = message;
                 console.warn('[WARN] Firestore auto-reconnect paused due to SDK internal assertion. Reload page to recover cleanly.');
                 return { ok: false, locked: true, error: message };
@@ -186,6 +201,10 @@ function setupFirestoreAutoReconnect() {
     };
 
     const safeDisableNetwork = async (source = 'manual') => {
+        const automaticSource = source === 'offline';
+        if (automaticSource && !shouldUseAutoNetworkToggle) {
+            return { ok: false, skipped: 'auto-toggle-disabled' };
+        }
         if (disableInFlight) return { ok: false, skipped: 'disable-in-flight' };
         if (networkState === 'disabled') return { ok: true, skipped: 'already-disabled' };
         disableInFlight = true;
@@ -194,6 +213,7 @@ function setupFirestoreAutoReconnect() {
                 await db.disableNetwork();
             }
             networkState = 'disabled';
+            networkDisabledByApp = true;
             window.__FIRESTORE_LAST_DISABLE_NETWORK_SOURCE__ = source;
             return { ok: true };
         } catch (error) {
@@ -212,11 +232,15 @@ function setupFirestoreAutoReconnect() {
     };
 
     window.addEventListener('offline', () => {
-        safeDisableNetwork('offline').catch(() => null);
+        if (shouldUseAutoNetworkToggle) {
+            safeDisableNetwork('offline').catch(() => null);
+        }
     });
 
     window.addEventListener('online', () => {
-        safeEnableNetwork('online').catch(() => null);
+        if (shouldUseAutoNetworkToggle) {
+            safeEnableNetwork('online').catch(() => null);
+        }
         if (typeof window.flushOrderQueue === 'function') {
             window.flushOrderQueue({ source: 'firestore-online', maxItems: 20 }).catch(() => null);
         }
@@ -239,9 +263,13 @@ function setupFirestoreAutoReconnect() {
         }, 120000);
         console.log('[INFO] Firestore interval reconnect watchdog enabled (override mode).');
     }
+    if (!shouldUseAutoNetworkToggle) {
+        console.info('[INFO] Firestore auto network toggles disabled for stability (GitHub Pages/long-polling policy).');
+    }
 
     window.__FIRESTORE_SAFE_ENABLE_NETWORK__ = safeEnableNetwork;
     window.__FIRESTORE_SAFE_DISABLE_NETWORK__ = safeDisableNetwork;
+    window.__FIRESTORE_AUTO_NETWORK_TOGGLE_ALLOWED__ = shouldUseAutoNetworkToggle;
 }
 
 // Some networks/browsers break WebChannel. Stabilize transport consistently.

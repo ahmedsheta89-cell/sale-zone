@@ -204,8 +204,12 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  const payload = event.data || {};
-  const { type } = payload;
+  const payload = event && event.data && typeof event.data === 'object' ? event.data : null;
+  const type = payload && typeof payload.type === 'string' ? payload.type.trim() : '';
+
+  if (!type) {
+    return;
+  }
 
   switch (type) {
     case 'SKIP_WAITING':
@@ -219,16 +223,16 @@ self.addEventListener('message', (event) => {
       break;
 
     case 'CLEAR_CACHE':
-      (async () => {
+      event.waitUntil((async () => {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map((name) => caches.delete(name)));
         console.log('[SW] all caches cleared');
-      })();
+      })());
       break;
 
     default:
-      if (typeof type !== 'undefined' && type !== null && String(type).trim()) {
-        console.log(`[SW] unknown message type: ${type}`);
+      if (self.__SW_DEBUG__ === true) {
+        console.debug(`[SW] ignored message type: ${type}`);
       }
   }
 });
