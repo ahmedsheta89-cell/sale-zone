@@ -53,8 +53,35 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
+
+      - name: Verify checkout SHA matches target
+        id: verify_sha
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          target_sha="${{ steps.sha.outputs.value }}"
+          if [[ "$actual_sha" != "$target_sha" ]]; then
+            echo "::error::Checkout SHA mismatch (actual=$actual_sha, target=$target_sha)"
+            exit 1
+          fi
+          echo "actual_sha=$actual_sha" >> "$GITHUB_OUTPUT"
+
       - name: Run full required checks
         run: node tools/run-required-checks.js
+
+      - name: Build staging metadata
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          cat > output/staging-metadata.json <<EOF
+          {
+            "targetSha": "${{ steps.sha.outputs.value }}",
+            "actualSha": "${{ steps.verify_sha.outputs.actual_sha }}",
+            "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
 
       - name: Build staging bundle
         run: |
@@ -70,7 +97,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: staging-${{ steps.sha.outputs.value }}
-          path: output/staging-${{ steps.sha.outputs.value }}.tar.gz
+          path: |
+            output/staging-${{ steps.sha.outputs.value }}.tar.gz
+            output/staging-metadata.json
           retention-days: 7
 
       - name: Staging acceptance check

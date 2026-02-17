@@ -21,6 +21,7 @@ If any step fails, push is blocked.
 
 ## Required Checks
 - `preflight`: `node tools/preflight.js`
+- `hash-stability`: `node tools/hash-stability-check.js`
 - `smoke-check`: `node tools/smoke-check.js`
 - `admin-function-monitor`: `node tools/admin-function-monitor.js`
 - `rules`: `node tools/rules-test.js`
@@ -54,6 +55,15 @@ Runner:
 - Enforced by workflow:
   - `.github/workflows/policy-governance.yml`
 
+## Same-SHA Promotion Enforcement
+- Staging writes metadata file:
+  - `output/staging-metadata.json`
+  - fields: `targetSha`, `actualSha`, `createdAt`
+- Production validates checkout SHA explicitly:
+  - `git rev-parse HEAD` must match `target_sha`
+- Production checks that staging artifact exists for the same SHA:
+  - `staging-<target_sha>`
+
 ## Periodic Sabotage Tests (Not Daily)
 Run these periodically (weekly) and on every `policy-change:` PR:
 - temporary critical function rename -> expect `CRITICAL_FUNCTION_MISSING`
@@ -84,6 +94,19 @@ If any critical failure appears in production:
 
 No direct production patching and no gate bypass.
 
+## Rollback Automation
+- Workflow:
+  - `.github/workflows/rollback-production.yml`
+- Trigger:
+  - manual dispatch (`workflow_dispatch`)
+- Inputs:
+  - `reason` (required)
+  - `rollback_sha` (optional)
+- Default target resolution:
+  - if `rollback_sha` is empty, workflow auto-selects `head_sha` from latest successful `deploy-production.yml` run.
+- Local helper:
+  - `powershell -File tools/deploy-rollback.ps1 -Reason "<reason>" [-RollbackSha "<sha>"]`
+
 ## GitHub Governance (Repository Settings - Mandatory)
 Configure `main` branch protection:
 - Require pull request before merging: ON
@@ -91,6 +114,9 @@ Configure `main` branch protection:
 - Dismiss stale approvals: ON
 - Require conversation resolution: ON
 - Require status checks to pass: ON
+- Require linear history: ON
+- Disable auto-merge before all required checks pass: ON
+- Do not allow admin bypass: ON (if available in your GitHub plan)
 - Include administrators: ON
 - Restrict direct push: ON
 - Allow force push: OFF
@@ -99,6 +125,7 @@ Configure `main` branch protection:
 Required status checks on `main`:
 - `release-gate`
 - `policy-governance`
+- `hash-stability`
 
 ## Local Gate Commands
 - Daily quick gate:
@@ -107,3 +134,5 @@ Required status checks on `main`:
   - `powershell -File tools/deploy-staging.ps1`
 - Full production gate:
   - `powershell -File tools/deploy-production.ps1`
+- Emergency rollback:
+  - `powershell -File tools/deploy-rollback.ps1 -Reason "<reason>"`

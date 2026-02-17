@@ -48,22 +48,25 @@ function compileCriticalRegex(pattern, flags, indexLabel) {
   return new RegExp(safePattern, safeFlags);
 }
 
-function buildFunctionBlockMap(source, extracted) {
+function buildFunctionBlockMap(extracted) {
   const list = Array.isArray(extracted) ? [...extracted] : [];
-  list.sort((a, b) => Number(a.start || 0) - Number(b.start || 0));
+  list.sort((a, b) => {
+    const nameA = String(a && a.name || '');
+    const nameB = String(b && b.name || '');
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    const lineA = Number(a && a.line || 0);
+    const lineB = Number(b && b.line || 0);
+    return lineA - lineB;
+  });
 
   const duplicates = [];
   const blocks = new Map();
-  for (let i = 0; i < list.length; i += 1) {
-    const current = list[i];
-    const next = list[i + 1];
+  for (const current of list) {
     const name = String(current && current.name || '').trim();
     if (!name) continue;
     if (blocks.has(name)) duplicates.push(name);
-
-    const start = Number(current.start || 0);
-    const end = next ? Number(next.start || source.length) : source.length;
-    blocks.set(name, source.slice(start, end));
+    blocks.set(name, String(current && current.canonicalBody || ''));
   }
 
   return { blocks, duplicates };
@@ -140,7 +143,7 @@ function runMonitor() {
     }
   }
 
-  const functionBlocks = buildFunctionBlockMap(generated.adminSource, generated.extracted);
+  const functionBlocks = buildFunctionBlockMap(generated.extracted);
   if (functionBlocks.duplicates.length) {
     warnings.push({
       code: 'DUPLICATE_FUNCTION_NAMES',

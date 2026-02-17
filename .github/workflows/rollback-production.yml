@@ -1,0 +1,126 @@
+name: Rollback Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      rollback_sha:
+        description: "Commit SHA to rollback to (optional)"
+        required: false
+        type: string
+      reason:
+        description: "Rollback reason"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rollback-production
+  cancel-in-progress: false
+
+jobs:
+  resolve-target:
+    name: resolve-target
+    runs-on: ubuntu-latest
+    outputs:
+      target_sha: ${{ steps.resolve.outputs.target_sha }}
+      source: ${{ steps.resolve.outputs.source }}
+    steps:
+      - name: Resolve rollback target
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const requestedSha = String(core.getInput('rollback_sha') || '').trim();
+            const reason = String(core.getInput('reason') || '').trim();
+            if (!reason) {
+              core.setFailed('Rollback reason is required.');
+              return;
+            }
+
+            if (requestedSha) {
+              core.setOutput('target_sha', requestedSha);
+              core.setOutput('source', 'manual_input');
+              core.info(`Using manual rollback SHA: ${requestedSha}`);
+              return;
+            }
+
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy-production.yml',
+              branch: 'main',
+              status: 'completed',
+              per_page: 50
+            });
+
+            const successRun = runs.data.workflow_runs.find((run) => run.conclusion === 'success');
+            if (!successRun || !successRun.head_sha) {
+              core.setFailed('No successful Deploy Production run found to use as rollback target.');
+              return;
+            }
+
+            core.setOutput('target_sha', successRun.head_sha);
+            core.setOutput('source', `last_success_run:${successRun.id}`);
+            core.info(`Using last successful production SHA: ${successRun.head_sha}`);
+
+  rollback:
+    name: rollback
+    needs:
+      - resolve-target
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Checkout rollback SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-target.outputs.target_sha }}
+
+      - name: Verify checkout SHA
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          target_sha="${{ needs.resolve-target.outputs.target_sha }}"
+          if [[ "$actual_sha" != "$target_sha" ]]; then
+            echo "::error::Rollback SHA mismatch (actual=$actual_sha, target=$target_sha)"
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
+
+      - name: Validate preflight
+        run: node tools/preflight.js
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload rollback artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy rollback to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Rollback summary
+        run: |
+          {
+            echo "## Rollback Summary"
+            echo ""
+            echo "- Trigger reason: ${{ github.event.inputs.reason }}"
+            echo "- Rolled back SHA: ${{ needs.resolve-target.outputs.target_sha }}"
+            echo "- Resolution source: ${{ needs.resolve-target.outputs.source }}"
+            echo "- Timestamp (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_STEP_SUMMARY"

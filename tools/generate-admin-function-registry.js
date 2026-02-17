@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { parseAdminFunctions } = require('./lib/admin-source-parser');
 
 const DEFAULT_ADMIN_FILE = '\u0627\u062f\u0645\u0646_2.HTML';
 const DEFAULT_POLICY_FILE = 'monitoring/admin-function-policy.json';
@@ -37,31 +38,6 @@ function readUtf8(root, relPath) {
 function readJson(root, relPath) {
   const raw = readUtf8(root, relPath);
   return { raw, data: JSON.parse(raw) };
-}
-
-function extractFunctions(source) {
-  const text = String(source || '');
-  const regex = /(^|\n)\s*(async\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
-  const rows = [];
-
-  let scanIndex = 0;
-  let lineNumber = 1;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    const lead = match[1] || '';
-    const start = match.index + lead.length;
-    while (scanIndex < start) {
-      if (text.charCodeAt(scanIndex) === 10) lineNumber += 1;
-      scanIndex += 1;
-    }
-    rows.push({
-      name: String(match[3] || '').trim(),
-      isAsync: Boolean(match[2]),
-      line: lineNumber,
-      start
-    });
-  }
-  return rows;
 }
 
 function compileGroupRules(policy) {
@@ -130,7 +106,8 @@ function buildArtifact(options = {}) {
       .filter(Boolean)
   );
 
-  const extracted = extractFunctions(adminSource);
+  const parsedSource = parseAdminFunctions(adminSource);
+  const extracted = Array.isArray(parsedSource && parsedSource.functions) ? parsedSource.functions : [];
   const functions = extracted.map((entry) => {
     const classified = classifyFunction(entry.name, policy, compiledRules, criticalNames);
     const status = 'ok';
@@ -143,6 +120,7 @@ function buildArtifact(options = {}) {
       name: entry.name,
       isAsync: entry.isAsync === true,
       line: Number(entry.line || 0),
+      scriptIndex: Number(entry.scriptIndex || 0),
       group: classified.group,
       monitorLevel: classified.monitorLevel,
       storeImpact: classified.storeImpact,
@@ -159,8 +137,14 @@ function buildArtifact(options = {}) {
     generatedAt,
     sourceFile: adminFile,
     policyFile,
-    sourceHash: sha256(adminSource),
-    policyHash: sha256(policyBundle.raw),
+    sourceHash: sha256(stableStringify(extracted.map((entry) => ({
+      name: String(entry && entry.name || ''),
+      isAsync: Boolean(entry && entry.isAsync),
+      line: Number(entry && entry.line || 0),
+      scriptIndex: Number(entry && entry.scriptIndex || 0),
+      canonicalBody: String(entry && entry.canonicalBody || '')
+    })))),
+    policyHash: sha256(stableStringify(policy)),
     functions
   };
 
@@ -212,7 +196,6 @@ module.exports = {
   DEFAULT_REGISTRY_FILE,
   sha256,
   stableStringify,
-  extractFunctions,
   normalizeForHash,
   buildArtifact,
   generateRegistryArtifact
