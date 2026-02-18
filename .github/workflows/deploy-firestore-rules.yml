@@ -43,6 +43,35 @@ jobs:
             exit 1
           fi
 
+      - name: Normalize identity secrets
+        id: identity
+        run: |
+          set -euo pipefail
+
+          provider_raw="${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}"
+          service_account_raw="${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}"
+
+          provider="$(printf '%s' "$provider_raw" | tr -d '[:space:]')"
+          service_account="$(printf '%s' "$service_account_raw" | tr -d '[:space:]')"
+
+          if [[ -z "$provider" || "$provider" != projects/*/locations/global/workloadIdentityPools/*/providers/* ]]; then
+            echo "::error::Invalid GCP_WORKLOAD_IDENTITY_PROVIDER format."
+            echo "::error::Expected: projects/<number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>"
+            exit 1
+          fi
+
+          if [[ ! "$service_account" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]]; then
+            echo "::error::Invalid GCP_SERVICE_ACCOUNT_EMAIL format."
+            echo "::error::Expected: <name>@<project>.iam.gserviceaccount.com"
+            exit 1
+          fi
+
+          echo "::add-mask::$provider"
+          echo "::add-mask::$service_account"
+
+          echo "provider=$provider" >> "$GITHUB_OUTPUT"
+          echo "service_account=$service_account" >> "$GITHUB_OUTPUT"
+
       - name: Resolve project id
         id: project
         run: |
@@ -80,11 +109,20 @@ jobs:
 
       - name: Authenticate to Google Cloud (OIDC/WIF)
         id: auth
+        continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          workload_identity_provider: ${{ steps.identity.outputs.provider }}
+          service_account: ${{ steps.identity.outputs.service_account }}
           token_format: access_token
+
+      - name: Fail with auth guidance
+        if: ${{ steps.auth.outcome == 'failure' }}
+        run: |
+          echo "::error::OIDC/WIF authentication failed."
+          echo "::error::Check that the service account exists and matches GCP_SERVICE_ACCOUNT_EMAIL exactly."
+          echo "::error::Check roles/iam.workloadIdentityUser binding for your workload identity principalSet."
+          exit 1
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
