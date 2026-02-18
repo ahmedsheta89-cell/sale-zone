@@ -1,4 +1,4 @@
-﻿name: Deploy Firestore Rules
+name: Deploy Firestore Rules
 
 on:
   workflow_dispatch:
@@ -84,12 +84,12 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
-          create_credentials_file: true
+          token_format: access_token
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
-          install_components: alpha
+          install_components: firebase,alpha
 
       - name: Verify active identity
         run: |
@@ -97,23 +97,29 @@ jobs:
           gcloud auth list
           gcloud auth list --filter=status:ACTIVE --format="value(account)"
 
-      - name: Deploy firestore rules via gcloud
+      - name: Deploy Firestore Rules
         id: deploy
         run: |
           set -euo pipefail
           project_id="${{ steps.project.outputs.project_id }}"
+          target_sha="${{ github.event.inputs.target_sha }}"
+          reason="${{ github.event.inputs.reason }}"
 
-          ruleset_name="$(gcloud alpha firebaserules rulesets create firestore.rules \
+          echo "Project: $project_id"
+          echo "SHA: $target_sha"
+          echo "Reason: $reason"
+
+          ruleset_name="$(gcloud firebase rulesets create firestore.rules \
             --project="$project_id" \
             --format='value(name)')"
 
-          if gcloud alpha firebaserules releases describe cloud.firestore --project="$project_id" >/dev/null 2>&1; then
-            release_name="$(gcloud alpha firebaserules releases update cloud.firestore \
+          if gcloud firebase releases describe cloud.firestore --project="$project_id" >/dev/null 2>&1; then
+            release_name="$(gcloud firebase releases update cloud.firestore \
               --ruleset="$ruleset_name" \
               --project="$project_id" \
               --format='value(name)')"
           else
-            release_name="$(gcloud alpha firebaserules releases create cloud.firestore \
+            release_name="$(gcloud firebase releases create cloud.firestore \
               --ruleset="$ruleset_name" \
               --project="$project_id" \
               --format='value(name)')"
@@ -128,7 +134,7 @@ jobs:
           {
             echo "## Firestore Rules Deployment"
             echo "- status: ${{ job.status }}"
-            echo "- auth_mode: oidc_wif_gcloud_firebaserules"
+            echo "- auth_mode: oidc_wif_gcloud_firebase"
             echo "- project_id: ${{ steps.project.outputs.project_id }}"
             echo "- target_sha: \`${{ github.event.inputs.target_sha }}\`"
             echo "- actual_sha: \`${{ steps.verify_sha.outputs.actual_sha }}\`"
