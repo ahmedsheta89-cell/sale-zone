@@ -1,4 +1,4 @@
-name: Deploy Firestore Rules
+﻿name: Deploy Firestore Rules
 
 on:
   workflow_dispatch:
@@ -25,11 +25,41 @@ jobs:
     name: deploy-firestore-rules
     runs-on: ubuntu-latest
     environment: production
+
     steps:
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]]; then
+            echo "::error::Missing secret: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}" ]]; then
+            echo "::error::Missing secret: GCP_SERVICE_ACCOUNT_EMAIL"
+            missing=1
+          fi
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Resolve project id
+        id: project
+        run: |
+          set -euo pipefail
+          raw="${{ secrets.FIREBASE_PROJECT_ID }}"
+          project_id="$(printf '%s' "${raw:-sale-zone-601f0}" | tr -d '[:space:]')"
+          if [[ -z "$project_id" || ! "$project_id" =~ ^[a-z0-9-]+$ ]]; then
+            echo "::error::Invalid FIREBASE_PROJECT_ID: '$project_id'"
+            exit 1
+          fi
+          echo "project_id=$project_id" >> "$GITHUB_OUTPUT"
+
       - name: Checkout target SHA
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.target_sha }}
+          fetch-depth: 1
 
       - name: Verify checkout SHA matches target
         id: verify_sha
@@ -43,37 +73,10 @@ jobs:
           fi
           echo "actual_sha=$actual_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Validate OIDC federation secrets
-        env:
-          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+      - name: Validate firestore.rules exists
         run: |
           set -euo pipefail
-          missing=0
-
-          if [[ -z "${GCP_WORKLOAD_IDENTITY_PROVIDER:-}" ]]; then
-            echo "::error::Missing secret: GCP_WORKLOAD_IDENTITY_PROVIDER"
-            missing=1
-          fi
-
-          if [[ -z "${GCP_SERVICE_ACCOUNT_EMAIL:-}" ]]; then
-            echo "::error::Missing secret: GCP_SERVICE_ACCOUNT_EMAIL"
-            missing=1
-          fi
-
-          if [[ "$missing" -ne 0 ]]; then
-            echo "::error::Configure GitHub OIDC -> GCP Workload Identity Federation and rerun."
-            echo "::error::Static credential secrets (FIREBASE_SERVICE_ACCOUNT / FIREBASE_TOKEN) are intentionally not used."
-            exit 1
-          fi
+          test -f firestore.rules || { echo "::error::firestore.rules not found"; exit 1; }
 
       - name: Authenticate to Google Cloud (OIDC/WIF)
         id: auth
@@ -83,22 +86,54 @@ jobs:
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
           create_credentials_file: true
 
-      - name: Deploy firestore.rules
-        env:
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: alpha
+
+      - name: Verify active identity
         run: |
           set -euo pipefail
-          project_id="${FIREBASE_PROJECT_ID:-sale-zone-601f0}"
-          firebase deploy --only firestore:rules --project "$project_id" --non-interactive
+          gcloud auth list
+          gcloud auth list --filter=status:ACTIVE --format="value(account)"
+
+      - name: Deploy firestore rules via gcloud
+        id: deploy
+        run: |
+          set -euo pipefail
+          project_id="${{ steps.project.outputs.project_id }}"
+
+          ruleset_name="$(gcloud alpha firebaserules rulesets create firestore.rules \
+            --project="$project_id" \
+            --format='value(name)')"
+
+          if gcloud alpha firebaserules releases describe cloud.firestore --project="$project_id" >/dev/null 2>&1; then
+            release_name="$(gcloud alpha firebaserules releases update cloud.firestore \
+              --ruleset="$ruleset_name" \
+              --project="$project_id" \
+              --format='value(name)')"
+          else
+            release_name="$(gcloud alpha firebaserules releases create cloud.firestore \
+              --ruleset="$ruleset_name" \
+              --project="$project_id" \
+              --format='value(name)')"
+          fi
+
+          echo "ruleset_name=$ruleset_name" >> "$GITHUB_OUTPUT"
+          echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
 
       - name: Deployment summary
+        if: always()
         run: |
           {
             echo "## Firestore Rules Deployment"
+            echo "- status: ${{ job.status }}"
+            echo "- auth_mode: oidc_wif_gcloud_firebaserules"
+            echo "- project_id: ${{ steps.project.outputs.project_id }}"
             echo "- target_sha: \`${{ github.event.inputs.target_sha }}\`"
             echo "- actual_sha: \`${{ steps.verify_sha.outputs.actual_sha }}\`"
-            echo "- deployed_rules_file: \`firestore.rules\`"
+            echo "- ruleset_name: \`${{ steps.deploy.outputs.ruleset_name }}\`"
+            echo "- release_name: \`${{ steps.deploy.outputs.release_name }}\`"
             echo "- reason: ${{ github.event.inputs.reason }}"
             echo "- timestamp_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "- auth_mode: \`oidc_wif\`"
           } >> "$GITHUB_STEP_SUMMARY"
