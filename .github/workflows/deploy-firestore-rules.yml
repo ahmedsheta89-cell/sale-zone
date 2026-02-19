@@ -35,10 +35,6 @@ jobs:
             echo "::error::Missing secret: GCP_WORKLOAD_IDENTITY_PROVIDER"
             missing=1
           fi
-          if [[ -z "${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}" ]]; then
-            echo "::error::Missing secret: GCP_SERVICE_ACCOUNT_EMAIL"
-            missing=1
-          fi
           if [[ "$missing" -ne 0 ]]; then
             exit 1
           fi
@@ -60,17 +56,25 @@ jobs:
             exit 1
           fi
 
-          if [[ ! "$service_account" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]]; then
+          has_service_account=false
+          if [[ -n "$service_account" ]]; then
+            has_service_account=true
+          fi
+
+          if [[ "$has_service_account" == "true" && ! "$service_account" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]]; then
             echo "::error::Invalid GCP_SERVICE_ACCOUNT_EMAIL format."
             echo "::error::Expected: <name>@<project>.iam.gserviceaccount.com"
             exit 1
           fi
 
           echo "::add-mask::$provider"
-          echo "::add-mask::$service_account"
+          if [[ "$has_service_account" == "true" ]]; then
+            echo "::add-mask::$service_account"
+          fi
 
           echo "provider=$provider" >> "$GITHUB_OUTPUT"
           echo "service_account=$service_account" >> "$GITHUB_OUTPUT"
+          echo "has_service_account=$has_service_account" >> "$GITHUB_OUTPUT"
 
       - name: Resolve project id
         id: project
@@ -107,21 +111,61 @@ jobs:
           set -euo pipefail
           test -f firestore.rules || { echo "::error::firestore.rules not found"; exit 1; }
 
-      - name: Authenticate to Google Cloud (OIDC/WIF)
-        id: auth
+      - name: Authenticate to Google Cloud (OIDC/WIF) via service account
+        id: auth_sa
+        if: ${{ steps.identity.outputs.has_service_account == 'true' }}
         continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ steps.identity.outputs.provider }}
           service_account: ${{ steps.identity.outputs.service_account }}
           token_format: access_token
+          create_credentials_file: true
 
-      - name: Fail with auth guidance
-        if: ${{ steps.auth.outcome == 'failure' }}
+      - name: Authenticate to Google Cloud (OIDC/WIF) direct fallback
+        id: auth_direct
+        if: ${{ steps.identity.outputs.has_service_account != 'true' || steps.auth_sa.outcome == 'failure' }}
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ steps.identity.outputs.provider }}
+          token_format: access_token
+          create_credentials_file: true
+
+      - name: Resolve auth strategy result
+        id: auth_mode
         run: |
-          echo "::error::OIDC/WIF authentication failed."
-          echo "::error::Check that the service account exists and matches GCP_SERVICE_ACCOUNT_EMAIL exactly."
-          echo "::error::Check roles/iam.workloadIdentityUser binding for your workload identity principalSet."
+          set -euo pipefail
+
+          has_service_account="${{ steps.identity.outputs.has_service_account }}"
+          sa_outcome="${{ steps.auth_sa.outcome }}"
+          direct_outcome="${{ steps.auth_direct.outcome }}"
+          project_id="${{ steps.project.outputs.project_id }}"
+          provider="${{ steps.identity.outputs.provider }}"
+          service_account="${{ steps.identity.outputs.service_account }}"
+
+          if [[ "$has_service_account" == "true" && "$sa_outcome" == "success" ]]; then
+            echo "mode=service_account_impersonation" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$direct_outcome" == "success" ]]; then
+            echo "::warning::Service-account impersonation failed or not configured; using direct WIF fallback."
+            echo "mode=direct_wif" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::error::OIDC/WIF authentication failed in both modes."
+          if [[ "$has_service_account" == "true" ]]; then
+            echo "::error::Service account path failed for: $service_account"
+            echo "::error::Verify this service account exists in project $project_id and has roles/firebaserules.admin."
+            echo "::error::Verify Workload Identity binding:"
+            echo "::error::gcloud iam service-accounts add-iam-policy-binding \"$service_account\" --project=\"$project_id\" --role=\"roles/iam.workloadIdentityUser\" --member=\"principalSet://iam.googleapis.com/${provider%/providers/*}/attribute.repository/${{ github.repository }}\""
+          else
+            echo "::warning::GCP_SERVICE_ACCOUNT_EMAIL is empty: trying direct WIF only."
+          fi
+          echo "::error::For direct WIF fallback, bind principalSet to project role:"
+          echo "::error::gcloud projects add-iam-policy-binding \"$project_id\" --member=\"principalSet://iam.googleapis.com/${provider%/providers/*}/attribute.repository/${{ github.repository }}\" --role=\"roles/firebaserules.admin\""
           exit 1
 
       - name: Setup gcloud
@@ -173,6 +217,7 @@ jobs:
             echo "## Firestore Rules Deployment"
             echo "- status: ${{ job.status }}"
             echo "- auth_mode: oidc_wif_gcloud_firebase"
+            echo "- auth_strategy: \`${{ steps.auth_mode.outputs.mode }}\`"
             echo "- project_id: ${{ steps.project.outputs.project_id }}"
             echo "- target_sha: \`${{ github.event.inputs.target_sha }}\`"
             echo "- actual_sha: \`${{ steps.verify_sha.outputs.actual_sha }}\`"
