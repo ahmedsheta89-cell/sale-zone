@@ -11,6 +11,11 @@ on:
         description: "Why this rules deployment is requested"
         required: true
         type: string
+      auth_mode:
+        description: "Auth mode: firebase_token (fast) or oidc_wif"
+        required: false
+        default: "firebase_token"
+        type: string
 
 permissions:
   contents: read
@@ -27,20 +32,43 @@ jobs:
     environment: production
 
     steps:
+      - name: Resolve auth mode
+        id: auth_choice
+        run: |
+          set -euo pipefail
+          raw_mode="${{ github.event.inputs.auth_mode || 'firebase_token' }}"
+          mode="$(printf '%s' "$raw_mode" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          if [[ "$mode" != "firebase_token" && "$mode" != "oidc_wif" ]]; then
+            echo "::error::Invalid auth_mode '$raw_mode'. Use firebase_token or oidc_wif."
+            exit 1
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
       - name: Validate required secrets
         run: |
           set -euo pipefail
+          mode="${{ steps.auth_choice.outputs.mode }}"
           missing=0
-          if [[ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]]; then
-            echo "::error::Missing secret: GCP_WORKLOAD_IDENTITY_PROVIDER"
-            missing=1
+
+          if [[ "$mode" == "firebase_token" ]]; then
+            if [[ -z "${{ secrets.FIREBASE_TOKEN }}" ]]; then
+              echo "::error::Missing secret: FIREBASE_TOKEN (required for auth_mode=firebase_token)"
+              missing=1
+            fi
+          else
+            if [[ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]]; then
+              echo "::error::Missing secret: GCP_WORKLOAD_IDENTITY_PROVIDER (required for auth_mode=oidc_wif)"
+              missing=1
+            fi
           fi
+
           if [[ "$missing" -ne 0 ]]; then
             exit 1
           fi
 
       - name: Normalize identity secrets
         id: identity
+        if: ${{ steps.auth_choice.outputs.mode == 'oidc_wif' }}
         run: |
           set -euo pipefail
 
@@ -113,7 +141,7 @@ jobs:
 
       - name: Authenticate to Google Cloud (OIDC/WIF) via service account
         id: auth_sa
-        if: ${{ steps.identity.outputs.has_service_account == 'true' }}
+        if: ${{ steps.auth_choice.outputs.mode == 'oidc_wif' && steps.identity.outputs.has_service_account == 'true' }}
         continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
@@ -124,7 +152,7 @@ jobs:
 
       - name: Authenticate to Google Cloud (OIDC/WIF) direct fallback
         id: auth_direct
-        if: ${{ steps.identity.outputs.has_service_account != 'true' || steps.auth_sa.outcome == 'failure' }}
+        if: ${{ steps.auth_choice.outputs.mode == 'oidc_wif' && (steps.identity.outputs.has_service_account != 'true' || steps.auth_sa.outcome == 'failure') }}
         continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
@@ -134,6 +162,7 @@ jobs:
 
       - name: Resolve auth strategy result
         id: auth_mode
+        if: ${{ steps.auth_choice.outputs.mode == 'oidc_wif' }}
         run: |
           set -euo pipefail
 
@@ -169,18 +198,31 @@ jobs:
           exit 1
 
       - name: Setup gcloud
+        if: ${{ steps.auth_choice.outputs.mode == 'oidc_wif' }}
         uses: google-github-actions/setup-gcloud@v2
         with:
           install_components: firebase,alpha
 
       - name: Verify active identity
+        if: ${{ steps.auth_choice.outputs.mode == 'oidc_wif' }}
         run: |
           set -euo pipefail
           gcloud auth list
           gcloud auth list --filter=status:ACTIVE --format="value(account)"
 
-      - name: Deploy Firestore Rules
-        id: deploy
+      - name: Setup Node (token mode)
+        if: ${{ steps.auth_choice.outputs.mode == 'firebase_token' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Firebase CLI (token mode)
+        if: ${{ steps.auth_choice.outputs.mode == 'firebase_token' }}
+        run: npm install -g firebase-tools
+
+      - name: Deploy Firestore Rules via gcloud (oidc_wif)
+        id: deploy_gcloud
+        if: ${{ steps.auth_choice.outputs.mode == 'oidc_wif' }}
         run: |
           set -euo pipefail
           project_id="${{ steps.project.outputs.project_id }}"
@@ -210,19 +252,38 @@ jobs:
           echo "ruleset_name=$ruleset_name" >> "$GITHUB_OUTPUT"
           echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
 
+      - name: Deploy Firestore Rules via Firebase Token (fast mode)
+        id: deploy_token
+        if: ${{ steps.auth_choice.outputs.mode == 'firebase_token' }}
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          project_id="${{ steps.project.outputs.project_id }}"
+          target_sha="${{ github.event.inputs.target_sha }}"
+          reason="${{ github.event.inputs.reason }}"
+
+          echo "Project: $project_id"
+          echo "SHA: $target_sha"
+          echo "Reason: $reason"
+          firebase deploy --only firestore:rules --project "$project_id" --token "$FIREBASE_TOKEN" --non-interactive
+
+          echo "ruleset_name=firebase_cli_token_deploy" >> "$GITHUB_OUTPUT"
+          echo "release_name=cloud.firestore" >> "$GITHUB_OUTPUT"
+
       - name: Deployment summary
         if: always()
         run: |
           {
             echo "## Firestore Rules Deployment"
             echo "- status: ${{ job.status }}"
-            echo "- auth_mode: oidc_wif_gcloud_firebase"
+            echo "- auth_mode: ${{ steps.auth_choice.outputs.mode }}"
             echo "- auth_strategy: \`${{ steps.auth_mode.outputs.mode }}\`"
             echo "- project_id: ${{ steps.project.outputs.project_id }}"
             echo "- target_sha: \`${{ github.event.inputs.target_sha }}\`"
             echo "- actual_sha: \`${{ steps.verify_sha.outputs.actual_sha }}\`"
-            echo "- ruleset_name: \`${{ steps.deploy.outputs.ruleset_name }}\`"
-            echo "- release_name: \`${{ steps.deploy.outputs.release_name }}\`"
+            echo "- ruleset_name: \`${{ steps.deploy_gcloud.outputs.ruleset_name || steps.deploy_token.outputs.ruleset_name }}\`"
+            echo "- release_name: \`${{ steps.deploy_gcloud.outputs.release_name || steps.deploy_token.outputs.release_name }}\`"
             echo "- reason: ${{ github.event.inputs.reason }}"
             echo "- timestamp_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } >> "$GITHUB_STEP_SUMMARY"
