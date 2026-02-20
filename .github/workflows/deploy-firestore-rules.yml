@@ -170,8 +170,6 @@ jobs:
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: alpha
 
       - name: Verify active identity
         run: |
@@ -179,36 +177,130 @@ jobs:
           gcloud auth list
           gcloud auth list --filter=status:ACTIVE --format="value(account)"
 
-      - name: Deploy Firestore Rules
+      - name: Deploy Firestore Rules via Firebaserules API
         id: deploy
         run: |
           set -euo pipefail
           project_id="${{ steps.project.outputs.project_id }}"
           target_sha="${{ github.event.inputs.target_sha }}"
           reason="${{ github.event.inputs.reason }}"
+          access_token="$(gcloud auth print-access-token)"
 
           echo "Project: $project_id"
           echo "SHA: $target_sha"
           echo "Reason: $reason"
+          echo "Deploy method: firebaserules_rest_api"
 
-          ruleset_name="$(gcloud firebase rulesets create firestore.rules \
-            --project="$project_id" \
-            --format='value(name)')"
+          PROJECT_ID="$project_id" ACCESS_TOKEN="$access_token" RULES_FILE="firestore.rules" node - <<'NODE'
+          const fs = require('fs');
+          const https = require('https');
+          const projectId = process.env.PROJECT_ID;
+          const accessToken = process.env.ACCESS_TOKEN;
+          const rulesFile = process.env.RULES_FILE;
+          const outputPath = process.env.GITHUB_OUTPUT;
 
-          if gcloud firebase releases describe cloud.firestore --project="$project_id" >/dev/null 2>&1; then
-            release_name="$(gcloud firebase releases update cloud.firestore \
-              --ruleset="$ruleset_name" \
-              --project="$project_id" \
-              --format='value(name)')"
-          else
-            release_name="$(gcloud firebase releases create cloud.firestore \
-              --ruleset="$ruleset_name" \
-              --project="$project_id" \
-              --format='value(name)')"
-          fi
+          if (!projectId || !accessToken || !rulesFile || !outputPath) {
+            console.error('Missing required environment for rules deployment.');
+            process.exit(1);
+          }
+          const rulesContent = fs.readFileSync(rulesFile, 'utf8');
+          const releaseName = `projects/${projectId}/releases/cloud.firestore`;
 
-          echo "ruleset_name=$ruleset_name" >> "$GITHUB_OUTPUT"
-          echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
+          function apiRequest(method, path, body) {
+            return new Promise((resolve, reject) => {
+              const payload = body ? JSON.stringify(body) : null;
+              const req = https.request(
+                {
+                  hostname: 'firebaserules.googleapis.com',
+                  path,
+                  method,
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: 'application/json',
+                    ...(payload
+                      ? {
+                          'Content-Type': 'application/json',
+                          'Content-Length': Buffer.byteLength(payload),
+                        }
+                      : {}),
+                  },
+                },
+                (res) => {
+                  let raw = '';
+                  res.on('data', (chunk) => {
+                    raw += chunk;
+                  });
+                  res.on('end', () => {
+                    let parsed = null;
+                    if (raw) {
+                      try {
+                        parsed = JSON.parse(raw);
+                      } catch {
+                        parsed = { raw };
+                      }
+                    }
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                      resolve({ status: res.statusCode, body: parsed || {} });
+                      return;
+                    }
+                    reject(
+                      new Error(
+                        `Firebaserules API ${method} ${path} failed (${res.statusCode}): ${raw || '<empty>'}`
+                      )
+                    );
+                  });
+                }
+              );
+              req.on('error', reject);
+              if (payload) {
+                req.write(payload);
+              }
+              req.end();
+            });
+          }
+
+          async function run() {
+            const createRuleset = await apiRequest('POST', `/v1/projects/${projectId}/rulesets`, {
+              source: {
+                files: [{ name: 'firestore.rules', content: rulesContent }],
+              },
+            });
+
+            const rulesetName = createRuleset.body?.name;
+            if (!rulesetName) {
+              throw new Error(`Ruleset creation returned no name: ${JSON.stringify(createRuleset.body)}`);
+            }
+
+            let releaseResult = null;
+            try {
+              await apiRequest('GET', `/v1/${releaseName}`);
+              releaseResult = await apiRequest(
+                'PATCH',
+                `/v1/${releaseName}?updateMask=rulesetName`,
+                { name: releaseName, rulesetName }
+              );
+            } catch (err) {
+              if (!String(err.message).includes('(404)')) {
+                throw err;
+              }
+              releaseResult = await apiRequest('POST', `/v1/projects/${projectId}/releases`, {
+                name: releaseName,
+                rulesetName,
+              });
+            }
+
+            const finalReleaseName = releaseResult.body?.name || releaseName;
+            fs.appendFileSync(outputPath, `ruleset_name=${rulesetName}\n`);
+            fs.appendFileSync(outputPath, `release_name=${finalReleaseName}\n`);
+            console.log(`Ruleset: ${rulesetName}`);
+            console.log(`Release: ${finalReleaseName}`);
+          }
+
+          run().catch((error) => {
+            console.error(error.message || String(error));
+            process.exit(1);
+          });
+          NODE
 
       - name: Deployment summary
         if: always()
@@ -216,7 +308,7 @@ jobs:
           {
             echo "## Firestore Rules Deployment"
             echo "- status: ${{ job.status }}"
-            echo "- auth_mode: oidc_wif_gcloud_firebase"
+            echo "- auth_mode: oidc_wif_firebaserules_rest_api"
             echo "- auth_strategy: \`${{ steps.auth_mode.outputs.mode }}\`"
             echo "- project_id: ${{ steps.project.outputs.project_id }}"
             echo "- target_sha: \`${{ github.event.inputs.target_sha }}\`"
