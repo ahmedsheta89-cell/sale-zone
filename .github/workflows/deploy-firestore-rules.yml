@@ -171,7 +171,7 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
-          install_components: firebase,alpha
+          install_components: alpha
 
       - name: Verify active identity
         run: |
@@ -226,3 +226,4 @@ jobs:
             echo "- reason: ${{ github.event.inputs.reason }}"
             echo "- timestamp_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } >> "$GITHUB_STEP_SUMMARY"
+
