@@ -256,8 +256,8 @@ jobs:
 
           async function run() {
             const release = await apiGet(releasePath);
-            const rulesetName = release?.rulesetName;
-            const releaseName = release?.name;
+            const rulesetName = release?.body?.rulesetName;
+            const releaseName = release?.body?.name;
             if (!rulesetName) {
               throw new Error(`Release metadata missing rulesetName: ${JSON.stringify(release)}`);
             }
