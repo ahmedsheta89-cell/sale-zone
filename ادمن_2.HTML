@@ -1036,6 +1036,41 @@
                     </div>
                 </div>
 
+                <div class="section-card" style="margin-top: 16px;">
+                    <div class="section-header">
+                        <h3 class="section-title">⏱️ شاشة رصد 24 ساعة</h3>
+                        <span id="admin24hGateBadge" class="status-badge status-pending">WAITING</span>
+                    </div>
+                    <div class="section-body">
+                        <div class="stats-grid" style="margin-bottom: 12px;">
+                            <div class="stat-card">
+                                <div class="stat-icon">🟢</div>
+                                <div class="stat-value" id="admin24hWindowStartAt">-</div>
+                                <div class="stat-label">بداية النافذة</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">🕒</div>
+                                <div class="stat-value" id="admin24hWindowEndsAt">-</div>
+                                <div class="stat-label">نهاية النافذة</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">⌛</div>
+                                <div class="stat-value" id="admin24hCountdown">-</div>
+                                <div class="stat-label">الوقت المتبقي</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">📌</div>
+                                <div class="stat-value" id="admin24hChangeCount">0</div>
+                                <div class="stat-label">تغييرات بعد بداية النافذة</div>
+                            </div>
+                        </div>
+                        <p id="admin24hGateNote" style="color:#666;font-size:12px;margin-bottom:8px;">جارٍ تحليل حالة الرصد...</p>
+                        <div id="admin24hTimeline" style="font-size:12px;color:#333;line-height:1.8;max-height:170px;overflow:auto;border:1px solid #e9e9e9;border-radius:10px;padding:8px;background:#fafafa;">
+                            لا توجد أحداث بعد.
+                        </div>
+                    </div>
+                </div>
+
                 <div class="section-card">
                     <div class="section-header">
                         <h3 class="section-title">🕐 آخر الطلبات</h3>
@@ -1112,6 +1147,36 @@
                         </div>
                     </div>
                     <div class="section-body">
+                        <div class="form-row" style="margin-bottom:12px;">
+                            <div class="form-group">
+                                <label>الحالة</label>
+                                <select id="ordersStatusFilter" onchange="applyOrdersFilters({ reset: true })">
+                                    <option value="">الكل</option>
+                                    <option value="pending">جديد</option>
+                                    <option value="confirmed">مؤكد</option>
+                                    <option value="processing">تجهيز</option>
+                                    <option value="shipped">شحن</option>
+                                    <option value="delivered">توصيل</option>
+                                    <option value="completed">مكتمل</option>
+                                    <option value="cancelled">ملغي</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>بحث (رقم/اسم/هاتف)</label>
+                                <input type="text" id="ordersSearchInput" placeholder="مثال: SZ-123 أو اسم عميل" oninput="applyOrdersFilters({ reset: true })">
+                            </div>
+                            <div class="form-group">
+                                <label>من تاريخ</label>
+                                <input type="date" id="ordersDateFrom" onchange="applyOrdersFilters({ reset: true })">
+                            </div>
+                            <div class="form-group">
+                                <label>إلى تاريخ</label>
+                                <input type="date" id="ordersDateTo" onchange="applyOrdersFilters({ reset: true })">
+                            </div>
+                            <div class="form-group" style="display:flex;align-items:flex-end;">
+                                <button type="button" class="btn btn-light" id="clearFiltersBtn" onclick="clearOrdersFilters()">🧹 مسح الفلاتر</button>
+                            </div>
+                        </div>
                         <div class="table-container">
                             <table class="data-table">
                                 <thead><tr><th>رقم</th><th>العميل</th><th>الهاتف</th><th>المبلغ</th><th>الحالة</th><th>التاريخ</th><th>إجراءات</th></tr></thead>
@@ -1134,7 +1199,7 @@
                 <div class="section-card">
                     <div class="section-header">
                         <h3 class="section-title">🎠 البانرات</h3>
-                        <button class="btn btn-gold" onclick="openModal('bannerModal')">➕ إضافة</button>
+                        <button class="btn btn-gold" onclick="openBannerModalForCreate()">➕ إضافة</button>
                     </div>
                     <div class="section-body">
                         <div class="table-container">
@@ -1153,7 +1218,7 @@
                     <div class="section-header">
                         <h3 class="section-title">🎫 الكوبونات</h3>
                         <div class="header-actions">
-                            <button class="btn btn-gold" onclick="openModal('couponModal')">➕ إضافة</button>
+                            <button class="btn btn-gold" onclick="openCouponModalForCreate()">➕ إضافة</button>
                             <button class="btn btn-success" onclick="exportCouponsExcel()">📤 Excel</button>
                         </div>
                     </div>
@@ -2093,7 +2158,7 @@
     <div class="modal-overlay" id="bannerModal">
         <div class="modal">
             <div class="modal-header">
-                <h2>➕ بانر جديد</h2>
+                <h2 id="bannerModalTitle">➕ بانر جديد</h2>
                 <button class="close-modal" onclick="closeModal('bannerModal')">✕</button>
             </div>
             <div class="modal-body">
@@ -2137,7 +2202,7 @@
     <div class="modal-overlay" id="couponModal">
         <div class="modal">
             <div class="modal-header">
-                <h2>➕ كوبون جديد</h2>
+                <h2 id="couponModalTitle">➕ كوبون جديد</h2>
                 <button class="close-modal" onclick="closeModal('couponModal')">✕</button>
             </div>
             <div class="modal-body">
@@ -2235,6 +2300,15 @@
         let ordersTotalLoaded = 0;
         let ordersPageSize = 50;
         let ordersLoading = false;
+        let filteredOrders = [];
+        const ordersFilters = {
+            status: '',
+            searchText: '',
+            dateFromIso: '',
+            dateToIso: ''
+        };
+        let editingBannerId = '';
+        let editingCouponId = '';
         let clientErrorLogs = [];
         let storeEvents = [];
         let liveSessions = [];
@@ -2304,6 +2378,13 @@
             code: ['code', 'sku', 'barcode', 'item code', 'الكود', 'باركود', 'رمز'],
             stock: ['stock', 'qty', 'quantity', 'inventory', 'المخزون', 'الكميه', 'الكمية']
         };
+
+        const ADMIN_24H_CHANGE_TRACKER_KEY = 'sale_zone_admin_24h_change_tracker_v1';
+        const ADMIN_24H_WINDOW_MS = 24 * 60 * 60 * 1000;
+        const ADMIN_24H_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+        let admin24hChangeWatcherTimer = null;
+        let admin24hCardTimer = null;
+        let admin24hChangeAlertShownThisSession = false;
 
         function normalizeArabicHeader(text) {
             return String(text || '')
@@ -2389,10 +2470,12 @@
         function normalizeProductForStorage(product, defaults = {}) {
             const source = product && typeof product === 'object' ? product : {};
             const nowIso = new Date().toISOString();
-            const isPublished = Object.prototype.hasOwnProperty.call(source, 'isPublished')
+            const requestedPublished = Object.prototype.hasOwnProperty.call(source, 'isPublished')
                 ? source.isPublished !== false
                 : (defaults.isPublished !== false);
             const pricing = resolveProductPricingFields(source, defaults);
+            const hasValidPublishPrice = Number.isFinite(Number(pricing.sellPrice)) && Number(pricing.sellPrice) > 0;
+            const isPublished = requestedPublished && hasValidPublishPrice;
 
             return {
                 id: String(source.id || ''),
@@ -2413,7 +2496,7 @@
                     ? source.searchTokens
                     : buildProductSearchTokensSafe({ ...defaults, ...source, ...pricing }),
                 isPublished,
-                visibilityState: isPublished ? 'published' : 'hidden',
+                visibilityState: isPublished ? 'published' : (hasValidPublishPrice ? 'hidden' : 'invalid-price'),
                 importBatchId: String(source.importBatchId || defaults.importBatchId || ''),
                 importSource: String(source.importSource || defaults.importSource || ''),
                 createdAt: source.createdAt || defaults.createdAt || nowIso,
@@ -2677,6 +2760,241 @@
                     });
                 })
                 .catch(() => undefined);
+        }
+
+        function digestTextFNV1a(input) {
+            const str = String(input == null ? '' : input);
+            let hash = 2166136261;
+            for (let i = 0; i < str.length; i += 1) {
+                hash ^= str.charCodeAt(i);
+                hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+            }
+            return (hash >>> 0).toString(16).padStart(8, '0');
+        }
+
+        function buildCollectionDigest(list, projector) {
+            const source = Array.isArray(list) ? list : [];
+            const projected = source.map((item, index) => {
+                try {
+                    return projector(item || {}, index);
+                } catch (_) {
+                    return { id: String(item && item.id || index), error: 'projection_failed' };
+                }
+            });
+            projected.sort((a, b) => String(a && a.id || '').localeCompare(String(b && b.id || '')));
+            return digestTextFNV1a(JSON.stringify(projected));
+        }
+
+        function buildAdminDataChangeDigest() {
+            const productsDigest = buildCollectionDigest(products, (item) => ({
+                id: String(item.id || ''),
+                updatedAt: String(item.updatedAt || item.timestamp || ''),
+                price: Number(item.price || 0),
+                stock: Number(item.stock || 0),
+                isPublished: item.isPublished !== false
+            }));
+
+            const bannersDigest = buildCollectionDigest(banners, (item) => ({
+                id: String(item.id || ''),
+                updatedAt: String(item.updatedAt || item.timestamp || ''),
+                title: String(item.title || ''),
+                image: String(item.image || '')
+            }));
+
+            const couponsDigest = buildCollectionDigest(coupons, (item) => ({
+                id: String(item.id || ''),
+                updatedAt: String(item.updatedAt || item.timestamp || ''),
+                code: String(item.code || ''),
+                value: Number(item.value || 0),
+                active: item.active !== false
+            }));
+
+            const settingsDigest = digestTextFNV1a(JSON.stringify(storeSettings || {}));
+            const combined = [productsDigest, bannersDigest, couponsDigest, settingsDigest].join('|');
+            return digestTextFNV1a(combined);
+        }
+
+        function readAdmin24hChangeTracker() {
+            try {
+                const raw = localStorage.getItem(ADMIN_24H_CHANGE_TRACKER_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                return parsed && typeof parsed === 'object' ? parsed : null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function writeAdmin24hChangeTracker(state) {
+            try {
+                localStorage.setItem(ADMIN_24H_CHANGE_TRACKER_KEY, JSON.stringify(state || {}));
+            } catch (_) {}
+        }
+
+        function formatAdmin24hCountdown(ms) {
+            const safeMs = Math.max(0, Number(ms) || 0);
+            const totalSeconds = Math.floor(safeMs / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function collectAdmin24hTimeline(windowStartAt, limit = 10) {
+            const startTs = Number(windowStartAt || 0);
+            if (!startTs) return [];
+            const rows = Array.isArray(storeEvents) ? storeEvents : [];
+            const allowedTypes = new Set([
+                'STORE_DATA_SYNC',
+                'ORDER_CREATED',
+                'ORDER_SAVE_FAILED',
+                'ORDER_SAVE_BLOCKED_AUTH_POLICY',
+                'REALTIME_DEGRADED_TO_POLLING',
+                'STORE_SETTINGS_REMOTE_OK'
+            ]);
+
+            return rows
+                .filter((event) => {
+                    const ts = Date.parse(String(event && event.timestamp || '')) || 0;
+                    if (!ts || ts < startTs) return false;
+                    if (!event || typeof event !== 'object') return false;
+                    const eventType = String(event.type || '').trim();
+                    return allowedTypes.has(eventType);
+                })
+                .slice(0, Math.max(1, Number(limit) || 10))
+                .map((event) => ({
+                    timestamp: String(event.timestamp || ''),
+                    type: String(event.type || '-'),
+                    message: String(event.message || '-')
+                }));
+        }
+
+        function renderAdmin24hGateCard(tracker, gateState) {
+            const startAtEl = document.getElementById('admin24hWindowStartAt');
+            const endAtEl = document.getElementById('admin24hWindowEndsAt');
+            const countdownEl = document.getElementById('admin24hCountdown');
+            const changeCountEl = document.getElementById('admin24hChangeCount');
+            const badgeEl = document.getElementById('admin24hGateBadge');
+            const noteEl = document.getElementById('admin24hGateNote');
+            const timelineEl = document.getElementById('admin24hTimeline');
+            if (!startAtEl || !endAtEl || !countdownEl || !changeCountEl || !badgeEl || !noteEl || !timelineEl) return;
+
+            const now = Date.now();
+            const baselineAt = Number(tracker && tracker.baselineAt || 0);
+            const gateWindowStartAt = baselineAt;
+            const gateWindowEndsAt = gateWindowStartAt ? (gateWindowStartAt + ADMIN_24H_WINDOW_MS) : 0;
+            const changesWindowStartAt = gateWindowEndsAt || gateWindowStartAt;
+            const remainingMs = gateWindowEndsAt ? Math.max(0, gateWindowEndsAt - now) : 0;
+            const changes = collectAdmin24hTimeline(changesWindowStartAt, 10);
+
+            startAtEl.textContent = gateWindowStartAt ? formatDateTime(new Date(gateWindowStartAt).toISOString()) : '-';
+            endAtEl.textContent = gateWindowEndsAt ? formatDateTime(new Date(gateWindowEndsAt).toISOString()) : '-';
+            countdownEl.textContent = gateWindowEndsAt ? formatAdmin24hCountdown(remainingMs) : '-';
+            changeCountEl.textContent = String(changes.length);
+
+            const state = String(gateState || tracker && tracker.gateState || 'WAITING').toUpperCase();
+            badgeEl.textContent = state;
+            badgeEl.className = `status-badge ${state === 'READY' ? 'status-confirmed' : (state === 'BLOCKED' ? 'status-cancelled' : 'status-pending')}`;
+
+            if (state === 'READY') {
+                noteEl.textContent = '✅ لا توجد تغييرات غير مستقرة خلال نافذة الـ 24 ساعة. يمكن الاعتماد.';
+            } else if (state === 'BLOCKED') {
+                noteEl.textContent = '⛔ تم رصد تعديل بعد مرور نافذة 24 ساعة. يلزم اعتماد نافذة جديدة قبل الإطلاق.';
+            } else {
+                noteEl.textContent = '⏳ نافذة 24 ساعة قيد المتابعة. انتظر اكتمال العد التنازلي.';
+            }
+
+            if (!changes.length) {
+                timelineEl.innerHTML = 'لا توجد أحداث بعد.';
+                return;
+            }
+
+            timelineEl.innerHTML = changes.map((entry) => (
+                `<div><strong>${escapeHtml(formatDateTime(entry.timestamp))}</strong> — ${escapeHtml(entry.type)} — ${escapeHtml(entry.message)}</div>`
+            )).join('');
+        }
+
+        function checkAdmin24hChangeAlert() {
+            const now = Date.now();
+            const currentDigest = buildAdminDataChangeDigest();
+            const tracker = readAdmin24hChangeTracker() || {};
+
+            if (!tracker.baselineDigest) {
+                tracker.baselineDigest = currentDigest;
+                tracker.baselineAt = now;
+                tracker.pendingChangeAt = 0;
+                tracker.pendingDigest = '';
+                tracker.changeAfterGateAt = 0;
+            }
+
+            const baselineAt = Number(tracker.baselineAt || now);
+            const gateWindowEndsAt = baselineAt + ADMIN_24H_WINDOW_MS;
+            const gateWindowMatured = now >= gateWindowEndsAt;
+
+            if (tracker.baselineDigest === currentDigest) {
+                tracker.pendingChangeAt = 0;
+                tracker.pendingDigest = '';
+                tracker.changeAfterGateAt = 0;
+            } else if (!tracker.pendingChangeAt) {
+                tracker.pendingChangeAt = now;
+                tracker.pendingDigest = currentDigest;
+            } else if (tracker.pendingDigest !== currentDigest) {
+                tracker.pendingChangeAt = now;
+                tracker.pendingDigest = currentDigest;
+            }
+
+            let gateState = 'WAITING';
+            if (!gateWindowMatured) {
+                gateState = 'WAITING';
+            } else if (tracker.baselineDigest === currentDigest) {
+                gateState = 'READY';
+                tracker.changeAfterGateAt = 0;
+            } else {
+                gateState = 'BLOCKED';
+                if (!Number(tracker.changeAfterGateAt || 0)) {
+                    tracker.changeAfterGateAt = now;
+                }
+            }
+
+            if (gateState === 'BLOCKED' && !admin24hChangeAlertShownThisSession) {
+                admin24hChangeAlertShownThisSession = true;
+                showNotification('error', 'تم رصد تعديل بعد مرور نافذة 24 ساعة. اعتمد نافذة جديدة قبل الإطلاق.');
+                logAdmin('info', 'ADMIN_24H_CHANGE_ALERT', 'Admin detected data modifications older than 24 hours', {
+                    baselineAt: baselineAt,
+                    detectedAt: now
+                });
+            } else if (gateState !== 'BLOCKED') {
+                admin24hChangeAlertShownThisSession = false;
+            }
+
+            tracker.gateState = gateState;
+            tracker.lastSeenAt = now;
+            tracker.lastSeenDigest = currentDigest;
+            writeAdmin24hChangeTracker(tracker);
+            renderAdmin24hGateCard(tracker, gateState);
+        }
+
+        function startAdminChangeNotificationWatcher() {
+            stopAdminChangeNotificationWatcher();
+            admin24hChangeAlertShownThisSession = false;
+            checkAdmin24hChangeAlert();
+            admin24hChangeWatcherTimer = setInterval(checkAdmin24hChangeAlert, ADMIN_24H_CHECK_INTERVAL_MS);
+            admin24hCardTimer = setInterval(() => {
+                const tracker = readAdmin24hChangeTracker() || {};
+                renderAdmin24hGateCard(tracker, tracker.gateState || 'WAITING');
+            }, 1000);
+        }
+
+        function stopAdminChangeNotificationWatcher() {
+            if (admin24hChangeWatcherTimer) {
+                clearInterval(admin24hChangeWatcherTimer);
+                admin24hChangeWatcherTimer = null;
+            }
+            if (admin24hCardTimer) {
+                clearInterval(admin24hCardTimer);
+                admin24hCardTimer = null;
+            }
+            admin24hChangeAlertShownThisSession = false;
         }
 
         // ============================================
@@ -3013,6 +3331,7 @@ async function sendPasswordReset() {
         sessionStorage.removeItem('adminSessionId');
         sessionStorage.removeItem('adminSession');
         stopSupportChatRealtime();
+        stopAdminChangeNotificationWatcher();
         document.getElementById('dashboard').classList.remove('active');
         document.getElementById('loginScreen').style.display = 'flex';
         return;
@@ -3045,6 +3364,7 @@ async function sendPasswordReset() {
 
   // Fallback: no Firebase
   stopStoreOperationsMonitoring();
+  stopAdminChangeNotificationWatcher();
   document.getElementById('dashboard').classList.remove('active');
   document.getElementById('loginScreen').style.display = 'flex';
 }
@@ -3053,6 +3373,7 @@ function adminLogout(){
   stopCustomersRealtimeSync();
   stopStoreOperationsMonitoring();
   stopSupportChatRealtime();
+  stopAdminChangeNotificationWatcher();
   const sessionId = sessionStorage.getItem('adminSessionId');
   if (sessionId) {
     sessionManager.destroySession(sessionId);
@@ -3103,6 +3424,7 @@ function adminLogout(){
                 );
             });
             startSupportChatRealtime();
+            startAdminChangeNotificationWatcher();
         }
 
         function updateStats() {
@@ -3491,7 +3813,7 @@ function adminLogout(){
                 throw new Error('invalid-margin');
             }
 
-            if (!Number.isFinite(rawPrice) || rawPrice < 0) {
+            if (!Number.isFinite(rawPrice) || rawPrice <= 0) {
                 throw new Error('invalid-price');
             }
 
@@ -3811,7 +4133,7 @@ function adminLogout(){
                     return;
                 }
                 if (error && error.message === 'invalid-price') {
-                    showNotification('error', 'السعر غير صالح');
+                    showNotification('error', 'السعر غير صالح: يجب أن يكون أكبر من صفر');
                     return;
                 }
                 if (error && error.message === 'missing-name') {
@@ -4325,14 +4647,63 @@ function adminLogout(){
         // ============================================
         // Orders
         // ============================================
+        function normalizeDateInputToIsoRange(dateValue, endOfDay = false) {
+            const raw = String(dateValue || '').trim();
+            if (!raw) return '';
+            const suffix = endOfDay ? 'T23:59:59.999Z' : 'T00:00:00.000Z';
+            const date = new Date(`${raw}${suffix}`);
+            return Number.isFinite(date.getTime()) ? date.toISOString() : '';
+        }
+
+        function readOrdersFiltersFromUi() {
+            return {
+                status: String(document.getElementById('ordersStatusFilter')?.value || '').trim().toLowerCase(),
+                searchText: String(document.getElementById('ordersSearchInput')?.value || '').trim().toLowerCase(),
+                dateFromIso: normalizeDateInputToIsoRange(document.getElementById('ordersDateFrom')?.value || '', false),
+                dateToIso: normalizeDateInputToIsoRange(document.getElementById('ordersDateTo')?.value || '', true)
+            };
+        }
+
+        function applyOrdersFilterLocal(rows, filters = {}) {
+            const sourceRows = Array.isArray(rows) ? rows : [];
+            const safeFilters = filters && typeof filters === 'object' ? filters : {};
+            const statusFilter = String(safeFilters.status || '').trim().toLowerCase();
+            const searchText = String(safeFilters.searchText || '').trim().toLowerCase();
+            const dateFromTs = Date.parse(String(safeFilters.dateFromIso || '')) || null;
+            const dateToTs = Date.parse(String(safeFilters.dateToIso || '')) || null;
+            const searchTokens = searchText ? searchText.split(/\s+/).filter(Boolean) : [];
+
+            return sourceRows.filter((order) => {
+                const safeOrder = order && typeof order === 'object' ? order : {};
+                if (statusFilter && String(safeOrder.status || '').toLowerCase() !== statusFilter) return false;
+
+                const createdAtTs = Date.parse(String(safeOrder.createdAt || '')) || 0;
+                if (dateFromTs && createdAtTs && createdAtTs < dateFromTs) return false;
+                if (dateToTs && createdAtTs && createdAtTs > dateToTs) return false;
+
+                if (!searchTokens.length) return true;
+                const haystack = String([
+                    safeOrder.orderNumber || safeOrder.id || '',
+                    safeOrder.customer && safeOrder.customer.name || '',
+                    safeOrder.customer && safeOrder.customer.phone || ''
+                ].join(' ')).toLowerCase();
+                return searchTokens.every((token) => haystack.includes(token));
+            });
+        }
+
+        function getOrdersForRender() {
+            return Array.isArray(filteredOrders) ? filteredOrders : [];
+        }
+
         function updateOrdersPaginationUi() {
             const metaEl = document.getElementById('ordersPaginationMeta');
             const loadMoreBtn = document.getElementById('ordersLoadMoreBtn');
+            const shownCount = getOrdersForRender().length;
             if (metaEl) {
                 if (ordersLoading) {
                     metaEl.textContent = `جاري التحميل... (${ordersTotalLoaded})`;
                 } else {
-                    metaEl.textContent = `تم تحميل ${ordersTotalLoaded} طلب`;
+                    metaEl.textContent = `عرض ${shownCount} من ${ordersTotalLoaded} طلب${ordersHasMore ? ' (يوجد المزيد)' : ''}`;
                 }
             }
             if (loadMoreBtn) {
@@ -4343,12 +4714,13 @@ function adminLogout(){
 
         function renderOrdersTable() {
             const tbody = document.getElementById('ordersTable');
-            if (orders.length === 0) {
+            const rows = getOrdersForRender();
+            if (rows.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🛍️</div><p>لا توجد طلبات</p></div></td></tr>';
                 updateOrdersPaginationUi();
                 return;
             }
-            tbody.innerHTML = orders.map((o) => {
+            tbody.innerHTML = rows.map((o) => {
                 const rawOrderId = String(o && o.id || '');
                 const safeOrderNumber = escapeHtml(o && (o.orderNumber || o.id) || '-');
                 const safeCustomerName = escapeHtml(o && o.customer && o.customer.name || '-');
@@ -4378,6 +4750,31 @@ function adminLogout(){
             updateOrdersPaginationUi();
         }
 
+        function applyOrdersFilters(options = {}) {
+            const settings = options && typeof options === 'object' ? options : {};
+            const reset = settings.reset === true;
+            Object.assign(ordersFilters, readOrdersFiltersFromUi());
+            if (reset) {
+                loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
+                return;
+            }
+            filteredOrders = applyOrdersFilterLocal(orders, ordersFilters);
+            renderOrdersTable();
+        }
+
+        function clearOrdersFilters() {
+            const statusEl = document.getElementById('ordersStatusFilter');
+            const searchEl = document.getElementById('ordersSearchInput');
+            const dateFromEl = document.getElementById('ordersDateFrom');
+            const dateToEl = document.getElementById('ordersDateTo');
+            if (statusEl) statusEl.value = '';
+            if (searchEl) searchEl.value = '';
+            if (dateFromEl) dateFromEl.value = '';
+            if (dateToEl) dateToEl.value = '';
+            Object.assign(ordersFilters, { status: '', searchText: '', dateFromIso: '', dateToIso: '' });
+            loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
+        }
+
         async function loadOrdersPage(options = {}) {
             const settings = options && typeof options === 'object' ? options : {};
             const reset = settings.reset === true;
@@ -4394,7 +4791,12 @@ function adminLogout(){
             updateOrdersPaginationUi();
             try {
                 if (reset) {
+                    Object.assign(ordersFilters, readOrdersFiltersFromUi());
+                }
+
+                if (reset) {
                     orders = [];
+                    filteredOrders = [];
                     ordersPageCursor = '';
                     ordersHasMore = false;
                     ordersTotalLoaded = 0;
@@ -4402,7 +4804,11 @@ function adminLogout(){
 
                 const response = await listOrdersPage({
                     limit: ordersPageSize,
-                    cursor: reset ? '' : ordersPageCursor
+                    cursor: reset ? '' : ordersPageCursor,
+                    status: ordersFilters.status,
+                    dateFromIso: ordersFilters.dateFromIso,
+                    dateToIso: ordersFilters.dateToIso,
+                    searchText: ordersFilters.searchText
                 });
                 const pageRows = Array.isArray(response && response.items) ? response.items : [];
                 const normalizedRows = pageRows.map((row) => ({ id: String(row && row.id || ''), ...row }));
@@ -4418,6 +4824,7 @@ function adminLogout(){
                 ordersHasMore = response && response.hasMore === true;
                 ordersPageCursor = String(response && response.nextCursor || '').trim();
                 ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
+                filteredOrders = applyOrdersFilterLocal(orders, ordersFilters);
 
                 saveOrders();
                 renderOrdersTable();
@@ -4648,6 +5055,39 @@ function adminLogout(){
         // ============================================
         // Banners
         // ============================================
+        function resetBannerForm() {
+            editingBannerId = '';
+            const titleEl = document.getElementById('bannerModalTitle');
+            if (titleEl) titleEl.textContent = '➕ بانر جديد';
+            document.getElementById('bannerIcon').value = '';
+            document.getElementById('bannerTitle').value = '';
+            document.getElementById('bannerText').value = '';
+            document.getElementById('bannerBtn').value = '';
+            document.getElementById('bannerCategory').value = 'all';
+        }
+
+        function openBannerModalForCreate() {
+            resetBannerForm();
+            openModal('bannerModal');
+        }
+
+        function editBanner(id) {
+            const target = (banners || []).find((item) => String(item && item.id) === String(id));
+            if (!target) {
+                showNotification('error', 'البانر غير موجود');
+                return;
+            }
+            editingBannerId = String(target.id || '');
+            const titleEl = document.getElementById('bannerModalTitle');
+            if (titleEl) titleEl.textContent = '✏️ تعديل بانر';
+            document.getElementById('bannerIcon').value = String(target.icon || '🎉');
+            document.getElementById('bannerTitle').value = String(target.title || '');
+            document.getElementById('bannerText').value = String(target.text || '');
+            document.getElementById('bannerBtn').value = String(target.btn || 'تسوق الآن');
+            document.getElementById('bannerCategory').value = String(target.category || 'all');
+            openModal('bannerModal');
+        }
+
         function renderBannersTable() {
             const tbody = document.getElementById('bannersTable');
             if (banners.length === 0) {
@@ -4666,7 +5106,12 @@ function adminLogout(){
                     <td><strong>${safeTitle}</strong></td>
                     <td>${safeText}</td>
                     <td>${safeCategory}</td>
-                    <td><button class="action-btn delete" data-banner-id="${safeBannerId}" onclick="deleteBanner(this.dataset.bannerId)">🗑️</button></td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="action-btn edit" data-banner-id="${safeBannerId}" onclick="editBanner(this.dataset.bannerId)">✏️</button>
+                            <button class="action-btn delete" data-banner-id="${safeBannerId}" onclick="deleteBanner(this.dataset.bannerId)">🗑️</button>
+                        </div>
+                    </td>
                 </tr>
             `;
             }).join('');
@@ -4675,7 +5120,7 @@ function adminLogout(){
         async function saveBanner(e) {
             e.preventDefault();
             if (navigator.onLine !== true) {
-                showNotification('error', '\u0644\u0627 \u064a\u0645\u0643\u0646 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0628\u0627\u0646\u0631 \u0628\u062f\u0648\u0646 \u0627\u062a\u0635\u0627\u0644 \u0625\u0646\u062a\u0631\u0646\u062a');
+                showNotification('error', editingBannerId ? 'لا يمكن تعديل البانر بدون اتصال إنترنت' : 'لا يمكن إضافة البانر بدون اتصال إنترنت');
                 return;
             }
 
@@ -4689,25 +5134,32 @@ function adminLogout(){
 
             try {
                 await requireAdminPermission();
-                if (typeof addBanner !== 'function') throw new Error('addBanner unavailable');
-                const firebaseId = await addBanner(data);
-                banners.push({ ...data, id: String(firebaseId) });
+                if (editingBannerId) {
+                    if (typeof updateBanner !== 'function') throw new Error('updateBanner unavailable');
+                    await updateBanner(String(editingBannerId), data);
+                    banners = (banners || []).map((item) => (
+                        String(item && item.id) === String(editingBannerId)
+                            ? { ...item, ...data, id: String(editingBannerId) }
+                            : item
+                    ));
+                } else {
+                    if (typeof addBanner !== 'function') throw new Error('addBanner unavailable');
+                    const firebaseId = await addBanner(data);
+                    banners.push({ ...data, id: String(firebaseId) });
+                }
             } catch (error) {
-                logAdmin('error', 'ADMIN_BANNER_CREATE_FAILED', 'Failed to create banner in Firebase', {
+                logAdmin('error', editingBannerId ? 'ADMIN_BANNER_UPDATE_FAILED' : 'ADMIN_BANNER_CREATE_FAILED', 'Failed to save banner in Firebase', {
                     error: error && error.message ? String(error.message) : String(error)
                 });
-                showNotification('error', '\u0641\u0634\u0644 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0628\u0627\u0646\u0631 \u0639\u0644\u0649 Firebase');
+                showNotification('error', editingBannerId ? 'فشل تعديل البانر على Firebase' : 'فشل إضافة البانر على Firebase');
                 return;
             }
 
             saveBanners();
             renderBannersTable();
             closeModal('bannerModal');
-            showNotification('success', '\u062a\u0645\u062a \u0627\u0644\u0625\u0636\u0627\u0641\u0629 \u2705');
-            document.getElementById('bannerIcon').value = '';
-            document.getElementById('bannerTitle').value = '';
-            document.getElementById('bannerText').value = '';
-            document.getElementById('bannerBtn').value = '';
+            showNotification('success', editingBannerId ? 'تم تعديل البانر ✅' : 'تمت الإضافة ✅');
+            resetBannerForm();
         }
         async function deleteBanner(id) {
             if (!confirm('\u062d\u0630\u0641 \u0627\u0644\u0628\u0627\u0646\u0631\u061f')) return;
@@ -4730,6 +5182,9 @@ function adminLogout(){
             }
 
             banners = banners.filter((b) => String(b.id) !== String(id));
+            if (String(editingBannerId || '') === String(id || '')) {
+                resetBannerForm();
+            }
             saveBanners();
             renderBannersTable();
             showNotification('success', '\u062a\u0645 \u0627\u0644\u062d\u0630\u0641 \u2705');
@@ -4737,6 +5192,37 @@ function adminLogout(){
         // ============================================
         // Coupons
         // ============================================
+        function resetCouponForm() {
+            editingCouponId = '';
+            const titleEl = document.getElementById('couponModalTitle');
+            if (titleEl) titleEl.textContent = '➕ كوبون جديد';
+            document.getElementById('couponCode').value = '';
+            document.getElementById('couponDesc').value = '';
+            document.getElementById('couponType').value = 'percentage';
+            document.getElementById('couponValue').value = '';
+        }
+
+        function openCouponModalForCreate() {
+            resetCouponForm();
+            openModal('couponModal');
+        }
+
+        function editCoupon(id) {
+            const target = (coupons || []).find((item) => String(item && item.id) === String(id));
+            if (!target) {
+                showNotification('error', 'الكوبون غير موجود');
+                return;
+            }
+            editingCouponId = String(target.id || '');
+            const titleEl = document.getElementById('couponModalTitle');
+            if (titleEl) titleEl.textContent = '✏️ تعديل كوبون';
+            document.getElementById('couponCode').value = String(target.code || '');
+            document.getElementById('couponDesc').value = String(target.desc || '');
+            document.getElementById('couponType').value = String(target.type || 'percentage');
+            document.getElementById('couponValue').value = String(Number(target.value || 0));
+            openModal('couponModal');
+        }
+
         function renderCouponsTable() {
             const tbody = document.getElementById('couponsTable');
             if (coupons.length === 0) {
@@ -4756,7 +5242,12 @@ function adminLogout(){
                     <td>${safeDesc}</td>
                     <td>${safeType}</td>
                     <td><strong>${safeValue}${safeUnit}</strong></td>
-                    <td><button class="action-btn delete" data-coupon-id="${safeCouponId}" onclick="deleteCoupon(this.dataset.couponId)">🗑️</button></td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="action-btn edit" data-coupon-id="${safeCouponId}" onclick="editCoupon(this.dataset.couponId)">✏️</button>
+                            <button class="action-btn delete" data-coupon-id="${safeCouponId}" onclick="deleteCoupon(this.dataset.couponId)">🗑️</button>
+                        </div>
+                    </td>
                 </tr>
             `;
             }).join('');
@@ -4769,12 +5260,16 @@ function adminLogout(){
                 showNotification('error', '\u0627\u0644\u0643\u0648\u062f \u0645\u0637\u0644\u0648\u0628');
                 return;
             }
-            if (coupons.find((c) => String(c.code || '').toUpperCase() === code)) {
+            const hasDuplicateCode = coupons.find((c) => (
+                String(c.code || '').toUpperCase() === code
+                && String(c.id || '') !== String(editingCouponId || '')
+            ));
+            if (hasDuplicateCode) {
                 showNotification('error', '\u0627\u0644\u0643\u0648\u062f \u0645\u0648\u062c\u0648\u062f');
                 return;
             }
             if (navigator.onLine !== true) {
-                showNotification('error', '\u0644\u0627 \u064a\u0645\u0643\u0646 \u0625\u0636\u0627\u0641\u0629 \u0643\u0648\u0628\u0648\u0646 \u0628\u062f\u0648\u0646 \u0627\u062a\u0635\u0627\u0644 \u0625\u0646\u062a\u0631\u0646\u062a');
+                showNotification('error', editingCouponId ? 'لا يمكن تعديل الكوبون بدون اتصال إنترنت' : 'لا يمكن إضافة كوبون بدون اتصال إنترنت');
                 return;
             }
 
@@ -4793,25 +5288,33 @@ function adminLogout(){
 
             try {
                 await requireAdminPermission();
-                if (typeof addCoupon !== 'function') throw new Error('addCoupon unavailable');
-                const firebaseId = await addCoupon(data);
-                coupons.push({ ...data, id: String(firebaseId) });
+                if (editingCouponId) {
+                    if (typeof updateCoupon !== 'function') throw new Error('updateCoupon unavailable');
+                    await updateCoupon(String(editingCouponId), data);
+                    coupons = (coupons || []).map((item) => (
+                        String(item && item.id) === String(editingCouponId)
+                            ? { ...item, ...data, id: String(editingCouponId) }
+                            : item
+                    ));
+                } else {
+                    if (typeof addCoupon !== 'function') throw new Error('addCoupon unavailable');
+                    const firebaseId = await addCoupon(data);
+                    coupons.push({ ...data, id: String(firebaseId) });
+                }
             } catch (error) {
-                logAdmin('error', 'ADMIN_COUPON_CREATE_FAILED', 'Failed to create coupon in Firebase', {
+                logAdmin('error', editingCouponId ? 'ADMIN_COUPON_UPDATE_FAILED' : 'ADMIN_COUPON_CREATE_FAILED', 'Failed to save coupon in Firebase', {
                     code,
                     error: error && error.message ? String(error.message) : String(error)
                 });
-                showNotification('error', '\u0641\u0634\u0644 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0643\u0648\u0628\u0648\u0646 \u0639\u0644\u0649 Firebase');
+                showNotification('error', editingCouponId ? 'فشل تعديل الكوبون على Firebase' : 'فشل إضافة الكوبون على Firebase');
                 return;
             }
 
             saveCoupons();
             renderCouponsTable();
             closeModal('couponModal');
-            showNotification('success', '\u062a\u0645\u062a \u0627\u0644\u0625\u0636\u0627\u0641\u0629');
-            document.getElementById('couponCode').value = '';
-            document.getElementById('couponDesc').value = '';
-            document.getElementById('couponValue').value = '';
+            showNotification('success', editingCouponId ? 'تم تعديل الكوبون ✅' : 'تمت الإضافة');
+            resetCouponForm();
         }
         async function deleteCoupon(id) {
             if (!confirm('\u062d\u0630\u0641 \u0627\u0644\u0643\u0648\u0628\u0648\u0646\u061f')) return;
@@ -4834,6 +5337,9 @@ function adminLogout(){
             }
 
             coupons = coupons.filter((c) => String(c.id) !== String(id));
+            if (String(editingCouponId || '') === String(id || '')) {
+                resetCouponForm();
+            }
             saveCoupons();
             renderCouponsTable();
             showNotification('success', '\u062a\u0645 \u0627\u0644\u062d\u0630\u0641 \u2705');
@@ -7362,19 +7868,21 @@ function adminLogout(){
             renderSupplierOptions();
             openModal('productModal');
         }
-        function closeModal(modalId) {
+function closeModal(modalId) {
   document.getElementById(modalId)?.classList.remove('active');
   if (modalId === 'productModal') resetProductForm();
   if (modalId === 'supplierModal') resetSupplierForm();
+  if (modalId === 'bannerModal') resetBannerForm();
+  if (modalId === 'couponModal') resetCouponForm();
   if (modalId === 'importWizardModal') resetImportWizardState();
 }
 
         document.querySelectorAll('.modal-overlay').forEach(o => {
-            o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
+            o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); });
         });
 
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+            if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.active').forEach((m) => closeModal(m.id));
         });
 
         function showNotification(type, message) {

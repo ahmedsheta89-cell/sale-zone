@@ -1024,6 +1024,8 @@
         let bannerInterval;
         let liveSessionHeartbeatTimer = null;
         let authSubmitLock = false;
+        const VERIFICATION_EMAIL_COOLDOWN_MS = 120000;
+        let lastVerificationEmailSentAt = 0;
         let chatMode = 'bot';
         let activeSupportThread = null;
         let supportThreadUnsubscribe = null;
@@ -1117,6 +1119,22 @@
             banners = (banners || []).filter(b => !['خصومات تصل إلى 50%', 'توصيل مجاني', 'نقاط الولاء'].includes(String(b?.title || '').trim()));
         }
 
+        function resolveDisplayPrice(product) {
+            const source = product && typeof product === 'object' ? product : {};
+            const sellPrice = Number(source.sellPrice);
+            if (Number.isFinite(sellPrice) && sellPrice > 0) return sellPrice;
+
+            const basePrice = Number(source.price);
+            if (Number.isFinite(basePrice) && basePrice > 0) return basePrice;
+
+            return null;
+        }
+
+        function resolveComparablePrice(product) {
+            const price = resolveDisplayPrice(product);
+            return Number.isFinite(price) ? price : Number.POSITIVE_INFINITY;
+        }
+
         function normalizeStoreProduct(product) {
             const source = product && typeof product === 'object' ? product : {};
             const price = Number(source.price);
@@ -1162,11 +1180,15 @@
         function normalizeStoreProducts(list) {
             return (Array.isArray(list) ? list : [])
                 .map(normalizeStoreProduct)
-                .filter((item) => item.name && item.price >= 0);
+                .filter((item) => item.name);
         }
 
         function getVisibleProductsList() {
-            return (products || []).filter((p) => p && p.isPublished !== false);
+            return (products || []).filter((p) => (
+                p
+                && p.isPublished !== false
+                && Number.isFinite(resolveDisplayPrice(p))
+            ));
         }
 
         // ============================================
@@ -1672,6 +1694,34 @@
             }
         }
 
+        async function resendVerificationEmailForCurrentUser(source = 'checkout') {
+            const authUser = getFirebaseCurrentUserSafe();
+            if (!authUser || typeof authUser.sendEmailVerification !== 'function') {
+                return { sent: false, reason: 'missing-auth-user' };
+            }
+
+            const now = Date.now();
+            if ((now - lastVerificationEmailSentAt) < VERIFICATION_EMAIL_COOLDOWN_MS) {
+                return { sent: false, reason: 'cooldown' };
+            }
+
+            try {
+                await authUser.sendEmailVerification();
+                lastVerificationEmailSentAt = now;
+                trackStoreEvent('EMAIL_VERIFICATION_RESEND', 'Verification email resent for customer action', 'info', {
+                    source: String(source || 'checkout')
+                });
+                return { sent: true, reason: 'sent' };
+            } catch (error) {
+                console.warn('resend verification email warning:', error && error.message ? error.message : error);
+                return {
+                    sent: false,
+                    reason: 'failed',
+                    error: error && error.message ? String(error.message) : String(error)
+                };
+            }
+        }
+
         function canWriteTelemetry(requireVerified = false) {
             const user = getFirebaseCurrentUserSafe();
             if (!user) return false;
@@ -1891,13 +1941,15 @@
                 const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
                 const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
                 const isFav = favorites.includes(String(p && p.id));
-                const currentPrice = escapeHtml(Number(p && (p.sellPrice || p.price) || 0).toFixed(2));
+                const resolvedPrice = resolveDisplayPrice(p);
+                const hasValidPrice = Number.isFinite(resolvedPrice);
+                const currentPrice = hasValidPrice ? escapeHtml(Number(resolvedPrice || 0).toFixed(2)) : 'السعر غير متاح';
                 const oldPriceValue = Number(p && p.oldPrice);
-                const hasOldPrice = Number.isFinite(oldPriceValue) && oldPriceValue > 0;
+                const hasOldPrice = hasValidPrice && Number.isFinite(oldPriceValue) && oldPriceValue > Number(resolvedPrice || 0);
                 const oldPrice = escapeHtml(hasOldPrice ? oldPriceValue.toFixed(2) : '');
                 const ratingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
                 const discountPercent = hasOldPrice
-                    ? Math.round((1 - (Number(p && (p.sellPrice || p.price) || 0) / oldPriceValue)) * 100)
+                    ? Math.round((1 - (Number(resolvedPrice || 0) / oldPriceValue)) * 100)
                     : 0;
                 return `
                 <div class="product-card">
@@ -1909,7 +1961,7 @@
                         <img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="lazy">
                         <div class="product-actions">
                             <button class="action-btn" data-product-id="${safeProductId}" onclick="showProductDetails(this.dataset.productId)">👁️</button>
-                            <button class="action-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)">🛒</button>
+                            <button class="action-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
                         </div>
                     </div>
                     <div class="product-info">
@@ -1920,10 +1972,10 @@
                             <span class="rating-count">(${ratingCount})</span>
                         </div>
                         <div class="product-price">
-                            <span class="current-price">${currentPrice} ج.م</span>
+                            <span class="current-price">${hasValidPrice ? `${currentPrice} ج.م` : currentPrice}</span>
                             ${hasOldPrice ? `<span class="old-price">${oldPrice} ج.م</span>` : ''}
                         </div>
-                        <button class="add-to-cart-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)">🛒 أضف للسلة</button>
+                        <button class="add-to-cart-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف للسلة' : '⚠️ غير متاح للبيع'}</button>
                     </div>
                 </div>
             `;
@@ -1963,7 +2015,8 @@
                     if (currentCategory !== 'all' && String(item.category || '') !== currentCategory) return false;
                     if (filters.supplierId && String(item.supplierId || '') !== filters.supplierId) return false;
                     if (filters.inStockOnly && Number(item.stock || 0) <= 0) return false;
-                    const priceValue = Number(item.sellPrice || item.price || 0);
+                    const priceValue = resolveDisplayPrice(item);
+                    if (!Number.isFinite(priceValue)) return false;
                     if (Number.isFinite(filters.minPrice) && priceValue < filters.minPrice) return false;
                     if (Number.isFinite(filters.maxPrice) && priceValue > filters.maxPrice) return false;
                     if (!tokens.length) return true;
@@ -2127,8 +2180,8 @@
             }
             let filtered = Array.isArray(sourceRows) ? [...sourceRows] : [...(lastSearchResult.items || [])];
             switch(type) {
-                case 'price-low': filtered.sort((a, b) => Number(a.sellPrice || a.price || 0) - Number(b.sellPrice || b.price || 0)); break;
-                case 'price-high': filtered.sort((a, b) => Number(b.sellPrice || b.price || 0) - Number(a.sellPrice || a.price || 0)); break;
+                case 'price-low': filtered.sort((a, b) => resolveComparablePrice(a) - resolveComparablePrice(b)); break;
+                case 'price-high': filtered.sort((a, b) => resolveComparablePrice(b) - resolveComparablePrice(a)); break;
                 case 'rating': filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0)); break;
                 case 'name': filtered.sort((a, b) => a.name.localeCompare(b.name, 'ar')); break;
             }
@@ -2166,8 +2219,10 @@
             const safeName = escapeHtml(p && p.name || '');
             const safeDesc = escapeHtml(p && p.desc || '');
             const safeRatingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
-            const safePrice = escapeHtml(Number(p && (p.sellPrice || p.price) || 0).toFixed(2));
-            const hasOldPrice = Number.isFinite(Number(p && p.oldPrice)) && Number(p && p.oldPrice) > 0;
+            const displayPrice = resolveDisplayPrice(p);
+            const hasValidPrice = Number.isFinite(displayPrice);
+            const safePrice = hasValidPrice ? escapeHtml(Number(displayPrice || 0).toFixed(2)) : 'السعر غير متاح';
+            const hasOldPrice = hasValidPrice && Number.isFinite(Number(p && p.oldPrice)) && Number(p && p.oldPrice) > Number(displayPrice || 0);
             const safeOldPrice = escapeHtml(hasOldPrice ? Number(p.oldPrice).toFixed(2) : '');
             const isFav = favorites.includes(String(p && p.id));
             document.getElementById('productModalBody').innerHTML = `
@@ -2180,11 +2235,11 @@
                         <span style="color: #999; font-size: 12px;">(${safeRatingCount} تقييم)</span>
                     </div>
                     <div style="margin-bottom: 18px;">
-                        <span style="font-size: 26px; font-weight: 800; color: var(--gold-dark);">${safePrice} ج.م</span>
+                        <span style="font-size: 26px; font-weight: 800; color: var(--gold-dark);">${hasValidPrice ? `${safePrice} ج.م` : safePrice}</span>
                         ${hasOldPrice ? `<span style="font-size: 16px; color: #999; text-decoration: line-through; margin-right: 10px;">${safeOldPrice} ج.م</span>` : ''}
                     </div>
                     <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button class="submit-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId); closeModal('productModal');" style="flex: 1; max-width: 200px;">🛒 أضف للسلة</button>
+                        <button class="submit-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId); closeModal('productModal');" style="flex: 1; max-width: 200px;" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف للسلة' : '⚠️ غير متاح للبيع'}</button>
                         <button class="submit-btn" data-product-id="${safeProductId}" onclick="toggleFav(this.dataset.productId)" style="width: 50px; background: ${isFav ? 'var(--error)' : 'var(--cream)'}; color: ${isFav ? 'white' : 'var(--error)'};">${isFav ? '❤️' : '🤍'}</button>
                     </div>
                 </div>
@@ -2316,16 +2371,18 @@
                 const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
                 const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
                 const safeName = escapeHtml(p && p.name || '');
-                const safePrice = escapeHtml(Number(p && (p.sellPrice || p.price) || 0).toFixed(2));
+                const displayPrice = resolveDisplayPrice(p);
+                const hasValidPrice = Number.isFinite(displayPrice);
+                const safePrice = hasValidPrice ? escapeHtml(Number(displayPrice || 0).toFixed(2)) : 'السعر غير متاح';
                 return `
                     <div class="fav-item">
                         <div class="fav-item-image"><img src="${safeImageSrc}" onerror="this.src='${safeFallbackImage}'"></div>
                         <div class="fav-item-details">
                             <div class="fav-item-name">${safeName}</div>
-                            <div class="fav-item-price">${safePrice} ج.م</div>
+                            <div class="fav-item-price">${hasValidPrice ? `${safePrice} ج.م` : safePrice}</div>
                         </div>
                         <div class="fav-item-actions">
-                            <button class="fav-add-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)">🛒</button>
+                            <button class="fav-add-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
                             <button class="fav-remove-btn" data-product-id="${safeProductId}" onclick="toggleFav(this.dataset.productId)">🗑️</button>
                         </div>
                     </div>
@@ -2345,9 +2402,14 @@
         function addToCart(id) {
             const p = getVisibleProductsList().find((x) => x.id == id || String(x.id) === String(id));
             if (!p) return;
+            const displayPrice = resolveDisplayPrice(p);
+            if (!Number.isFinite(displayPrice)) {
+                showNotification('error', 'خطأ', 'هذا المنتج غير متاح للبيع حالياً بسبب بيانات السعر.');
+                return;
+            }
             const existing = cart.find(item => item.id == id || String(item.id) === String(id));
             if (existing) existing.quantity++;
-            else cart.push({ id: p.id, name: p.name, price: Number(p.sellPrice || p.price || 0), image: p.image, quantity: 1 });
+            else cart.push({ id: p.id, name: p.name, price: Number(displayPrice), image: p.image, quantity: 1 });
             saveCart();
             updateCartUI();
             showNotification('success', 'تمت الإضافة', `"${p.name}" في السلة`);
@@ -3060,6 +3122,7 @@
                 return false;
             }
 
+            let verifyCheckError = null;
             try {
                 if (typeof ensureEmailVerifiedOrThrow === 'function') {
                     const verifiedUser = await ensureEmailVerifiedOrThrow({ reloadUser: true });
@@ -3071,16 +3134,26 @@
                     }
                     currentUser.emailVerified = authUser.emailVerified === true;
                 }
-            } catch (_) {
+            } catch (error) {
+                verifyCheckError = error;
                 currentUser.emailVerified = false;
             }
 
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             if (currentUser.emailVerified !== true) {
-                showNotification('warning', 'تفعيل البريد مطلوب', 'يجب تفعيل البريد الإلكتروني قبل إتمام الطلب أو استخدام الدعم الداخلي.');
+                const resendResult = await resendVerificationEmailForCurrentUser(actionKey);
+                let verificationMessage = 'يجب تفعيل البريد الإلكتروني قبل إتمام الطلب أو استخدام الدعم الداخلي.';
+                if (resendResult.sent) {
+                    verificationMessage = 'أرسلنا رابط تفعيل جديد لبريدك الإلكتروني. فعّل البريد ثم أعد المحاولة.';
+                } else if (resendResult.reason === 'cooldown') {
+                    verificationMessage = 'تم إرسال رابط تفعيل مؤخرًا. راجع بريدك (والرسائل غير المرغوبة) ثم أعد المحاولة.';
+                }
+                showNotification('warning', 'تفعيل البريد مطلوب', verificationMessage);
                 trackStoreEvent('EMAIL_VERIFICATION_REQUIRED', 'Blocked sensitive action before email verification', 'warning', {
                     action: String(actionKey || 'sensitive-action'),
-                    customerId: String(currentUser.id || currentUser.uid || '')
+                    customerId: String(currentUser.id || currentUser.uid || ''),
+                    errorCode: String(verifyCheckError && verifyCheckError.code || ''),
+                    resendSent: resendResult.sent === true
                 });
                 return false;
             }
@@ -3182,10 +3255,39 @@
                 }
             } catch (error) {
                 console.error('❌ Firebase error:', error);
+                const errorCode = String(error && error.code || '').toLowerCase();
+                const errorMessage = String(error && error.message ? error.message : error || '');
+                const lowerMessage = errorMessage.toLowerCase();
+                const isVerificationPolicyError = (
+                    errorCode.includes('auth/email-not-verified') ||
+                    errorCode.includes('permission-denied') ||
+                    lowerMessage.includes('missing or insufficient permissions') ||
+                    lowerMessage.includes('email not verified') ||
+                    lowerMessage.includes('verify your email')
+                );
+
+                if (isVerificationPolicyError) {
+                    const resendResult = await resendVerificationEmailForCurrentUser('checkout-submit-error');
+                    let verificationMessage = 'لا يمكن حفظ الطلب قبل تفعيل البريد الإلكتروني.';
+                    if (resendResult.sent) {
+                        verificationMessage = 'لا يمكن حفظ الطلب قبل التفعيل. أرسلنا رابط تفعيل جديد لبريدك.';
+                    } else if (resendResult.reason === 'cooldown') {
+                        verificationMessage = 'راجع بريدك الإلكتروني لإكمال التفعيل ثم أعد المحاولة.';
+                    }
+                    showNotification('warning', 'تفعيل البريد مطلوب', verificationMessage);
+                    trackStoreEvent('ORDER_SAVE_BLOCKED_AUTH_POLICY', 'Order save blocked by verification/auth policy', 'warning', {
+                        orderNumber: order.orderNumber,
+                        code: errorCode,
+                        message: errorMessage
+                    });
+                    return;
+                }
+
                 showNotification('error', 'فشل حفظ الطلب', 'تعذر حفظ الطلب الآن. تأكد من الاتصال ثم حاول مرة أخرى.');
                 trackStoreEvent('ORDER_SAVE_FAILED', 'Order save failed on Firebase', 'error', {
                     orderNumber: order.orderNumber,
-                    error: error && error.message ? String(error.message) : String(error)
+                    code: errorCode,
+                    error: errorMessage
                 });
                 return;
             }

@@ -180,6 +180,22 @@ function roundMoney(value) {
     return Math.round((parsed + Number.EPSILON) * 100) / 100;
 }
 
+function resolveProductDisplayPrice(product) {
+    const source = product && typeof product === 'object' ? product : {};
+    const sellPrice = Number(source.sellPrice);
+    if (Number.isFinite(sellPrice) && sellPrice > 0) return roundMoney(sellPrice);
+
+    const basePrice = Number(source.price);
+    if (Number.isFinite(basePrice) && basePrice > 0) return roundMoney(basePrice);
+
+    return null;
+}
+
+function resolveComparableProductPrice(product) {
+    const price = resolveProductDisplayPrice(product);
+    return Number.isFinite(price) ? price : Number.POSITIVE_INFINITY;
+}
+
 function normalizeSearchText(value) {
     return String(value || '')
         .toLowerCase()
@@ -581,8 +597,24 @@ function normalizeOrderPayloadForWrite(order = {}, options = {}) {
     const source = order && typeof order === 'object' ? order : {};
     const auth = getFirebaseAuth();
     const user = auth && auth.currentUser ? auth.currentUser : null;
+    const authUid = String(user && user.uid || '').trim();
     const nowIso = new Date().toISOString();
-    const normalizedUid = String(source.uid || source.userId || (user && user.uid) || '').trim();
+    const suppliedUid = String(source.uid || source.userId || '').trim();
+    if (!authUid) {
+        const authError = new Error('User is not authenticated.');
+        authError.code = 'auth/not-authenticated';
+        throw authError;
+    }
+    if (suppliedUid && suppliedUid !== authUid) {
+        try {
+            console.warn('[WARN] ORDER_UID_MISMATCH: overriding payload uid with auth uid.', {
+                suppliedUid,
+                authUid,
+                orderNumber: String(source.orderNumber || '')
+            });
+        } catch (_) {}
+    }
+    const normalizedUid = authUid;
     const normalizedEmail = String(source.email || (user && user.email) || '').trim().toLowerCase();
     const idempotencyKey = buildOrderIdempotencyKey({ ...source, uid: normalizedUid });
     const orderDocId = normalizeOrderDocId(idempotencyKey);
@@ -809,8 +841,42 @@ async function listOrdersPage(options = {}) {
     const db = getFirebaseDB();
     const safeLimit = Math.max(1, Math.min(200, Number(options && options.limit) || 50));
     const cursorId = String(options && options.cursor || '').trim();
+    const rawStatus = String(options && options.status || '').trim().toLowerCase();
+    const statusFilter = rawStatus ? rawStatus : '';
+    const dateFromIso = String(options && options.dateFromIso || '').trim();
+    const dateToIso = String(options && options.dateToIso || '').trim();
+    const searchText = String(options && options.searchText || '').trim().toLowerCase();
+    const searchTokens = searchText ? searchText.split(/\s+/).filter(Boolean) : [];
+    const hasAnyFilter = Boolean(statusFilter || dateFromIso || dateToIso || searchTokens.length);
 
-    let query = db.collection('orders').orderBy('createdAt', 'desc').limit(safeLimit + 1);
+    const applyLocalFilter = (rows = []) => {
+        return rows.filter((row) => {
+            const safeRow = row && typeof row === 'object' ? row : {};
+            if (statusFilter && String(safeRow.status || '').toLowerCase() !== statusFilter) return false;
+            const createdAt = String(safeRow.createdAt || '');
+            if (dateFromIso && createdAt && createdAt < dateFromIso) return false;
+            if (dateToIso && createdAt && createdAt > dateToIso) return false;
+            if (!searchTokens.length) return true;
+            const haystack = String([
+                safeRow.orderNumber || safeRow.id || '',
+                safeRow.customer && safeRow.customer.name || '',
+                safeRow.customer && safeRow.customer.phone || ''
+            ].join(' ')).toLowerCase();
+            return searchTokens.every((token) => haystack.includes(token));
+        });
+    };
+
+    const buildQuery = (limitValue) => {
+        let query = db.collection('orders');
+        if (statusFilter) query = query.where('status', '==', statusFilter);
+        if (dateFromIso) query = query.where('createdAt', '>=', dateFromIso);
+        if (dateToIso) query = query.where('createdAt', '<=', dateToIso);
+        query = query.orderBy('createdAt', 'desc').limit(limitValue);
+        return query;
+    };
+
+    let query = buildQuery(hasAnyFilter ? Math.max(safeLimit, 500) : (safeLimit + 1));
+    let fallbackToLocalFiltering = false;
 
     if (cursorId) {
         const cursorSnapshot = await db.collection('orders').doc(cursorId).get();
@@ -819,15 +885,42 @@ async function listOrdersPage(options = {}) {
         }
     }
 
-    const snapshot = await query.get();
-    const docs = snapshot.docs || [];
-    const hasMore = docs.length > safeLimit;
-    const pageDocs = hasMore ? docs.slice(0, safeLimit) : docs;
-    const items = pageDocs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    const nextCursor = hasMore && pageDocs.length ? String(pageDocs[pageDocs.length - 1].id) : '';
+    let snapshot;
+    try {
+        snapshot = await query.get();
+    } catch (error) {
+        if (!hasAnyFilter) throw error;
+        console.warn('[WARN] listOrdersPage filter query fallback to local filtering:', error && error.message ? error.message : error);
+        fallbackToLocalFiltering = true;
+        let fallbackQuery = db.collection('orders').orderBy('createdAt', 'desc').limit(Math.max(safeLimit, 500));
+        if (cursorId) {
+            const fallbackCursorSnapshot = await db.collection('orders').doc(cursorId).get();
+            if (fallbackCursorSnapshot.exists) {
+                fallbackQuery = fallbackQuery.startAfter(fallbackCursorSnapshot);
+            }
+        }
+        snapshot = await fallbackQuery.get();
+    }
+
+    const docs = Array.isArray(snapshot && snapshot.docs) ? snapshot.docs : [];
+    const allRows = docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const filteredRows = (hasAnyFilter || fallbackToLocalFiltering) ? applyLocalFilter(allRows) : allRows;
+
+    if (hasAnyFilter || fallbackToLocalFiltering) {
+        const items = filteredRows.slice(0, safeLimit);
+        return {
+            items,
+            hasMore: false,
+            nextCursor: ''
+        };
+    }
+
+    const hasMore = filteredRows.length > safeLimit;
+    const pageRows = hasMore ? filteredRows.slice(0, safeLimit) : filteredRows;
+    const nextCursor = hasMore && pageRows.length ? String(pageRows[pageRows.length - 1].id) : '';
 
     return {
-        items,
+        items: pageRows,
         hasMore,
         nextCursor
     };
@@ -1165,8 +1258,18 @@ async function searchProductsIndexed(query, filters = {}, sort = 'default', page
 
     const minPrice = Number(safeFilters.minPrice);
     const maxPrice = Number(safeFilters.maxPrice);
-    if (Number.isFinite(minPrice)) rows = rows.filter((item) => Number(item.sellPrice || item.price || 0) >= minPrice);
-    if (Number.isFinite(maxPrice)) rows = rows.filter((item) => Number(item.sellPrice || item.price || 0) <= maxPrice);
+    if (Number.isFinite(minPrice)) {
+        rows = rows.filter((item) => {
+            const price = resolveProductDisplayPrice(item);
+            return Number.isFinite(price) && price >= minPrice;
+        });
+    }
+    if (Number.isFinite(maxPrice)) {
+        rows = rows.filter((item) => {
+            const price = resolveProductDisplayPrice(item);
+            return Number.isFinite(price) && price <= maxPrice;
+        });
+    }
     if (safeFilters.inStock === true) rows = rows.filter((item) => Number(item.stock || 0) > 0);
 
     if (queryText) {
@@ -1186,10 +1289,10 @@ async function searchProductsIndexed(query, filters = {}, sort = 'default', page
 
     switch (String(sort || 'default')) {
         case 'price-low':
-            rows.sort((a, b) => Number(a.sellPrice || a.price || 0) - Number(b.sellPrice || b.price || 0));
+            rows.sort((a, b) => resolveComparableProductPrice(a) - resolveComparableProductPrice(b));
             break;
         case 'price-high':
-            rows.sort((a, b) => Number(b.sellPrice || b.price || 0) - Number(a.sellPrice || a.price || 0));
+            rows.sort((a, b) => resolveComparableProductPrice(b) - resolveComparableProductPrice(a));
             break;
         case 'rating':
             rows.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
