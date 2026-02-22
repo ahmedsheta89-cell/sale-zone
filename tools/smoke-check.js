@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const root = process.cwd();
 
@@ -18,6 +19,68 @@ function assertNotContains(content, pattern, message, errors) {
   if (pattern.test(content)) errors.push(message);
 }
 
+function runGit(command) {
+  try {
+    return String(execSync(command, {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'ignore']
+    }) || '').trim();
+  } catch (_) {
+    return '';
+  }
+}
+
+function parseChangedFiles(output) {
+  return output
+    ? output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    : [];
+}
+
+function resolveChangedFiles() {
+  const candidates = [];
+
+  const mergeBaseMain = runGit('git merge-base HEAD origin/main');
+  if (mergeBaseMain) {
+    candidates.push(runGit(`git diff --name-only ${mergeBaseMain}..HEAD`));
+  }
+
+  const baseRef = String(process.env.GITHUB_BASE_REF || '').trim();
+  if (baseRef && /^[A-Za-z0-9._/-]+$/.test(baseRef)) {
+    const baseRemoteRef = `origin/${baseRef}`;
+    let mergeBaseBaseRef = runGit(`git merge-base HEAD ${baseRemoteRef}`);
+    if (!mergeBaseBaseRef) {
+      runGit(`git fetch --no-tags --depth=200 origin +refs/heads/${baseRef}:refs/remotes/origin/${baseRef}`);
+      mergeBaseBaseRef = runGit(`git merge-base HEAD ${baseRemoteRef}`);
+    }
+    if (mergeBaseBaseRef) {
+      candidates.push(runGit(`git diff --name-only ${mergeBaseBaseRef}..HEAD`));
+    }
+  }
+
+  const eventBefore = String(process.env.GITHUB_EVENT_BEFORE || '').trim();
+  const eventSha = String(process.env.GITHUB_SHA || '').trim();
+  if (
+    eventBefore &&
+    eventSha &&
+    eventBefore !== '0000000000000000000000000000000000000000' &&
+    /^[0-9a-f]{40}$/i.test(eventBefore) &&
+    /^[0-9a-f]{40}$/i.test(eventSha)
+  ) {
+    candidates.push(runGit(`git diff --name-only ${eventBefore}..${eventSha}`));
+  }
+
+  candidates.push(runGit('git diff --name-only HEAD^1 HEAD'));
+  candidates.push(runGit('git diff --name-only HEAD~1 HEAD'));
+  candidates.push(runGit('git show --pretty="" --name-only HEAD'));
+
+  for (const output of candidates) {
+    const files = parseChangedFiles(output);
+    if (files.length) return [...new Set(files)];
+  }
+
+  return [];
+}
+
 const errors = [];
 
 const adminHtml = read('\u0627\u062f\u0645\u0646_2.HTML');
@@ -25,6 +88,7 @@ const storeHtml = read('\u0645\u062a\u062c\u0631_2.HTML');
 const firebaseApi = read('firebase-api.js');
 const firebaseConfig = read('firebase-config.js');
 const firebaseData = read('firebase-data.js');
+const productSearchWorker = read('product-search-worker.js');
 const realtimeSync = read('REAL_TIME_SYNC.js');
 const serviceWorker = read('sw.js');
 const firestoreRules = read('firestore.rules');
@@ -76,6 +140,16 @@ assertContains(adminHtml, /function\s+loadCustomersPage\s*\(/, 'admin HTML: load
 assertContains(adminHtml, /listCustomersPage\s*\(/, 'admin HTML: listCustomersPage() usage missing', errors);
 assertContains(adminHtml, /id="ordersPaginationMeta"/, 'admin HTML: orders pagination meta missing', errors);
 assertContains(adminHtml, /function\s+loadOrdersPage\s*\(/, 'admin HTML: loadOrdersPage() missing', errors);
+assertContains(adminHtml, /id="ordersStatusFilter"/, 'admin HTML: orders status filter missing', errors);
+assertContains(adminHtml, /id="ordersSearchInput"/, 'admin HTML: orders search input missing', errors);
+assertContains(adminHtml, /id="ordersDateFrom"/, 'admin HTML: orders date-from input missing', errors);
+assertContains(adminHtml, /id="ordersDateTo"/, 'admin HTML: orders date-to input missing', errors);
+assertContains(adminHtml, /function\s+clearOrdersFilters\s*\(/, 'admin HTML: clearOrdersFilters() missing', errors);
+assertContains(adminHtml, /function\s+applyOrdersFilters\s*\(/, 'admin HTML: applyOrdersFilters() missing', errors);
+assertContains(adminHtml, /function\s+editBanner\s*\(/, 'admin HTML: banner edit handler missing', errors);
+assertContains(adminHtml, /function\s+editCoupon\s*\(/, 'admin HTML: coupon edit handler missing', errors);
+assertContains(adminHtml, /id="admin24hGateBadge"/, 'admin HTML: 24h gate badge missing', errors);
+assertContains(adminHtml, /id="admin24hTimeline"/, 'admin HTML: 24h gate timeline missing', errors);
 assertContains(adminHtml, /function\s+hasAdminClaimFromTokenResult\s*\(/, 'admin HTML: admin claim validator missing', errors);
 assertContains(adminHtml, /id="adminFunctionsTable"/, 'admin HTML: admin function monitor table missing', errors);
 assertContains(adminHtml, /function\s+refreshAdminFunctionMonitorView\s*\(/, 'admin HTML: admin function monitor loader missing', errors);
@@ -111,6 +185,8 @@ assertContains(storeHtml, /function\s+ensureVerifiedForSensitiveAction\s*\(/, 's
 assertContains(storeHtml, /function\s+handleRegister\s*\(/, 'store HTML: register handler missing', errors);
 assertContains(storeHtml, /function\s+handleLogin\s*\(/, 'store HTML: login handler missing', errors);
 assertContains(storeHtml, /idempotencyKey/, 'store HTML: order idempotency key wiring missing', errors);
+assertContains(storeHtml, /function\s+resolveDisplayPrice\s*\(/, 'store HTML: resolveDisplayPrice() missing', errors);
+assertContains(storeHtml, /function\s+resolveComparablePrice\s*\(/, 'store HTML: resolveComparablePrice() missing', errors);
 assertNotContains(storeHtml, /getAllUsers\s*\(/, 'store HTML: legacy getAllUsers() usage still present', errors);
 assertNotContains(storeHtml, /setStorageData\s*\(\s*['"]CUSTOMERS['"]/, 'store HTML: legacy CUSTOMERS cache write still present', errors);
 assertNotContains(storeHtml, /getStorageData\s*\(\s*['"]ORDERS['"]\s*\)/, 'store HTML: legacy ORDERS local source still present', errors);
@@ -124,12 +200,15 @@ assertNotContains(storeHtml, /innerHTML\s*=\s*`[^`]*\$\{\s*c\.(code|desc)\b/, 's
 assertNotContains(storeHtml, /onclick="[^"]*'\$\{[^"]+\}'[^"]*"/, 'store HTML: inline onclick still injects dynamic string payload', errors);
 assertNotContains(storeHtml, /window\.onerror\s*=/, 'store HTML: direct window.onerror assignment is not allowed', errors);
 assertNotContains(storeHtml, /window\.onunhandledrejection\s*=/, 'store HTML: direct window.onunhandledrejection assignment is not allowed', errors);
+assertNotContains(storeHtml, /sellPrice\s*\|\|\s*price/, 'store HTML: legacy sellPrice || price anti-pattern still present', errors);
+assertNotContains(firebaseApi, /sellPrice\s*\|\|\s*price/, 'firebase-api.js: legacy sellPrice || price anti-pattern still present', errors);
+assertNotContains(productSearchWorker, /sellPrice\s*\|\|\s*price/, 'product-search-worker.js: legacy sellPrice || price anti-pattern still present', errors);
 
 assertContains(firebaseConfig, /experimentalForceLongPolling:\s*true/, 'firebase-config.js: force long-polling not enabled', errors);
 assertContains(firebaseConfig, /intervalReconnectRequested/, 'firebase-config.js: interval reconnect request guard missing', errors);
 assertContains(firebaseConfig, /&&\s*isGithubPages\s*!==\s*true/, 'firebase-config.js: interval reconnect must be blocked on GitHub Pages', errors);
 assertContains(firebaseConfig, /&&\s*forcePollingTransport\s*!==\s*true/, 'firebase-config.js: interval reconnect must be blocked on long-polling mode', errors);
-assertContains(firebaseData, /const\s+FIREBASE_POLLING_ENABLED\s*=\s*false/, 'firebase-data.js: polling fallback must be disabled', errors);
+assertContains(firebaseData, /const\s+FIREBASE_POLLING_ENABLED\s*=\s*false/, 'firebase-data.js: polling fallback must be disabled in current release cycle', errors);
 assertContains(firebaseData, /createResubscribingSnapshot\s*\(/, 'firebase-data.js: realtime auto-resubscribe guard missing', errors);
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]PRODUCTS['"]\s*\)/, 'REAL_TIME_SYNC.js: products local sync should be removed', errors);
 assertNotContains(realtimeSync, /getStorageData\s*\(\s*['"]COUPONS['"]\s*\)/, 'REAL_TIME_SYNC.js: coupons local sync should be removed', errors);
@@ -168,6 +247,28 @@ assertContains(adminFunctionPolicy, /"groupRules"\s*:/, 'admin-function-policy.j
 assertContains(adminFunctionRegistry, /"registryHash"\s*:/, 'admin-function-registry.json: registryHash field missing', errors);
 assertContains(adminFunctionRegistry, /"sourceHash"\s*:/, 'admin-function-registry.json: sourceHash field missing', errors);
 assertContains(adminFunctionRegistry, /"policyHash"\s*:/, 'admin-function-registry.json: policyHash field missing', errors);
+
+const sensitiveClientFiles = new Set([
+  '\u0645\u062a\u062c\u0631_2.HTML',
+  'firebase-api.js',
+  'firebase-data.js',
+  'firebase-config.js',
+  'sw.js',
+  'product-search-worker.js'
+]);
+
+const changedFiles = resolveChangedFiles();
+
+if (changedFiles.length) {
+  const changedBasenames = changedFiles.map((file) => path.basename(file));
+  const touchedSensitive = changedBasenames.some((name) => sensitiveClientFiles.has(name));
+  const touchedVersion = changedBasenames.includes('version.json');
+  if (touchedSensitive && !touchedVersion) {
+    errors.push('version guard: sensitive client files changed without version.json bump');
+  }
+} else if (String(process.env.CI || '').toLowerCase() === 'true') {
+  errors.push('version guard: unable to resolve changed files in CI');
+}
 
 if (errors.length) {
   console.error('Smoke check FAILED:');

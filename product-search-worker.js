@@ -27,13 +27,29 @@ function buildSearchBlob(product) {
     ].join(' '));
 }
 
+function resolveDisplayPrice(product) {
+    const source = product && typeof product === 'object' ? product : {};
+    const sellPrice = Number(source.sellPrice);
+    if (Number.isFinite(sellPrice) && sellPrice > 0) return sellPrice;
+
+    const basePrice = Number(source.price);
+    if (Number.isFinite(basePrice) && basePrice > 0) return basePrice;
+
+    return null;
+}
+
+function resolveComparablePrice(product) {
+    const price = resolveDisplayPrice(product);
+    return Number.isFinite(price) ? price : Number.POSITIVE_INFINITY;
+}
+
 function sortRows(rows, sort) {
     switch (String(sort || 'default')) {
         case 'price-low':
-            rows.sort((a, b) => Number(a.sellPrice || a.price || 0) - Number(b.sellPrice || b.price || 0));
+            rows.sort((a, b) => resolveComparablePrice(a) - resolveComparablePrice(b));
             break;
         case 'price-high':
-            rows.sort((a, b) => Number(b.sellPrice || b.price || 0) - Number(a.sellPrice || a.price || 0));
+            rows.sort((a, b) => resolveComparablePrice(b) - resolveComparablePrice(a));
             break;
         case 'rating':
             rows.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
@@ -64,7 +80,8 @@ function runSearch(payload) {
     let rows = indexedProducts.filter((row) => {
         if (!row || row.isPublished === false) return false;
         if (category !== 'all' && String(row.category || '') !== category) return false;
-        const priceValue = Number(row.sellPrice || row.price || 0);
+        const priceValue = resolveDisplayPrice(row);
+        if (!Number.isFinite(priceValue)) return false;
         if (Number.isFinite(minPrice) && priceValue < minPrice) return false;
         if (Number.isFinite(maxPrice) && priceValue > maxPrice) return false;
         if (supplierId && String(row.supplierId || '') !== supplierId) return false;
