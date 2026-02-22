@@ -31,6 +31,57 @@ function runGit(command) {
   }
 }
 
+function parseChangedFiles(output) {
+  return output
+    ? output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    : [];
+}
+
+function resolveChangedFiles() {
+  const candidates = [];
+
+  const mergeBaseMain = runGit('git merge-base HEAD origin/main');
+  if (mergeBaseMain) {
+    candidates.push(runGit(`git diff --name-only ${mergeBaseMain}..HEAD`));
+  }
+
+  const baseRef = String(process.env.GITHUB_BASE_REF || '').trim();
+  if (baseRef && /^[A-Za-z0-9._/-]+$/.test(baseRef)) {
+    const baseRemoteRef = `origin/${baseRef}`;
+    let mergeBaseBaseRef = runGit(`git merge-base HEAD ${baseRemoteRef}`);
+    if (!mergeBaseBaseRef) {
+      runGit(`git fetch --no-tags --depth=200 origin +refs/heads/${baseRef}:refs/remotes/origin/${baseRef}`);
+      mergeBaseBaseRef = runGit(`git merge-base HEAD ${baseRemoteRef}`);
+    }
+    if (mergeBaseBaseRef) {
+      candidates.push(runGit(`git diff --name-only ${mergeBaseBaseRef}..HEAD`));
+    }
+  }
+
+  const eventBefore = String(process.env.GITHUB_EVENT_BEFORE || '').trim();
+  const eventSha = String(process.env.GITHUB_SHA || '').trim();
+  if (
+    eventBefore &&
+    eventSha &&
+    eventBefore !== '0000000000000000000000000000000000000000' &&
+    /^[0-9a-f]{40}$/i.test(eventBefore) &&
+    /^[0-9a-f]{40}$/i.test(eventSha)
+  ) {
+    candidates.push(runGit(`git diff --name-only ${eventBefore}..${eventSha}`));
+  }
+
+  candidates.push(runGit('git diff --name-only HEAD^1 HEAD'));
+  candidates.push(runGit('git diff --name-only HEAD~1 HEAD'));
+  candidates.push(runGit('git show --pretty="" --name-only HEAD'));
+
+  for (const output of candidates) {
+    const files = parseChangedFiles(output);
+    if (files.length) return [...new Set(files)];
+  }
+
+  return [];
+}
+
 const adminHtml = read('\u0627\u062f\u0645\u0646_2.HTML');
 const storeHtml = read('\u0645\u062a\u062c\u0631_2.HTML');
 const firebaseApi = read('firebase-api.js');
@@ -88,17 +139,7 @@ const sensitiveClientFiles = new Set([
   'product-search-worker.js'
 ]);
 
-let changedFiles = [];
-const mergeBase = runGit('git merge-base HEAD origin/main');
-if (mergeBase) {
-  const diffOutput = runGit(`git diff --name-only ${mergeBase}..HEAD`);
-  changedFiles = diffOutput ? diffOutput.split(/\r?\n/).filter(Boolean) : [];
-}
-
-if (!changedFiles.length) {
-  const fallbackDiff = runGit('git diff --name-only HEAD~1 HEAD');
-  changedFiles = fallbackDiff ? fallbackDiff.split(/\r?\n/).filter(Boolean) : [];
-}
+const changedFiles = resolveChangedFiles();
 
 if (!changedFiles.length && String(process.env.CI || '').toLowerCase() === 'true') {
   errors.push('contracts: unable to resolve changed files for version.json guard.');
