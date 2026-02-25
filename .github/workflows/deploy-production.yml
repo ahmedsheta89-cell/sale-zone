@@ -14,7 +14,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   actions: read
   pages: write
   id-token: write
@@ -30,6 +30,12 @@ jobs:
     outputs:
       target_sha: ${{ steps.sha.outputs.value }}
       checklist_path: ${{ steps.meta.outputs.checklist_path }}
+      release_gate_run_id: ${{ steps.verify_upstream.outputs.release_gate_run_id }}
+      staging_run_id: ${{ steps.verify_upstream.outputs.staging_run_id }}
+      firestore_rules_run_id: ${{ steps.verify_upstream.outputs.firestore_rules_run_id }}
+      backend_run_id: ${{ steps.verify_upstream.outputs.backend_run_id }}
+      backend_functions_revision: ${{ steps.validate_backend_metadata.outputs.functions_revision }}
+      backend_indexes_source_sha: ${{ steps.validate_backend_metadata.outputs.indexes_source_sha }}
     steps:
       - name: Resolve target SHA
         id: sha
@@ -51,7 +57,8 @@ jobs:
             echo "checklist_path=release/release-checklist.json" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Ensure release gate, staging, and firestore rules deploy succeeded for target SHA
+      - name: Ensure release gate, staging, firestore rules, and backend deploy succeeded for target SHA
+        id: verify_upstream
         uses: actions/github-script@v7
         env:
           TARGET_SHA: ${{ steps.sha.outputs.value }}
@@ -61,9 +68,12 @@ jobs:
             const requiredWorkflows = [
               { id: "release-gate.yml", label: "Release Gate" },
               { id: "deploy-staging.yml", label: "Deploy Staging" },
-              { id: "deploy-firestore-rules.yml", label: "Deploy Firestore Rules" }
+              { id: "deploy-firestore-rules.yml", label: "Deploy Firestore Rules" },
+              { id: "deploy-backend.yml", label: "Deploy Backend" }
             ];
             let stagingSuccessRun = null;
+            let backendSuccessRun = null;
+            const workflowRunMap = {};
 
             for (const wf of requiredWorkflows) {
               const runs = await github.rest.actions.listWorkflowRuns({
@@ -82,14 +92,27 @@ jobs:
                 core.setFailed(`${wf.label} is not successful for SHA ${targetSha}`);
                 return;
               }
+              if (String(successRun.head_sha || "") !== targetSha) {
+                core.setFailed(`${wf.label} head_sha mismatch (expected ${targetSha}, got ${String(successRun.head_sha || "")})`);
+                return;
+              }
+
+              workflowRunMap[wf.id] = successRun.id;
 
               if (wf.id === "deploy-staging.yml") {
                 stagingSuccessRun = successRun;
+              }
+              if (wf.id === "deploy-backend.yml") {
+                backendSuccessRun = successRun;
               }
             }
 
             if (!stagingSuccessRun) {
               core.setFailed(`Deploy Staging success run was not found for SHA ${targetSha}`);
+              return;
+            }
+            if (!backendSuccessRun) {
+              core.setFailed(`Deploy Backend success run was not found for SHA ${targetSha}`);
               return;
             }
 
@@ -106,7 +129,89 @@ jobs:
               return;
             }
 
+            const backendArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: backendSuccessRun.id,
+              per_page: 100
+            });
+            const expectedBackendArtifact = `backend-${targetSha}`;
+            const backendArtifact = backendArtifacts.data.artifacts.find((artifact) => artifact.name === expectedBackendArtifact);
+            if (!backendArtifact) {
+              core.setFailed(`Deploy Backend artifact "${expectedBackendArtifact}" not found for SHA ${targetSha}`);
+              return;
+            }
+
+            core.setOutput("release_gate_run_id", String(workflowRunMap["release-gate.yml"] || ""));
+            core.setOutput("staging_run_id", String(workflowRunMap["deploy-staging.yml"] || ""));
+            core.setOutput("firestore_rules_run_id", String(workflowRunMap["deploy-firestore-rules.yml"] || ""));
+            core.setOutput("backend_run_id", String(workflowRunMap["deploy-backend.yml"] || ""));
+            core.setOutput("backend_artifact_id", String(backendArtifact.id || ""));
             core.info(`All upstream gates passed for SHA ${targetSha}`);
+
+      - name: Validate backend metadata artifact
+        id: validate_backend_metadata
+        env:
+          TARGET_SHA: ${{ steps.sha.outputs.value }}
+          BACKEND_ARTIFACT_ID: ${{ steps.verify_upstream.outputs.backend_artifact_id }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${BACKEND_ARTIFACT_ID}" ]]; then
+            echo "::error::Missing backend artifact id from upstream verification."
+            exit 1
+          fi
+
+          workdir="$RUNNER_TEMP/backend-artifact-check"
+          rm -rf "$workdir"
+          mkdir -p "$workdir"
+
+          curl -fsSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${BACKEND_ARTIFACT_ID}/zip" \
+            -o "$workdir/backend.zip"
+
+          unzip -q "$workdir/backend.zip" -d "$workdir/extracted"
+          metadata_path="$(find "$workdir/extracted" -type f -name 'backend-metadata.json' | head -n 1)"
+          if [[ -z "$metadata_path" || ! -f "$metadata_path" ]]; then
+            echo "::error::backend-metadata.json missing in backend artifact."
+            exit 1
+          fi
+
+          METADATA_PATH="$metadata_path" node -e "
+            const fs = require('fs');
+            const targetSha = process.env.TARGET_SHA;
+            const outPath = process.env.GITHUB_OUTPUT;
+            const metadataPath = process.env.METADATA_PATH;
+            let metadata;
+            try {
+              metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+            } catch (_) {
+              console.error('Invalid backend metadata JSON.');
+              process.exit(1);
+            }
+            if (!metadata || typeof metadata !== 'object') {
+              console.error('backend metadata is empty.');
+              process.exit(1);
+            }
+            if (String(metadata.commitSha || '') !== targetSha) {
+              console.error('backend metadata commitSha mismatch.');
+              process.exit(1);
+            }
+            if (String(metadata.workflow || '') !== 'deploy-backend') {
+              console.error('backend metadata workflow mismatch.');
+              process.exit(1);
+            }
+            if (metadata.functionsDeployed !== true || metadata.indexesAttempted !== true) {
+              console.error('backend metadata required boolean flags are missing.');
+              process.exit(1);
+            }
+            const functionsRevision = String(metadata.functionsRevision || '');
+            const indexesSourceSha = String(metadata.indexesSourceSha || '');
+            fs.appendFileSync(outPath, 'functions_revision=' + functionsRevision + '\\n');
+            fs.appendFileSync(outPath, 'indexes_source_sha=' + indexesSourceSha + '\\n');
+          "
 
   package-production:
     name: package-production
@@ -157,9 +262,84 @@ jobs:
     needs:
       - package-production
     runs-on: ubuntu-latest
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     environment:
       name: production
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  release-manifest:
+    name: release-manifest
+    needs:
+      - verify-gates
+      - deploy-production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-gates.outputs.target_sha }}
+          fetch-depth: 0
+
+      - name: Build release manifest
+        id: manifest
+        run: |
+          set -euo pipefail
+          target_sha="${{ needs.verify-gates.outputs.target_sha }}"
+          manifest_tmp="$RUNNER_TEMP/RELEASE_MANIFEST.${target_sha}.json"
+          deployed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          critical_routes_checksum="$(
+            {
+              printf '%s\0' "firebase-api.js" ".github/workflows/deploy-production.yml" ".github/workflows/deploy-backend.yml"
+              git ls-files -z '*_2.HTML'
+            } | xargs -0 sha256sum | sha256sum | awk '{print $1}'
+          )"
+
+          cat > "$manifest_tmp" <<EOF
+          {
+            "commitSha": "${target_sha}",
+            "deployedAtUtc": "${deployed_at}",
+            "firestoreRulesRunId": "${{ needs.verify-gates.outputs.firestore_rules_run_id }}",
+            "backendDeployRunId": "${{ needs.verify-gates.outputs.backend_run_id }}",
+            "stagingRunId": "${{ needs.verify-gates.outputs.staging_run_id }}",
+            "productionRunId": "${{ github.run_id }}",
+            "hostingDeploymentUrl": "${{ needs['deploy-production'].outputs.page_url }}",
+            "functionsRevision": "${{ needs.verify-gates.outputs.backend_functions_revision }}",
+            "indexesSourceSha": "${{ needs.verify-gates.outputs.backend_indexes_source_sha }}",
+            "featureFlags": {},
+            "criticalRoutesChecksum": "${critical_routes_checksum}"
+          }
+          EOF
+          echo "manifest_tmp=$manifest_tmp" >> "$GITHUB_OUTPUT"
+
+      - name: Commit manifest to release-records branch
+        run: |
+          set -euo pipefail
+          target_sha="${{ needs.verify-gates.outputs.target_sha }}"
+          manifest_path="release/RELEASE_MANIFEST.${target_sha}.json"
+          manifest_tmp="${{ steps.manifest.outputs.manifest_tmp }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin release-records >/dev/null 2>&1; then
+            git fetch origin release-records
+            git checkout -B release-records origin/release-records
+          else
+            git checkout --orphan release-records
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+
+          mkdir -p release
+          cp "$manifest_tmp" "$manifest_path"
+          git add "$manifest_path"
+          if git diff --cached --quiet; then
+            echo "No manifest changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(release): record manifest for ${target_sha}"
+          git push origin HEAD:release-records

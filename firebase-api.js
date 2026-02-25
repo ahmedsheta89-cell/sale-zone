@@ -49,6 +49,114 @@ if (typeof window !== 'undefined') {
     window.canClientWriteTelemetry = canClientWriteTelemetry;
 }
 
+function getBackendApiBaseUrl() {
+    if (typeof window === 'undefined') return '';
+    const explicit = String(window.__BACKEND_API_BASE_URL__ || window.BACKEND_API_BASE_URL || '').trim();
+    if (explicit) return explicit.replace(/\/+$/, '');
+    const meta = document.querySelector('meta[name="backend-api-base-url"]');
+    const fromMeta = String(meta && meta.getAttribute('content') || '').trim();
+    return fromMeta ? fromMeta.replace(/\/+$/, '') : '';
+}
+
+function shouldUseBackendApi() {
+    return Boolean(String(getBackendApiBaseUrl() || '').trim());
+}
+
+function requireBackendApiForSensitiveWrite(operationName = 'sensitive-write') {
+    if (!shouldUseBackendApi()) {
+        const error = new Error(`BACKEND_REQUIRED: Backend API is required for ${operationName}.`);
+        error.code = 'BACKEND_REQUIRED';
+        throw error;
+    }
+}
+
+function resolveBackendApiUrl(pathname = '') {
+    const base = String(getBackendApiBaseUrl() || '').trim();
+    if (!base) return '';
+    const safePath = pathname.startsWith('/') ? pathname : `/${pathname}`;
+    return `${base}${safePath}`;
+}
+
+async function getAppCheckTokenSafe() {
+    try {
+        if (!(typeof firebase !== 'undefined' && firebase.appCheck)) return '';
+        const appCheck = firebase.appCheck();
+        if (!appCheck || typeof appCheck.getToken !== 'function') return '';
+        const result = await appCheck.getToken(false);
+        return String(result && result.token || '');
+    } catch (error) {
+        console.warn('[WARN] App Check token unavailable:', error && error.message ? error.message : error);
+        return '';
+    }
+}
+
+async function callBackendApi(pathname, options = {}) {
+    const settings = options && typeof options === 'object' ? options : {};
+    const method = String(settings.method || 'GET').toUpperCase();
+    const requireAuth = settings.requireAuth !== false;
+    const requireAppCheck = settings.requireAppCheck !== false;
+    const body = Object.prototype.hasOwnProperty.call(settings, 'body') ? settings.body : undefined;
+    const strict = settings.strict !== false;
+
+    if (!shouldUseBackendApi()) {
+        if (strict) throw new Error('backend-api-disabled');
+        return null;
+    }
+
+    const url = resolveBackendApiUrl(pathname);
+    if (!url) {
+        if (strict) throw new Error('backend-api-base-url-missing');
+        return null;
+    }
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-Request-Id': `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+    };
+
+    if (requireAuth) {
+        const auth = getFirebaseAuth();
+        const user = auth && auth.currentUser ? auth.currentUser : null;
+        if (!user) throw new Error('auth/not-authenticated');
+        const idToken = await user.getIdToken(true);
+        headers.Authorization = `Bearer ${idToken}`;
+    }
+
+    if (requireAppCheck) {
+        const token = await getAppCheckTokenSafe();
+        if (token) headers['X-Firebase-AppCheck'] = token;
+    }
+
+    const response = await fetch(url, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body)
+    });
+
+    let payload = {};
+    try {
+        payload = await response.json();
+    } catch (_) {
+        payload = {};
+    }
+
+    if (!response.ok || payload.ok === false) {
+        const err = new Error(
+            payload && payload.error && payload.error.message
+                ? String(payload.error.message)
+                : `backend-api-${response.status}`
+        );
+        err.code = payload && payload.error && payload.error.code
+            ? String(payload.error.code)
+            : `http/${response.status}`;
+        err.status = response.status;
+        err.payload = payload;
+        throw err;
+    }
+
+    return payload && Object.prototype.hasOwnProperty.call(payload, 'data') ? payload.data : payload;
+}
+
 // ==========================================
 // COUPONS
 // ==========================================
@@ -1602,11 +1710,47 @@ async function getSettings() {
 
 async function saveSettings(settings) {
     try {
-        const db = getFirebaseDB();
-        await db.collection('settings').doc('store').set(settings, { merge: true });
-        console.log('[OK] Settings saved to Firebase');
+        requireBackendApiForSensitiveWrite('settings-update');
+        await callBackendApi('/v1/admin/settings/store', {
+            method: 'PATCH',
+            body: settings,
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Settings saved via backend');
     } catch (e) {
         console.error('saveSettings error:', e);
+        throw e;
+    }
+}
+
+async function getReleaseGateState() {
+    try {
+        requireBackendApiForSensitiveWrite('release-gate-state-read');
+        const data = await callBackendApi('/v1/admin/settings/release-gate-state', {
+            method: 'GET',
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        return data && typeof data === 'object' ? data : null;
+    } catch (e) {
+        console.warn('getReleaseGateState warning:', e && e.message ? e.message : e);
+        return null;
+    }
+}
+
+async function saveReleaseGateState(statePatch) {
+    try {
+        requireBackendApiForSensitiveWrite('release-gate-state-update');
+        const data = await callBackendApi('/v1/admin/settings/release-gate-state', {
+            method: 'PATCH',
+            body: statePatch || {},
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        return data && typeof data === 'object' ? data : null;
+    } catch (e) {
+        console.warn('saveReleaseGateState warning:', e && e.message ? e.message : e);
         throw e;
     }
 }
@@ -2255,6 +2399,19 @@ async function closeSupportThread(threadId) {
         console.error('closeSupportThread error:', e);
         return false;
     }
+}
+
+const releaseGateStateApiBridge = {
+    getReleaseGateState,
+    saveReleaseGateState
+};
+
+if (typeof window !== 'undefined') {
+    window.ReleaseGateStateAPI = releaseGateStateApiBridge;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = Object.assign({}, module.exports || {}, releaseGateStateApiBridge);
 }
 
 console.log('[OK] Firebase API loaded');

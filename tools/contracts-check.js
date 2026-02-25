@@ -86,6 +86,8 @@ const adminHtml = read('\u0627\u062f\u0645\u0646_2.HTML');
 const storeHtml = read('\u0645\u062a\u062c\u0631_2.HTML');
 const firebaseApi = read('firebase-api.js');
 const worker = read('product-search-worker.js');
+const deployProductionWorkflow = read('.github/workflows/deploy-production.yml');
+const deployBackendWorkflow = read('.github/workflows/deploy-backend.yml');
 
 // 1) Admin CRUD parity for entities that already expose update APIs.
 const parityMatrix = [
@@ -120,6 +122,16 @@ assertContains(
   'contracts: listOrdersPage must receive status/date/search filters.'
 );
 
+// 2.1) Countdown canonical authority contract presence.
+assertContains(firebaseApi, /async function getReleaseGateState\s*\(/, 'contracts: getReleaseGateState wrapper is missing.');
+assertContains(firebaseApi, /async function saveReleaseGateState\s*\(/, 'contracts: saveReleaseGateState wrapper is missing.');
+assertContains(firebaseApi, /window\.ReleaseGateStateAPI\s*=/, 'contracts: ReleaseGateStateAPI browser bridge missing.');
+assertContains(firebaseApi, /error\.code\s*=\s*['"]BACKEND_REQUIRED['"]/, 'contracts: BACKEND_REQUIRED fail-closed enforcement missing.');
+assertContains(adminHtml, /function\s+fetchCanonicalAdmin24hState\s*\(/, 'contracts: admin canonical release gate fetch helper missing.');
+assertContains(adminHtml, /GATE_STATE_SOURCE/, 'contracts: missing GATE_STATE_SOURCE diagnostics.');
+assertContains(adminHtml, /GATE_STATE_MISMATCH/, 'contracts: missing GATE_STATE_MISMATCH diagnostics.');
+assertContains(adminHtml, /GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE/, 'contracts: missing DEGRADED backend diagnostics.');
+
 // 3) Price contract matrix.
 assertContains(storeHtml, /function\s+resolveDisplayPrice\s*\(/, 'contracts: store resolveDisplayPrice() missing.');
 assertContains(storeHtml, /function\s+resolveComparablePrice\s*\(/, 'contracts: store resolveComparablePrice() missing.');
@@ -153,6 +165,21 @@ if (changedFiles.length) {
     errors.push('contracts: sensitive client files changed without version.json bump.');
   }
 }
+
+// 5) Deploy chain contract.
+assertContains(deployBackendWorkflow, /name:\s*Deploy Backend/, 'contracts: deploy-backend workflow missing.');
+assertContains(deployBackendWorkflow, /project_id:\s*[\s\S]*required:\s*true/, 'contracts: deploy-backend project_id must be required.');
+assertContains(deployBackendWorkflow, /if:\s*\$\{\{\s*inputs\.target_sha\s*!=\s*''\s*\}\}/, 'contracts: deploy-backend must fail closed when target_sha is empty.');
+assertContains(deployBackendWorkflow, /fetch-depth:\s*0/, 'contracts: deploy-backend checkout must use fetch-depth: 0.');
+assertContains(deployBackendWorkflow, /"commitSha"\s*:/, 'contracts: deploy-backend metadata commitSha key missing.');
+assertContains(deployBackendWorkflow, /"workflow"\s*:\s*"deploy-backend"/, 'contracts: deploy-backend metadata workflow key missing.');
+assertContains(deployBackendWorkflow, /"createdAtUtc"\s*:/, 'contracts: deploy-backend metadata createdAtUtc key missing.');
+assertContains(deployBackendWorkflow, /"functionsDeployed"\s*:\s*true/, 'contracts: deploy-backend metadata functionsDeployed=true missing.');
+assertContains(deployBackendWorkflow, /"indexesAttempted"\s*:\s*true/, 'contracts: deploy-backend metadata indexesAttempted=true missing.');
+assertContains(deployProductionWorkflow, /deploy-backend\.yml/, 'contracts: deploy-production verify-gates missing deploy-backend dependency.');
+assertContains(deployProductionWorkflow, /backend-\$\{targetSha\}/, 'contracts: deploy-production must validate backend artifact name by SHA.');
+assertContains(deployProductionWorkflow, /Validate backend metadata artifact/, 'contracts: deploy-production backend metadata validation step missing.');
+assertContains(deployProductionWorkflow, /backend metadata commitSha mismatch/, 'contracts: deploy-production must fail on backend metadata SHA mismatch.');
 
 if (errors.length) {
   console.error('Contracts check FAILED:');

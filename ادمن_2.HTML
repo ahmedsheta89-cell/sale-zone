@@ -2385,6 +2385,7 @@
         let admin24hChangeWatcherTimer = null;
         let admin24hCardTimer = null;
         let admin24hChangeAlertShownThisSession = false;
+        let admin24hCanonicalState = null;
 
         function normalizeArabicHeader(text) {
             return String(text || '')
@@ -2831,6 +2832,56 @@
             } catch (_) {}
         }
 
+        function normalizeAdminReleaseGateState(rawState) {
+            const state = rawState && typeof rawState === 'object' ? rawState : {};
+            return {
+                baselineAt: Number(state.baselineAt || 0),
+                baselineDigest: String(state.baselineDigest || ''),
+                pendingChangeAt: Number(state.pendingChangeAt || 0),
+                pendingDigest: String(state.pendingDigest || ''),
+                changeAfterGateAt: Number(state.changeAfterGateAt || 0),
+                lastSeenAt: Number(state.lastSeenAt || 0),
+                lastSeenDigest: String(state.lastSeenDigest || ''),
+                gateState: String(state.gateState || 'WAITING').toUpperCase(),
+                source: String(state.source || 'cache').toLowerCase(),
+                windowMs: Number(state.windowMs || ADMIN_24H_WINDOW_MS)
+            };
+        }
+
+        async function fetchCanonicalAdmin24hState() {
+            if (typeof getReleaseGateState !== 'function') {
+                logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate backend API wrapper missing');
+                return null;
+            }
+            try {
+                const state = await getReleaseGateState();
+                if (!state || typeof state !== 'object') {
+                    logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate state not available from backend');
+                    return null;
+                }
+                logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', { source: 'backend' });
+                return normalizeAdminReleaseGateState(state);
+            } catch (error) {
+                logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate backend fetch failed', {
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                return null;
+            }
+        }
+
+        async function persistCanonicalAdmin24hState(state) {
+            if (typeof saveReleaseGateState !== 'function') return false;
+            try {
+                await saveReleaseGateState(state || {});
+                return true;
+            } catch (error) {
+                logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate backend save failed', {
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                return false;
+            }
+        }
+
         function formatAdmin24hCountdown(ms) {
             const safeMs = Math.max(0, Number(ms) || 0);
             const totalSeconds = Math.floor(safeMs / 1000);
@@ -2894,12 +2945,14 @@
 
             const state = String(gateState || tracker && tracker.gateState || 'WAITING').toUpperCase();
             badgeEl.textContent = state;
-            badgeEl.className = `status-badge ${state === 'READY' ? 'status-confirmed' : (state === 'BLOCKED' ? 'status-cancelled' : 'status-pending')}`;
+            badgeEl.className = `status-badge ${state === 'READY' ? 'status-confirmed' : (state === 'BLOCKED' || state === 'DEGRADED' ? 'status-cancelled' : 'status-pending')}`;
 
             if (state === 'READY') {
                 noteEl.textContent = '✅ لا توجد تغييرات غير مستقرة خلال نافذة الـ 24 ساعة. يمكن الاعتماد.';
             } else if (state === 'BLOCKED') {
                 noteEl.textContent = '⛔ تم رصد تعديل بعد مرور نافذة 24 ساعة. يلزم اعتماد نافذة جديدة قبل الإطلاق.';
+            } else if (state === 'DEGRADED') {
+                noteEl.textContent = '⚠️ مصدر حالة البوابة غير متاح من backend. الحالة المعروضة من cache فقط.';
             } else {
                 noteEl.textContent = '⏳ نافذة 24 ساعة قيد المتابعة. انتظر اكتمال العد التنازلي.';
             }
@@ -2914,10 +2967,35 @@
             )).join('');
         }
 
-        function checkAdmin24hChangeAlert() {
+        async function checkAdmin24hChangeAlert() {
             const now = Date.now();
             const currentDigest = buildAdminDataChangeDigest();
             const tracker = readAdmin24hChangeTracker() || {};
+            const backendState = await fetchCanonicalAdmin24hState();
+            const hasBackendAuthority = !!backendState;
+
+            if (hasBackendAuthority) {
+                const canonical = normalizeAdminReleaseGateState(backendState);
+                admin24hCanonicalState = canonical;
+                if (tracker.lastSeenDigest && canonical.lastSeenDigest && tracker.lastSeenDigest !== canonical.lastSeenDigest) {
+                    logAdmin('warn', 'GATE_STATE_MISMATCH', 'Local gate digest differs from backend canonical state', {
+                        localDigest: tracker.lastSeenDigest,
+                        backendDigest: canonical.lastSeenDigest
+                    });
+                }
+                Object.assign(tracker, {
+                    baselineAt: Number(canonical.baselineAt || tracker.baselineAt || 0),
+                    baselineDigest: String(canonical.baselineDigest || tracker.baselineDigest || ''),
+                    pendingChangeAt: Number(canonical.pendingChangeAt || tracker.pendingChangeAt || 0),
+                    pendingDigest: String(canonical.pendingDigest || tracker.pendingDigest || ''),
+                    changeAfterGateAt: Number(canonical.changeAfterGateAt || tracker.changeAfterGateAt || 0),
+                    lastSeenAt: Number(canonical.lastSeenAt || tracker.lastSeenAt || 0),
+                    lastSeenDigest: String(canonical.lastSeenDigest || tracker.lastSeenDigest || ''),
+                    gateState: String(canonical.gateState || tracker.gateState || 'WAITING').toUpperCase()
+                });
+            } else {
+                logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', { source: 'cache' });
+            }
 
             if (!tracker.baselineDigest) {
                 tracker.baselineDigest = currentDigest;
@@ -2956,6 +3034,10 @@
                 }
             }
 
+            if (!hasBackendAuthority) {
+                gateState = 'DEGRADED';
+            }
+
             if (gateState === 'BLOCKED' && !admin24hChangeAlertShownThisSession) {
                 admin24hChangeAlertShownThisSession = true;
                 showNotification('error', 'تم رصد تعديل بعد مرور نافذة 24 ساعة. اعتمد نافذة جديدة قبل الإطلاق.');
@@ -2971,17 +3053,34 @@
             tracker.lastSeenAt = now;
             tracker.lastSeenDigest = currentDigest;
             writeAdmin24hChangeTracker(tracker);
+            if (hasBackendAuthority) {
+                await persistCanonicalAdmin24hState({
+                    baselineAt: tracker.baselineAt,
+                    baselineDigest: tracker.baselineDigest,
+                    pendingChangeAt: tracker.pendingChangeAt,
+                    pendingDigest: tracker.pendingDigest,
+                    changeAfterGateAt: tracker.changeAfterGateAt,
+                    lastSeenAt: tracker.lastSeenAt,
+                    lastSeenDigest: tracker.lastSeenDigest,
+                    gateState: tracker.gateState,
+                    source: 'backend',
+                    updatedBy: 'admin_panel',
+                    windowMs: ADMIN_24H_WINDOW_MS
+                });
+            }
             renderAdmin24hGateCard(tracker, gateState);
         }
 
         function startAdminChangeNotificationWatcher() {
             stopAdminChangeNotificationWatcher();
             admin24hChangeAlertShownThisSession = false;
-            checkAdmin24hChangeAlert();
-            admin24hChangeWatcherTimer = setInterval(checkAdmin24hChangeAlert, ADMIN_24H_CHECK_INTERVAL_MS);
+            checkAdmin24hChangeAlert().catch(() => undefined);
+            admin24hChangeWatcherTimer = setInterval(() => {
+                checkAdmin24hChangeAlert().catch(() => undefined);
+            }, ADMIN_24H_CHECK_INTERVAL_MS);
             admin24hCardTimer = setInterval(() => {
                 const tracker = readAdmin24hChangeTracker() || {};
-                renderAdmin24hGateCard(tracker, tracker.gateState || 'WAITING');
+                renderAdmin24hGateCard(tracker, tracker.gateState || 'DEGRADED');
             }, 1000);
         }
 
@@ -3026,65 +3125,16 @@
         // ============================================
         // 🔥 Firebase + LocalStorage Hybrid Data Loading
         async function loadAllData() {
-            try {
-                // محاولة تحميل من Firebase أولاً
-                     if (typeof getAllProducts === 'function') {
-                     console.log('🔥 Admin: Loading from Firebase...');
-                     const fbProducts = await getAllProducts();
-                     const fbCoupons = await getAllCoupons();
-                     const fbBanners = await getAllBanners();
-                     const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
-                     let fbSupportThreads = null;
-                    if (typeof getSupportThreads === 'function') {
-                        try {
-                            await requireAdminPermission();
-                            fbSupportThreads = await getSupportThreads(150, { strict: true });
-                            clearSupportAccessState();
-                        } catch (supportError) {
-                            const denied = handleSupportAccessError(supportError, 'loadAllData.getSupportThreads');
-                            if (!denied) {
-                                console.warn('support preload warning:', supportError);
-                            }
-                            fbSupportThreads = [];
-                        }
-                    }
-
-                    const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
-                    const cachedStoreProducts = getStorageData('PRODUCTS');
-                     products = Array.isArray(fbProducts)
-                         ? fbProducts
-                         : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
-                     const cachedOrders = getStorageData('ORDERS');
-                     orders = Array.isArray(cachedOrders) ? cachedOrders : [];
-                     ordersPageCursor = '';
-                     ordersHasMore = false;
-                     ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
-                     users = [];
-                     coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
-                     banners = Array.isArray(fbBanners) ? fbBanners : (getStorageData('BANNERS') || []);
-                     suppliers = Array.isArray(fbSuppliers) ? fbSuppliers : (getStorageData('SUPPLIERS') || []);
-                     supportThreads = Array.isArray(fbSupportThreads) ? fbSupportThreads : [];
-                    
-                    const settings = await getSettings();
-                    if (settings) storeSettings = { ...storeSettings, ...settings };
-                    clientErrorLogs = (typeof getClientErrorLogs === 'function')
-                        ? (await getClientErrorLogs(50) || [])
-                        : [];
-                    
-                    console.log('✅ Admin data loaded from Firebase');
-                    console.log('📦 Products:', products.length);
-                    console.log('📦 Product IDs:', products.map(p => p.id));
-                    console.log('🛍️ Orders:', orders.length);
-                } else {
-                    throw new Error('Firebase not available');
-                }
-            } catch (error) {
-                console.warn('⚠️ Firebase error, using localStorage:', error);
-                // Fallback to localStorage
+            if (typeof getAllProducts !== 'function') {
+                console.warn('⚠️ Firebase API unavailable, using localStorage');
                 const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
                 const cachedStoreProducts = getStorageData('PRODUCTS');
                 products = Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []);
-                orders = getStorageData('ORDERS') || [];
+                const cachedOrders = getStorageData('ORDERS');
+                orders = Array.isArray(cachedOrders) ? cachedOrders : [];
+                ordersPageCursor = '';
+                ordersHasMore = false;
+                ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
                 coupons = getStorageData('COUPONS') || [];
                 banners = getStorageData('BANNERS') || [];
                 users = [];
@@ -3108,6 +3158,84 @@
                 } catch (_) {
                     clientErrorLogs = [];
                 }
+            } else {
+                console.log('🔥 Admin: Loading from Firebase...');
+                const collectionTasks = await Promise.allSettled([
+                    getAllProducts(),
+                    getAllCoupons(),
+                    getAllBanners(),
+                    (typeof getSuppliers === 'function' ? getSuppliers() : Promise.resolve(null)),
+                    getSettings(),
+                    (typeof getClientErrorLogs === 'function' ? getClientErrorLogs(50) : Promise.resolve([])),
+                    (async () => {
+                        if (typeof getSupportThreads !== 'function') return [];
+                        try {
+                            await requireAdminPermission();
+                            const rows = await getSupportThreads(150, { strict: true });
+                            clearSupportAccessState();
+                            return rows;
+                        } catch (supportError) {
+                            const denied = handleSupportAccessError(supportError, 'loadAllData.getSupportThreads');
+                            if (!denied) {
+                                console.warn('support preload warning:', supportError);
+                            }
+                            return [];
+                        }
+                    })()
+                ]);
+
+                const [productsResult, couponsResult, bannersResult, suppliersResult, settingsResult, errorsResult, supportResult] = collectionTasks;
+
+                const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
+                const cachedStoreProducts = getStorageData('PRODUCTS');
+                products = (productsResult.status === 'fulfilled' && Array.isArray(productsResult.value))
+                    ? productsResult.value
+                    : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
+                if (productsResult.status === 'rejected') {
+                    console.warn('⚠️ Admin products fetch failed, fallback to cache:', productsResult.reason);
+                }
+
+                const cachedOrders = getStorageData('ORDERS');
+                orders = Array.isArray(cachedOrders) ? cachedOrders : [];
+                ordersPageCursor = '';
+                ordersHasMore = false;
+                ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
+                users = [];
+
+                coupons = (couponsResult.status === 'fulfilled' && Array.isArray(couponsResult.value))
+                    ? couponsResult.value
+                    : (getStorageData('COUPONS') || []);
+                if (couponsResult.status === 'rejected') {
+                    console.warn('⚠️ Admin coupons fetch failed, fallback to cache:', couponsResult.reason);
+                }
+
+                banners = (bannersResult.status === 'fulfilled' && Array.isArray(bannersResult.value))
+                    ? bannersResult.value
+                    : (getStorageData('BANNERS') || []);
+                if (bannersResult.status === 'rejected') {
+                    console.warn('⚠️ Admin banners fetch failed, fallback to cache:', bannersResult.reason);
+                }
+
+                suppliers = (suppliersResult.status === 'fulfilled' && Array.isArray(suppliersResult.value))
+                    ? suppliersResult.value
+                    : (getStorageData('SUPPLIERS') || []);
+
+                supportThreads = (supportResult.status === 'fulfilled' && Array.isArray(supportResult.value))
+                    ? supportResult.value
+                    : [];
+
+                if (settingsResult.status === 'fulfilled' && settingsResult.value) {
+                    storeSettings = { ...storeSettings, ...settingsResult.value };
+                }
+
+                clientErrorLogs = (errorsResult.status === 'fulfilled' && Array.isArray(errorsResult.value))
+                    ? errorsResult.value
+                    : [];
+
+                console.log('✅ Admin data loaded from Firebase');
+                console.log('📦 Products:', products.length);
+                console.log('📦 Product IDs:', products.map(p => p.id));
+                console.log('🛍️ Orders:', orders.length);
             }
 
             products = ensureProductsSchema(products);
