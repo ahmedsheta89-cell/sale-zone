@@ -1,0 +1,231 @@
+name: Deploy Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Commit SHA to deploy backend assets from"
+        required: true
+        type: string
+      project_id:
+        description: "Firebase/GCP project id"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy-backend:
+    name: deploy-backend
+    if: ${{ inputs.target_sha != '' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+          if [[ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]]; then
+            echo "::error::Missing secret: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            exit 1
+          fi
+
+      - name: Normalize identity secrets
+        id: identity
+        run: |
+          set -euo pipefail
+          provider_raw="${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}"
+          service_account_raw="${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}"
+
+          provider="$(printf '%s' "$provider_raw" | tr -d '[:space:]')"
+          service_account="$(printf '%s' "$service_account_raw" | tr -d '[:space:]')"
+
+          if [[ -z "$provider" || "$provider" != projects/*/locations/global/workloadIdentityPools/*/providers/* ]]; then
+            echo "::error::Invalid GCP_WORKLOAD_IDENTITY_PROVIDER format."
+            exit 1
+          fi
+
+          has_service_account=false
+          if [[ -n "$service_account" ]]; then
+            has_service_account=true
+          fi
+
+          if [[ "$has_service_account" == "true" && ! "$service_account" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]]; then
+            echo "::error::Invalid GCP_SERVICE_ACCOUNT_EMAIL format."
+            exit 1
+          fi
+
+          echo "::add-mask::$provider"
+          if [[ "$has_service_account" == "true" ]]; then
+            echo "::add-mask::$service_account"
+          fi
+
+          echo "provider=$provider" >> "$GITHUB_OUTPUT"
+          echo "service_account=$service_account" >> "$GITHUB_OUTPUT"
+          echo "has_service_account=$has_service_account" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve project id
+        id: project
+        run: |
+          set -euo pipefail
+          raw="${{ github.event.inputs.project_id }}"
+          project_id="$(printf '%s' "$raw" | tr -d '[:space:]')"
+          if [[ -z "$project_id" || ! "$project_id" =~ ^[a-z0-9-]+$ ]]; then
+            echo "::error::Invalid project id: '$project_id'"
+            exit 1
+          fi
+          echo "project_id=$project_id" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout target SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_sha }}
+          fetch-depth: 0
+
+      - name: Verify checkout SHA matches target
+        id: verify_sha
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          target_sha="${{ github.event.inputs.target_sha }}"
+          if [[ "$actual_sha" != "$target_sha" ]]; then
+            echo "::error::Checkout SHA mismatch (actual=$actual_sha, target=$target_sha)"
+            exit 1
+          fi
+          echo "actual_sha=$actual_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud (OIDC/WIF) via service account
+        id: auth_sa
+        if: ${{ steps.identity.outputs.has_service_account == 'true' }}
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ steps.identity.outputs.provider }}
+          service_account: ${{ steps.identity.outputs.service_account }}
+          token_format: access_token
+          create_credentials_file: true
+
+      - name: Authenticate to Google Cloud (OIDC/WIF) direct fallback
+        id: auth_direct
+        if: ${{ steps.identity.outputs.has_service_account != 'true' || steps.auth_sa.outcome == 'failure' }}
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ steps.identity.outputs.provider }}
+          token_format: access_token
+          create_credentials_file: true
+
+      - name: Resolve auth strategy result
+        id: auth_mode
+        run: |
+          set -euo pipefail
+          has_service_account="${{ steps.identity.outputs.has_service_account }}"
+          sa_outcome="${{ steps.auth_sa.outcome }}"
+          direct_outcome="${{ steps.auth_direct.outcome }}"
+          if [[ "$has_service_account" == "true" && "$sa_outcome" == "success" ]]; then
+            echo "mode=service_account_impersonation" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$direct_outcome" == "success" ]]; then
+            echo "mode=direct_wif" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::OIDC/WIF authentication failed in both modes."
+          exit 1
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy Functions
+        id: deploy_functions
+        run: |
+          set -euo pipefail
+          project_id="${{ steps.project.outputs.project_id }}"
+          if [[ ! -f "functions/package.json" ]]; then
+            echo "::error::Missing functions/package.json at target SHA."
+            exit 1
+          fi
+          firebase deploy --only functions --project "$project_id" --non-interactive
+          deployed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          functions_revision="$(gcloud functions describe api --gen2 --region=us-central1 --project "$project_id" --format='value(serviceConfig.revision)' 2>/dev/null || true)"
+          functions_revision="${functions_revision:-unknown}"
+          echo "functions_deploy_at=$deployed_at" >> "$GITHUB_OUTPUT"
+          echo "functions_revision=$functions_revision" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Firestore Indexes
+        id: deploy_indexes
+        run: |
+          set -euo pipefail
+          project_id="${{ steps.project.outputs.project_id }}"
+          target_sha="${{ github.event.inputs.target_sha }}"
+          if [[ ! -f "firestore.indexes.json" ]]; then
+            echo "::error::Missing firestore.indexes.json at target SHA."
+            exit 1
+          fi
+
+          cat > firebase.deploy-backend.json <<EOF
+          {
+            "firestore": {
+              "indexes": "firestore.indexes.json"
+            }
+          }
+          EOF
+          firebase deploy --only firestore:indexes --project "$project_id" --config firebase.deploy-backend.json --non-interactive
+          deployed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          indexes_source_sha="$target_sha"
+
+          echo "indexes_deploy_at=$deployed_at" >> "$GITHUB_OUTPUT"
+          echo "indexes_source_sha=$indexes_source_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Build backend metadata
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          cat > output/backend-metadata.json <<EOF
+          {
+            "commitSha": "${{ github.event.inputs.target_sha }}",
+            "workflow": "deploy-backend",
+            "createdAtUtc": "${created_at}",
+            "functionsDeployed": true,
+            "indexesAttempted": true,
+            "projectId": "${{ steps.project.outputs.project_id }}",
+            "actualSha": "${{ steps.verify_sha.outputs.actual_sha }}",
+            "functionsDeployAtUtc": "${{ steps.deploy_functions.outputs.functions_deploy_at }}",
+            "functionsRevision": "${{ steps.deploy_functions.outputs.functions_revision }}",
+            "indexesDeployAtUtc": "${{ steps.deploy_indexes.outputs.indexes_deploy_at }}",
+            "indexesSourceSha": "${{ steps.deploy_indexes.outputs.indexes_source_sha }}",
+            "authMode": "${{ steps.auth_mode.outputs.mode }}"
+          }
+          EOF
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-${{ github.event.inputs.target_sha }}
+          path: output/backend-metadata.json
+          retention-days: 7
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          {
+            echo "## Backend Deployment"
+            echo "- status: ${{ job.status }}"
+            echo "- project_id: ${{ steps.project.outputs.project_id }}"
+            echo "- target_sha: \`${{ github.event.inputs.target_sha }}\`"
+            echo "- actual_sha: \`${{ steps.verify_sha.outputs.actual_sha }}\`"
+            echo "- auth_mode: \`${{ steps.auth_mode.outputs.mode }}\`"
+            echo "- functions_revision: \`${{ steps.deploy_functions.outputs.functions_revision }}\`"
+            echo "- indexes_source_sha: \`${{ steps.deploy_indexes.outputs.indexes_source_sha }}\`"
+            echo "- timestamp_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_STEP_SUMMARY"

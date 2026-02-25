@@ -2,12 +2,19 @@
 // Run: node tools/run-required-checks.js
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+
+const securityRegressionCandidates = [
+  { name: 'security-regression-check', command: ['node', 'tools/security-regression-check.js'], exists: fs.existsSync('tools/security-regression-check.js') },
+  { name: 'security-regression', command: ['node', 'tools/security-regression.js'], exists: fs.existsSync('tools/security-regression.js') }
+].filter((item) => item.exists);
 
 const checks = [
   { name: 'preflight', command: ['node', 'tools/preflight.js'] },
   { name: 'hash-stability', command: ['node', 'tools/hash-stability-check.js'] },
   { name: 'smoke-check', command: ['node', 'tools/smoke-check.js'] },
   { name: 'contracts-check', command: ['node', 'tools/contracts-check.js'] },
+  ...securityRegressionCandidates,
   { name: 'admin-function-monitor', command: ['node', 'tools/admin-function-monitor.js'] },
   { name: 'rules', command: ['node', 'tools/rules-test.js'] },
   { name: 'e2e', command: ['node', 'tools/e2e-check.js'] }

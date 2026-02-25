@@ -98,6 +98,9 @@ const adminMonitorScript = read('tools/admin-function-monitor.js');
 const adminRegistryGeneratorScript = read('tools/generate-admin-function-registry.js');
 const adminFunctionPolicy = read('monitoring/admin-function-policy.json');
 const adminFunctionRegistry = read('monitoring/admin-function-registry.json');
+const deployProductionWorkflow = read('.github/workflows/deploy-production.yml');
+const deployBackendWorkflowPath = path.join(root, '.github/workflows/deploy-backend.yml');
+const deployBackendWorkflow = fs.existsSync(deployBackendWorkflowPath) ? read('.github/workflows/deploy-backend.yml') : '';
 
 assertContains(firebaseApi, /function\s+getSuppliers\s*\(/, 'firebase-api.js: missing getSuppliers()', errors);
 assertContains(firebaseApi, /function\s+addSupplier\s*\(/, 'firebase-api.js: missing addSupplier()', errors);
@@ -112,6 +115,11 @@ assertContains(firebaseApi, /function\s+getMyCustomerProfile\s*\(/, 'firebase-ap
 assertContains(firebaseApi, /function\s+upsertMyCustomerProfile\s*\(/, 'firebase-api.js: missing upsertMyCustomerProfile()', errors);
 assertContains(firebaseApi, /function\s+listCustomersPage\s*\(/, 'firebase-api.js: missing listCustomersPage()', errors);
 assertContains(firebaseApi, /function\s+listOrdersPage\s*\(/, 'firebase-api.js: missing listOrdersPage()', errors);
+assertContains(firebaseApi, /async function getReleaseGateState\s*\(/, 'firebase-api.js: missing getReleaseGateState() wrapper', errors);
+assertContains(firebaseApi, /async function saveReleaseGateState\s*\(/, 'firebase-api.js: missing saveReleaseGateState() wrapper', errors);
+assertContains(firebaseApi, /error\.code\s*=\s*['"]BACKEND_REQUIRED['"]/, 'firebase-api.js: BACKEND_REQUIRED fail-closed code missing', errors);
+assertContains(firebaseApi, /window\.ReleaseGateStateAPI\s*=/, 'firebase-api.js: ReleaseGateStateAPI browser bridge missing', errors);
+assertContains(firebaseApi, /module\.exports/, 'firebase-api.js: ReleaseGateStateAPI module bridge missing', errors);
 assertContains(firebaseApi, /function\s+ensureSupportThreadByUid\s*\(/, 'firebase-api.js: missing ensureSupportThreadByUid()', errors);
 assertContains(firebaseApi, /function\s+sendSupportMessageByUid\s*\(/, 'firebase-api.js: missing sendSupportMessageByUid()', errors);
 assertContains(firebaseApi, /function\s+getSupportThreads\s*\(\s*limitCount\s*=\s*100\s*,\s*options\s*=\s*\{\}\s*\)/, 'firebase-api.js: getSupportThreads strict options missing', errors);
@@ -146,6 +154,10 @@ assertContains(adminHtml, /id="ordersDateFrom"/, 'admin HTML: orders date-from i
 assertContains(adminHtml, /id="ordersDateTo"/, 'admin HTML: orders date-to input missing', errors);
 assertContains(adminHtml, /function\s+clearOrdersFilters\s*\(/, 'admin HTML: clearOrdersFilters() missing', errors);
 assertContains(adminHtml, /function\s+applyOrdersFilters\s*\(/, 'admin HTML: applyOrdersFilters() missing', errors);
+assertContains(adminHtml, /function\s+fetchCanonicalAdmin24hState\s*\(/, 'admin HTML: missing backend canonical release-gate fetch helper', errors);
+assertContains(adminHtml, /GATE_STATE_SOURCE/, 'admin HTML: missing GATE_STATE_SOURCE diagnostics', errors);
+assertContains(adminHtml, /GATE_STATE_MISMATCH/, 'admin HTML: missing GATE_STATE_MISMATCH diagnostics', errors);
+assertContains(adminHtml, /GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE/, 'admin HTML: missing DEGRADED backend diagnostics', errors);
 assertContains(adminHtml, /function\s+editBanner\s*\(/, 'admin HTML: banner edit handler missing', errors);
 assertContains(adminHtml, /function\s+editCoupon\s*\(/, 'admin HTML: coupon edit handler missing', errors);
 assertContains(adminHtml, /id="admin24hGateBadge"/, 'admin HTML: 24h gate badge missing', errors);
@@ -247,6 +259,19 @@ assertContains(adminFunctionPolicy, /"groupRules"\s*:/, 'admin-function-policy.j
 assertContains(adminFunctionRegistry, /"registryHash"\s*:/, 'admin-function-registry.json: registryHash field missing', errors);
 assertContains(adminFunctionRegistry, /"sourceHash"\s*:/, 'admin-function-registry.json: sourceHash field missing', errors);
 assertContains(adminFunctionRegistry, /"policyHash"\s*:/, 'admin-function-registry.json: policyHash field missing', errors);
+assertContains(deployBackendWorkflow, /name:\s*Deploy Backend/, 'workflow: deploy-backend.yml is missing', errors);
+assertContains(deployBackendWorkflow, /project_id:\s*[\s\S]*required:\s*true/, 'workflow: deploy-backend must require project_id input', errors);
+assertContains(deployBackendWorkflow, /if:\s*\$\{\{\s*inputs\.target_sha\s*!=\s*''\s*\}\}/, 'workflow: deploy-backend must fail closed when target_sha is empty', errors);
+assertContains(deployBackendWorkflow, /fetch-depth:\s*0/, 'workflow: deploy-backend checkout must use fetch-depth: 0', errors);
+assertContains(deployBackendWorkflow, /"commitSha"\s*:/, 'workflow: deploy-backend metadata commitSha key missing', errors);
+assertContains(deployBackendWorkflow, /"workflow"\s*:\s*"deploy-backend"/, 'workflow: deploy-backend metadata workflow key missing', errors);
+assertContains(deployBackendWorkflow, /"createdAtUtc"\s*:/, 'workflow: deploy-backend metadata createdAtUtc key missing', errors);
+assertContains(deployBackendWorkflow, /"functionsDeployed"\s*:\s*true/, 'workflow: deploy-backend metadata functionsDeployed=true missing', errors);
+assertContains(deployBackendWorkflow, /"indexesAttempted"\s*:\s*true/, 'workflow: deploy-backend metadata indexesAttempted=true missing', errors);
+assertContains(deployProductionWorkflow, /deploy-backend\.yml/, 'workflow: deploy-production must require deploy-backend.yml in verify-gates', errors);
+assertContains(deployProductionWorkflow, /backend-\$\{targetSha\}/, 'workflow: deploy-production must assert backend artifact name by SHA', errors);
+assertContains(deployProductionWorkflow, /Validate backend metadata artifact/, 'workflow: deploy-production backend metadata validation step missing', errors);
+assertContains(deployProductionWorkflow, /backend metadata commitSha mismatch/, 'workflow: deploy-production must hard fail on backend metadata SHA mismatch', errors);
 
 const sensitiveClientFiles = new Set([
   '\u0645\u062a\u062c\u0631_2.HTML',
