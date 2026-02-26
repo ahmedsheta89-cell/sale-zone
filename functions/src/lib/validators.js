@@ -1,12 +1,157 @@
-function toTrimmedString(value, fallback = '') {
+﻿function toTrimmedString(value, fallback = '') {
   if (value === null || value === undefined) return fallback;
   return String(value).trim();
 }
 
-function toEpochMs(value) {
+function toFiniteNumber(value) {
   const num = Number(value);
-  if (!Number.isFinite(num) || num <= 0) return 0;
-  return Math.floor(num);
+  return Number.isFinite(num) ? num : null;
+}
+
+function toPositivePrice(value) {
+  const num = toFiniteNumber(value);
+  return num !== null && num > 0 ? num : null;
+}
+
+function parseLimit(value, defaults = { min: 1, max: 100, fallback: 20 }) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return defaults.fallback;
+  return Math.max(defaults.min, Math.min(defaults.max, Math.floor(parsed)));
+}
+
+function sanitizeIso(value) {
+  const raw = toTrimmedString(value);
+  if (!raw) return '';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString();
+}
+
+function tokenizeSearchText(...parts) {
+  const source = parts
+    .map((part) => toTrimmedString(part).toLowerCase())
+    .join(' ')
+    .replace(/[^\p{L}\p{N}\s_-]/gu, ' ');
+  return [...new Set(source.split(/\s+/).map((item) => item.trim()).filter((item) => item.length >= 2))].slice(0, 80);
+}
+
+function buildProductPayload(input = {}, options = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const existing = options && typeof options.existing === 'object' ? options.existing : {};
+  const nowIso = new Date().toISOString();
+
+  const name = toTrimmedString(source.name || existing.name);
+  const description = toTrimmedString(source.description || source.desc || existing.description || existing.desc);
+  const category = toTrimmedString(source.category || existing.category);
+
+  if (!name) throw new Error('Product name is required.');
+
+  const suppliedSellPrice = toPositivePrice(source.sellPrice);
+  const suppliedPrice = toPositivePrice(source.price);
+  const existingSellPrice = toPositivePrice(existing.sellPrice);
+  const existingPrice = toPositivePrice(existing.price);
+
+  const resolvedSellPrice = suppliedSellPrice || existingSellPrice || null;
+  const resolvedPrice = suppliedPrice || existingPrice || resolvedSellPrice || null;
+  const effectivePrice = resolvedSellPrice || resolvedPrice || null;
+
+  const image = toTrimmedString(source.image || source.imageUrl || existing.image || existing.imageUrl);
+  const stock = Number.isFinite(Number(source.stock))
+    ? Math.max(0, Math.floor(Number(source.stock)))
+    : (Number.isFinite(Number(existing.stock)) ? Math.max(0, Math.floor(Number(existing.stock))) : 0);
+  const isPublishedInput = source.isPublished;
+  const isPublishedRequested = isPublishedInput === undefined
+    ? (existing.isPublished !== false)
+    : Boolean(isPublishedInput);
+
+  if (isPublishedRequested && !effectivePrice) {
+    const error = new Error('Published product requires a valid price greater than zero.');
+    error.code = 'validation/invalid-price';
+    throw error;
+  }
+
+  return {
+    name,
+    description,
+    category,
+    image,
+    stock,
+    sellPrice: resolvedSellPrice || null,
+    price: resolvedPrice || null,
+    isPublished: Boolean(isPublishedRequested && effectivePrice),
+    updatedAt: nowIso,
+    createdAt: toTrimmedString(existing.createdAt || source.createdAt) || nowIso,
+    searchTokens: tokenizeSearchText(name, description, category)
+  };
+}
+
+function buildBannerPayload(input = {}, options = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const existing = options && typeof options.existing === 'object' ? options.existing : {};
+  const nowIso = new Date().toISOString();
+
+  const title = toTrimmedString(source.title || existing.title);
+  const image = toTrimmedString(source.image || source.imageUrl || existing.image || existing.imageUrl);
+  if (!title) throw new Error('Banner title is required.');
+  if (!image) throw new Error('Banner image is required.');
+
+  return {
+    title,
+    subtitle: toTrimmedString(source.subtitle || existing.subtitle),
+    image,
+    link: toTrimmedString(source.link || existing.link),
+    category: toTrimmedString(source.category || existing.category),
+    isActive: source.isActive === undefined ? (existing.isActive !== false) : Boolean(source.isActive),
+    updatedAt: nowIso,
+    createdAt: toTrimmedString(existing.createdAt || source.createdAt) || nowIso
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function buildCouponPayload(input = {}, options = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const existing = options && typeof options.existing === 'object' ? options.existing : {};
+  const nowIso = new Date().toISOString();
+
+  const code = toTrimmedString(source.code || existing.code).toUpperCase();
+  if (!/^[A-Z0-9_-]{3,32}$/.test(code)) throw new Error('Coupon code must be 3-32 chars [A-Z0-9_-].');
+
+  const type = toTrimmedString(source.type || existing.type || 'percentage').toLowerCase();
+  if (!['percentage', 'fixed'].includes(type)) throw new Error('Coupon type must be percentage or fixed.');
+
+  const rawValue = toFiniteNumber(
+    source.value !== undefined
+      ? source.value
+      : (source.discount !== undefined ? source.discount : (existing.value !== undefined ? existing.value : existing.discount))
+  );
+  if (rawValue === null || rawValue <= 0) throw new Error('Coupon value must be a valid positive number.');
+
+  const value = type === 'percentage'
+    ? clamp(rawValue, 1, 90)
+    : clamp(rawValue, 1, 100000);
+
+  const maxUses = toFiniteNumber(source.maxUses !== undefined ? source.maxUses : existing.maxUses);
+  const minOrder = toFiniteNumber(source.minOrder !== undefined ? source.minOrder : existing.minOrder);
+  const expiresAt = sanitizeIso(source.expiresAt || existing.expiresAt);
+
+  return {
+    code,
+    title: toTrimmedString(source.title || existing.title),
+    desc: toTrimmedString(source.desc || source.description || existing.desc || existing.description),
+    description: toTrimmedString(source.description || source.desc || existing.description || existing.desc),
+    type,
+    value,
+    discount: value,
+    maxUses: maxUses === null ? null : Math.max(1, Math.min(100000, Math.floor(maxUses))),
+    minOrder: minOrder === null ? 0 : clamp(minOrder, 0, 1000000),
+    expiresAt: expiresAt || '',
+    isActive: source.isActive === undefined ? (existing.isActive !== false) : Boolean(source.isActive),
+    updatedAt: nowIso,
+    createdAt: toTrimmedString(existing.createdAt || source.createdAt) || nowIso
+  };
 }
 
 function sanitizeSettingValue(value, depth = 0) {
@@ -55,31 +200,17 @@ function buildStoreSettingsPatch(input = {}) {
   return patch;
 }
 
+function toEpochMs(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return 0;
+  return Math.floor(num);
+}
+
 function buildReleaseGateStatePatch(input = {}, options = {}) {
   const source = input && typeof input === 'object' ? input : {};
-  const existing = options && typeof options === 'object' ? options : {};
+  const existing = options && typeof options.existing === 'object' ? options.existing : {};
   const nowIso = new Date().toISOString();
   const patch = {};
-  const allowedKeys = new Set([
-    'baselineAt',
-    'baselineDigest',
-    'pendingChangeAt',
-    'pendingDigest',
-    'changeAfterGateAt',
-    'lastSeenAt',
-    'lastSeenDigest',
-    'gateState',
-    'windowMs',
-    'source',
-    'updatedBy'
-  ]);
-
-  const unknownKeys = Object.keys(source).filter((key) => !allowedKeys.has(String(key || '')));
-  if (unknownKeys.length) {
-    const error = new Error(`Unknown release gate state keys: ${unknownKeys.join(', ')}`);
-    error.code = 'validation/unknown-release-gate-state-keys';
-    throw error;
-  }
 
   if (Object.prototype.hasOwnProperty.call(source, 'baselineAt')) {
     patch.baselineAt = toEpochMs(source.baselineAt);
@@ -103,8 +234,8 @@ function buildReleaseGateStatePatch(input = {}, options = {}) {
     patch.lastSeenDigest = toTrimmedString(source.lastSeenDigest).slice(0, 128);
   }
   if (Object.prototype.hasOwnProperty.call(source, 'windowMs')) {
-    const resolvedWindow = toEpochMs(source.windowMs);
-    patch.windowMs = resolvedWindow > 0 ? resolvedWindow : (toEpochMs(existing.windowMs) || (24 * 60 * 60 * 1000));
+    const windowMs = toEpochMs(source.windowMs);
+    patch.windowMs = windowMs > 0 ? windowMs : (toEpochMs(existing.windowMs) || (24 * 60 * 60 * 1000));
   }
   if (Object.prototype.hasOwnProperty.call(source, 'updatedBy')) {
     patch.updatedBy = toTrimmedString(source.updatedBy).slice(0, 256);
@@ -130,7 +261,87 @@ function buildReleaseGateStatePatch(input = {}, options = {}) {
   return patch;
 }
 
+function buildOrderPayload(input = {}, user = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const nowIso = new Date().toISOString();
+  const uid = toTrimmedString(user.uid);
+  if (!uid) {
+    const error = new Error('Authenticated user is required.');
+    error.code = 'auth/not-authenticated';
+    throw error;
+  }
+
+  const items = Array.isArray(source.items) ? source.items : [];
+  if (items.length === 0) throw new Error('Order must include at least one item.');
+  if (items.length > 100) throw new Error('Order items exceed maximum allowed count.');
+
+  const normalizedItems = items.map((item, idx) => {
+    const row = item && typeof item === 'object' ? item : {};
+    const productId = toTrimmedString(row.id || row.productId);
+    const qty = Number.isFinite(Number(row.qty || row.quantity)) ? Math.floor(Number(row.qty || row.quantity)) : 0;
+    if (!productId) throw new Error(`Order item #${idx + 1} is missing product id.`);
+    if (!Number.isFinite(qty) || qty <= 0 || qty > 100) throw new Error(`Order item #${idx + 1} has invalid quantity.`);
+    return {
+      id: productId,
+      qty
+    };
+  });
+
+  const customer = source.customer && typeof source.customer === 'object' ? source.customer : {};
+  const orderNumber = toTrimmedString(source.orderNumber);
+  const idempotencyKey = toTrimmedString(source.idempotencyKey);
+
+  if (!orderNumber) throw new Error('orderNumber is required.');
+  if (!idempotencyKey || idempotencyKey.length < 12) throw new Error('idempotencyKey is required.');
+
+  return {
+    id: toTrimmedString(source.id),
+    uid,
+    email: toTrimmedString(user.email).toLowerCase(),
+    requestId: toTrimmedString(source.requestId),
+    deviceId: toTrimmedString(source.deviceId),
+    orderNumber,
+    idempotencyKey,
+    customer: {
+      name: toTrimmedString(customer.name),
+      phone: toTrimmedString(customer.phone),
+      address: toTrimmedString(customer.address),
+      notes: toTrimmedString(customer.notes)
+    },
+    items: normalizedItems,
+    requestedTotal: toFiniteNumber(source.total),
+    requestedSubtotal: toFiniteNumber(source.subtotal),
+    requestedDiscount: toFiniteNumber(source.discount),
+    couponCode: toTrimmedString(source.couponCode).toUpperCase(),
+    usedPoints: toFiniteNumber(source.usedPoints) || 0,
+    pointsDiscount: toFiniteNumber(source.pointsDiscount) || 0,
+    earnedPoints: toFiniteNumber(source.earnedPoints) || 0,
+    status: 'pending',
+    statusHistory: [
+      { status: 'pending', date: nowIso, note: 'Order submitted by customer' }
+    ],
+    source: toTrimmedString(source.source || 'store-web'),
+    syncState: toTrimmedString(source.syncState || 'synced'),
+    version: Number.isFinite(Number(source.version)) ? Math.max(1, Number(source.version)) : 1,
+    createdAt: nowIso,
+    updatedAt: nowIso
+  };
+}
+
+function normalizeCursorId(value) {
+  return toTrimmedString(value);
+}
+
 module.exports = {
+  buildBannerPayload,
+  buildCouponPayload,
+  buildOrderPayload,
+  buildProductPayload,
   buildReleaseGateStatePatch,
-  buildStoreSettingsPatch
+  buildStoreSettingsPatch,
+  normalizeCursorId,
+  parseLimit,
+  sanitizeIso,
+  toFiniteNumber,
+  toTrimmedString
 };
