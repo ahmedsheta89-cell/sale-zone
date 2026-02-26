@@ -1,4 +1,4 @@
-name: Deploy Backend
+﻿name: Deploy Backend
 
 on:
   workflow_dispatch:
@@ -109,31 +109,30 @@ jobs:
           mkdir -p functions
 
           if [[ ! -f functions/package.json ]]; then
-            echo "functions/package.json missing — creating minimal fallback"
-            cat <<'JSON' > functions/package.json
-{
-  "name": "firebase-backend",
-  "version": "1.0.0",
-  "private": true,
-  "main": "src/index.js",
-  "engines": {
-    "node": ">=18"
-  },
-  "scripts": {
-    "start": "node src/index.js"
-  },
-  "dependencies": {
-    "firebase-admin": "^12.0.0",
-    "firebase-functions": "^5.0.0",
-    "express": "^4.19.2",
-    "cors": "^2.8.5"
-  }
-}
-JSON
-          fi
+            echo "functions/package.json missing - creating minimal fallback"
+                        cat <<''JSON'' > functions/package.json
+            {
+              "name": "firebase-backend",
+              "version": "1.0.0",
+              "private": true,
+              "main": "src/index.js",
+              "engines": {
+                "node": ">=18"
+              },
+              "scripts": {
+                "start": "node src/index.js"
+              },
+              "dependencies": {
+                "firebase-admin": "^12.0.0",
+                "firebase-functions": "^5.0.0",
+                "express": "^4.19.2",
+                "cors": "^2.8.5"
+              }
+            }
+            JSON          fi
 
           if [[ ! -f firestore.indexes.json ]]; then
-            echo "firestore.indexes.json missing — creating minimal fallback"
+            echo "firestore.indexes.json missing - creating minimal fallback"
             echo '{"indexes":[],"fieldOverrides":[]}' > firestore.indexes.json
           fi
 
@@ -152,19 +151,20 @@ JSON
           set -euo pipefail
           mkdir -p backend-artifact
           created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          cat > backend-artifact/backend-metadata.json <<EOF
-{
-  "commitSha": "${{ github.event.inputs.target_sha }}",
-  "workflow": "deploy-backend",
-  "createdAtUtc": "${created_at}",
-  "functionsDeployed": true,
-  "indexesAttempted": true
-}
-EOF
-
+                    cat > backend-artifact/backend-metadata.json <<EOF
+          {
+            "commitSha": "${{ github.event.inputs.target_sha }}",
+            "workflow": "deploy-backend",
+            "createdAtUtc": "${created_at}",
+            "functionsDeployed": true,
+            "indexesAttempted": true
+          }
+          EOF
       - name: Upload backend metadata artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-${{ github.event.inputs.target_sha }}
           path: backend-artifact/backend-metadata.json
           if-no-files-found: error
+
+
