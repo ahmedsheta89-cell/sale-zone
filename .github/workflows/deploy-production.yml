@@ -30,6 +30,10 @@ jobs:
     outputs:
       target_sha: ${{ steps.sha.outputs.value }}
       checklist_path: ${{ steps.meta.outputs.checklist_path }}
+      backend_run_id: ${{ steps.verify.outputs.backend_run_id }}
+      staging_run_id: ${{ steps.verify.outputs.staging_run_id }}
+      firestore_rules_run_id: ${{ steps.verify.outputs.firestore_rules_run_id }}
+      release_gate_run_id: ${{ steps.verify.outputs.release_gate_run_id }}
     steps:
       - name: Resolve target SHA
         id: sha
@@ -51,7 +55,8 @@ jobs:
             echo "checklist_path=release/release-checklist.json" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Ensure release gate, staging, and firestore rules deploy succeeded for target SHA
+      - name: Ensure release gate, staging, firestore rules, and backend deploy succeeded for target SHA
+        id: verify
         uses: actions/github-script@v7
         env:
           TARGET_SHA: ${{ steps.sha.outputs.value }}
@@ -61,9 +66,13 @@ jobs:
             const requiredWorkflows = [
               { id: "release-gate.yml", label: "Release Gate" },
               { id: "deploy-staging.yml", label: "Deploy Staging" },
-              { id: "deploy-firestore-rules.yml", label: "Deploy Firestore Rules" }
+              { id: "deploy-firestore-rules.yml", label: "Deploy Firestore Rules" },
+              { id: "deploy-backend.yml", label: "Deploy Backend" }
             ];
             let stagingSuccessRun = null;
+            let backendSuccessRun = null;
+            let rulesSuccessRun = null;
+            let releaseGateSuccessRun = null;
 
             for (const wf of requiredWorkflows) {
               const runs = await github.rest.actions.listWorkflowRuns({
@@ -82,14 +91,31 @@ jobs:
                 core.setFailed(`${wf.label} is not successful for SHA ${targetSha}`);
                 return;
               }
+              if (successRun.head_sha !== targetSha) {
+                core.setFailed(`${wf.label} run head_sha mismatch (expected ${targetSha}, got ${successRun.head_sha})`);
+                return;
+              }
 
               if (wf.id === "deploy-staging.yml") {
                 stagingSuccessRun = successRun;
+              }
+              if (wf.id === "deploy-backend.yml") {
+                backendSuccessRun = successRun;
+              }
+              if (wf.id === "deploy-firestore-rules.yml") {
+                rulesSuccessRun = successRun;
+              }
+              if (wf.id === "release-gate.yml") {
+                releaseGateSuccessRun = successRun;
               }
             }
 
             if (!stagingSuccessRun) {
               core.setFailed(`Deploy Staging success run was not found for SHA ${targetSha}`);
+              return;
+            }
+            if (!backendSuccessRun) {
+              core.setFailed(`Deploy Backend success run was not found for SHA ${targetSha}`);
               return;
             }
 
@@ -105,6 +131,24 @@ jobs:
               core.setFailed(`Deploy Staging artifact "${expectedArtifactName}" not found for SHA ${targetSha}`);
               return;
             }
+
+            const backendArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: backendSuccessRun.id,
+              per_page: 100
+            });
+            const expectedBackendArtifactName = `backend-${targetSha}`;
+            const hasExpectedBackendArtifact = backendArtifacts.data.artifacts.some((artifact) => artifact.name === expectedBackendArtifactName);
+            if (!hasExpectedBackendArtifact) {
+              core.setFailed(`Deploy Backend artifact "${expectedBackendArtifactName}" not found for SHA ${targetSha}`);
+              return;
+            }
+
+            core.setOutput('backend_run_id', String(backendSuccessRun.id));
+            core.setOutput('staging_run_id', String(stagingSuccessRun.id));
+            core.setOutput('firestore_rules_run_id', String(rulesSuccessRun ? rulesSuccessRun.id : ''));
+            core.setOutput('release_gate_run_id', String(releaseGateSuccessRun ? releaseGateSuccessRun.id : ''));
 
             core.info(`All upstream gates passed for SHA ${targetSha}`);
 
@@ -137,6 +181,44 @@ jobs:
             echo "::error::Checkout SHA mismatch (actual=$actual_sha, target=$target_sha)"
             exit 1
           fi
+
+      - name: Download backend artifact for target SHA
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-${{ needs.verify-gates.outputs.target_sha }}
+          run-id: ${{ needs.verify-gates.outputs.backend_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: backend-artifact
+
+      - name: Verify backend metadata contract
+        env:
+          TARGET_SHA: ${{ needs.verify-gates.outputs.target_sha }}
+        run: |
+          set -euo pipefail
+          test -f backend-artifact/backend-metadata.json || { echo "::error::backend-metadata.json missing"; exit 1; }
+          TARGET_SHA="$TARGET_SHA" node - <<'NODE'
+          const fs = require('fs');
+          const targetSha = String(process.env.TARGET_SHA || '');
+          const raw = fs.readFileSync('backend-artifact/backend-metadata.json', 'utf8');
+          let metadata;
+          try {
+            metadata = JSON.parse(raw);
+          } catch (error) {
+            throw new Error(`Invalid backend metadata JSON: ${error.message}`);
+          }
+          if (!metadata || typeof metadata !== 'object') {
+            throw new Error('backend-metadata.json must contain an object.');
+          }
+          if (String(metadata.commitSha || '') !== targetSha) {
+            throw new Error(`backend metadata commitSha mismatch (expected ${targetSha}, got ${metadata.commitSha})`);
+          }
+          if (String(metadata.workflow || '') !== 'deploy-backend') {
+            throw new Error(`backend metadata workflow mismatch (expected deploy-backend, got ${metadata.workflow})`);
+          }
+          if (metadata.functionsDeployed !== true || metadata.indexesAttempted !== true) {
+            throw new Error('backend metadata flags must be true for functionsDeployed and indexesAttempted.');
+          }
+          NODE
 
       - name: Re-run full required checks on target SHA
         run: node tools/run-required-checks.js

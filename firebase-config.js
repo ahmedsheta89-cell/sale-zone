@@ -83,6 +83,19 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
+// Initialize Firebase Analytics (web-safe best-effort)
+try {
+    if (firebase && typeof firebase.analytics === 'function') {
+        firebase.analytics();
+        window.__FIREBASE_ANALYTICS_ACTIVE__ = true;
+    } else {
+        window.__FIREBASE_ANALYTICS_ACTIVE__ = false;
+    }
+} catch (analyticsError) {
+    window.__FIREBASE_ANALYTICS_ACTIVE__ = false;
+    console.warn('[WARN] Firebase Analytics not activated:', analyticsError && analyticsError.message ? analyticsError.message : analyticsError);
+}
+
 // Initialize Firestore
 const db = firebase.firestore();
 
@@ -106,10 +119,21 @@ function resolveAppCheckSiteKey() {
 }
 
 function setupFirebaseAppCheck() {
+    const enforceRequested = parseOptionalBooleanFlag(urlParams.get('appcheck_enforce'));
+    const shouldEnforceInThisSession = enforceRequested !== null
+        ? enforceRequested === true
+        : (window.__APP_CHECK_REQUIRED__ === true);
+    window.__APP_CHECK_ENFORCEMENT__ = shouldEnforceInThisSession;
+    window.__APP_CHECK_READY__ = false;
+
     try {
         if (!(firebase && typeof firebase.appCheck === 'function')) {
             window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
             window.__FIREBASE_APP_CHECK_REASON__ = 'sdk-missing';
+            if (shouldEnforceInThisSession) {
+                window.__APP_CHECK_BLOCK_REASON__ = 'app-check-sdk-missing';
+                console.error('[SECURITY] Firebase App Check SDK missing while enforcement is enabled.');
+            }
             return;
         }
 
@@ -117,18 +141,30 @@ function setupFirebaseAppCheck() {
         if (!appCheckKey) {
             window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
             window.__FIREBASE_APP_CHECK_REASON__ = 'site-key-missing';
-            console.info('[INFO] Firebase App Check not activated (missing site key).');
+            if (shouldEnforceInThisSession) {
+                window.__APP_CHECK_BLOCK_REASON__ = 'app-check-site-key-missing';
+                console.error('[SECURITY] Firebase App Check site key missing while enforcement is enabled.');
+            } else {
+                console.info('[INFO] Firebase App Check not activated (missing site key).');
+            }
             return;
         }
 
         const appCheck = firebase.appCheck();
         appCheck.activate(appCheckKey, true);
+        window.__APP_CHECK_INSTANCE__ = appCheck;
         window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
         window.__FIREBASE_APP_CHECK_REASON__ = 'active';
+        window.__APP_CHECK_READY__ = true;
+        window.__APP_CHECK_BLOCK_REASON__ = '';
         console.log('[OK] Firebase App Check activated');
     } catch (error) {
         window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
         window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';
+        if (shouldEnforceInThisSession) {
+            window.__APP_CHECK_BLOCK_REASON__ = window.__FIREBASE_APP_CHECK_REASON__;
+            console.error('[SECURITY] Firebase App Check activation failed while enforcement is enabled:', window.__FIREBASE_APP_CHECK_REASON__);
+        }
         console.warn('Firebase App Check activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
     }
 }

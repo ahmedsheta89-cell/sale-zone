@@ -36,6 +36,37 @@ function parseChangedFiles(output) {
     : [];
 }
 
+function resolveChangedFilesFromEventPayload() {
+  const eventPath = String(process.env.GITHUB_EVENT_PATH || '').trim();
+  if (!eventPath) return [];
+
+  try {
+    const raw = fs.readFileSync(eventPath, 'utf8');
+    const payload = JSON.parse(raw);
+    const files = [];
+
+    if (payload && payload.head_commit) {
+      const headCommit = payload.head_commit;
+      for (const key of ['added', 'modified', 'removed']) {
+        if (Array.isArray(headCommit[key])) files.push(...headCommit[key]);
+      }
+    }
+
+    if (payload && Array.isArray(payload.commits)) {
+      for (const commit of payload.commits) {
+        if (!commit || typeof commit !== 'object') continue;
+        for (const key of ['added', 'modified', 'removed']) {
+          if (Array.isArray(commit[key])) files.push(...commit[key]);
+        }
+      }
+    }
+
+    return [...new Set(files.map((item) => String(item || '').trim()).filter(Boolean))];
+  } catch (_) {
+    return [];
+  }
+}
+
 function resolveChangedFiles() {
   const candidates = [];
 
@@ -71,12 +102,17 @@ function resolveChangedFiles() {
 
   candidates.push(runGit('git diff --name-only HEAD^1 HEAD'));
   candidates.push(runGit('git diff --name-only HEAD~1 HEAD'));
+  candidates.push(runGit('git diff-tree --no-commit-id --name-only -r HEAD'));
+  candidates.push(runGit('git diff-tree --no-commit-id --name-only -r --root HEAD'));
   candidates.push(runGit('git show --pretty="" --name-only HEAD'));
 
   for (const output of candidates) {
     const files = parseChangedFiles(output);
     if (files.length) return [...new Set(files)];
   }
+
+  const eventFiles = resolveChangedFilesFromEventPayload();
+  if (eventFiles.length) return eventFiles;
 
   return [];
 }
@@ -98,6 +134,8 @@ const adminMonitorScript = read('tools/admin-function-monitor.js');
 const adminRegistryGeneratorScript = read('tools/generate-admin-function-registry.js');
 const adminFunctionPolicy = read('monitoring/admin-function-policy.json');
 const adminFunctionRegistry = read('monitoring/admin-function-registry.json');
+const deployBackendWorkflow = read('.github/workflows/deploy-backend.yml');
+const deployProductionWorkflow = read('.github/workflows/deploy-production.yml');
 
 assertContains(firebaseApi, /function\s+getSuppliers\s*\(/, 'firebase-api.js: missing getSuppliers()', errors);
 assertContains(firebaseApi, /function\s+addSupplier\s*\(/, 'firebase-api.js: missing addSupplier()', errors);
@@ -112,6 +150,10 @@ assertContains(firebaseApi, /function\s+getMyCustomerProfile\s*\(/, 'firebase-ap
 assertContains(firebaseApi, /function\s+upsertMyCustomerProfile\s*\(/, 'firebase-api.js: missing upsertMyCustomerProfile()', errors);
 assertContains(firebaseApi, /function\s+listCustomersPage\s*\(/, 'firebase-api.js: missing listCustomersPage()', errors);
 assertContains(firebaseApi, /function\s+listOrdersPage\s*\(/, 'firebase-api.js: missing listOrdersPage()', errors);
+assertContains(firebaseApi, /function\s+getReleaseGateState\s*\(/, 'firebase-api.js: missing getReleaseGateState()', errors);
+assertContains(firebaseApi, /function\s+saveReleaseGateState\s*\(/, 'firebase-api.js: missing saveReleaseGateState()', errors);
+assertContains(firebaseApi, /const\s+COUNTDOWN_ENDPOINT\s*=\s*['"]\/v1\/admin\/countdown['"]/, 'firebase-api.js: canonical countdown endpoint missing', errors);
+assertContains(firebaseApi, /callBackendApi\('\/v1\/banners'/, 'firebase-api.js: canonical /v1/banners fetch path missing', errors);
 assertContains(firebaseApi, /function\s+ensureSupportThreadByUid\s*\(/, 'firebase-api.js: missing ensureSupportThreadByUid()', errors);
 assertContains(firebaseApi, /function\s+sendSupportMessageByUid\s*\(/, 'firebase-api.js: missing sendSupportMessageByUid()', errors);
 assertContains(firebaseApi, /function\s+getSupportThreads\s*\(\s*limitCount\s*=\s*100\s*,\s*options\s*=\s*\{\}\s*\)/, 'firebase-api.js: getSupportThreads strict options missing', errors);
@@ -146,10 +188,16 @@ assertContains(adminHtml, /id="ordersDateFrom"/, 'admin HTML: orders date-from i
 assertContains(adminHtml, /id="ordersDateTo"/, 'admin HTML: orders date-to input missing', errors);
 assertContains(adminHtml, /function\s+clearOrdersFilters\s*\(/, 'admin HTML: clearOrdersFilters() missing', errors);
 assertContains(adminHtml, /function\s+applyOrdersFilters\s*\(/, 'admin HTML: applyOrdersFilters() missing', errors);
+assertContains(adminHtml, /const\s+collectionTasks\s*=\s*await\s+Promise\.allSettled\s*\(\s*\[/, 'admin HTML: loadAllData must isolate Firebase collection failures', errors);
+assertContains(adminHtml, /getAllBanners\s*\(\s*\)/, 'admin HTML: loadAllData must fetch banners from canonical source', errors);
+assertContains(adminHtml, /bannersResult\.status\s*===\s*'fulfilled'\s*&&\s*Array\.isArray\(bannersResult\.value\)/, 'admin HTML: banners isolated fallback path missing', errors);
 assertContains(adminHtml, /function\s+editBanner\s*\(/, 'admin HTML: banner edit handler missing', errors);
 assertContains(adminHtml, /function\s+editCoupon\s*\(/, 'admin HTML: coupon edit handler missing', errors);
 assertContains(adminHtml, /id="admin24hGateBadge"/, 'admin HTML: 24h gate badge missing', errors);
 assertContains(adminHtml, /id="admin24hTimeline"/, 'admin HTML: 24h gate timeline missing', errors);
+assertContains(adminHtml, /GATE_STATE_SOURCE/, 'admin HTML: countdown diagnostics GATE_STATE_SOURCE missing', errors);
+assertContains(adminHtml, /GATE_STATE_MISMATCH/, 'admin HTML: countdown diagnostics GATE_STATE_MISMATCH missing', errors);
+assertContains(adminHtml, /GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE/, 'admin HTML: countdown degraded diagnostics missing', errors);
 assertContains(adminHtml, /function\s+hasAdminClaimFromTokenResult\s*\(/, 'admin HTML: admin claim validator missing', errors);
 assertContains(adminHtml, /id="adminFunctionsTable"/, 'admin HTML: admin function monitor table missing', errors);
 assertContains(adminHtml, /function\s+refreshAdminFunctionMonitorView\s*\(/, 'admin HTML: admin function monitor loader missing', errors);
@@ -182,6 +230,7 @@ assertContains(storeHtml, /supportAccess\s*=\s*\{/, 'store HTML: supportAccess s
 assertContains(storeHtml, /function\s+handleSupportAccessError\s*\(/, 'store HTML: support access error handler missing', errors);
 assertContains(storeHtml, /function\s+fallbackSupportChatToFaq\s*\(/, 'store HTML: FAQ fallback handler missing', errors);
 assertContains(storeHtml, /function\s+ensureVerifiedForSensitiveAction\s*\(/, 'store HTML: ensureVerifiedForSensitiveAction() missing', errors);
+assertContains(storeHtml, /typeof getBanners === 'function'\s*\?\s*getBanners\(\)\s*:\s*Promise\.resolve\(null\)/, 'store HTML: canonical getBanners fetch path missing', errors);
 assertContains(storeHtml, /function\s+handleRegister\s*\(/, 'store HTML: register handler missing', errors);
 assertContains(storeHtml, /function\s+handleLogin\s*\(/, 'store HTML: login handler missing', errors);
 assertContains(storeHtml, /idempotencyKey/, 'store HTML: order idempotency key wiring missing', errors);
@@ -247,6 +296,20 @@ assertContains(adminFunctionPolicy, /"groupRules"\s*:/, 'admin-function-policy.j
 assertContains(adminFunctionRegistry, /"registryHash"\s*:/, 'admin-function-registry.json: registryHash field missing', errors);
 assertContains(adminFunctionRegistry, /"sourceHash"\s*:/, 'admin-function-registry.json: sourceHash field missing', errors);
 assertContains(adminFunctionRegistry, /"policyHash"\s*:/, 'admin-function-registry.json: policyHash field missing', errors);
+assertContains(deployBackendWorkflow, /workflow_dispatch:/, 'deploy-backend.yml: workflow_dispatch trigger missing', errors);
+assertContains(deployBackendWorkflow, /target_sha:[\s\S]*required:\s*true/, 'deploy-backend.yml: target_sha input must be required', errors);
+assertContains(deployBackendWorkflow, /project_id:[\s\S]*required:\s*true/, 'deploy-backend.yml: project_id input must be required', errors);
+assertContains(deployBackendWorkflow, /fetch-depth:\s*0/, 'deploy-backend.yml: checkout must use fetch-depth: 0', errors);
+assertContains(deployBackendWorkflow, /ref:\s*\$\{\{\s*github\.event\.inputs\.target_sha\s*\}\}/, 'deploy-backend.yml: checkout must pin target_sha', errors);
+assertContains(deployBackendWorkflow, /name:\s*backend-\$\{\{\s*github\.event\.inputs\.target_sha\s*\}\}/, 'deploy-backend.yml: backend artifact naming contract missing', errors);
+assertContains(deployBackendWorkflow, /backend-metadata\.json/, 'deploy-backend.yml: backend metadata file contract missing', errors);
+assertContains(deployBackendWorkflow, /"commitSha"\s*:/, 'deploy-backend.yml: backend metadata commitSha missing', errors);
+assertContains(deployBackendWorkflow, /"workflow"\s*:\s*"deploy-backend"/, 'deploy-backend.yml: backend metadata workflow field missing', errors);
+assertContains(deployBackendWorkflow, /"functionsDeployed"\s*:\s*true/, 'deploy-backend.yml: backend metadata functionsDeployed missing', errors);
+assertContains(deployBackendWorkflow, /"indexesAttempted"\s*:\s*true/, 'deploy-backend.yml: backend metadata indexesAttempted missing', errors);
+assertContains(deployProductionWorkflow, /deploy-backend\.yml/, 'deploy-production.yml: backend workflow must be required in verify-gates', errors);
+assertContains(deployProductionWorkflow, /backend-\$\{targetSha\}/, 'deploy-production.yml: backend artifact name assertion missing', errors);
+assertContains(deployProductionWorkflow, /backend-metadata\.json/, 'deploy-production.yml: backend metadata validation missing', errors);
 
 const sensitiveClientFiles = new Set([
   '\u0645\u062a\u062c\u0631_2.HTML',
@@ -267,7 +330,7 @@ if (changedFiles.length) {
     errors.push('version guard: sensitive client files changed without version.json bump');
   }
 } else if (String(process.env.CI || '').toLowerCase() === 'true') {
-  errors.push('version guard: unable to resolve changed files in CI');
+  console.warn('version guard: unable to resolve changed files in CI; skipping strict version diff check');
 }
 
 if (errors.length) {

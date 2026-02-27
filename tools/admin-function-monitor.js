@@ -29,8 +29,21 @@ function readJson(root, relPath) {
 
 function writeJson(root, relPath, payload) {
   const absolute = path.join(root, relPath);
-  fs.mkdirSync(path.dirname(absolute), { recursive: true });
-  fs.writeFileSync(absolute, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  const content = `${JSON.stringify(payload, null, 2)}\n`;
+  try {
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, content, 'utf8');
+    return absolute;
+  } catch (error) {
+    try {
+      const fallback = path.join(root, 'tools', '.tmp', 'admin-function-monitor.json');
+      fs.mkdirSync(path.dirname(fallback), { recursive: true });
+      fs.writeFileSync(fallback, content, 'utf8');
+      return fallback;
+    } catch (_) {
+      return '';
+    }
+  }
 }
 
 function sanitizeStatus(status) {
@@ -291,13 +304,18 @@ function runMonitor() {
     failures
   };
 
-  writeJson(ROOT, OUTPUT_FILE, monitorReport);
+  const outputPath = writeJson(ROOT, OUTPUT_FILE, monitorReport);
 
   console.log('Admin Function Monitor Report');
   console.log('='.repeat(32));
   console.log(`[INFO] total functions: ${summary.totalFunctions}`);
   console.log(`[INFO] critical functions: ${summary.criticalCount}`);
   console.log(`[INFO] critical failures: ${summary.criticalFailures}`);
+  if (outputPath) {
+    console.log(`[INFO] report path: ${outputPath}`);
+  } else {
+    console.log('[WARN] report write skipped (filesystem not writable in current environment).');
+  }
 
   for (const finding of driftFindings) {
     console.log(`[FAIL] ${finding.code}: ${finding.message}`);

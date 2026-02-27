@@ -431,48 +431,23 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow create: if isAdmin() || isValidOrderOwnerCreate();
-      allow update: if isValidOrderAdminUpdate();
-      allow delete: if false;
+      // Trust boundary: orders are created/updated by backend only (Admin SDK bypasses rules).
+      allow create, update, delete: if false;
     }
 
     match /order_queue/{queueId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow create: if isValidOrderQueueWrite()
-        && (
-          isAdmin()
-          || (isVerifiedUser() && request.resource.data.uid == request.auth.uid)
-        );
-      allow update: if isValidOrderQueueWrite()
-        && (
-          isAdmin()
-          || (
-            isVerifiedUser()
-            && resource.data.uid == request.auth.uid
-            && request.resource.data.uid == resource.data.uid
-            && request.resource.data.idempotencyKey == resource.data.idempotencyKey
-          )
-        );
-      allow delete: if isAdmin();
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     match /order_events/{eventId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow create: if isValidOrderEventWrite()
-        && (
-          isAdmin()
-          || (isVerifiedUser() && request.resource.data.uid == request.auth.uid)
-        );
-      allow update, delete: if isAdmin();
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     match /audit_logs/{logId} {
       allow read, update, delete: if isAdmin();
-      allow create: if isValidAuditLogWrite()
-        && (
-          isAdmin()
-          || (isSignedIn() && request.resource.data.uid == request.auth.uid)
-        );
+      allow create: if false;
     }
 
     match /customers/{uid} {
@@ -559,6 +534,25 @@ service cloud.firestore {
 
     match /sync/{syncId} {
       allow read, create, update, delete: if isAdmin();
+    }
+
+    match /admin_activity_logs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /suspicious_activity_logs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /auth_failed_attempts/{attemptId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

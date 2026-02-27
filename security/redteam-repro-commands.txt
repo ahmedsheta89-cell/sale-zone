@@ -1,0 +1,103 @@
+# Hostile Red-Team Reproduction Commands
+# Target base URL format: https://<REGION>-<PROJECT>.cloudfunctions.net/api
+# Replace placeholders before execution.
+
+## 0) Environment
+$BASE="https://<functions-base>/api/v1"
+$ADMIN_TOKEN="<firebase-id-token-admin>"
+$USER_TOKEN="<firebase-id-token-non-admin>"
+$APP_CHECK="<firebase-app-check-token>"
+$REQUEST_ID="rt-$(Get-Date -Format 'yyyyMMddHHmmss')"
+
+## 1) Missing Authorization against admin endpoint (must be blocked)
+curl -i -X POST "$BASE/admin/products" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "Content-Type: application/json" `
+  -d '{"name":"x","price":10}'
+
+## 2) Non-admin token against admin endpoint (must be blocked)
+curl -i -X POST "$BASE/admin/products" `
+  -H "Authorization: Bearer $USER_TOKEN" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "Content-Type: application/json" `
+  -H "X-Request-Id: $REQUEST_ID-non-admin" `
+  -d '{"name":"x","price":10}'
+
+## 3) Missing X-Firebase-AppCheck against protected endpoint (must be blocked)
+curl -i -X POST "$BASE/orders" `
+  -H "Authorization: Bearer $USER_TOKEN" `
+  -H "Content-Type: application/json" `
+  -H "X-Request-Id: $REQUEST_ID-no-appcheck" `
+  -d '{"idempotencyKey":"missing-appcheck-0001","items":[{"id":"p1","qty":1,"price":100}],"total":100}'
+
+## 4) Replayed App Check token (expected to pass until token expiry in current design)
+curl -i -X POST "$BASE/orders" `
+  -H "Authorization: Bearer $USER_TOKEN" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "Content-Type: application/json" `
+  -H "X-Request-Id: $REQUEST_ID-replay-1" `
+  -d '{"idempotencyKey":"replay-token-0001","items":[{"id":"p1","qty":1,"price":100}],"total":100}'
+curl -i -X POST "$BASE/orders" `
+  -H "Authorization: Bearer $USER_TOKEN" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "Content-Type: application/json" `
+  -H "X-Request-Id: $REQUEST_ID-replay-2" `
+  -d '{"idempotencyKey":"replay-token-0002","items":[{"id":"p1","qty":1,"price":100}],"total":100}'
+
+## 5) Direct Firestore write attempt to admin collection (must be blocked by rules)
+# Requires gcloud + OAuth token for Firestore REST API test.
+$FS_TOKEN=$(gcloud auth print-access-token)
+curl -i -X PATCH "https://firestore.googleapis.com/v1/projects/<project-id>/databases/(default)/documents/settings/store?updateMask.fieldPaths=name" `
+  -H "Authorization: Bearer $FS_TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"fields":{"name":{"stringValue":"tampered-by-red-team"}}}'
+
+## 6) Order manipulation: expensive items + low total (currently expected to succeed)
+curl -i -X POST "$BASE/orders" `
+  -H "Authorization: Bearer $USER_TOKEN" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "Content-Type: application/json" `
+  -H "X-Request-Id: $REQUEST_ID-total-mismatch" `
+  -d '{"idempotencyKey":"mismatch-total-0001","items":[{"id":"expensive-1","qty":5,"price":1000}],"subtotal":5000,"total":1}'
+
+## 7) Cloudinary signature replay + altered folder attempt
+curl -s -X POST "$BASE/media/cloudinary-signature" `
+  -H "Authorization: Bearer $ADMIN_TOKEN" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "Content-Type: application/json" `
+  -H "X-Request-Id: $REQUEST_ID-sign-1" `
+  -d '{"folder":"sale-zone/banners","publicId":"rt-test"}'
+
+# Folder traversal attempt (must be blocked)
+curl -i -X POST "$BASE/media/cloudinary-signature" `
+  -H "Authorization: Bearer $ADMIN_TOKEN" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "Content-Type: application/json" `
+  -H "X-Request-Id: $REQUEST_ID-sign-traversal" `
+  -d '{"folder":"../../etc/passwd","publicId":"evil"}'
+
+## 8) Rate-limit burst simulation and multi-key evasion
+1..30 | ForEach-Object {
+  $k = "burst-$($_)-$(Get-Random)"
+  curl -s -o NUL -X POST "$BASE/orders" `
+    -H "Authorization: Bearer $USER_TOKEN" `
+    -H "X-Firebase-AppCheck: $APP_CHECK" `
+    -H "Content-Type: application/json" `
+    -H "X-Request-Id: $REQUEST_ID-$k" `
+    -d "{""idempotencyKey"":""$k"",""items"":[{""id"":""p1"",""qty"":1,""price"":100}],""total"":100}"
+}
+
+## 9) Error-response leak inspection (force validator errors)
+curl -i -X POST "$BASE/orders" `
+  -H "Authorization: Bearer $USER_TOKEN" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "Content-Type: application/json" `
+  -H "X-Request-Id: $REQUEST_ID-error-leak" `
+  -d '{"idempotencyKey":"short","items":[],"total":-1}'
+
+## 10) Query/index stress scenario with mixed filters
+curl -i "$BASE/orders?status=pending&dateFrom=2026-01-01T00:00:00.000Z&dateTo=2026-12-31T23:59:59.000Z&search=sz&limit=50" `
+  -H "Authorization: Bearer $ADMIN_TOKEN" `
+  -H "X-Firebase-AppCheck: $APP_CHECK" `
+  -H "X-Request-Id: $REQUEST_ID-query-stress"
+

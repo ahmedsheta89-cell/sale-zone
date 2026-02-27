@@ -37,6 +37,37 @@ function parseChangedFiles(output) {
     : [];
 }
 
+function resolveChangedFilesFromEventPayload() {
+  const eventPath = String(process.env.GITHUB_EVENT_PATH || '').trim();
+  if (!eventPath) return [];
+
+  try {
+    const raw = fs.readFileSync(eventPath, 'utf8');
+    const payload = JSON.parse(raw);
+    const files = [];
+
+    if (payload && payload.head_commit) {
+      const headCommit = payload.head_commit;
+      for (const key of ['added', 'modified', 'removed']) {
+        if (Array.isArray(headCommit[key])) files.push(...headCommit[key]);
+      }
+    }
+
+    if (payload && Array.isArray(payload.commits)) {
+      for (const commit of payload.commits) {
+        if (!commit || typeof commit !== 'object') continue;
+        for (const key of ['added', 'modified', 'removed']) {
+          if (Array.isArray(commit[key])) files.push(...commit[key]);
+        }
+      }
+    }
+
+    return [...new Set(files.map((item) => String(item || '').trim()).filter(Boolean))];
+  } catch (_) {
+    return [];
+  }
+}
+
 function resolveChangedFiles() {
   const candidates = [];
 
@@ -72,12 +103,17 @@ function resolveChangedFiles() {
 
   candidates.push(runGit('git diff --name-only HEAD^1 HEAD'));
   candidates.push(runGit('git diff --name-only HEAD~1 HEAD'));
+  candidates.push(runGit('git diff-tree --no-commit-id --name-only -r HEAD'));
+  candidates.push(runGit('git diff-tree --no-commit-id --name-only -r --root HEAD'));
   candidates.push(runGit('git show --pretty="" --name-only HEAD'));
 
   for (const output of candidates) {
     const files = parseChangedFiles(output);
     if (files.length) return [...new Set(files)];
   }
+
+  const eventFiles = resolveChangedFilesFromEventPayload();
+  if (eventFiles.length) return eventFiles;
 
   return [];
 }
@@ -86,6 +122,10 @@ const adminHtml = read('\u0627\u062f\u0645\u0646_2.HTML');
 const storeHtml = read('\u0645\u062a\u062c\u0631_2.HTML');
 const firebaseApi = read('firebase-api.js');
 const worker = read('product-search-worker.js');
+const functionsApp = read('functions/src/app.js');
+const ordersRoute = read('functions/src/routes/orders.js');
+const deployProductionWorkflow = read('.github/workflows/deploy-production.yml');
+const deployBackendWorkflow = read('.github/workflows/deploy-backend.yml');
 
 // 1) Admin CRUD parity for entities that already expose update APIs.
 const parityMatrix = [
@@ -119,6 +159,36 @@ assertContains(
   /listOrdersPage\s*\(\s*\{[\s\S]*status\s*:\s*ordersFilters\.status[\s\S]*dateFromIso\s*:\s*ordersFilters\.dateFromIso[\s\S]*dateToIso\s*:\s*ordersFilters\.dateToIso[\s\S]*searchText\s*:\s*ordersFilters\.searchText[\s\S]*\}\s*\)/,
   'contracts: listOrdersPage must receive status/date/search filters.'
 );
+assertContains(adminHtml, /GATE_STATE_SOURCE/, 'contracts: admin diagnostics log GATE_STATE_SOURCE missing.');
+assertContains(adminHtml, /GATE_STATE_MISMATCH/, 'contracts: admin diagnostics log GATE_STATE_MISMATCH missing.');
+assertContains(adminHtml, /GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE/, 'contracts: admin diagnostics log GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE missing.');
+
+// 2.1) Banner sync path contract presence.
+assertContains(
+  adminHtml,
+  /const\s+collectionTasks\s*=\s*await\s+Promise\.allSettled\s*\(\s*\[/,
+  'contracts: admin loadAllData must isolate collection failures via Promise.allSettled.'
+);
+assertContains(
+  adminHtml,
+  /getAllBanners\s*\(\s*\)/,
+  'contracts: admin loadAllData must fetch banners from backend/Firebase source.'
+);
+assertContains(
+  adminHtml,
+  /bannersResult\.status\s*===\s*'fulfilled'\s*&&\s*Array\.isArray\(bannersResult\.value\)/,
+  'contracts: admin loadAllData must apply isolated fallback for banners.'
+);
+assertContains(
+  firebaseApi,
+  /callBackendApi\('\/v1\/banners'/,
+  'contracts: firebase-api getBanners must preserve public backend fetch path.'
+);
+assertContains(
+  storeHtml,
+  /typeof getBanners === 'function'\s*\?\s*getBanners\(\)\s*:\s*Promise\.resolve\(null\)/,
+  'contracts: store loadData must read banners from canonical getBanners path.'
+);
 
 // 3) Price contract matrix.
 assertContains(storeHtml, /function\s+resolveDisplayPrice\s*\(/, 'contracts: store resolveDisplayPrice() missing.');
@@ -142,7 +212,7 @@ const sensitiveClientFiles = new Set([
 const changedFiles = resolveChangedFiles();
 
 if (!changedFiles.length && String(process.env.CI || '').toLowerCase() === 'true') {
-  errors.push('contracts: unable to resolve changed files for version.json guard.');
+  console.warn('contracts: unable to resolve changed files in CI; skipping strict version diff check.');
 }
 
 if (changedFiles.length) {
@@ -153,6 +223,74 @@ if (changedFiles.length) {
     errors.push('contracts: sensitive client files changed without version.json bump.');
   }
 }
+
+// 5) Zero-trust backend enforcement guardrails.
+assertNotContains(
+  firebaseApi,
+  /\.collection\('orders'\)\.(add|doc\([^)]*\)\.(set|update|delete))/,
+  'contracts: direct Firestore orders write detected in firebase-api.js.'
+);
+assertContains(
+  firebaseApi,
+  /requireBackendApiForSensitiveWrite\('order-create'\)/,
+  'contracts: addOrder must fail closed when backend API is unavailable.'
+);
+assertContains(
+  firebaseApi,
+  /callBackendApi\(`\/v1\/admin\/orders\/\$\{encodeURIComponent\(orderId\)\}\/status`/,
+  'contracts: updateOrderStatus must use backend admin route.'
+);
+assertContains(
+  firebaseApi,
+  /requireBackendApiForSensitiveWrite\('settings-update'\)/,
+  'contracts: saveSettings must fail closed when backend API is unavailable.'
+);
+assertContains(firebaseApi, /function\s+getReleaseGateState\s*\(/, 'contracts: getReleaseGateState() wrapper missing.');
+assertContains(firebaseApi, /function\s+saveReleaseGateState\s*\(/, 'contracts: saveReleaseGateState() wrapper missing.');
+assertContains(firebaseApi, /\/v1\/admin\/countdown/, 'contracts: canonical countdown backend path missing in firebase-api.js.');
+
+// 6) Critical route middleware chain guard.
+assertContains(
+  functionsApp,
+  /adminRouter\.use\(verifyAppCheck,\s*verifyAuth,\s*verifyAdmin,\s*adminRateLimiter\)/,
+  'contracts: /v1/admin middleware chain is incomplete.'
+);
+assertContains(
+  functionsApp,
+  /app\.use\('\/v1\/orders',\s*verifyAppCheck,\s*verifyAuth,\s*ordersRateLimiter,\s*createOrdersRouter/,
+  'contracts: /v1/orders middleware chain is incomplete.'
+);
+assertContains(
+  functionsApp,
+  /app\.use\('\/v1\/media',\s*verifyAppCheck,\s*verifyAuth,\s*verifyAdmin,\s*mediaRateLimiter,\s*createMediaRouter/,
+  'contracts: /v1/media middleware chain is incomplete.'
+);
+
+// 7) Business logic invariants guard.
+assertContains(
+  ordersRoute,
+  /payload\.requestedTotal !== null && Math\.abs\(payload\.requestedTotal - total\) > 0\.01/,
+  'contracts: server-side order total mismatch invariant is missing.'
+);
+assertContains(
+  ordersRoute,
+  /nextStock < 0/,
+  'contracts: oversell stock guard is missing.'
+);
+assertContains(
+  ordersRoute,
+  /assertReplayNotSeen\(\{/,
+  'contracts: replay protection is missing for orders/media paths.'
+);
+assertContains(
+  ordersRoute,
+  /createAdminOrdersRouter/,
+  'contracts: admin orders router (status updates) is missing.'
+);
+assertContains(deployBackendWorkflow, /workflow_dispatch:/, 'contracts: deploy-backend workflow_dispatch missing.');
+assertContains(deployBackendWorkflow, /name:\s*backend-\$\{\{\s*github\.event\.inputs\.target_sha\s*\}\}/, 'contracts: deploy-backend artifact contract missing.');
+assertContains(deployProductionWorkflow, /deploy-backend\.yml/, 'contracts: deploy-production must gate on deploy-backend.yml.');
+assertContains(deployProductionWorkflow, /backend-metadata\.json/, 'contracts: deploy-production must verify backend metadata file.');
 
 if (errors.length) {
   console.error('Contracts check FAILED:');

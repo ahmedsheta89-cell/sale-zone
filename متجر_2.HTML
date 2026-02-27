@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
     <meta name="firebase-app-check-site-key" content="">
+    <meta name="backend-api-base-url" content="https://us-central1-sale-zone-601f0.cloudfunctions.net/api">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="icon" href="./icon-192.png">
@@ -18,6 +19,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-check-compat.js"></script>
     <!-- Error Detection System -->
     <script src="ERROR_DETECTION_SYSTEM.js"></script>
@@ -1486,9 +1488,14 @@
         }
 
         async function loadData() {
-            const localProducts = normalizeStoreProducts(allowLocalSeedDefaults ? [...defaultProducts] : []);
-            const localCoupons = allowLocalSeedDefaults ? [...defaultCoupons] : [];
-            const localBanners = allowLocalSeedDefaults ? [...defaultBanners] : [];
+            const storedProducts = getStorageData('PRODUCTS');
+            const storedCoupons = getStorageData('COUPONS');
+            const storedBanners = getStorageData('BANNERS');
+            const localProducts = normalizeStoreProducts(
+                Array.isArray(storedProducts) ? storedProducts : (allowLocalSeedDefaults ? [...defaultProducts] : [])
+            );
+            const localCoupons = Array.isArray(storedCoupons) ? storedCoupons : (allowLocalSeedDefaults ? [...defaultCoupons] : []);
+            const localBanners = Array.isArray(storedBanners) ? storedBanners : (allowLocalSeedDefaults ? [...defaultBanners] : []);
             const localSettings = getStorageData('SETTINGS');
 
             const resolveList = (result, storageKey, localFallback, label) => {
@@ -1496,6 +1503,9 @@
                     const list = result.value;
                     console.log(`✅ ${label} loaded from Firebase:`, list.length);
                     return list;
+                }
+                if (result.status === 'fulfilled' && !Array.isArray(result.value)) {
+                    console.warn(`${label} firebase returned non-array payload, fallback to localStorage.`);
                 }
                 if (result.status === 'rejected') {
                     console.warn(`${label} firebase read failed, fallback to localStorage:`, result.reason);

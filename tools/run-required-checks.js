@@ -2,6 +2,8 @@
 // Run: node tools/run-required-checks.js
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const checks = [
   { name: 'preflight', command: ['node', 'tools/preflight.js'] },
@@ -12,6 +14,10 @@ const checks = [
   { name: 'rules', command: ['node', 'tools/rules-test.js'] },
   { name: 'e2e', command: ['node', 'tools/e2e-check.js'] }
 ];
+
+if (fs.existsSync(path.join(process.cwd(), 'tools', 'security-regression-check.js'))) {
+  checks.splice(4, 0, { name: 'security-regression-check', command: ['node', 'tools/security-regression-check.js'] });
+}
 
 const failures = [];
 

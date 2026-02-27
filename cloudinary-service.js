@@ -1,46 +1,108 @@
-// cloudinary-service.js - Optional Cloudinary uploader
-// ====================================================
-// Professional default: use your own media hosting to avoid ORB/CORS issues.
-// Configure these two values in production (unsigned upload preset).
-const CLOUDINARY_CONFIG = {
-    cloudName: "",
-    uploadPreset: ""
-};
+// cloudinary-service.js - Enterprise signed upload flow
+// =====================================================
+// Security policy:
+// - No unsigned preset uploads.
+// - No DataURL/base64 fallback.
+// - Upload is rejected unless backend signature endpoint is configured and reachable.
 
-function isCloudinaryConfigured() {
-    return Boolean(CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset);
+function resolveBackendBaseUrl() {
+    if (typeof window === 'undefined') return '';
+    const explicit = String(window.__BACKEND_API_BASE_URL__ || window.BACKEND_API_BASE_URL || '').trim();
+    if (explicit) return explicit.replace(/\/+$/, '');
+    const meta = document.querySelector('meta[name="backend-api-base-url"]');
+    const fromMeta = String(meta && meta.getAttribute('content') || '').trim();
+    return fromMeta ? fromMeta.replace(/\/+$/, '') : '';
 }
 
-function fileToDataUrl(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(file);
+async function getCloudinaryUploadSignature(file) {
+    const backendBase = resolveBackendBaseUrl();
+    if (!backendBase) {
+        throw new Error('Backend API base URL is missing. Signed upload is required.');
+    }
+
+    if (!(firebase && firebase.auth && firebase.auth().currentUser)) {
+        throw new Error('Authentication required before upload.');
+    }
+
+    const user = firebase.auth().currentUser;
+    const idToken = await user.getIdToken(true);
+
+    let appCheckToken = '';
+    try {
+        if (firebase && firebase.appCheck) {
+            const appCheck = firebase.appCheck();
+            if (appCheck && typeof appCheck.getToken === 'function') {
+                const tokenResult = await appCheck.getToken(false);
+                appCheckToken = String(tokenResult && tokenResult.token || '');
+            }
+        }
+    } catch (_) {}
+
+    const body = {
+        folder: 'sale-zone/products',
+        resourceType: 'image',
+        originalFilename: String(file && file.name || '')
+    };
+
+    const response = await fetch(`${backendBase}/v1/media/cloudinary-signature`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+            ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {})
+        },
+        body: JSON.stringify(body)
     });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) {
+        const message = payload && payload.error && payload.error.message
+            ? String(payload.error.message)
+            : `Signature request failed (${response.status})`;
+        throw new Error(message);
+    }
+
+    const data = payload && payload.data ? payload.data : payload;
+    const requiredFields = ['signature', 'timestamp', 'cloudName', 'apiKey', 'folder'];
+    for (const field of requiredFields) {
+        if (!String(data && data[field] || '').trim()) {
+            throw new Error(`Invalid signature response: missing ${field}`);
+        }
+    }
+
+    return data;
 }
 
 async function uploadToCloudinary(file) {
-    if (!file) throw new Error("No file provided");
+    if (!file) throw new Error('No file provided');
 
-    if (!isCloudinaryConfigured()) {
-        // Fallback: keep local data URL to avoid breaking the flow
-        console.warn("Cloudinary not configured. Using local data URL fallback.");
-        const dataUrl = await fileToDataUrl(file);
-        return { url: dataUrl, isLocal: true };
-    }
+    const signatureData = await getCloudinaryUploadSignature(file);
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${signatureData.cloudName}/image/upload`;
 
-    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`;
     const form = new FormData();
-    form.append("file", file);
-    form.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
-
-    const res = await fetch(url, { method: "POST", body: form });
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Cloudinary upload failed: ${text}`);
+    form.append('file', file);
+    form.append('api_key', String(signatureData.apiKey));
+    form.append('timestamp', String(signatureData.timestamp));
+    form.append('signature', String(signatureData.signature));
+    form.append('folder', String(signatureData.folder));
+    if (signatureData.publicId) {
+        form.append('public_id', String(signatureData.publicId));
     }
 
-    const data = await res.json();
-    return { url: data.secure_url || data.url, publicId: data.public_id };
+    const response = await fetch(uploadUrl, { method: 'POST', body: form });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const message = payload && payload.error && payload.error.message
+            ? String(payload.error.message)
+            : `Cloudinary upload failed (${response.status})`;
+        throw new Error(message);
+    }
+
+    const secureUrl = String(payload && (payload.secure_url || payload.url) || '').trim();
+    if (!secureUrl) throw new Error('Cloudinary response missing secure_url');
+
+    return {
+        url: secureUrl,
+        publicId: String(payload && payload.public_id || '').trim()
+    };
 }

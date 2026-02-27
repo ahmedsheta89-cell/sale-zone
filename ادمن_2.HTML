@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone Store Admin - لوحة التحكم">
     <meta name="firebase-app-check-site-key" content="">
+    <meta name="backend-api-base-url" content="https://us-central1-sale-zone-601f0.cloudfunctions.net/api">
     <link rel="icon" href="./icon-192.png">
     <link rel="shortcut icon" href="./icon-192.png">
     <link rel="apple-touch-icon" href="./icon-192.png">
@@ -15,6 +16,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-check-compat.js"></script>
     <!-- Error Detection System -->
     <script src="ERROR_DETECTION_SYSTEM.js"></script>
@@ -2385,6 +2387,8 @@
         let admin24hChangeWatcherTimer = null;
         let admin24hCardTimer = null;
         let admin24hChangeAlertShownThisSession = false;
+        let admin24hGateStateSource = 'cache';
+        let admin24hGateStateSettled = false;
 
         function normalizeArabicHeader(text) {
             return String(text || '')
@@ -2840,83 +2844,7 @@
             return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
-        function collectAdmin24hTimeline(windowStartAt, limit = 10) {
-            const startTs = Number(windowStartAt || 0);
-            if (!startTs) return [];
-            const rows = Array.isArray(storeEvents) ? storeEvents : [];
-            const allowedTypes = new Set([
-                'STORE_DATA_SYNC',
-                'ORDER_CREATED',
-                'ORDER_SAVE_FAILED',
-                'ORDER_SAVE_BLOCKED_AUTH_POLICY',
-                'REALTIME_DEGRADED_TO_POLLING',
-                'STORE_SETTINGS_REMOTE_OK'
-            ]);
-
-            return rows
-                .filter((event) => {
-                    const ts = Date.parse(String(event && event.timestamp || '')) || 0;
-                    if (!ts || ts < startTs) return false;
-                    if (!event || typeof event !== 'object') return false;
-                    const eventType = String(event.type || '').trim();
-                    return allowedTypes.has(eventType);
-                })
-                .slice(0, Math.max(1, Number(limit) || 10))
-                .map((event) => ({
-                    timestamp: String(event.timestamp || ''),
-                    type: String(event.type || '-'),
-                    message: String(event.message || '-')
-                }));
-        }
-
-        function renderAdmin24hGateCard(tracker, gateState) {
-            const startAtEl = document.getElementById('admin24hWindowStartAt');
-            const endAtEl = document.getElementById('admin24hWindowEndsAt');
-            const countdownEl = document.getElementById('admin24hCountdown');
-            const changeCountEl = document.getElementById('admin24hChangeCount');
-            const badgeEl = document.getElementById('admin24hGateBadge');
-            const noteEl = document.getElementById('admin24hGateNote');
-            const timelineEl = document.getElementById('admin24hTimeline');
-            if (!startAtEl || !endAtEl || !countdownEl || !changeCountEl || !badgeEl || !noteEl || !timelineEl) return;
-
-            const now = Date.now();
-            const baselineAt = Number(tracker && tracker.baselineAt || 0);
-            const gateWindowStartAt = baselineAt;
-            const gateWindowEndsAt = gateWindowStartAt ? (gateWindowStartAt + ADMIN_24H_WINDOW_MS) : 0;
-            const changesWindowStartAt = gateWindowEndsAt || gateWindowStartAt;
-            const remainingMs = gateWindowEndsAt ? Math.max(0, gateWindowEndsAt - now) : 0;
-            const changes = collectAdmin24hTimeline(changesWindowStartAt, 10);
-
-            startAtEl.textContent = gateWindowStartAt ? formatDateTime(new Date(gateWindowStartAt).toISOString()) : '-';
-            endAtEl.textContent = gateWindowEndsAt ? formatDateTime(new Date(gateWindowEndsAt).toISOString()) : '-';
-            countdownEl.textContent = gateWindowEndsAt ? formatAdmin24hCountdown(remainingMs) : '-';
-            changeCountEl.textContent = String(changes.length);
-
-            const state = String(gateState || tracker && tracker.gateState || 'WAITING').toUpperCase();
-            badgeEl.textContent = state;
-            badgeEl.className = `status-badge ${state === 'READY' ? 'status-confirmed' : (state === 'BLOCKED' ? 'status-cancelled' : 'status-pending')}`;
-
-            if (state === 'READY') {
-                noteEl.textContent = '✅ لا توجد تغييرات غير مستقرة خلال نافذة الـ 24 ساعة. يمكن الاعتماد.';
-            } else if (state === 'BLOCKED') {
-                noteEl.textContent = '⛔ تم رصد تعديل بعد مرور نافذة 24 ساعة. يلزم اعتماد نافذة جديدة قبل الإطلاق.';
-            } else {
-                noteEl.textContent = '⏳ نافذة 24 ساعة قيد المتابعة. انتظر اكتمال العد التنازلي.';
-            }
-
-            if (!changes.length) {
-                timelineEl.innerHTML = 'لا توجد أحداث بعد.';
-                return;
-            }
-
-            timelineEl.innerHTML = changes.map((entry) => (
-                `<div><strong>${escapeHtml(formatDateTime(entry.timestamp))}</strong> — ${escapeHtml(entry.type)} — ${escapeHtml(entry.message)}</div>`
-            )).join('');
-        }
-
-        function checkAdmin24hChangeAlert() {
-            const now = Date.now();
-            const currentDigest = buildAdminDataChangeDigest();
+        function computeLocalAdmin24hTracker(now, currentDigest) {
             const tracker = readAdmin24hChangeTracker() || {};
 
             if (!tracker.baselineDigest) {
@@ -2956,29 +2884,183 @@
                 }
             }
 
-            if (gateState === 'BLOCKED' && !admin24hChangeAlertShownThisSession) {
-                admin24hChangeAlertShownThisSession = true;
-                showNotification('error', 'تم رصد تعديل بعد مرور نافذة 24 ساعة. اعتمد نافذة جديدة قبل الإطلاق.');
-                logAdmin('info', 'ADMIN_24H_CHANGE_ALERT', 'Admin detected data modifications older than 24 hours', {
-                    baselineAt: baselineAt,
-                    detectedAt: now
-                });
-            } else if (gateState !== 'BLOCKED') {
-                admin24hChangeAlertShownThisSession = false;
-            }
-
             tracker.gateState = gateState;
             tracker.lastSeenAt = now;
             tracker.lastSeenDigest = currentDigest;
-            writeAdmin24hChangeTracker(tracker);
-            renderAdmin24hGateCard(tracker, gateState);
+            return tracker;
+        }
+
+        function collectAdmin24hTimeline(windowStartAt, limit = 10) {
+            const startTs = Number(windowStartAt || 0);
+            if (!startTs) return [];
+            const rows = Array.isArray(storeEvents) ? storeEvents : [];
+            const allowedTypes = new Set([
+                'STORE_DATA_SYNC',
+                'ORDER_CREATED',
+                'ORDER_SAVE_FAILED',
+                'ORDER_SAVE_BLOCKED_AUTH_POLICY',
+                'REALTIME_DEGRADED_TO_POLLING',
+                'STORE_SETTINGS_REMOTE_OK'
+            ]);
+
+            return rows
+                .filter((event) => {
+                    const ts = Date.parse(String(event && event.timestamp || '')) || 0;
+                    if (!ts || ts < startTs) return false;
+                    if (!event || typeof event !== 'object') return false;
+                    const eventType = String(event.type || '').trim();
+                    return allowedTypes.has(eventType);
+                })
+                .slice(0, Math.max(1, Number(limit) || 10))
+                .map((event) => ({
+                    timestamp: String(event.timestamp || ''),
+                    type: String(event.type || '-'),
+                    message: String(event.message || '-')
+                }));
+        }
+
+        function renderAdmin24hGateCard(tracker, gateState) {
+            const startAtEl = document.getElementById('admin24hWindowStartAt');
+            const endAtEl = document.getElementById('admin24hWindowEndsAt');
+            const countdownEl = document.getElementById('admin24hCountdown');
+            const changeCountEl = document.getElementById('admin24hChangeCount');
+            const badgeEl = document.getElementById('admin24hGateBadge');
+            const noteEl = document.getElementById('admin24hGateNote');
+            const timelineEl = document.getElementById('admin24hTimeline');
+            if (!startAtEl || !endAtEl || !countdownEl || !changeCountEl || !badgeEl || !noteEl || !timelineEl) return;
+            if (!admin24hGateStateSettled) {
+                badgeEl.textContent = 'LOADING';
+                badgeEl.className = 'status-badge status-pending';
+                noteEl.textContent = 'جاري تحميل حالة بوابة 24 ساعة من الـ backend...';
+                return;
+            }
+
+            const now = Date.now();
+            const baselineAt = Number(tracker && tracker.baselineAt || 0);
+            const gateWindowStartAt = baselineAt;
+            const gateWindowEndsAt = gateWindowStartAt ? (gateWindowStartAt + ADMIN_24H_WINDOW_MS) : 0;
+            const changesWindowStartAt = gateWindowEndsAt || gateWindowStartAt;
+            const remainingMs = gateWindowEndsAt ? Math.max(0, gateWindowEndsAt - now) : 0;
+            const changes = collectAdmin24hTimeline(changesWindowStartAt, 10);
+
+            startAtEl.textContent = gateWindowStartAt ? formatDateTime(new Date(gateWindowStartAt).toISOString()) : '-';
+            endAtEl.textContent = gateWindowEndsAt ? formatDateTime(new Date(gateWindowEndsAt).toISOString()) : '-';
+            countdownEl.textContent = gateWindowEndsAt ? formatAdmin24hCountdown(remainingMs) : '-';
+            changeCountEl.textContent = String(changes.length);
+
+            const state = String(gateState || tracker && tracker.gateState || 'WAITING').toUpperCase();
+            badgeEl.textContent = state;
+            badgeEl.className = `status-badge ${state === 'READY' ? 'status-confirmed' : (state === 'BLOCKED' || state === 'DEGRADED' ? 'status-cancelled' : 'status-pending')}`;
+
+            if (state === 'READY') {
+                noteEl.textContent = '✅ لا توجد تغييرات غير مستقرة خلال نافذة الـ 24 ساعة. يمكن الاعتماد.';
+            } else if (state === 'BLOCKED') {
+                noteEl.textContent = '⛔ تم رصد تعديل بعد مرور نافذة 24 ساعة. يلزم اعتماد نافذة جديدة قبل الإطلاق.';
+            } else if (state === 'DEGRADED') {
+                noteEl.textContent = '⚠️ تعذر الوصول للـ backend. الحالة معروضة من الكاش فقط وليست مصدر قرار.';
+            } else {
+                noteEl.textContent = '⏳ نافذة 24 ساعة قيد المتابعة. انتظر اكتمال العد التنازلي.';
+            }
+
+            if (!changes.length) {
+                timelineEl.innerHTML = 'لا توجد أحداث بعد.';
+                return;
+            }
+
+            timelineEl.innerHTML = changes.map((entry) => (
+                `<div><strong>${escapeHtml(formatDateTime(entry.timestamp))}</strong> — ${escapeHtml(entry.type)} — ${escapeHtml(entry.message)}</div>`
+            )).join('');
+        }
+
+        async function checkAdmin24hChangeAlert() {
+            const now = Date.now();
+            const currentDigest = buildAdminDataChangeDigest();
+            const localTracker = computeLocalAdmin24hTracker(now, currentDigest);
+            writeAdmin24hChangeTracker(localTracker);
+
+            let effectiveTracker = { ...localTracker };
+            let effectiveGateState = String(localTracker.gateState || 'WAITING').toUpperCase();
+
+            try {
+                if (typeof saveReleaseGateState === 'function') {
+                    await saveReleaseGateState({
+                        baselineAt: localTracker.baselineAt,
+                        baselineDigest: localTracker.baselineDigest,
+                        pendingChangeAt: localTracker.pendingChangeAt,
+                        pendingDigest: localTracker.pendingDigest,
+                        changeAfterGateAt: localTracker.changeAfterGateAt,
+                        lastSeenAt: localTracker.lastSeenAt,
+                        lastSeenDigest: localTracker.lastSeenDigest,
+                        gateState: localTracker.gateState,
+                        windowMs: ADMIN_24H_WINDOW_MS,
+                        source: 'backend'
+                    });
+                }
+
+                if (typeof getReleaseGateState !== 'function') {
+                    throw new Error('BACKEND_REQUIRED: release gate state API unavailable.');
+                }
+
+                const backendState = await getReleaseGateState({ retries: 1 });
+                admin24hGateStateSource = 'backend';
+                admin24hGateStateSettled = true;
+                logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', {
+                    source: admin24hGateStateSource
+                });
+
+                if (backendState && backendState.lastSeenDigest && backendState.lastSeenDigest !== localTracker.lastSeenDigest) {
+                    logAdmin('warn', 'GATE_STATE_MISMATCH', 'Backend release gate digest differs from local digest', {
+                        backendDigest: backendState.lastSeenDigest,
+                        localDigest: localTracker.lastSeenDigest
+                    });
+                }
+
+                effectiveTracker = { ...localTracker, ...(backendState || {}) };
+                effectiveGateState = String(effectiveTracker.gateState || 'WAITING').toUpperCase();
+                writeAdmin24hChangeTracker(effectiveTracker);
+            } catch (error) {
+                admin24hGateStateSource = 'cache';
+                admin24hGateStateSettled = true;
+                effectiveTracker = { ...localTracker, gateState: 'DEGRADED', source: 'cache' };
+                effectiveGateState = 'DEGRADED';
+                logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate state not available from backend', {
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+                logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', {
+                    source: admin24hGateStateSource
+                });
+            }
+
+            if (effectiveGateState === 'BLOCKED' && !admin24hChangeAlertShownThisSession) {
+                admin24hChangeAlertShownThisSession = true;
+                showNotification('error', 'تم رصد تعديل بعد مرور نافذة 24 ساعة. اعتمد نافذة جديدة قبل الإطلاق.');
+                logAdmin('info', 'ADMIN_24H_CHANGE_ALERT', 'Admin detected data modifications older than 24 hours', {
+                    baselineAt: Number(effectiveTracker.baselineAt || now),
+                    detectedAt: now
+                });
+            } else if (effectiveGateState !== 'BLOCKED') {
+                admin24hChangeAlertShownThisSession = false;
+            }
+
+            renderAdmin24hGateCard(effectiveTracker, effectiveGateState);
         }
 
         function startAdminChangeNotificationWatcher() {
             stopAdminChangeNotificationWatcher();
             admin24hChangeAlertShownThisSession = false;
-            checkAdmin24hChangeAlert();
-            admin24hChangeWatcherTimer = setInterval(checkAdmin24hChangeAlert, ADMIN_24H_CHECK_INTERVAL_MS);
+            admin24hGateStateSettled = false;
+            checkAdmin24hChangeAlert().catch((error) => {
+                logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'Initial release gate sync failed', {
+                    error: error && error.message ? String(error.message) : String(error)
+                });
+            });
+            admin24hChangeWatcherTimer = setInterval(() => {
+                checkAdmin24hChangeAlert().catch((error) => {
+                    logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'Periodic release gate sync failed', {
+                        error: error && error.message ? String(error.message) : String(error)
+                    });
+                });
+            }, ADMIN_24H_CHECK_INTERVAL_MS);
             admin24hCardTimer = setInterval(() => {
                 const tracker = readAdmin24hChangeTracker() || {};
                 renderAdmin24hGateCard(tracker, tracker.gateState || 'WAITING');
@@ -3026,61 +3108,8 @@
         // ============================================
         // 🔥 Firebase + LocalStorage Hybrid Data Loading
         async function loadAllData() {
-            try {
-                // محاولة تحميل من Firebase أولاً
-                     if (typeof getAllProducts === 'function') {
-                     console.log('🔥 Admin: Loading from Firebase...');
-                     const fbProducts = await getAllProducts();
-                     const fbCoupons = await getAllCoupons();
-                     const fbBanners = await getAllBanners();
-                     const fbSuppliers = typeof getSuppliers === 'function' ? await getSuppliers() : null;
-                     let fbSupportThreads = null;
-                    if (typeof getSupportThreads === 'function') {
-                        try {
-                            await requireAdminPermission();
-                            fbSupportThreads = await getSupportThreads(150, { strict: true });
-                            clearSupportAccessState();
-                        } catch (supportError) {
-                            const denied = handleSupportAccessError(supportError, 'loadAllData.getSupportThreads');
-                            if (!denied) {
-                                console.warn('support preload warning:', supportError);
-                            }
-                            fbSupportThreads = [];
-                        }
-                    }
-
-                    const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
-                    const cachedStoreProducts = getStorageData('PRODUCTS');
-                     products = Array.isArray(fbProducts)
-                         ? fbProducts
-                         : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
-                     const cachedOrders = getStorageData('ORDERS');
-                     orders = Array.isArray(cachedOrders) ? cachedOrders : [];
-                     ordersPageCursor = '';
-                     ordersHasMore = false;
-                     ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
-                     users = [];
-                     coupons = Array.isArray(fbCoupons) ? fbCoupons : (getStorageData('COUPONS') || []);
-                     banners = Array.isArray(fbBanners) ? fbBanners : (getStorageData('BANNERS') || []);
-                     suppliers = Array.isArray(fbSuppliers) ? fbSuppliers : (getStorageData('SUPPLIERS') || []);
-                     supportThreads = Array.isArray(fbSupportThreads) ? fbSupportThreads : [];
-                    
-                    const settings = await getSettings();
-                    if (settings) storeSettings = { ...storeSettings, ...settings };
-                    clientErrorLogs = (typeof getClientErrorLogs === 'function')
-                        ? (await getClientErrorLogs(50) || [])
-                        : [];
-                    
-                    console.log('✅ Admin data loaded from Firebase');
-                    console.log('📦 Products:', products.length);
-                    console.log('📦 Product IDs:', products.map(p => p.id));
-                    console.log('🛍️ Orders:', orders.length);
-                } else {
-                    throw new Error('Firebase not available');
-                }
-            } catch (error) {
-                console.warn('⚠️ Firebase error, using localStorage:', error);
-                // Fallback to localStorage
+            if (typeof getAllProducts !== 'function') {
+                console.warn('⚠️ Firebase API unavailable, using localStorage');
                 const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
                 const cachedStoreProducts = getStorageData('PRODUCTS');
                 products = Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []);
@@ -3096,37 +3125,128 @@
                         id: `local_${idx}`,
                         type: err.type || 'CLIENT_ERROR',
                         message: err.message || 'Unknown error',
-                        source: err.filename || err.url || '',
+                        stack: err.stack || '',
+                        url: err.url || '',
+                        line: err.line || 0,
+                        col: err.col || 0,
+                        userAgent: navigator.userAgent,
                         timestamp: err.timestamp || new Date().toISOString(),
-                        context: {
-                            page: err.url || '',
-                            userAgent: err.userAgent || '',
-                            online: navigator.onLine,
-                            viewport: { width: window.innerWidth || 0, height: window.innerHeight || 0 }
-                        }
+                        severity: err.severity || 'medium',
+                        source: err.source || 'local'
+                    }));
+                } catch (_) {
+                    clientErrorLogs = [];
+                }
+                if (!Array.isArray(liveSessions)) {
+                    liveSessions = [];
+                }
+                return;
+            }
+
+            console.log('🔥 Admin: Loading from Firebase...');
+
+            const collectionTasks = await Promise.allSettled([
+                getAllProducts(),
+                getAllCoupons(),
+                getAllBanners(),
+                (typeof getSuppliers === 'function' ? getSuppliers() : Promise.resolve(null)),
+                getSettings(),
+                (typeof getClientErrorLogs === 'function' ? getClientErrorLogs(50) : Promise.resolve([]))
+            ]);
+
+            const [productsResult, couponsResult, bannersResult, suppliersResult, settingsResult, errorsResult] = collectionTasks;
+
+            const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
+            const cachedStoreProducts = getStorageData('PRODUCTS');
+            products = (productsResult.status === 'fulfilled' && Array.isArray(productsResult.value))
+                ? productsResult.value
+                : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
+            if (productsResult.status === 'rejected') {
+                console.warn('⚠️ Admin products fetch failed, fallback to cache:', productsResult.reason);
+            }
+
+            coupons = (couponsResult.status === 'fulfilled' && Array.isArray(couponsResult.value))
+                ? couponsResult.value
+                : (getStorageData('COUPONS') || []);
+            if (couponsResult.status === 'rejected') {
+                console.warn('⚠️ Admin coupons fetch failed, fallback to cache:', couponsResult.reason);
+            }
+
+            banners = (bannersResult.status === 'fulfilled' && Array.isArray(bannersResult.value))
+                ? bannersResult.value
+                : (getStorageData('BANNERS') || []);
+            if (bannersResult.status === 'rejected') {
+                console.warn('⚠️ Admin banners fetch failed, fallback to cache:', bannersResult.reason);
+            }
+
+            suppliers = (suppliersResult.status === 'fulfilled' && Array.isArray(suppliersResult.value))
+                ? suppliersResult.value
+                : (getStorageData('SUPPLIERS') || []);
+            if (suppliersResult.status === 'rejected') {
+                console.warn('⚠️ Admin suppliers fetch failed, fallback to cache:', suppliersResult.reason);
+            }
+
+            if (settingsResult.status === 'fulfilled' && settingsResult.value && typeof settingsResult.value === 'object') {
+                storeSettings = { ...storeSettings, ...settingsResult.value };
+            } else if (settingsResult.status === 'rejected') {
+                console.warn('⚠️ Admin settings fetch failed, keeping current settings:', settingsResult.reason);
+            }
+
+            if (errorsResult.status === 'fulfilled' && Array.isArray(errorsResult.value)) {
+                clientErrorLogs = errorsResult.value;
+            } else {
+                try {
+                    const localErrors = JSON.parse(localStorage.getItem('adminErrors') || '[]');
+                    clientErrorLogs = localErrors.slice(-50).reverse().map((err, idx) => ({
+                        id: `local_${idx}`,
+                        type: err.type || 'CLIENT_ERROR',
+                        message: err.message || 'Unknown error',
+                        stack: err.stack || '',
+                        url: err.url || '',
+                        line: err.line || 0,
+                        col: err.col || 0,
+                        userAgent: navigator.userAgent,
+                        timestamp: err.timestamp || new Date().toISOString(),
+                        severity: err.severity || 'medium',
+                        source: err.source || 'local'
                     }));
                 } catch (_) {
                     clientErrorLogs = [];
                 }
             }
 
-            products = ensureProductsSchema(products);
-            suppliers = ensureSuppliersSchema(suppliers);
-            saveProducts();
-            saveSuppliers();
-            renderProductCategoryOptions();
-            updateSupportAccessUi();
-            await loadCustomersPage({ reset: true, showToast: false }).catch((error) => {
-                console.warn('customers initial page load warning:', error);
-            });
-            
-            // كلمة المرور دائماً من localStorage
-            const saved = getStorageData('SETTINGS');
-            if (saved) storeSettings = { ...storeSettings, ...saved };
-            
-            // Data loaded, rendering will be done by initDashboard()
-        }
+            let fbSupportThreads = null;
+            if (typeof getSupportThreads === 'function') {
+                try {
+                    await requireAdminPermission();
+                    fbSupportThreads = await getSupportThreads(150, { strict: true });
+                    clearSupportAccessState();
+                } catch (supportError) {
+                    const denied = handleSupportAccessError(supportError, 'loadAllData.getSupportThreads');
+                    if (!denied) {
+                        console.warn('support preload warning:', supportError);
+                    }
+                    fbSupportThreads = [];
+                }
+            }
+            supportThreads = Array.isArray(fbSupportThreads) ? fbSupportThreads : [];
 
+            const cachedOrders = getStorageData('ORDERS');
+            orders = Array.isArray(cachedOrders) ? cachedOrders : [];
+            ordersPageCursor = '';
+            ordersHasMore = false;
+            ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
+            users = [];
+
+            console.log('✅ Admin data loaded with isolated collection fallback');
+            console.log('📦 Products:', products.length);
+            console.log('📦 Banners:', banners.length);
+            console.log('🛍️ Orders:', orders.length);
+
+            if (!Array.isArray(liveSessions)) {
+                liveSessions = [];
+            }
+        }
         function saveProducts() {
             const source = Array.isArray(products) ? products : [];
             if (source.length > MAX_ADMIN_PRODUCTS_LOCAL_CACHE) {
@@ -8176,4 +8296,5 @@ async function uploadAndPreview(input) {
 </script>
 </body>
 </html>
+
 
