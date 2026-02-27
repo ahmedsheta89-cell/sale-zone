@@ -24,9 +24,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
-        run: npm install --prefix sale-zone --no-audit --no-fund
+        run: npm ci --prefix sale-zone --no-audit --no-fund
       - name: Run preflight
         run: node tools/preflight.js
 
@@ -39,9 +41,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
-        run: npm install --prefix sale-zone --no-audit --no-fund
+        run: npm ci --prefix sale-zone --no-audit --no-fund
       - name: Run hash stability check
         run: node tools/hash-stability-check.js
 
@@ -54,11 +58,47 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
-        run: npm install --prefix sale-zone --no-audit --no-fund
+        run: npm ci --prefix sale-zone --no-audit --no-fund
       - name: Run smoke-check
         run: node tools/smoke-check.js
+
+  contracts-check:
+    name: contracts-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: sale-zone/package-lock.json
+      - name: Install tooling dependencies
+        run: npm ci --prefix sale-zone --no-audit --no-fund
+      - name: Run contracts check
+        run: node tools/contracts-check.js
+
+  security-regression-check:
+    name: security-regression-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: sale-zone/package-lock.json
+      - name: Install tooling dependencies
+        run: npm ci --prefix sale-zone --no-audit --no-fund
+      - name: Run security regression check
+        run: node tools/security-regression-check.js
 
   admin-function-monitor:
     name: admin-function-monitor
@@ -69,9 +109,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
-        run: npm install --prefix sale-zone --no-audit --no-fund
+        run: npm ci --prefix sale-zone --no-audit --no-fund
       - name: Run admin function monitor
         run: node tools/admin-function-monitor.js
 
@@ -84,9 +126,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
-        run: npm install --prefix sale-zone --no-audit --no-fund
+        run: npm ci --prefix sale-zone --no-audit --no-fund
       - name: Run rules gate
         run: node tools/rules-test.js
 
@@ -99,11 +143,61 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
-        run: npm install --prefix sale-zone --no-audit --no-fund
+        run: npm ci --prefix sale-zone --no-audit --no-fund
       - name: Run E2E gate
         run: node tools/e2e-check.js
+
+  workers-paranoid-gate:
+    name: workers-paranoid-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+          cache: npm
+          cache-dependency-path: workers/package-lock.json
+      - name: Install workers dependencies
+        run: npm --prefix workers ci
+      - name: Workers typecheck
+        run: npm --prefix workers run typecheck
+      - name: Workers tests
+        env:
+          RUN_REDIS_INTEGRATION: "false"
+        run: npm --prefix workers run test
+      - name: Workers preflight gate
+        env:
+          PARANOID_MODE: "true"
+          PREFLIGHT_DRY_RUN: "true"
+          NODE_ENV: "test"
+          WORKER_GROUP: "ci-release-gate"
+          HEARTBEAT_KEY_PREFIX: "workers:hb"
+          ROLL_OUT_KEY_PREFIX: "workers:rollout"
+          OUTPUT_DIR: "workers/output"
+          REDIS_HOST: "127.0.0.1"
+          REDIS_PORT: "6379"
+          REDIS_FAIL_CLOSED: "false"
+          REDIS_REQUIRE_TLS: "false"
+        run: npm --prefix workers run preflight:gate
+
+  ci-parity:
+    name: ci-parity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+      - name: Verify CI parity
+        run: node scripts/verify-ci-parity.js --strict
 
   release-gate:
     name: release-gate
@@ -111,9 +205,13 @@ jobs:
       - preflight
       - hash-stability
       - smoke-check
+      - contracts-check
+      - security-regression-check
       - admin-function-monitor
       - rules
       - e2e
+      - workers-paranoid-gate
+      - ci-parity
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -124,11 +222,26 @@ jobs:
             "${{ needs.preflight.result }}"
             "${{ needs.hash-stability.result }}"
             "${{ needs.smoke-check.result }}"
+            "${{ needs.contracts-check.result }}"
+            "${{ needs.security-regression-check.result }}"
             "${{ needs.admin-function-monitor.result }}"
             "${{ needs.rules.result }}"
             "${{ needs.e2e.result }}"
+            "${{ needs.workers-paranoid-gate.result }}"
+            "${{ needs.ci-parity.result }}"
           )
-          names=(preflight hash-stability smoke-check admin-function-monitor rules e2e)
+          names=(
+            preflight
+            hash-stability
+            smoke-check
+            contracts-check
+            security-regression-check
+            admin-function-monitor
+            rules
+            e2e
+            workers-paranoid-gate
+            ci-parity
+          )
           for i in "${!results[@]}"; do
             if [[ "${results[$i]}" != "success" ]]; then
               echo "::error::${names[$i]} check is ${results[$i]}"
