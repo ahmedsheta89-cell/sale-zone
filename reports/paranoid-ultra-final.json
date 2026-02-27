@@ -1,0 +1,7 @@
+﻿{
+    "generatedAt":  "2026-02-27T12:07:21.5681838Z",
+    "pass":  false,
+    "status":  "blocked",
+    "reason":  "preflight and rollout scripts were not executed locally due dependency installation/network constraints",
+    "remediation":  "Run npm --prefix workers install, then run detect/preflight/rollout in CI or connected runner"
+}

@@ -1,0 +1,33 @@
+{
+  "name": "sale-zone-workers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --pool=threads ../test",
+    "preflight:gate": "tsx ../scripts/preflightGate.ts",
+    "detect:best-sha": "tsx ../scripts/detectBestSha.ts",
+    "rollout:safe": "tsx ../scripts/rolloutSafe.ts",
+    "watchdog": "tsx ../workers/watchdog/paranoid-monitor.ts --daemon"
+  },
+  "dependencies": {
+    "bullmq": "^5.58.0",
+    "ioredis": "^5.4.1",
+    "pino": "^9.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/semver": "^7.5.8",
+    "semver": "^7.6.3",
+    "testcontainers": "^10.16.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

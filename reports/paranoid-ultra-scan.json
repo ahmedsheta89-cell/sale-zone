@@ -1,0 +1,8 @@
+﻿{
+    "generatedAt":  "2026-02-27T12:07:21.5611654Z",
+    "mode":  "paranoid-ultra",
+    "selectedSha":  null,
+    "status":  "not_executed_locally",
+    "reason":  "workers dependencies not installable in current offline/cache-only environment",
+    "safe_to_continue":  false
+}

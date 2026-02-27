@@ -1,0 +1,82 @@
+name: workers-rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Exact commit SHA to rollout"
+        required: true
+        type: string
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  rollout:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout target SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha }}
+          fetch-depth: 0
+
+      - name: Verify checked out SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          if [[ "$ACTUAL_SHA" != "${{ inputs.target_sha }}" ]]; then
+            echo "SHA mismatch: actual=$ACTUAL_SHA expected=${{ inputs.target_sha }}"
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: workers/package.json
+
+      - name: Install workers dependencies
+        run: npm --prefix workers install
+
+      - name: Preflight gate
+        env:
+          PARANOID_MODE: "true"
+          PREFLIGHT_DRY_RUN: "false"
+          NODE_ENV: ${{ inputs.environment }}
+          WORKER_GROUP: workers-${{ inputs.environment }}
+          HEARTBEAT_KEY_PREFIX: workers:hb
+          ROLL_OUT_KEY_PREFIX: workers:rollout
+          OUTPUT_DIR: workers/output
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+        run: npm --prefix workers run preflight:gate
+
+      - name: Rollout safe
+        env:
+          PARANOID_MODE: "true"
+          NODE_ENV: ${{ inputs.environment }}
+          WORKER_GROUP: workers-${{ inputs.environment }}
+          HEARTBEAT_KEY_PREFIX: workers:hb
+          ROLL_OUT_KEY_PREFIX: workers:rollout
+          OUTPUT_DIR: workers/output
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+        run: npm --prefix workers run rollout:safe
+
+      - name: Upload rollout artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: workers-rollout-${{ inputs.target_sha }}
+          path: |
+            workers/output/rollout-safe.report.json
+            workers/output/rollout-timeline.ndjson
+            workers/output/preflight-gate.report.json
+            reports/rollout-safe.report.json
+            reports/rollout-timeline.ndjson
