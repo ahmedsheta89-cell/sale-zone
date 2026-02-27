@@ -2386,6 +2386,25 @@
         let admin24hCardTimer = null;
         let admin24hChangeAlertShownThisSession = false;
         let admin24hCanonicalState = null;
+        let admin24hBackendUnavailableLogged = false;
+        let admin24hLastSource = '';
+
+        function isReleaseGateBackendAvailableForAdmin() {
+            try {
+                if (window.ReleaseGateStateAPI && typeof window.ReleaseGateStateAPI.isReleaseGateBackendAvailable === 'function') {
+                    return window.ReleaseGateStateAPI.isReleaseGateBackendAvailable() === true;
+                }
+            } catch (_) {}
+            try {
+                const explicit = String(window.__BACKEND_API_BASE_URL__ || window.BACKEND_API_BASE_URL || '').trim();
+                if (explicit) return true;
+                const meta = document.querySelector('meta[name="backend-api-base-url"]');
+                const fromMeta = String(meta && meta.getAttribute('content') || '').trim();
+                return Boolean(fromMeta);
+            } catch (_) {
+                return false;
+            }
+        }
 
         function normalizeArabicHeader(text) {
             return String(text || '')
@@ -2853,13 +2872,23 @@
                 logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate backend API wrapper missing');
                 return null;
             }
+            if (!isReleaseGateBackendAvailableForAdmin()) {
+                if (!admin24hBackendUnavailableLogged) {
+                    admin24hBackendUnavailableLogged = true;
+                    logAdmin('info', 'GATE_STATE_BACKEND_OPTIONAL_DISABLED', 'release gate backend disabled; using cache mode');
+                }
+                return null;
+            }
             try {
                 const state = await getReleaseGateState();
                 if (!state || typeof state !== 'object') {
                     logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate state not available from backend');
                     return null;
                 }
-                logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', { source: 'backend' });
+                if (admin24hLastSource !== 'backend') {
+                    admin24hLastSource = 'backend';
+                    logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', { source: 'backend' });
+                }
                 return normalizeAdminReleaseGateState(state);
             } catch (error) {
                 logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate backend fetch failed', {
@@ -2994,7 +3023,10 @@
                     gateState: String(canonical.gateState || tracker.gateState || 'WAITING').toUpperCase()
                 });
             } else {
-                logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', { source: 'cache' });
+                if (admin24hLastSource !== 'cache') {
+                    admin24hLastSource = 'cache';
+                    logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', { source: 'cache' });
+                }
             }
 
             if (!tracker.baselineDigest) {

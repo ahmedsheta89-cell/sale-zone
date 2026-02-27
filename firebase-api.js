@@ -62,6 +62,24 @@ function shouldUseBackendApi() {
     return Boolean(String(getBackendApiBaseUrl() || '').trim());
 }
 
+function isBackendApiUnavailableError(error) {
+    const code = String(error && error.code ? error.code : '').toUpperCase();
+    const message = String(error && error.message ? error.message : '').toUpperCase();
+    return (
+        code === 'BACKEND_REQUIRED' ||
+        code === 'BACKEND_API_DISABLED' ||
+        message.includes('BACKEND_REQUIRED') ||
+        message.includes('BACKEND-API-DISABLED') ||
+        message.includes('BACKEND-API-BASE-URL-MISSING')
+    );
+}
+
+let backendUnavailableNoticePrinted = false;
+
+function isReleaseGateBackendAvailable() {
+    return shouldUseBackendApi();
+}
+
 function requireBackendApiForSensitiveWrite(operationName = 'sensitive-write') {
     if (!shouldUseBackendApi()) {
         const error = new Error(`BACKEND_REQUIRED: Backend API is required for ${operationName}.`);
@@ -1734,6 +1752,13 @@ async function getReleaseGateState() {
         });
         return data && typeof data === 'object' ? data : null;
     } catch (e) {
+        if (isBackendApiUnavailableError(e)) {
+            if (!backendUnavailableNoticePrinted) {
+                backendUnavailableNoticePrinted = true;
+                console.info('[INFO] Release gate backend unavailable. Falling back to local cache state.');
+            }
+            return null;
+        }
         console.warn('getReleaseGateState warning:', e && e.message ? e.message : e);
         return null;
     }
@@ -1750,6 +1775,13 @@ async function saveReleaseGateState(statePatch) {
         });
         return data && typeof data === 'object' ? data : null;
     } catch (e) {
+        if (isBackendApiUnavailableError(e)) {
+            if (!backendUnavailableNoticePrinted) {
+                backendUnavailableNoticePrinted = true;
+                console.info('[INFO] Release gate backend unavailable. Falling back to local cache state.');
+            }
+            throw e;
+        }
         console.warn('saveReleaseGateState warning:', e && e.message ? e.message : e);
         throw e;
     }
@@ -2403,7 +2435,8 @@ async function closeSupportThread(threadId) {
 
 const releaseGateStateApiBridge = {
     getReleaseGateState,
-    saveReleaseGateState
+    saveReleaseGateState,
+    isReleaseGateBackendAvailable
 };
 
 if (typeof window !== 'undefined') {
