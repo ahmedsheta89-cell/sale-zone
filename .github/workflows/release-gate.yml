@@ -43,6 +43,16 @@ jobs:
           node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run hash stability check
         run: cd sale-zone && node ../tools/hash-stability-check.js
 
@@ -58,6 +68,16 @@ jobs:
           node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run smoke-check
         run: cd sale-zone && node ../tools/smoke-check.js
 
@@ -73,6 +93,16 @@ jobs:
           node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run contracts check
         run: cd sale-zone && node ../tools/contracts-check.js
 
@@ -111,6 +141,16 @@ jobs:
           node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run admin function monitor
         run: cd sale-zone && node ../tools/admin-function-monitor.js
 
@@ -126,6 +166,16 @@ jobs:
           node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run rules gate
         run: cd sale-zone && node ../tools/rules-test.js
 
@@ -141,6 +191,16 @@ jobs:
           node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run E2E gate
         run: cd sale-zone && node ../tools/e2e-check.js
 
