@@ -284,6 +284,8 @@ jobs:
         with:
           node-version: 20
       - name: Enforce branch protection
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/enforce-branch-protection.mjs
       - name: Verify branch protection
         run: node scripts/verify-branch-protection.mjs
@@ -307,6 +309,7 @@ jobs:
           node-version: 20
       - name: Console smoke assertions (backend-warning noise guard)
         run: |
+          cd sale-zone
           node -e "const fs=require('fs'); const api=fs.readFileSync('firebase-api.js','utf8'); const htmlFiles=fs.readdirSync('.').filter(f=>/\.html$/i.test(f)); const adminPath=htmlFiles.find(f=>{ try { return fs.readFileSync(f,'utf8').includes('admin24hLastSource'); } catch { return false; } }); if(!adminPath){ console.error('missing admin html file containing admin24hLastSource marker'); process.exit(1); } const admin=fs.readFileSync(adminPath,'utf8'); const checks=[{ok:/isBackendApiUnavailableError/.test(api),msg:'missing backend unavailable classifier in firebase-api.js'},{ok:/backendUnavailableNoticePrinted/.test(api),msg:'missing one-time backend notice guard in firebase-api.js'},{ok:/GATE_STATE_BACKEND_OPTIONAL_DISABLED/.test(admin),msg:'missing backend optional disabled diagnostic in admin HTML'},{ok:/admin24hLastSource/.test(admin),msg:'missing source-change log throttle in admin HTML'}]; const fails=checks.filter(c=>!c.ok); if(fails.length){console.error(fails.map(f=>'- '+f.msg).join('\n')); process.exit(1);} console.log('Risk 3 proof: backend-warning noise guard assertions passed in',adminPath);"
           echo "Risk 3 passed - backend-warning noise guard assertions passed." > console-proof.txt
       - name: Upload console proof
