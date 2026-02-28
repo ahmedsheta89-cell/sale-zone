@@ -170,7 +170,7 @@ jobs:
         with:
           node-version: 20.17.0
           cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
+          cache-dependency-path: workers/package-lock.json
       - name: Detect workers runtime tree
         id: workers_tree
         run: |
