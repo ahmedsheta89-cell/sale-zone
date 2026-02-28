@@ -62,9 +62,17 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
-مستند نصي جديد.txt
 backups/
 diff_output.txt
+/git
+/ls
+/worktrees/
+/workers/output/
+/workers/dist/
+/reports/paranoid-ultra-*.json
+/reports/ci-parity-report.json
+/reports/rollout-*.ndjson
+/reports/rollout-safe.report.json
 
 sale-zone/
 

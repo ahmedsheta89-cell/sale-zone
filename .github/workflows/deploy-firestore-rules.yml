@@ -180,7 +180,7 @@ jobs:
       - name: Install Firebase CLI
         run: |
           set -euo pipefail
-          npm install -g firebase-tools
+          npm install -g firebase-tools@13.32.0
 
       - name: Deploy Firestore Rules via Firebase CLI
         id: deploy
