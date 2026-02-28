@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
@@ -42,7 +42,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
@@ -59,7 +59,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
@@ -76,7 +76,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
@@ -93,7 +93,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
@@ -118,7 +118,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
@@ -135,7 +135,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
@@ -152,7 +152,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
@@ -169,7 +169,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
           cache: npm
           cache-dependency-path: workers/package-lock.json
       - name: Detect workers runtime tree
@@ -219,7 +219,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
       - name: Verify CI parity
         run: node scripts/verify-ci-parity.js --strict
 
@@ -240,7 +240,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
       - name: Enforce branch protection
         run: node scripts/enforce-branch-protection.mjs
       - name: Verify branch protection
@@ -262,7 +262,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20.x
       - name: Console smoke assertions (backend-warning noise guard)
         run: |
           node -e "const fs=require('fs'); const api=fs.readFileSync('firebase-api.js','utf8'); const htmlFiles=fs.readdirSync('.').filter(f=>/\.html$/i.test(f)); const adminPath=htmlFiles.find(f=>{ try { return fs.readFileSync(f,'utf8').includes('admin24hLastSource'); } catch { return false; } }); if(!adminPath){ console.error('missing admin html file containing admin24hLastSource marker'); process.exit(1); } const admin=fs.readFileSync(adminPath,'utf8'); const checks=[{ok:/isBackendApiUnavailableError/.test(api),msg:'missing backend unavailable classifier in firebase-api.js'},{ok:/backendUnavailableNoticePrinted/.test(api),msg:'missing one-time backend notice guard in firebase-api.js'},{ok:/GATE_STATE_BACKEND_OPTIONAL_DISABLED/.test(admin),msg:'missing backend optional disabled diagnostic in admin HTML'},{ok:/admin24hLastSource/.test(admin),msg:'missing source-change log throttle in admin HTML'}]; const fails=checks.filter(c=>!c.ok); if(fails.length){console.error(fails.map(f=>'- '+f.msg).join('\n')); process.exit(1);} console.log('Risk 3 proof: backend-warning noise guard assertions passed in',adminPath);"
