@@ -29,7 +29,7 @@ jobs:
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run preflight
-        run: cd sale-zone && node ../tools/preflight.js
+        run: cd sale-zone && node tools/preflight.js
 
   hash-stability:
     name: hash-stability
@@ -54,7 +54,7 @@ jobs:
           echo "---"
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run hash stability check
-        run: cd sale-zone && node ../tools/hash-stability-check.js
+        run: cd sale-zone && node tools/hash-stability-check.js
 
   smoke-check:
     name: smoke-check
@@ -79,7 +79,7 @@ jobs:
           echo "---"
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run smoke-check
-        run: cd sale-zone && node ../tools/smoke-check.js
+        run: cd sale-zone && node tools/smoke-check.js
 
   contracts-check:
     name: contracts-check
@@ -104,7 +104,7 @@ jobs:
           echo "---"
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run contracts check
-        run: cd sale-zone && node ../tools/contracts-check.js
+        run: cd sale-zone && node tools/contracts-check.js
 
   security-regression-check:
     name: security-regression-check
@@ -121,10 +121,10 @@ jobs:
       - name: Run security regression check
         run: |
           cd sale-zone
-          if [[ -f ../tools/security-regression-check.js ]]; then
-            node ../tools/security-regression-check.js
-          elif [[ -f ../tools/security-regression.js ]]; then
-            node ../tools/security-regression.js
+          if [[ -f tools/security-regression-check.js ]]; then
+            node tools/security-regression-check.js
+          elif [[ -f tools/security-regression.js ]]; then
+            node tools/security-regression.js
           else
             echo "No security regression script found; running in STABLE_LEGACY skip mode."
           fi
@@ -152,7 +152,7 @@ jobs:
           echo "---"
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run admin function monitor
-        run: cd sale-zone && node ../tools/admin-function-monitor.js
+        run: cd sale-zone && node tools/admin-function-monitor.js
 
   rules:
     name: rules
@@ -177,7 +177,7 @@ jobs:
           echo "---"
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run rules gate
-        run: cd sale-zone && node ../tools/rules-test.js
+        run: cd sale-zone && node tools/rules-test.js
 
   e2e:
     name: e2e
@@ -202,7 +202,7 @@ jobs:
           echo "---"
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run E2E gate
-        run: cd sale-zone && node ../tools/e2e-check.js
+        run: cd sale-zone && node tools/e2e-check.js
 
   workers-paranoid-gate:
     name: workers-paranoid-gate
