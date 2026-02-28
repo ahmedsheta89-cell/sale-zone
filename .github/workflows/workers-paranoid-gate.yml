@@ -15,8 +15,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
 
       - name: Install workers dependencies
         run: npm --prefix workers ci
@@ -35,8 +33,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
 
       - name: Install workers dependencies
         run: npm --prefix workers ci
@@ -57,8 +53,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
 
       - name: Install workers dependencies
         run: npm --prefix workers ci
@@ -97,8 +91,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
 
       - name: Install workers dependencies
         run: npm --prefix workers ci

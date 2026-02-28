@@ -26,8 +26,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run preflight
@@ -43,8 +41,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run hash stability check
@@ -60,8 +56,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run smoke-check
@@ -77,8 +71,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run contracts check
@@ -94,8 +86,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run security regression check
@@ -119,8 +109,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run admin function monitor
@@ -136,8 +124,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run rules gate
@@ -153,8 +139,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: sale-zone/package-lock.json
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run E2E gate
@@ -170,8 +154,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
       - name: Detect workers runtime tree
         id: workers_tree
         run: |
