@@ -31,7 +31,7 @@ jobs:
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run preflight
-        run: node tools/preflight.js
+        run: cd sale-zone && node ../tools/preflight.js
 
   hash-stability:
     name: hash-stability
@@ -48,7 +48,7 @@ jobs:
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run hash stability check
-        run: node tools/hash-stability-check.js
+        run: cd sale-zone && node ../tools/hash-stability-check.js
 
   smoke-check:
     name: smoke-check
@@ -65,7 +65,7 @@ jobs:
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run smoke-check
-        run: node tools/smoke-check.js
+        run: cd sale-zone && node ../tools/smoke-check.js
 
   contracts-check:
     name: contracts-check
@@ -82,7 +82,7 @@ jobs:
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run contracts check
-        run: node tools/contracts-check.js
+        run: cd sale-zone && node ../tools/contracts-check.js
 
   security-regression-check:
     name: security-regression-check
@@ -100,10 +100,11 @@ jobs:
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run security regression check
         run: |
-          if [[ -f tools/security-regression-check.js ]]; then
-            node tools/security-regression-check.js
-          elif [[ -f tools/security-regression.js ]]; then
-            node tools/security-regression.js
+          cd sale-zone
+          if [[ -f ../tools/security-regression-check.js ]]; then
+            node ../tools/security-regression-check.js
+          elif [[ -f ../tools/security-regression.js ]]; then
+            node ../tools/security-regression.js
           else
             echo "No security regression script found; running in STABLE_LEGACY skip mode."
           fi
@@ -123,7 +124,7 @@ jobs:
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run admin function monitor
-        run: node tools/admin-function-monitor.js
+        run: cd sale-zone && node ../tools/admin-function-monitor.js
 
   rules:
     name: rules
@@ -140,7 +141,7 @@ jobs:
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run rules gate
-        run: node tools/rules-test.js
+        run: cd sale-zone && node ../tools/rules-test.js
 
   e2e:
     name: e2e
@@ -157,7 +158,7 @@ jobs:
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run E2E gate
-        run: node tools/e2e-check.js
+        run: cd sale-zone && node ../tools/e2e-check.js
 
   workers-paranoid-gate:
     name: workers-paranoid-gate
