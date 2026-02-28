@@ -424,15 +424,49 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     };
 }
 
-async function getAllProducts() {
+// Pagination state for products
+let productsPaginationState = {
+    lastVisible: null,
+    hasMore: true,
+    pageSize: 50,
+    loading: false
+};
+
+async function getAllProducts(loadMore = false) {
     try {
         const db = getFirebaseDB();
-        const snapshot = await db.collection('products').get();
-        const products = snapshot.docs.map(mapProductFromSnapshot);
-        return products;
+        
+        if (loadMore && (!productsPaginationState.hasMore || productsPaginationState.loading)) {
+            return [];
+        }
+        
+        productsPaginationState.loading = true;
+        
+        let query = db.collection('products')
+            .orderBy('id')
+            .limit(productsPaginationState.pageSize);
+            
+        if (loadMore && productsPaginationState.lastVisible) {
+            query = query.startAfter(productsPaginationState.lastVisible);
+        }
+        
+        const snapshot = await query.get();
+        const newProducts = snapshot.docs.map(mapProductFromSnapshot);
+        
+        if (loadMore) {
+            productsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            productsPaginationState.hasMore = snapshot.docs.length === productsPaginationState.pageSize;
+        } else {
+            productsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            productsPaginationState.hasMore = snapshot.docs.length === productsPaginationState.pageSize;
+        }
+        
+        productsPaginationState.loading = false;
+        return newProducts;
     } catch (e) {
         console.error('getAllProducts error:', e);
-        return null;
+        productsPaginationState.loading = false;
+        return loadMore ? [] : null;
     }
 }
 
@@ -470,17 +504,79 @@ function mapProductFromSnapshot(doc) {
     };
 }
 
-async function getPublishedProducts() {
+// Pagination state for published products
+let publishedProductsPaginationState = {
+    lastVisible: null,
+    hasMore: true,
+    pageSize: 50,
+    loading: false
+};
+
+async function getPublishedProducts(loadMore = false) {
     try {
         const db = getFirebaseDB();
-        const snapshot = await db.collection('products')
+        
+        if (loadMore && (!publishedProductsPaginationState.hasMore || publishedProductsPaginationState.loading)) {
+            return [];
+        }
+        
+        publishedProductsPaginationState.loading = true;
+        
+        let query = db.collection('products')
             .where('isPublished', '==', true)
-            .get();
-        return snapshot.docs.map(mapProductFromSnapshot);
+            .orderBy('id')
+            .limit(publishedProductsPaginationState.pageSize);
+            
+        if (loadMore && publishedProductsPaginationState.lastVisible) {
+            query = query.startAfter(publishedProductsPaginationState.lastVisible);
+        }
+        
+        const snapshot = await query.get();
+        const newProducts = snapshot.docs.map(mapProductFromSnapshot);
+        
+        if (loadMore) {
+            publishedProductsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            publishedProductsPaginationState.hasMore = snapshot.docs.length === publishedProductsPaginationState.pageSize;
+        } else {
+            publishedProductsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            publishedProductsPaginationState.hasMore = snapshot.docs.length === publishedProductsPaginationState.pageSize;
+        }
+        
+        publishedProductsPaginationState.loading = false;
+        return newProducts;
     } catch (e) {
         console.error('getPublishedProducts error:', e);
-        return null;
+        publishedProductsPaginationState.loading = false;
+        return loadMore ? [] : null;
     }
+}
+
+// Helper functions for loading more products
+async function loadMoreProducts() {
+    return await getAllProducts(true);
+}
+
+async function loadMorePublishedProducts() {
+    return await getPublishedProducts(true);
+}
+
+// Reset pagination states (useful for filters or search)
+function resetProductsPagination() {
+    productsPaginationState = {
+        lastVisible: null,
+        hasMore: true,
+        pageSize: 50,
+        loading: false
+    };
+}
+
+function resetPublishedProductsPagination() {
+    publishedProductsPaginationState = {
+        lastVisible: null,
+        hasMore: true,
+        pageSize: 50,
+        loading: false
+    };
 }
 
 async function addProduct(product) {

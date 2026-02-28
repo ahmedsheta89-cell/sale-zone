@@ -650,6 +650,11 @@
         </div>
         
         <div class="products-grid" id="productsGrid"></div>
+        <div id="loadMoreContainer" style="text-align: center; margin: 20px 0; display: none;">
+            <button id="loadMoreBtn" onclick="loadMoreProducts()" style="background: var(--gold); color: var(--dark); border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.3s;">
+                تحميل المزيد 📦
+            </button>
+        </div>
         <div id="productsPagination" style="display:flex;justify-content:center;gap:8px;margin-top:20px;flex-wrap:wrap;"></div>
     </section>
 
@@ -1514,7 +1519,7 @@
                     ? getPublishedProducts
                     : (typeof getAllProducts === 'function' ? getAllProducts : null);
                 const [productsResult, couponsResult, bannersResult, settingsResult] = await Promise.allSettled([
-                    (typeof productsReader === 'function' ? productsReader() : Promise.resolve(null)),
+                    (typeof productsReader === 'function' ? productsReader(false) : Promise.resolve(null)),
                     (typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null)),
                     (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null)),
                     (typeof getSettings === 'function' ? getSettings() : Promise.resolve(null))
@@ -1557,6 +1562,8 @@
             
             removeSeedDataIfNeeded();
             products = normalizeStoreProducts(products);
+            currentProducts = products; // Initialize pagination state
+            hasMoreProducts = products.length === 50; // If we got exactly 50, there might be more
             suppliers = Array.from(new Map(
                 products
                     .filter((item) => item && String(item.supplierId || '').trim())
@@ -1578,6 +1585,68 @@
                 banners: banners.length,
                 users: currentUser ? 1 : 0
             });
+            
+            // Update load more button after data is loaded
+            updateLoadMoreButton();
+        }
+
+        // Pagination functions
+        let currentProducts = [];
+        let hasMoreProducts = true;
+
+        function updateLoadMoreButton() {
+            const loadMoreContainer = document.getElementById('loadMoreContainer');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            
+            if (!loadMoreContainer || !loadMoreBtn) return;
+            
+            if (hasMoreProducts && currentProducts.length > 0) {
+                loadMoreContainer.style.display = 'block';
+                loadMoreBtn.textContent = 'تحميل المزيد 📦';
+                loadMoreBtn.disabled = false;
+            } else {
+                loadMoreContainer.style.display = 'none';
+            }
+        }
+
+        async function loadMoreProducts() {
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (!loadMoreBtn || !hasMoreProducts) return;
+            
+            try {
+                loadMoreBtn.textContent = 'جاري التحميل...';
+                loadMoreBtn.disabled = true;
+                
+                let newProducts;
+                if (typeof getPublishedProducts === 'function') {
+                    newProducts = await getPublishedProducts(true);
+                } else if (typeof getAllProducts === 'function') {
+                    newProducts = await getAllProducts(true);
+                } else {
+                    console.warn('No product loading function available');
+                    return;
+                }
+                
+                if (Array.isArray(newProducts) && newProducts.length > 0) {
+                    currentProducts = [...currentProducts, ...newProducts];
+                    products = currentProducts;
+                    
+                    // Re-render all products
+                    renderProducts(currentProducts);
+                    
+                    // Check if there are more products
+                    hasMoreProducts = newProducts.length === 50;
+                } else {
+                    hasMoreProducts = false;
+                }
+                
+                updateLoadMoreButton();
+                
+            } catch (error) {
+                console.error('Error loading more products:', error);
+                loadMoreBtn.textContent = 'تحميل المزيد 📦';
+                loadMoreBtn.disabled = false;
+            }
         }
 
         async function loadDataWithTimeout(ms = 9000) {
