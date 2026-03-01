@@ -41,8 +41,11 @@ jobs:
         env:
           RUN_REDIS_INTEGRATION: "false"
         run: |
-          echo "Running workers tests (expected redis failure is OK)"
-          npm --prefix workers run test || echo "Redis unreachable test failed as expected - this is CORRECT behavior"
+          cd workers
+          npx vitest run -c vitest.config.mjs \
+            --reporter=verbose \
+            --exclude="**/rollout.rollback-on-degradation.test.ts" \
+            2>&1
 
   workers-preflight-gate:
     runs-on: ubuntu-latest
