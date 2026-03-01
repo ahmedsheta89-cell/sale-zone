@@ -120,14 +120,25 @@ jobs:
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run security regression check
         run: |
-          cd sale-zone
-          if [[ -f tools/security-regression-check.js ]]; then
-            node tools/security-regression-check.js
-          elif [[ -f tools/security-regression.js ]]; then
-            node tools/security-regression.js
-          else
-            echo "No security regression script found; running in STABLE_LEGACY skip mode."
+          SCRIPT=""
+          if [ -f "tools/security-regression-check.js" ]; then
+            SCRIPT="tools/security-regression-check.js"
+          elif [ -f "tools/security-regression.js" ]; then
+            SCRIPT="tools/security-regression.js"
+          elif [ -f "security/security-regression-check.js" ]; then
+            SCRIPT="security/security-regression-check.js"
           fi
+
+          if [ -z "$SCRIPT" ]; then
+            echo "::error::No security regression script found"
+            echo "Checked: tools/security-regression-check.js"
+            echo "Checked: tools/security-regression.js"
+            echo "Checked: security/security-regression-check.js"
+            exit 1
+          fi
+
+          echo "Running: $SCRIPT"
+          node "$SCRIPT"
 
   admin-function-monitor:
     name: admin-function-monitor
