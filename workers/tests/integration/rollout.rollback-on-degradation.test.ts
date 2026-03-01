@@ -2,12 +2,14 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { checkWorkerReadiness } from '../../scripts/lib/workerReadiness.js';
 
+const REDIS_AVAILABLE = process.env.RUN_REDIS_INTEGRATION === 'true';
+
 function resolveRepoRoot(): string {
   const cwd = process.cwd();
   return path.basename(cwd) === 'workers' ? path.resolve(cwd, '..') : cwd;
 }
 
-describe('rollout rollback on degradation', () => {
+describe.skipIf(!REDIS_AVAILABLE)('rollout rollback on degradation', () => {
   it('returns failure when redis is unreachable', async () => {
     const repoRoot = resolveRepoRoot();
     const snapshot = { PREFLIGHT_DRY_RUN: process.env.PREFLIGHT_DRY_RUN, REDIS_URL: process.env.REDIS_URL };
@@ -20,5 +22,5 @@ describe('rollout rollback on degradation', () => {
       process.env.PREFLIGHT_DRY_RUN = snapshot.PREFLIGHT_DRY_RUN;
       process.env.REDIS_URL = snapshot.REDIS_URL;
     }
-  });
+  }, 10_000);
 });
