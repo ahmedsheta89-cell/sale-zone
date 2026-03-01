@@ -1855,13 +1855,20 @@
             if (!url || typeof url !== 'string') return placeholder;
 
             const trimmed = url.trim();
-            if (trimmed.startsWith('data:')) return trimmed;
+            // Reject base64/data URLs in storefront rendering and force placeholder instead.
+            if (trimmed.startsWith('data:')) return placeholder;
+            // Accept secure remote images (Cloudinary and other HTTPS CDNs).
+            if (/^https:\/\//i.test(trimmed)) return trimmed;
             if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
+            if (trimmed.startsWith('/')) return trimmed;
 
             try {
                 const parsed = new URL(trimmed, window.location.origin);
                 if (parsed.origin === window.location.origin) {
                     return parsed.pathname + parsed.search + parsed.hash;
+                }
+                if (parsed.protocol === 'https:') {
+                    return parsed.href;
                 }
             } catch (e) {
                 return placeholder;
@@ -4219,5 +4226,4 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
     </script>
 </body>
 </html>
-
 

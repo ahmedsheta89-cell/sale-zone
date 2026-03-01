@@ -3951,6 +3951,17 @@ function adminLogout(){
             }
         }
 
+        // Track image upload state globally to block saving while Cloudinary upload is still running.
+        window.__imageUploadState = window.__imageUploadState || { inFlight: false, percent: 0, url: '', error: '' };
+
+        // Accept only secure HTTPS URLs for persisted product images and reject any base64 data URL.
+        function isValidProductImageUrl(url) {
+            if (!url || typeof url !== 'string') return false;
+            const trimmed = url.trim();
+            if (!trimmed || trimmed.startsWith('data:')) return false;
+            return /^https:\/\/.+/i.test(trimmed);
+        }
+
         function buildProductPayloadFromForm() {
             const imageFromUpload = document.getElementById('finalImg').value;
             const imageFromManual = document.getElementById('manualImg').value;
@@ -3977,6 +3988,15 @@ function adminLogout(){
                 throw new Error('invalid-price');
             }
 
+            // Reject base64 image sources and any non-HTTPS URLs before building Firebase payload.
+            const selectedImage = String(imageFromUpload || imageFromManual || DEFAULT_PRODUCT_IMAGE).trim();
+            if (selectedImage.startsWith('data:')) {
+                throw new Error('invalid-image-data');
+            }
+            if (selectedImage !== DEFAULT_PRODUCT_IMAGE && !isValidProductImageUrl(selectedImage)) {
+                throw new Error('invalid-image-url');
+            }
+
             const payload = normalizeProductForStorage({
                 name: document.getElementById('productName').value.trim(),
                 desc: document.getElementById('productDesc').value.trim(),
@@ -3991,7 +4011,7 @@ function adminLogout(){
                 manualPriceOverride,
                 manualPriceReason,
                 oldPrice: Number.isFinite(rawOldPrice) && rawOldPrice > 0 ? rawOldPrice : null,
-                image: imageFromUpload || imageFromManual || DEFAULT_PRODUCT_IMAGE,
+                image: selectedImage,
                 rating: 4.5,
                 ratingCount: 0,
                 code: String(document.getElementById('productCode')?.value || '').trim(),
@@ -4280,6 +4300,13 @@ function adminLogout(){
         async function saveProduct(e) {
             e.preventDefault();
             const id = document.getElementById('productId').value.trim();
+
+            // Block saving while image upload is in-flight to avoid persisting incomplete image URLs.
+            if (window.__imageUploadState && window.__imageUploadState.inFlight) {
+                showNotification('warning', 'انتظر حتى يكتمل رفع الصورة أولاً');
+                return;
+            }
+
             let payload;
             try {
                 payload = buildProductPayloadFromForm();
@@ -4298,6 +4325,14 @@ function adminLogout(){
                 }
                 if (error && error.message === 'missing-name') {
                     showNotification('error', 'اسم المنتج مطلوب');
+                    return;
+                }
+                if (error && error.message === 'invalid-image-data') {
+                    showNotification('error', 'رابط الصورة غير صالح: لا يمكن حفظ صور Base64');
+                    return;
+                }
+                if (error && error.message === 'invalid-image-url') {
+                    showNotification('error', 'رابط الصورة يجب أن يبدأ بـ https://');
                     return;
                 }
                 showNotification('error', 'تعذر قراءة بيانات المنتج');
@@ -8368,22 +8403,74 @@ function closeModal(modalId) {
     </script>
     <script>
 async function uploadAndPreview(input) {
-    if(!input.files[0]) return;
-    // معاينة
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+
+    // Keep admin informed with consistent notifications even if showNotification is unavailable.
+    const notify = (type, message) => {
+        if (typeof showNotification === 'function') showNotification(type, message);
+        else alert(message);
+    };
+
+    const preview = document.getElementById('imgPreview');
+    const finalImgInput = document.getElementById('finalImg');
+    const manualImgInput = document.getElementById('manualImg');
+
+    // Reset previous URL to prevent saving stale image links while a new upload is running.
+    if (finalImgInput) finalImgInput.value = '';
+    if (manualImgInput) manualImgInput.value = '';
+
+    // Mark upload as in-flight so saveProduct can block premature Firestore writes.
+    window.__imageUploadState = { inFlight: true, percent: 0, url: '', error: '' };
+
+    // Render local preview immediately and attach an upload progress indicator.
     const reader = new FileReader();
-    reader.onload = (e) => document.getElementById('imgPreview').innerHTML = `<img src="${e.target.result}" style="max-width:150px;border-radius:5px;margin:5px 0;">`;
-    reader.readAsDataURL(input.files[0]);
-    
-    // رفع
+    reader.onload = (e) => {
+        if (!preview) return;
+        const localPreview = String(e && e.target && e.target.result || '');
+        preview.innerHTML = `
+            <img src="${localPreview}" style="max-width:150px;border-radius:5px;margin:5px 0;display:block;">
+            <div id="imgUploadStatus" style="font-size:13px;color:#b8960c;">⏳ جاري رفع الصورة... 0%</div>
+        `;
+    };
+    reader.readAsDataURL(file);
+
     try {
-        const res = await uploadToCloudinary(input.files[0]);
-        if(res) {
-            document.getElementById('finalImg').value = res.url;
-            document.getElementById('manualImg').value = res.url;
-            alert('✅ تم رفع الصورة');
+        // Wait for Cloudinary HTTPS URL before allowing product save.
+        const result = await uploadToCloudinary(file, {
+            onProgress: (percent) => {
+                window.__imageUploadState.percent = Number(percent || 0);
+                const statusNode = document.getElementById('imgUploadStatus');
+                if (statusNode) statusNode.textContent = `⏳ جاري رفع الصورة... ${window.__imageUploadState.percent}%`;
+            }
+        });
+
+        const uploadedUrl = String(result && result.url || '').trim();
+        if (!/^https:\/\/res\.cloudinary\.com\/.+/i.test(uploadedUrl)) {
+            throw new Error('Cloudinary returned invalid URL.');
         }
-    } catch(err) {
-        alert('❌ فشل الرفع: ' + err.message);
+
+        if (finalImgInput) finalImgInput.value = uploadedUrl;
+        if (manualImgInput) manualImgInput.value = uploadedUrl;
+        window.__imageUploadState = { inFlight: false, percent: 100, url: uploadedUrl, error: '' };
+
+        const statusNode = document.getElementById('imgUploadStatus');
+        if (statusNode) {
+            statusNode.textContent = '✅ تم رفع الصورة بنجاح';
+            statusNode.style.color = '#2e7d32';
+        }
+        notify('success', 'تم رفع الصورة بنجاح');
+    } catch (err) {
+        const errorMessage = String(err && err.message || 'تعذر رفع الصورة إلى Cloudinary');
+        window.__imageUploadState = { inFlight: false, percent: 0, url: '', error: errorMessage };
+        const statusNode = document.getElementById('imgUploadStatus');
+        if (statusNode) {
+            statusNode.textContent = `❌ فشل الرفع: ${errorMessage}`;
+            statusNode.style.color = '#c62828';
+        }
+        notify('error', `فشل رفع الصورة: ${errorMessage}`);
+    } finally {
+        if (input) input.value = '';
     }
 }
 </script>
