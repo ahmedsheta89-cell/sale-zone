@@ -348,11 +348,17 @@ function buildProductSearchTokens(product) {
     const addTokens = (value) => tokenizeSearchText(value).forEach((token) => tokenSet.add(token));
 
     addTokens(source.name);
+    addTokens(source.nameEn);
     addTokens(source.desc);
+    addTokens(source.usageInstructions);
+    addTokens(source.brand);
     addTokens(source.code);
     addTokens(source.category);
     addTokens(source.supplierName);
     addTokens(source.supplierCode);
+    if (Array.isArray(source.tags)) {
+        source.tags.forEach((tag) => addTokens(tag));
+    }
 
     return Array.from(tokenSet).slice(0, 120);
 }
@@ -472,14 +478,25 @@ async function getAllProducts(loadMore = false) {
 
 function mapProductFromSnapshot(doc) {
     const data = doc.data();
+    const tags = Array.isArray(data.tags)
+        ? data.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 30)
+        : [];
+    const images = Array.isArray(data.images)
+        ? data.images.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 12)
+        : [];
     return {
         id: doc.id,
-        name: data.name || '',
+        name: data.name || data.nameEn || '',
+        nameEn: data.nameEn || '',
         desc: data.desc || '',
+        usageInstructions: data.usageInstructions || '',
+        brand: data.brand || '',
+        tags,
         category: data.category || '',
         price: data.price || 0,
         oldPrice: data.oldPrice || null,
-        image: data.image || '',
+        image: data.image || images[0] || '',
+        images,
         rating: data.rating || 4.5,
         ratingCount: data.ratingCount || 0,
         code: data.code || '',

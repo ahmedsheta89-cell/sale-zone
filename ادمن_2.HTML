@@ -1937,6 +1937,33 @@
             <select id="mapStockCol"></select>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>عمود الصور الإضافية (Images)</label>
+            <select id="mapImagesCol"></select>
+          </div>
+          <div class="form-group">
+            <label>عمود الاسم الإنجليزي</label>
+            <select id="mapNameEnCol"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>عمود طريقة الاستخدام</label>
+            <select id="mapUsageInstructionsCol"></select>
+          </div>
+          <div class="form-group">
+            <label>عمود الماركة</label>
+            <select id="mapBrandCol"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>عمود الوسوم (Tags)</label>
+            <select id="mapTagsCol"></select>
+          </div>
+          <div class="form-group"></div>
+        </div>
       </div>
 
       <div class="wizard-panel" id="wizardStep4">
@@ -2364,6 +2391,11 @@
             { key: 'desc', label: 'الوصف', required: false },
             { key: 'category', label: 'القسم', required: false },
             { key: 'image', label: 'الصورة', required: false },
+            { key: 'images', label: 'الصور الإضافية', required: false },
+            { key: 'nameEn', label: 'الاسم الإنجليزي', required: false },
+            { key: 'usageInstructions', label: 'طريقة الاستخدام', required: false },
+            { key: 'brand', label: 'الماركة', required: false },
+            { key: 'tags', label: 'الوسوم', required: false },
             { key: 'oldPrice', label: 'السعر القديم', required: false },
             { key: 'code', label: 'الكود', required: false },
             { key: 'stock', label: 'المخزون', required: false }
@@ -2374,6 +2406,11 @@
             desc: ['description', 'desc', 'details', 'الوصف', 'تفاصيل', 'مواصفات'],
             category: ['category', 'class', 'section', 'القسم', 'التصنيف', 'الفئه', 'الفئة'],
             image: ['image', 'img', 'photo', 'url', 'link', 'الصوره', 'الصورة', 'رابط الصورة'],
+            images: ['images', 'gallery', 'additional images', 'صور إضافية', 'الصور الإضافية', 'صور اخرى', 'صور أخرى'],
+            nameEn: ['name en', 'english name', 'name english', 'الاسم الانجليزي', 'اسم انجليزي', 'الاسم بالانجليزية'],
+            usageInstructions: ['usage', 'how to use', 'instructions', 'طريقة الاستخدام', 'الاستخدام', 'تعليمات'],
+            brand: ['brand', 'maker', 'company', 'الماركة', 'العلامة التجارية', 'البراند'],
+            tags: ['tags', 'keywords', 'labels', 'الوسوم', 'الكلمات المفتاحية', 'تاجات', 'تاقات'],
             oldPrice: ['old price', 'mrp', 'before', 'list price', 'السعر القديم', 'قبل الخصم', 'سعر قبل'],
             code: ['code', 'sku', 'barcode', 'item code', 'الكود', 'باركود', 'رمز'],
             stock: ['stock', 'qty', 'quantity', 'inventory', 'المخزون', 'الكميه', 'الكمية']
@@ -2496,11 +2533,22 @@
             const pricing = resolveProductPricingFields(source, defaults);
             const hasValidPublishPrice = Number.isFinite(Number(pricing.sellPrice)) && Number(pricing.sellPrice) > 0;
             const isPublished = requestedPublished && hasValidPublishPrice;
+            const normalizedTags = Array.isArray(source.tags)
+                ? Array.from(new Set(source.tags.map((tag) => String(tag || '').trim()).filter(Boolean))).slice(0, 30)
+                : normalizeTagsField(source.tags);
+            const normalizedImages = (Array.isArray(source.images) ? source.images : [])
+                .map((item) => sanitizeImageUrl(item))
+                .filter((item) => item && item !== DEFAULT_PRODUCT_IMAGE)
+                .slice(0, 12);
 
             return {
                 id: String(source.id || ''),
-                name: String(source.name || '').trim(),
+                name: String(source.name || source.nameEn || '').trim(),
+                nameEn: String(source.nameEn || '').trim(),
                 desc: String(source.desc || ''),
+                usageInstructions: String(source.usageInstructions || '').trim(),
+                brand: String(source.brand || '').trim(),
+                tags: normalizedTags,
                 category: inferCategory(source.category || defaults.category || ''),
                 supplierId: String(source.supplierId || defaults.supplierId || ''),
                 supplierName: String(source.supplierName || defaults.supplierName || ''),
@@ -2508,13 +2556,14 @@
                 ...pricing,
                 oldPrice: Number.isFinite(parseMoney(source.oldPrice)) ? parseMoney(source.oldPrice) : null,
                 image: sanitizeImageUrl(source.image || DEFAULT_PRODUCT_IMAGE),
+                images: normalizedImages,
                 rating: Number.isFinite(Number(source.rating)) ? Number(source.rating) : 4.5,
                 ratingCount: Number.isFinite(Number(source.ratingCount)) ? Number(source.ratingCount) : 0,
                 code: String(source.code || ''),
                 stock: Number.isFinite(Number(source.stock)) ? Number(source.stock) : -1,
                 searchTokens: Array.isArray(source.searchTokens) && source.searchTokens.length
                     ? source.searchTokens
-                    : buildProductSearchTokensSafe({ ...defaults, ...source, ...pricing }),
+                    : buildProductSearchTokensSafe({ ...defaults, ...source, ...pricing, tags: normalizedTags }),
                 isPublished,
                 visibilityState: isPublished ? 'published' : (hasValidPublishPrice ? 'hidden' : 'invalid-price'),
                 importBatchId: String(source.importBatchId || defaults.importBatchId || ''),
@@ -3615,13 +3664,17 @@ function adminLogout(){
             if (!url || typeof url !== 'string') return placeholder;
 
             const trimmed = url.trim();
-            if (trimmed.startsWith('data:')) return trimmed;
+            if (trimmed.startsWith('data:')) return placeholder;
+            if (/^https:\/\//i.test(trimmed)) return trimmed;
             if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
 
             try {
                 const parsed = new URL(trimmed, window.location.origin);
                 if (parsed.origin === window.location.origin) {
                     return parsed.pathname + parsed.search + parsed.hash;
+                }
+                if (parsed.protocol === 'https:') {
+                    return parsed.href;
                 }
             } catch (e) {
                 return placeholder;
@@ -3999,7 +4052,11 @@ function adminLogout(){
 
             const payload = normalizeProductForStorage({
                 name: document.getElementById('productName').value.trim(),
+                nameEn: String(document.getElementById('productNameEn')?.value || '').trim(),
                 desc: document.getElementById('productDesc').value.trim(),
+                usageInstructions: String(document.getElementById('productUsageInstructions')?.value || '').trim(),
+                brand: String(document.getElementById('productBrand')?.value || '').trim(),
+                tags: normalizeTagsField(document.getElementById('productTags')?.value || ''),
                 category: selectedCategory,
                 supplierId,
                 supplierName: supplier ? String(supplier.name || '') : '',
@@ -4303,7 +4360,7 @@ function adminLogout(){
 
             // Block saving while image upload is in-flight to avoid persisting incomplete image URLs.
             if (window.__imageUploadState && window.__imageUploadState.inFlight) {
-                showNotification('warning', 'انتظر حتى يكتمل رفع الصورة أولاً');
+                showNotification('warning', 'يرجى انتظار اكتمال رفع الصورة');
                 return;
             }
 
@@ -7133,6 +7190,11 @@ function adminLogout(){
                     desc: '',
                     category: '',
                     image: '',
+                    images: '',
+                    nameEn: '',
+                    usageInstructions: '',
+                    brand: '',
+                    tags: '',
                     oldPrice: '',
                     code: '',
                     stock: ''
@@ -7176,7 +7238,7 @@ function adminLogout(){
                 if (el) el.textContent = 'لا توجد بيانات للعرض.';
             });
 
-            ['mapNameCol', 'mapPriceCol', 'mapDescCol', 'mapCategoryCol', 'mapImageCol', 'mapOldPriceCol', 'mapCodeCol', 'mapStockCol']
+            ['mapNameCol', 'mapPriceCol', 'mapDescCol', 'mapCategoryCol', 'mapImageCol', 'mapImagesCol', 'mapNameEnCol', 'mapUsageInstructionsCol', 'mapBrandCol', 'mapTagsCol', 'mapOldPriceCol', 'mapCodeCol', 'mapStockCol']
                 .forEach((id) => {
                     const select = document.getElementById(id);
                     if (!select) return;
@@ -7521,6 +7583,11 @@ function adminLogout(){
                 desc: 'mapDescCol',
                 category: 'mapCategoryCol',
                 image: 'mapImageCol',
+                images: 'mapImagesCol',
+                nameEn: 'mapNameEnCol',
+                usageInstructions: 'mapUsageInstructionsCol',
+                brand: 'mapBrandCol',
+                tags: 'mapTagsCol',
                 oldPrice: 'mapOldPriceCol',
                 code: 'mapCodeCol',
                 stock: 'mapStockCol'
@@ -7645,6 +7712,11 @@ function adminLogout(){
                 desc: document.getElementById('mapDescCol')?.value || '',
                 category: document.getElementById('mapCategoryCol')?.value || '',
                 image: document.getElementById('mapImageCol')?.value || '',
+                images: document.getElementById('mapImagesCol')?.value || '',
+                nameEn: document.getElementById('mapNameEnCol')?.value || '',
+                usageInstructions: document.getElementById('mapUsageInstructionsCol')?.value || '',
+                brand: document.getElementById('mapBrandCol')?.value || '',
+                tags: document.getElementById('mapTagsCol')?.value || '',
                 oldPrice: document.getElementById('mapOldPriceCol')?.value || '',
                 code: document.getElementById('mapCodeCol')?.value || '',
                 stock: document.getElementById('mapStockCol')?.value || ''
@@ -7666,6 +7738,61 @@ function adminLogout(){
             const parsed = parseMoney(value);
             if (!Number.isFinite(parsed)) return -1;
             return Math.max(0, Math.floor(parsed));
+        }
+
+        function isHttpUrl(value) {
+            if (!value || typeof value !== 'string') return false;
+            return /^https?:\/\//i.test(value.trim());
+        }
+
+        function normalizeFilenameToken(value) {
+            return String(value || '')
+                .trim()
+                .replace(/^['"]|['"]$/g, '')
+                .replace(/[?#].*$/g, '')
+                .replace(/[\\]/g, '/')
+                .split('/')
+                .pop()
+                .replace(/\.[^.]+$/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/[^a-zA-Z0-9_-]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+        }
+
+        function toCloudinaryExcelUrl(value) {
+            const token = normalizeFilenameToken(value);
+            if (!token) return '';
+            return `https://res.cloudinary.com/dwrfrfxnc/image/upload/v1/salezone_products/${token}`;
+        }
+
+        function normalizeExcelImageField(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            if (raw.startsWith('data:')) return '';
+            if (isHttpUrl(raw)) return /^https:\/\//i.test(raw) ? raw : '';
+            return toCloudinaryExcelUrl(raw);
+        }
+
+        function normalizeExcelImagesField(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return [];
+            const mapped = raw
+                .split(',')
+                .map((item) => normalizeExcelImageField(item))
+                .filter(Boolean);
+            return Array.from(new Set(mapped)).slice(0, 12);
+        }
+
+        function normalizeTagsField(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return [];
+            const tags = raw
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean)
+                .slice(0, 30);
+            return Array.from(new Set(tags));
         }
 
         function renderWizardValidationReport(validRows, invalidRows, skippedRows) {
@@ -7729,17 +7856,32 @@ function adminLogout(){
                 const oldPrice = parseMoney(oldPriceRaw);
                 const categoryRaw = getMappedValue(row, mapping.category);
                 const desc = getMappedValue(row, mapping.desc);
+                const nameEn = getMappedValue(row, mapping.nameEn);
+                const usageInstructions = getMappedValue(row, mapping.usageInstructions);
+                const brand = getMappedValue(row, mapping.brand);
+                const tags = normalizeTagsField(getMappedValue(row, mapping.tags));
                 const code = getMappedValue(row, mapping.code);
                 const stock = parseStockValue(getMappedValue(row, mapping.stock));
-                const image = getMappedValue(row, mapping.image);
+                const imagePrimary = normalizeExcelImageField(getMappedValue(row, mapping.image));
+                const imageGallery = normalizeExcelImagesField(getMappedValue(row, mapping.images));
+
+                if (String(getMappedValue(row, mapping.image) || '').trim().startsWith('data:')) {
+                    invalidRows.push({ row: rowIndex + 1, reason: 'حقل الصورة يحتوي Data URL غير مسموح.' });
+                    continue;
+                }
 
                 const product = normalizeProductForStorage({
-                    name,
+                    name: name || nameEn,
+                    nameEn,
                     desc,
-                    category: categoryRaw || inferCategory(name),
+                    usageInstructions,
+                    brand,
+                    tags,
+                    category: categoryRaw || inferCategory(name || nameEn),
                     price,
                     oldPrice: Number.isFinite(oldPrice) ? oldPrice : null,
-                    image: image || DEFAULT_PRODUCT_IMAGE,
+                    image: imagePrimary || imageGallery[0] || DEFAULT_PRODUCT_IMAGE,
+                    images: imageGallery,
                     code,
                     stock,
                     rating: 4.5,
@@ -7747,7 +7889,7 @@ function adminLogout(){
                     isPublished: false
                 }, {
                     isPublished: false,
-                    category: categoryRaw || inferCategory(name)
+                    category: categoryRaw || inferCategory(name || nameEn)
                 });
 
                 validRows.push({
