@@ -263,7 +263,8 @@ async function getBanners() {
         return banners;
     } catch (e) {
         console.error('getBanners error:', e);
-        return null;
+        // WHY: do not hide Firestore read failures behind silent null fallback.
+        throw e;
     }
 }
 

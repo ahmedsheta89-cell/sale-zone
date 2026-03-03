@@ -3316,6 +3316,9 @@
                 banners = (bannersResult.status === 'fulfilled' && Array.isArray(bannersResult.value))
                     ? bannersResult.value
                     : (getStorageData('BANNERS') || []);
+                if (bannersResult.status === 'fulfilled' && !Array.isArray(bannersResult.value)) {
+                    console.warn('⚠️ Admin banners returned non-array, fallback to cache:', bannersResult.value);
+                }
                 if (bannersResult.status === 'rejected') {
                     console.warn('⚠️ Admin banners fetch failed, fallback to cache:', bannersResult.reason);
                 }
@@ -5532,16 +5535,38 @@ function adminLogout(){
                 if (editingBannerId) {
                     if (typeof updateBanner !== 'function') throw new Error('updateBanner unavailable');
                     await updateBanner(String(editingBannerId), data);
+                    let mergedLocal = { ...data, id: String(editingBannerId) };
+                    try {
+                        // WHY: best-effort refresh from Firebase to preserve full banner schema after update.
+                        const remoteBanners = (typeof getBanners === 'function') ? await getBanners() : null;
+                        if (Array.isArray(remoteBanners)) {
+                            const latest = remoteBanners.find((item) => String(item && item.id) === String(editingBannerId));
+                            if (latest) mergedLocal = { ...latest };
+                        }
+                    } catch (refreshError) {
+                        console.warn('[ADMIN_BANNER_SAVE] refresh-after-update skipped:', refreshError);
+                    }
                     // WHY: merge form data into existing local banner object to preserve any extra fields.
                     const editIndex = (banners || []).findIndex((item) => String(item && item.id) === String(editingBannerId));
                     // WHY: update existing row in-place when found to avoid dropping schema fields.
-                    if (editIndex >= 0) banners[editIndex] = { ...(banners[editIndex] || {}), ...data, id: String(editingBannerId) };
+                    if (editIndex >= 0) banners[editIndex] = { ...(banners[editIndex] || {}), ...mergedLocal, id: String(editingBannerId) };
                     // WHY: keep local cache resilient by adding record if realtime cache missed the target id.
-                    else banners.push({ ...data, id: String(editingBannerId) });
+                    else banners.push({ ...mergedLocal, id: String(editingBannerId) });
                 } else {
                     if (typeof addBanner !== 'function') throw new Error('addBanner unavailable');
                     const firebaseId = await addBanner(data);
-                    banners.push({ ...data, id: String(firebaseId) });
+                    let createdLocal = { ...data, id: String(firebaseId) };
+                    try {
+                        // WHY: best-effort refresh from Firebase to preserve full banner schema after create.
+                        const remoteBanners = (typeof getBanners === 'function') ? await getBanners() : null;
+                        if (Array.isArray(remoteBanners)) {
+                            const latest = remoteBanners.find((item) => String(item && item.id) === String(firebaseId));
+                            if (latest) createdLocal = { ...latest };
+                        }
+                    } catch (refreshError) {
+                        console.warn('[ADMIN_BANNER_SAVE] refresh-after-create skipped:', refreshError);
+                    }
+                    banners.push(createdLocal);
                 }
             } catch (error) {
                 logAdmin('error', editingBannerId ? 'ADMIN_BANNER_UPDATE_FAILED' : 'ADMIN_BANNER_CREATE_FAILED', 'Failed to save banner in Firebase', {
@@ -5581,6 +5606,7 @@ function adminLogout(){
                 await requireAdminPermission();
                 if (typeof deleteBannerFromFirebase !== 'function') throw new Error('deleteBannerFromFirebase unavailable');
                 await deleteBannerFromFirebase(String(id));
+                console.info('[ADMIN_BANNER_DELETE] deleted from Firebase:', String(id || ''));
             } catch (error) {
                 logAdmin('error', 'ADMIN_BANNER_DELETE_FAILED', 'Failed to delete banner from Firebase', {
                     bannerId: String(id || ''),
