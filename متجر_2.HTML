@@ -650,6 +650,11 @@
         </div>
         
         <div class="products-grid" id="productsGrid"></div>
+        <div id="loadMoreContainer" style="text-align: center; margin: 20px 0; display: none;">
+            <button id="loadMoreBtn" onclick="loadMoreProducts()" style="background: var(--gold); color: var(--dark); border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.3s;">
+                تحميل المزيد 📦
+            </button>
+        </div>
         <div id="productsPagination" style="display:flex;justify-content:center;gap:8px;margin-top:20px;flex-wrap:wrap;"></div>
     </section>
 
@@ -1149,16 +1154,31 @@
             const profitMarginActual = Number.isFinite(Number(source.profitMarginActual))
                 ? Number(source.profitMarginActual)
                 : (sellPrice > 0 ? Number(((profitValue / sellPrice) * 100).toFixed(2)) : 0);
+            const tags = Array.isArray(source.tags)
+                ? Array.from(new Set(source.tags.map((tag) => String(tag || '').trim()).filter(Boolean))).slice(0, 30)
+                : [];
+            const images = Array.isArray(source.images)
+                ? source.images.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 12)
+                : [];
+            const primaryImage = String(source.image || images[0] || './assets/placeholder.svg');
+            const derivedTokens = [String(source.nameEn || ''), String(source.brand || ''), ...tags];
+            const searchTokens = Array.isArray(source.searchTokens) ? source.searchTokens : [];
+            const mergedTokens = Array.from(new Set([...searchTokens, ...derivedTokens].map((token) => String(token || '').trim()).filter(Boolean))).slice(0, 140);
 
             return {
                 ...source,
                 id: source.id != null ? String(source.id) : '',
-                name: String(source.name || '').trim(),
+                name: String(source.name || source.nameEn || '').trim(),
+                nameEn: String(source.nameEn || '').trim(),
                 desc: String(source.desc || ''),
+                usageInstructions: String(source.usageInstructions || ''),
+                brand: String(source.brand || '').trim(),
+                tags,
                 category: String(source.category || 'supplements'),
                 price: Number.isFinite(price) ? price : 0,
                 oldPrice: Number.isFinite(oldPrice) ? oldPrice : null,
-                image: String(source.image || './assets/placeholder.svg'),
+                image: primaryImage,
+                images,
                 rating: Number.isFinite(rating) ? rating : 4.5,
                 ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
                 supplierId: String(source.supplierId || ''),
@@ -1171,10 +1191,15 @@
                 profitMarginActual,
                 manualPriceOverride: source.manualPriceOverride === true,
                 manualPriceReason: String(source.manualPriceReason || ''),
-                searchTokens: Array.isArray(source.searchTokens) ? source.searchTokens : [],
+                searchTokens: mergedTokens,
                 isPublished,
                 visibilityState: isPublished ? 'published' : 'hidden'
             };
+        }
+
+        function getProductDisplayName(product) {
+            const source = product && typeof product === 'object' ? product : {};
+            return String(source.name || source.nameEn || '').trim();
         }
 
         function normalizeStoreProducts(list) {
@@ -1514,7 +1539,7 @@
                     ? getPublishedProducts
                     : (typeof getAllProducts === 'function' ? getAllProducts : null);
                 const [productsResult, couponsResult, bannersResult, settingsResult] = await Promise.allSettled([
-                    (typeof productsReader === 'function' ? productsReader() : Promise.resolve(null)),
+                    (typeof productsReader === 'function' ? productsReader(false) : Promise.resolve(null)),
                     (typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null)),
                     (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null)),
                     (typeof getSettings === 'function' ? getSettings() : Promise.resolve(null))
@@ -1557,6 +1582,8 @@
             
             removeSeedDataIfNeeded();
             products = normalizeStoreProducts(products);
+            currentProducts = products; // Initialize pagination state
+            hasMoreProducts = products.length === 50; // If we got exactly 50, there might be more
             suppliers = Array.from(new Map(
                 products
                     .filter((item) => item && String(item.supplierId || '').trim())
@@ -1578,6 +1605,68 @@
                 banners: banners.length,
                 users: currentUser ? 1 : 0
             });
+            
+            // Update load more button after data is loaded
+            updateLoadMoreButton();
+        }
+
+        // Pagination functions
+        let currentProducts = [];
+        let hasMoreProducts = true;
+
+        function updateLoadMoreButton() {
+            const loadMoreContainer = document.getElementById('loadMoreContainer');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            
+            if (!loadMoreContainer || !loadMoreBtn) return;
+            
+            if (hasMoreProducts && currentProducts.length > 0) {
+                loadMoreContainer.style.display = 'block';
+                loadMoreBtn.textContent = 'تحميل المزيد 📦';
+                loadMoreBtn.disabled = false;
+            } else {
+                loadMoreContainer.style.display = 'none';
+            }
+        }
+
+        async function loadMoreProducts() {
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (!loadMoreBtn || !hasMoreProducts) return;
+            
+            try {
+                loadMoreBtn.textContent = 'جاري التحميل...';
+                loadMoreBtn.disabled = true;
+                
+                let newProducts;
+                if (typeof getPublishedProducts === 'function') {
+                    newProducts = await getPublishedProducts(true);
+                } else if (typeof getAllProducts === 'function') {
+                    newProducts = await getAllProducts(true);
+                } else {
+                    console.warn('No product loading function available');
+                    return;
+                }
+                
+                if (Array.isArray(newProducts) && newProducts.length > 0) {
+                    currentProducts = [...currentProducts, ...newProducts];
+                    products = currentProducts;
+                    
+                    // Re-render all products
+                    renderProducts(currentProducts);
+                    
+                    // Check if there are more products
+                    hasMoreProducts = newProducts.length === 50;
+                } else {
+                    hasMoreProducts = false;
+                }
+                
+                updateLoadMoreButton();
+                
+            } catch (error) {
+                console.error('Error loading more products:', error);
+                loadMoreBtn.textContent = 'تحميل المزيد 📦';
+                loadMoreBtn.disabled = false;
+            }
         }
 
         async function loadDataWithTimeout(ms = 9000) {
@@ -1781,18 +1870,85 @@
         // ============================================
         // Image Sanitizer (avoid external ORB/CORS issues)
         // ============================================
+        function resolveCloudinaryCloudNameStore() {
+            const configured = (typeof window !== 'undefined' && window.CLOUDINARY_CONFIG)
+                ? String(window.CLOUDINARY_CONFIG.cloudName || '').trim()
+                : '';
+            return configured || 'dwrfrfxnc';
+        }
+        const cloudinaryAutoLinkLogSeen = new Set();
+
+        function normalizeCloudinaryImageToken(value) {
+            let raw = String(value || '').trim();
+            if (!raw || raw.startsWith('data:')) return '';
+            try { raw = decodeURIComponent(raw); } catch (_) {}
+            raw = raw.replace(/[?#].*$/g, '').replace(/\\/g, '/');
+            raw = (raw.split('/').pop() || '').trim();
+            if (!raw) return '';
+            const withoutExt = raw.replace(/\.[^.]+$/g, '').trim();
+            if (!withoutExt) return '';
+            return (typeof withoutExt.normalize === 'function' ? withoutExt.normalize('NFKC') : withoutExt)
+                .trim()
+                .replace(/\s+/g, '-')
+                .replace(/[^\p{L}\p{N}_-]/gu, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+        }
+
+        function toCloudinaryAutoLinkUrl(value) {
+            const token = normalizeCloudinaryImageToken(value);
+            if (!token) return '';
+            const cloud = resolveCloudinaryCloudNameStore();
+            return `https://res.cloudinary.com/${cloud}/image/upload/salezone_products/${encodeURIComponent(token)}`;
+        }
+
+        function optimizeCloudinaryUrl(url) {
+            const raw = String(url || '').trim();
+            if (!raw) return raw;
+            const cloud = resolveCloudinaryCloudNameStore().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const cloudinaryPattern = new RegExp(`^https:\\/\\/res\\.cloudinary\\.com\\/${cloud}\\/image\\/upload\\/`, 'i');
+            if (!cloudinaryPattern.test(raw)) return raw;
+            if (/\/image\/upload\/[^/]*f_auto[^/]*\//i.test(raw)) return raw;
+
+            const marker = '/image/upload/';
+            const idx = raw.indexOf(marker);
+            if (idx === -1) return raw;
+            const prefix = raw.slice(0, idx + marker.length);
+            const suffix = raw.slice(idx + marker.length);
+            const transforms = 'f_auto,q_auto:good,dpr_auto,w_800,h_800,c_pad,b_white';
+            return `${prefix}${transforms}/${suffix}`;
+        }
+
         function sanitizeImageUrl(url) {
             const placeholder = './assets/placeholder.svg';
             if (!url || typeof url !== 'string') return placeholder;
 
             const trimmed = url.trim();
-            if (trimmed.startsWith('data:')) return trimmed;
+            // Reject base64/data URLs in storefront rendering and force placeholder instead.
+            if (trimmed.startsWith('data:')) return placeholder;
+            // Accept secure remote images (Cloudinary and other HTTPS CDNs).
+            if (/^https:\/\//i.test(trimmed)) return optimizeCloudinaryUrl(trimmed);
             if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
+            if (trimmed.startsWith('/')) return trimmed;
+            const autoLinked = toCloudinaryAutoLinkUrl(trimmed);
+            if (autoLinked) {
+                if (!cloudinaryAutoLinkLogSeen.has(trimmed) && cloudinaryAutoLinkLogSeen.size < 40) {
+                    cloudinaryAutoLinkLogSeen.add(trimmed);
+                    console.info('[STORE_IMAGE_AUTOLINK] filename mapped to Cloudinary URL', {
+                        source: trimmed,
+                        resolved: autoLinked
+                    });
+                }
+                return optimizeCloudinaryUrl(autoLinked);
+            }
 
             try {
                 const parsed = new URL(trimmed, window.location.origin);
                 if (parsed.origin === window.location.origin) {
                     return parsed.pathname + parsed.search + parsed.hash;
+                }
+                if (parsed.protocol === 'https:') {
+                    return optimizeCloudinaryUrl(parsed.href);
                 }
             } catch (e) {
                 return placeholder;
@@ -1936,7 +2092,7 @@
 
             grid.innerHTML = displayProducts.map((p) => {
                 const safeProductId = escapeHtml(String(p && p.id || ''));
-                const safeName = escapeHtml(p && p.name || '');
+                const safeName = escapeHtml(getProductDisplayName(p));
                 const safeDesc = escapeHtml(p && p.desc || '');
                 const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
                 const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
@@ -2022,7 +2178,10 @@
                     if (!tokens.length) return true;
                     const haystack = normalizeSearchKeyword([
                         item.name,
+                        item.nameEn,
                         item.desc,
+                        item.brand,
+                        ...(Array.isArray(item.tags) ? item.tags : []),
                         item.code,
                         item.supplierName,
                         ...(Array.isArray(item.searchTokens) ? item.searchTokens : [])
@@ -2183,7 +2342,7 @@
                 case 'price-low': filtered.sort((a, b) => resolveComparablePrice(a) - resolveComparablePrice(b)); break;
                 case 'price-high': filtered.sort((a, b) => resolveComparablePrice(b) - resolveComparablePrice(a)); break;
                 case 'rating': filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0)); break;
-                case 'name': filtered.sort((a, b) => a.name.localeCompare(b.name, 'ar')); break;
+                case 'name': filtered.sort((a, b) => getProductDisplayName(a).localeCompare(getProductDisplayName(b), 'ar')); break;
             }
             if (shouldRender) renderProducts(filtered);
             return filtered;
@@ -2210,14 +2369,70 @@
             }, 120);
         }
 
+        function getProductImageGallery(product) {
+            const source = product && typeof product === 'object' ? product : {};
+            const list = [
+                String(source.image || '').trim(),
+                ...(Array.isArray(source.images) ? source.images : [])
+            ];
+            const normalized = Array.from(new Set(list
+                .map((item) => sanitizeImageUrl(item))
+                .filter(Boolean)));
+            return normalized.length ? normalized : [sanitizeImageUrl('')];
+        }
+
+        function shuffleArray(items) {
+            const out = [...(Array.isArray(items) ? items : [])];
+            for (let i = out.length - 1; i > 0; i -= 1) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [out[i], out[j]] = [out[j], out[i]];
+            }
+            return out;
+        }
+
+        function getRelatedProducts(baseProduct, limit = 3) {
+            const base = baseProduct && typeof baseProduct === 'object' ? baseProduct : {};
+            const baseTags = new Set((Array.isArray(base.tags) ? base.tags : []).map((tag) => normalizeSearchKeyword(tag)).filter(Boolean));
+            const pool = getVisibleProductsList().filter((item) => String(item.id) !== String(base.id));
+
+            const scored = pool.map((item) => {
+                let score = 0;
+                if (base.brand && item.brand && String(base.brand).trim() === String(item.brand).trim()) score += 3;
+                if (base.category && item.category && String(base.category) === String(item.category)) score += 2;
+                const itemTags = (Array.isArray(item.tags) ? item.tags : []).map((tag) => normalizeSearchKeyword(tag)).filter(Boolean);
+                const overlap = itemTags.filter((tag) => baseTags.has(tag)).length;
+                if (overlap > 0) score += overlap;
+                return { item, score };
+            });
+
+            const matched = scored.filter((entry) => entry.score > 0).map((entry) => entry.item);
+            const primary = shuffleArray(matched).slice(0, limit);
+            if (primary.length >= limit) return primary;
+
+            const used = new Set(primary.map((item) => String(item.id)));
+            const fallback = shuffleArray(pool.filter((item) => !used.has(String(item.id)))).slice(0, limit - primary.length);
+            return [...primary, ...fallback];
+        }
+
+        function setProductModalMainImage(src) {
+            const main = document.getElementById('productModalMainImage');
+            if (!main) return;
+            const safeSrc = sanitizeImageUrl(src);
+            main.src = safeSrc;
+        }
+
         function showProductDetails(id) {
             const p = getVisibleProductsList().find((x) => String(x.id) === String(id));
             if (!p) return;
             const safeProductId = escapeHtml(String(p && p.id || ''));
-            const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
+            const gallery = getProductImageGallery(p);
+            const safeMainImage = escapeHtml(gallery[0] || sanitizeImageUrl(''));
             const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
-            const safeName = escapeHtml(p && p.name || '');
+            const safeName = escapeHtml(getProductDisplayName(p));
             const safeDesc = escapeHtml(p && p.desc || '');
+            const safeBrand = escapeHtml(String(p && p.brand || '').trim());
+            const tags = Array.isArray(p && p.tags) ? p.tags : [];
+            const safeUsage = escapeHtml(String(p && p.usageInstructions || '').trim());
             const safeRatingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
             const displayPrice = resolveDisplayPrice(p);
             const hasValidPrice = Number.isFinite(displayPrice);
@@ -2225,11 +2440,49 @@
             const hasOldPrice = hasValidPrice && Number.isFinite(Number(p && p.oldPrice)) && Number(p && p.oldPrice) > Number(displayPrice || 0);
             const safeOldPrice = escapeHtml(hasOldPrice ? Number(p.oldPrice).toFixed(2) : '');
             const isFav = favorites.includes(String(p && p.id));
+
+            const thumbnailsHtml = gallery.map((imageUrl) => (
+                `<button type="button" data-image-src="${escapeHtml(imageUrl)}" onclick="setProductModalMainImage(this.dataset.imageSrc)" style="border:1px solid #ddd;border-radius:8px;padding:3px;background:#fff;cursor:pointer;">
+                    <img src="${escapeHtml(imageUrl)}" style="width:58px;height:58px;object-fit:cover;border-radius:6px;" onerror="this.src='${safeFallbackImage}'">
+                </button>`
+            )).join('');
+
+            const tagsHtml = tags.length
+                ? `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;">
+                    ${tags.map((tag) => `<span style="background:#f4e4bc;border-radius:999px;padding:4px 10px;font-size:12px;color:#0A1128;">${escapeHtml(tag)}</span>`).join('')}
+                   </div>`
+                : '';
+
+            const usageHtml = safeUsage
+                ? `<div style="text-align:right;background:#f8f8f8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+                    <div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:700;">طريقة الاستخدام</div>
+                    <div style="font-size:13px;color:#222;line-height:1.6;">${safeUsage}</div>
+                   </div>`
+                : '';
+
+            const related = getRelatedProducts(p, 3);
+            const relatedHtml = related.length
+                ? `<div style="margin-top:18px;text-align:right;">
+                    <h4 style="margin-bottom:10px;color:var(--navy);">منتجات قد تعجبك</h4>
+                    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+                      ${related.map((item) => `
+                        <button type="button" data-product-id="${escapeHtml(String(item.id || ''))}" onclick="showProductDetails(this.dataset.productId)" style="text-align:center;border:1px solid #eee;background:#fff;border-radius:10px;padding:6px;cursor:pointer;">
+                          <img src="${escapeHtml(sanitizeImageUrl(item.image))}" style="width:100%;height:68px;object-fit:cover;border-radius:8px;" onerror="this.src='${safeFallbackImage}'">
+                          <div style="font-size:11px;color:#333;margin-top:5px;line-height:1.4;">${escapeHtml(getProductDisplayName(item))}</div>
+                        </button>`).join('')}
+                    </div>
+                   </div>`
+                : '';
+
             document.getElementById('productModalBody').innerHTML = `
                 <div style="text-align: center;">
-                    <img src="${safeImageSrc}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;" onerror="this.src='${safeFallbackImage}'">
+                    ${safeBrand ? `<div style="font-size:12px;color:#666;margin-bottom:6px;">${safeBrand}</div>` : ''}
+                    <img id="productModalMainImage" src="${safeMainImage}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 10px;" onerror="this.src='${safeFallbackImage}'">
+                    ${gallery.length > 1 ? `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;">${thumbnailsHtml}</div>` : ''}
                     <h2 style="font-size: 20px; color: var(--navy); margin-bottom: 8px;">${safeName}</h2>
-                    <p style="color: #666; margin-bottom: 15px; font-size: 13px;">${safeDesc}</p>
+                    <p style="color: #666; margin-bottom: 12px; font-size: 13px;">${safeDesc}</p>
+                    ${tagsHtml}
+                    ${usageHtml}
                     <div style="margin-bottom: 15px;" data-product-id="${safeProductId}" onclick="showRatingModal(this.dataset.productId)">
                         <span style="font-size: 18px;">${getStars(p.rating)}</span>
                         <span style="color: #999; font-size: 12px;">(${safeRatingCount} تقييم)</span>
@@ -2242,6 +2495,7 @@
                         <button class="submit-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId); closeModal('productModal');" style="flex: 1; max-width: 200px;" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف للسلة' : '⚠️ غير متاح للبيع'}</button>
                         <button class="submit-btn" data-product-id="${safeProductId}" onclick="toggleFav(this.dataset.productId)" style="width: 50px; background: ${isFav ? 'var(--error)' : 'var(--cream)'}; color: ${isFav ? 'white' : 'var(--error)'};">${isFav ? '❤️' : '🤍'}</button>
                     </div>
+                    ${relatedHtml}
                 </div>
             `;
             openModal('productModal');
@@ -2282,7 +2536,7 @@
             const p = getVisibleProductsList().find((x) => String(x.id) === String(productId));
             if (!p) return;
             const safeProductId = escapeHtml(String(productId || ''));
-            const safeProductName = escapeHtml(p && p.name || '');
+            const safeProductName = escapeHtml(getProductDisplayName(p));
             const safeRatingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
             
             document.getElementById('ratingModalBody').innerHTML = `
@@ -2370,7 +2624,7 @@
                 const safeProductId = escapeHtml(String(p && p.id || ''));
                 const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
                 const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
-                const safeName = escapeHtml(p && p.name || '');
+                const safeName = escapeHtml(getProductDisplayName(p));
                 const displayPrice = resolveDisplayPrice(p);
                 const hasValidPrice = Number.isFinite(displayPrice);
                 const safePrice = hasValidPrice ? escapeHtml(Number(displayPrice || 0).toFixed(2)) : 'السعر غير متاح';
@@ -2409,10 +2663,10 @@
             }
             const existing = cart.find(item => item.id == id || String(item.id) === String(id));
             if (existing) existing.quantity++;
-            else cart.push({ id: p.id, name: p.name, price: Number(displayPrice), image: p.image, quantity: 1 });
+            else cart.push({ id: p.id, name: getProductDisplayName(p), price: Number(displayPrice), image: p.image, quantity: 1 });
             saveCart();
             updateCartUI();
-            showNotification('success', 'تمت الإضافة', `"${p.name}" في السلة`);
+            showNotification('success', 'تمت الإضافة', `"${getProductDisplayName(p)}" في السلة`);
         }
 
         function removeFromCart(id) {
@@ -4150,5 +4404,3 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
     </script>
 </body>
 </html>
-
-

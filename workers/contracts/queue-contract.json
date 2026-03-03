@@ -1,0 +1,26 @@
+{
+  "contractVersion": "1.0.0",
+  "serviceName": "bullmq-workers",
+  "queuePrefix": "prod",
+  "requiredQueues": ["email", "webhook", "cleanup", "dead-letter"],
+  "allowedQueuesParanoid": ["email", "webhook", "cleanup", "dead-letter"],
+  "processors": [
+    { "queue": "email", "processorId": "email.send", "module": "workers/email.worker.ts" },
+    { "queue": "webhook", "processorId": "webhook.deliver", "module": "workers/webhook.worker.ts" },
+    { "queue": "cleanup", "processorId": "cleanup.run", "module": "workers/cleanup.worker.ts" }
+  ],
+  "heartbeat": { "intervalMs": 30000, "stabilityWindowSec": 30, "requiredBeats": 1 },
+  "healthThresholds": {
+    "eventLoopLagMsMax": 150,
+    "memoryRssMbMax": 1024,
+    "redisRttMsMax": 80,
+    "workerReadyTimeoutSec": 45
+  },
+  "rollout": {
+    "stepsPercent": [5, 25, 50, 100],
+    "stepStabilitySec": 60,
+    "maxErrorRatePct": 1,
+    "maxLatencyDriftPct": 20,
+    "maxDrainSec": 300
+  }
+}

@@ -40,10 +40,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.17.0
 
       - name: Install tooling dependencies
-        run: npm install --prefix sale-zone --no-audit --no-fund
+        run: npm ci --prefix sale-zone --no-audit --no-fund
 
       - name: Verify checkout SHA matches target
         id: verify_sha

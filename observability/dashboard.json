@@ -1,0 +1,11 @@
+{
+  "dashboard": "workers-paranoid-ultra",
+  "panels": [
+    { "name": "queue_depth", "query": "queue_depth" },
+    { "name": "processing_latency", "query": "processing_latency_ms" },
+    { "name": "failure_rate", "query": "failure_rate_pct" },
+    { "name": "retry_storms", "query": "retry_storms" },
+    { "name": "worker_health", "query": "worker_health" },
+    { "name": "redis_rtt", "query": "redis_rtt_ms" }
+  ]
+}
