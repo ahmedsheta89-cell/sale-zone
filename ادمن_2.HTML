@@ -5532,11 +5532,12 @@ function adminLogout(){
                 if (editingBannerId) {
                     if (typeof updateBanner !== 'function') throw new Error('updateBanner unavailable');
                     await updateBanner(String(editingBannerId), data);
-                    banners = (banners || []).map((item) => (
-                        String(item && item.id) === String(editingBannerId)
-                            ? { ...item, ...data, id: String(editingBannerId) }
-                            : item
-                    ));
+                    // WHY: merge form data into existing local banner object to preserve any extra fields.
+                    const editIndex = (banners || []).findIndex((item) => String(item && item.id) === String(editingBannerId));
+                    // WHY: update existing row in-place when found to avoid dropping schema fields.
+                    if (editIndex >= 0) banners[editIndex] = { ...(banners[editIndex] || {}), ...data, id: String(editingBannerId) };
+                    // WHY: keep local cache resilient by adding record if realtime cache missed the target id.
+                    else banners.push({ ...data, id: String(editingBannerId) });
                 } else {
                     if (typeof addBanner !== 'function') throw new Error('addBanner unavailable');
                     const firebaseId = await addBanner(data);
@@ -9196,15 +9197,28 @@ function normalizeFilenameForMatch(value) {
         .trim();
 }
 
+function normalizeImageKey(value) {
+    // WHY: keep a single normalization path for uploader matching keys.
+    return normalizeFilenameForMatch(value);
+}
+
 function collectRequiredImageMap(productsList) {
     const requiredMap = new Map();
     const duplicateRequiredNames = [];
     const rows = Array.isArray(productsList) ? productsList : [];
     rows.forEach((product) => {
+        // WHY: read image source from each product row before matching.
         const rawImage = product && product.image;
+        // WHY: skip invalid/base64 image values so uploader does not request ghost assets.
+        if (!rawImage || String(rawImage).trim().startsWith('data:')) return;
+        // WHY: skip empty normalized keys to avoid fake required entries.
+        const normalizedKey = normalizeImageKey(rawImage);
+        // WHY: enforce non-empty normalized key before adding to map.
+        if (!normalizedKey) return;
+        // WHY: keep display filename for reporting while using normalized key for matching.
         const fileName = extractFilenameFromImageValue(rawImage);
-        const key = normalizeFilenameForMatch(fileName || rawImage);
-        if (!key) return;
+        // WHY: keep stable key regardless of file extension or URL form.
+        const key = normalizedKey;
 
         if (!requiredMap.has(key)) {
             requiredMap.set(key, {
@@ -9228,70 +9242,45 @@ function collectRequiredImageNames(productsList) {
 }
 
 async function fetchAllProductsForImageUpload() {
-    const byId = new Map();
-    const addRows = (rows) => {
-        if (!Array.isArray(rows)) return;
-        rows.forEach((item) => {
-            if (!item || typeof item !== 'object') return;
-            const id = String(item.id || item.docId || item.code || `${Math.random()}`);
-            if (!byId.has(id)) byId.set(id, item);
-        });
-    };
-
     try {
-        if (typeof resetProductsPagination === 'function') {
-            resetProductsPagination();
+        // WHY: keep pagination constant aligned with Firebase page size used by API queries.
+        const PAGE_SIZE = 50;
+        // WHY: reset published pagination so uploader always starts from first page.
+        if (typeof resetPublishedProductsPagination === 'function') {
+            resetPublishedProductsPagination();
         }
 
-        if (typeof getAllProducts === 'function') {
-            let guard = 0;
-            let batch = await getAllProducts(false);
-            addRows(batch);
-
-            while (Array.isArray(batch) && batch.length > 0 && guard < 300) {
-                guard += 1;
-                let nextBatch = [];
-                if (typeof loadMoreProducts === 'function') nextBatch = await loadMoreProducts();
-                else nextBatch = await getAllProducts(true);
-                if (!Array.isArray(nextBatch) || nextBatch.length === 0) break;
-                addRows(nextBatch);
-                batch = nextBatch;
+        // WHY: image uploader should process only explicitly published products.
+        if (typeof getPublishedProducts === 'function') {
+            const results = [];
+            let page = await getPublishedProducts(false);
+            if (Array.isArray(page)) results.push(...page);
+            while (Array.isArray(page) && page.length === PAGE_SIZE) {
+                page = await getPublishedProducts(true);
+                if (!Array.isArray(page) || page.length === 0) break;
+                results.push(...page);
                 await waitExcelUploadTick();
             }
+            return results.filter((item) => item && item.isPublished === true);
         }
-    } catch (error) {
-        console.error('[EXCEL_IMAGE_UPLOAD] helper pagination fetch failed:', error);
-    }
 
-    if (byId.size > 0) {
-        console.info('[EXCEL_IMAGE_UPLOAD] fetched via helpers:', byId.size);
-        return Array.from(byId.values());
-    }
-
-    try {
+        // WHY: use Firestore fallback with published-only filter when helper function is unavailable.
         const firestore = (typeof db !== 'undefined' && db && typeof db.collection === 'function')
             ? db
             : (typeof firebase !== 'undefined' && firebase && typeof firebase.firestore === 'function' ? firebase.firestore() : null);
-
+        // WHY: safely read published-only products from Firestore in uploader fallback path.
         if (firestore && typeof firestore.collection === 'function') {
-            const snapshot = await firestore.collection('products').get();
-            snapshot.forEach((doc) => {
-                byId.set(String(doc.id), { id: doc.id, ...(doc.data() || {}) });
-            });
-            if (byId.size > 0) {
-                console.info('[EXCEL_IMAGE_UPLOAD] fetched via Firestore fallback:', byId.size);
-                return Array.from(byId.values());
-            }
+            const snap = await firestore.collection('products').where('isPublished', '==', true).get();
+            return snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
         }
-    } catch (error) {
-        console.error('[EXCEL_IMAGE_UPLOAD] firestore fallback fetch failed:', error);
+        return [];
+    } catch (err) {
+        console.warn('⚠️ fetchAllProductsForImageUpload fallback to in-memory');
+        // WHY: in-memory fallback must stay filtered to published-only to avoid mismatched upload requirements.
+        return Array.isArray(products)
+            ? products.filter((p) => p && p.isPublished === true)
+            : [];
     }
-
-    if (typeof products !== 'undefined' && Array.isArray(products)) {
-        addRows(products);
-    }
-    console.info('[EXCEL_IMAGE_UPLOAD] fetched via in-memory fallback:', byId.size);
-    return Array.from(byId.values());
 }
 
 function isImageFileCandidate(file) {
