@@ -1870,10 +1870,44 @@
         // ============================================
         // Image Sanitizer (avoid external ORB/CORS issues)
         // ============================================
+        function resolveCloudinaryCloudNameStore() {
+            const configured = (typeof window !== 'undefined' && window.CLOUDINARY_CONFIG)
+                ? String(window.CLOUDINARY_CONFIG.cloudName || '').trim()
+                : '';
+            return configured || 'dwrfrfxnc';
+        }
+        const cloudinaryAutoLinkLogSeen = new Set();
+
+        function normalizeCloudinaryImageToken(value) {
+            let raw = String(value || '').trim();
+            if (!raw || raw.startsWith('data:')) return '';
+            try { raw = decodeURIComponent(raw); } catch (_) {}
+            raw = raw.replace(/[?#].*$/g, '').replace(/\\/g, '/');
+            raw = (raw.split('/').pop() || '').trim();
+            if (!raw) return '';
+            const withoutExt = raw.replace(/\.[^.]+$/g, '').trim();
+            if (!withoutExt) return '';
+            return (typeof withoutExt.normalize === 'function' ? withoutExt.normalize('NFKC') : withoutExt)
+                .trim()
+                .replace(/\s+/g, '-')
+                .replace(/[^\p{L}\p{N}_-]/gu, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+        }
+
+        function toCloudinaryAutoLinkUrl(value) {
+            const token = normalizeCloudinaryImageToken(value);
+            if (!token) return '';
+            const cloud = resolveCloudinaryCloudNameStore();
+            return `https://res.cloudinary.com/${cloud}/image/upload/salezone_products/${encodeURIComponent(token)}`;
+        }
+
         function optimizeCloudinaryUrl(url) {
             const raw = String(url || '').trim();
             if (!raw) return raw;
-            if (!/^https:\/\/res\.cloudinary\.com\/dwrfrfxnc\/image\/upload\//i.test(raw)) return raw;
+            const cloud = resolveCloudinaryCloudNameStore().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const cloudinaryPattern = new RegExp(`^https:\\/\\/res\\.cloudinary\\.com\\/${cloud}\\/image\\/upload\\/`, 'i');
+            if (!cloudinaryPattern.test(raw)) return raw;
             if (/\/image\/upload\/[^/]*f_auto[^/]*\//i.test(raw)) return raw;
 
             const marker = '/image/upload/';
@@ -1896,6 +1930,17 @@
             if (/^https:\/\//i.test(trimmed)) return optimizeCloudinaryUrl(trimmed);
             if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
             if (trimmed.startsWith('/')) return trimmed;
+            const autoLinked = toCloudinaryAutoLinkUrl(trimmed);
+            if (autoLinked) {
+                if (!cloudinaryAutoLinkLogSeen.has(trimmed) && cloudinaryAutoLinkLogSeen.size < 40) {
+                    cloudinaryAutoLinkLogSeen.add(trimmed);
+                    console.info('[STORE_IMAGE_AUTOLINK] filename mapped to Cloudinary URL', {
+                        source: trimmed,
+                        resolved: autoLinked
+                    });
+                }
+                return optimizeCloudinaryUrl(autoLinked);
+            }
 
             try {
                 const parsed = new URL(trimmed, window.location.origin);

@@ -12,6 +12,17 @@ function isCloudinaryConfigured() {
     return Boolean(CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset);
 }
 
+// Build structured upload errors so retry logic can classify transient failures.
+function buildCloudinaryUploadError(message, options = {}) {
+    const error = new Error(String(message || 'فشل رفع الصورة إلى Cloudinary.'));
+    error.code = String(options.code || 'CLOUDINARY_UPLOAD_ERROR');
+    if (Number.isFinite(Number(options.statusCode))) {
+        error.statusCode = Number(options.statusCode);
+    }
+    error.transient = options.transient === true;
+    return error;
+}
+
 // Accept only secure Cloudinary URLs from the expected account.
 function isValidCloudinarySecureUrl(url) {
     if (!url || typeof url !== 'string') return false;
@@ -28,21 +39,119 @@ function isValidCloudinarySecureUrl(url) {
     }
 }
 
+function isLikelyImageUploadFile(file) {
+    if (!file || typeof file !== 'object') return false;
+    const type = String(file.type || '').toLowerCase();
+    if (type.startsWith('image/')) return true;
+    return /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)$/i.test(String(file.name || ''));
+}
+
 // Upload image with progress and fail-closed behavior (never fallback to base64).
 function uploadToCloudinary(file, options = {}) {
     if (!file) {
-        return Promise.reject(new Error('لم يتم اختيار صورة للرفع.'));
+        return Promise.reject(buildCloudinaryUploadError('لم يتم اختيار صورة للرفع.', {
+            code: 'CLOUDINARY_NO_FILE'
+        }));
+    }
+    if (!isLikelyImageUploadFile(file)) {
+        return Promise.reject(buildCloudinaryUploadError('الملف المحدد ليس صورة مدعومة.', {
+            code: 'CLOUDINARY_INVALID_FILE',
+            transient: false
+        }));
     }
     if (!isCloudinaryConfigured()) {
-        return Promise.reject(new Error('إعدادات Cloudinary غير مكتملة.'));
+        return Promise.reject(buildCloudinaryUploadError('إعدادات Cloudinary غير مكتملة.', {
+            code: 'CLOUDINARY_CONFIG_MISSING'
+        }));
     }
 
     const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    const folder = String(options.folder || 'salezone_products').trim();
+    const publicId = String(options.publicId || '')
+        .trim()
+        .replace(/\.[^./]+$/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/[^\p{L}\p{N}_-]/gu, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    const signal = options && typeof options === 'object' ? options.signal : null;
+    const onAbort = typeof options.onAbort === 'function' ? options.onAbort : null;
     const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`;
 
     return new Promise((resolve, reject) => {
+        console.groupCollapsed('[CLOUDINARY_UPLOAD] بدء رفع الصورة');
+        console.info('[CLOUDINARY_UPLOAD] file:', {
+            name: file && file.name ? String(file.name) : '',
+            size: Number(file && file.size || 0),
+            type: String(file && file.type || '')
+        });
+        console.info('[CLOUDINARY_UPLOAD] config:', {
+            cloudName: CLOUDINARY_CONFIG.cloudName,
+            uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
+            folder,
+            publicId: publicId || '(auto)'
+        });
+
+        if (signal && signal.aborted) {
+            console.warn('[CLOUDINARY_UPLOAD] aborted before request start');
+            console.groupEnd();
+            reject(buildCloudinaryUploadError('تم إلغاء الرفع', {
+                code: 'UPLOAD_ABORTED'
+            }));
+            return;
+        }
+
         const xhr = new XMLHttpRequest();
         xhr.open('POST', endpoint, true);
+        let settled = false;
+        let abortHandler = null;
+        let abortNotified = false;
+
+        const notifyAbort = () => {
+            if (abortNotified) return;
+            abortNotified = true;
+            if (onAbort) {
+                try { onAbort(); } catch (_) {}
+            }
+        };
+
+        const cleanup = () => {
+            if (signal && abortHandler) {
+                signal.removeEventListener('abort', abortHandler);
+            }
+            abortHandler = null;
+        };
+
+        const safeResolve = (payload) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            console.info('[CLOUDINARY_UPLOAD] success:', {
+                public_id: payload && payload.public_id ? String(payload.public_id) : '',
+                secure_url: payload && payload.secure_url ? String(payload.secure_url) : ''
+            });
+            console.groupEnd();
+            resolve(payload);
+        };
+
+        const safeReject = (error) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            const normalized = error instanceof Error
+                ? error
+                : buildCloudinaryUploadError(String(error || 'Upload failed'), {
+                    code: 'CLOUDINARY_UPLOAD_ERROR'
+                });
+            console.error('[CLOUDINARY_UPLOAD] failed:', {
+                message: normalized.message,
+                code: normalized.code || 'UNKNOWN',
+                statusCode: normalized.statusCode || null,
+                transient: normalized.transient === true
+            });
+            console.groupEnd();
+            reject(normalized);
+        };
 
         if (xhr.upload && onProgress) {
             xhr.upload.onprogress = (event) => {
@@ -53,14 +162,68 @@ function uploadToCloudinary(file, options = {}) {
         }
 
         xhr.onerror = () => {
-            reject(new Error('تعذر الاتصال بـ Cloudinary. تحقق من الشبكة ثم حاول مرة أخرى.'));
+            safeReject(buildCloudinaryUploadError('تعذر الاتصال بـ Cloudinary. تحقق من الشبكة ثم حاول مرة أخرى.', {
+                code: 'NETWORK_ERROR',
+                transient: true
+            }));
+        };
+
+        xhr.onabort = () => {
+            notifyAbort();
+            safeReject(buildCloudinaryUploadError('تم إلغاء الرفع', {
+                code: 'UPLOAD_ABORTED'
+            }));
         };
 
         xhr.onload = () => {
             const status = Number(xhr.status || 0);
             if (status < 200 || status >= 300) {
-                const responseText = String(xhr.responseText || '').slice(0, 300);
-                reject(new Error(`فشل رفع الصورة على Cloudinary (HTTP ${status}): ${responseText}`));
+                const rawText = String(xhr.responseText || '');
+                let parsedMessage = '';
+                try {
+                    const parsed = JSON.parse(rawText || '{}');
+                    parsedMessage = String(parsed.error?.message || parsed.message || '').trim();
+                } catch (_) {}
+
+                if (status === 429) {
+                    safeReject(buildCloudinaryUploadError('تم تجاوز حد الرفع المؤقت في Cloudinary. حاول مرة أخرى بعد دقيقة.', {
+                        code: 'CLOUDINARY_RATE_LIMIT',
+                        statusCode: status,
+                        transient: true
+                    }));
+                    return;
+                }
+                if (/upload preset|preset/i.test(parsedMessage)) {
+                    safeReject(buildCloudinaryUploadError('إعداد upload preset غير صالح أو غير مسموح.', {
+                        code: 'CLOUDINARY_PRESET_INVALID',
+                        statusCode: status,
+                        transient: false
+                    }));
+                    return;
+                }
+                if (/unsigned upload|not allowed|not authorized|denied/i.test(parsedMessage)) {
+                    safeReject(buildCloudinaryUploadError('إعدادات الرفع غير الموقّع غير مفعّلة لهذا الـ preset.', {
+                        code: 'CLOUDINARY_PRESET_UNAUTHORIZED',
+                        statusCode: status,
+                        transient: false
+                    }));
+                    return;
+                }
+                if (/rate limit/i.test(parsedMessage)) {
+                    safeReject(buildCloudinaryUploadError('تم تجاوز حد الرفع المؤقت في Cloudinary. حاول مرة أخرى بعد دقيقة.', {
+                        code: 'CLOUDINARY_RATE_LIMIT',
+                        statusCode: status,
+                        transient: true
+                    }));
+                    return;
+                }
+
+                const snippet = (parsedMessage || rawText).slice(0, 260);
+                safeReject(buildCloudinaryUploadError(`فشل رفع الصورة على Cloudinary (HTTP ${status}): ${snippet}`, {
+                    code: 'HTTP_ERROR',
+                    statusCode: status,
+                    transient: status >= 500
+                }));
                 return;
             }
 
@@ -68,17 +231,23 @@ function uploadToCloudinary(file, options = {}) {
             try {
                 payload = JSON.parse(xhr.responseText || '{}');
             } catch (_) {
-                reject(new Error('استجابة Cloudinary غير صالحة (JSON).'));
+                safeReject(buildCloudinaryUploadError('استجابة Cloudinary غير صالحة (JSON).', {
+                    code: 'CLOUDINARY_BAD_RESPONSE'
+                }));
                 return;
             }
 
             const secureUrl = String(payload.secure_url || '').trim();
             if (!isValidCloudinarySecureUrl(secureUrl)) {
-                reject(new Error('تم استلام رابط صورة غير صالح من Cloudinary. تم إيقاف الحفظ لحماية البيانات.'));
+                safeReject(buildCloudinaryUploadError('تم استلام رابط صورة غير صالح من Cloudinary. تم إيقاف الحفظ لحماية البيانات.', {
+                    code: 'CLOUDINARY_INVALID_URL'
+                }));
                 return;
             }
 
-            resolve({
+            safeResolve({
+                secure_url: secureUrl,
+                public_id: String(payload.public_id || ''),
                 url: secureUrl,
                 publicId: String(payload.public_id || ''),
                 bytes: Number(payload.bytes || 0),
@@ -91,6 +260,25 @@ function uploadToCloudinary(file, options = {}) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
-        xhr.send(formData);
+        if (folder) formData.append('folder', folder);
+        if (publicId) formData.append('public_id', publicId);
+
+        if (signal && typeof signal.addEventListener === 'function') {
+            abortHandler = () => {
+                if (settled) return;
+                notifyAbort();
+                try { xhr.abort(); } catch (_) {}
+                safeReject(buildCloudinaryUploadError('تم إلغاء الرفع', {
+                    code: 'UPLOAD_ABORTED'
+                }));
+            };
+            signal.addEventListener('abort', abortHandler, { once: true });
+        }
+
+        try {
+            xhr.send(formData);
+        } catch (error) {
+            safeReject(error);
+        }
     });
 }

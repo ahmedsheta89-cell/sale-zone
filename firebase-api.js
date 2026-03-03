@@ -258,25 +258,82 @@ async function getBanners() {
     }
 }
 
+function normalizeBannerPayloadForWrite(input) {
+    const source = input && typeof input === 'object' ? input : {};
+    const nowIso = new Date().toISOString();
+    const payload = {
+        icon: String(source.icon || '🎉').trim() || '🎉',
+        title: String(source.title || '').trim(),
+        text: String(source.text || '').trim(),
+        btn: String(source.btn || 'تسوق الآن').trim() || 'تسوق الآن',
+        category: String(source.category || 'all').trim() || 'all',
+        updatedAt: source.updatedAt || nowIso
+    };
+    if (source.createdAt) payload.createdAt = source.createdAt;
+    return payload;
+}
+
 async function addBanner(banner) {
+    let grouped = false;
     try {
         const db = getFirebaseDB();
-        const docRef = await db.collection('banners').add(banner);
+        const payload = normalizeBannerPayloadForWrite(banner);
+        if (!payload.title) {
+            throw new Error('banner-title-required');
+        }
+        payload.createdAt = payload.createdAt || new Date().toISOString();
+
+        console.groupCollapsed('[FIREBASE_BANNER_WRITE] add banner');
+        grouped = true;
+        console.info('[FIREBASE_BANNER_WRITE] payload:', payload);
+
+        const docRef = await db.collection('banners').add(payload);
+        const verify = await db.collection('banners').doc(String(docRef.id)).get();
+        if (!verify.exists) {
+            throw new Error('banner-write-verification-failed');
+        }
         console.log('[OK] Banner added to Firebase:', docRef.id);
+        if (grouped) {
+            console.groupEnd();
+            grouped = false;
+        }
         return docRef.id;
     } catch (e) {
         console.error('addBanner error:', e);
+        if (grouped) console.groupEnd();
         throw e;
     }
 }
 
 async function updateBanner(id, data) {
+    let grouped = false;
     try {
         const db = getFirebaseDB();
-        await db.collection('banners').doc(id).set(data, { merge: true });
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('banner-id-required');
+        const payload = normalizeBannerPayloadForWrite(data);
+        if (!payload.title) {
+            throw new Error('banner-title-required');
+        }
+
+        console.groupCollapsed('[FIREBASE_BANNER_WRITE] update banner');
+        grouped = true;
+        console.info('[FIREBASE_BANNER_WRITE] bannerId:', docId);
+        console.info('[FIREBASE_BANNER_WRITE] payload:', payload);
+
+        await db.collection('banners').doc(docId).set(payload, { merge: true });
+        const verify = await db.collection('banners').doc(docId).get();
+        if (!verify.exists) {
+            throw new Error('banner-update-verification-failed');
+        }
         console.log('[OK] Banner updated in Firebase:', id);
+        if (grouped) {
+            console.groupEnd();
+            grouped = false;
+        }
     } catch (e) {
         console.error('updateBanner error:', e);
+        if (grouped) console.groupEnd();
         throw e;
     }
 }
