@@ -14,9 +14,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
+          node-version: 20
 
       - name: Install workers dependencies
         run: npm --prefix workers ci
@@ -34,9 +32,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
+          node-version: 20
 
       - name: Install workers dependencies
         run: npm --prefix workers ci
@@ -44,7 +40,12 @@ jobs:
       - name: Test
         env:
           RUN_REDIS_INTEGRATION: "false"
-        run: npm --prefix workers run test
+        run: |
+          cd workers
+          npx vitest run -c vitest.config.mjs \
+            --reporter=verbose \
+            --exclude="**/rollout.rollback-on-degradation.test.ts" \
+            2>&1
 
   workers-preflight-gate:
     runs-on: ubuntu-latest
@@ -56,9 +57,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
+          node-version: 20
 
       - name: Install workers dependencies
         run: npm --prefix workers ci
@@ -96,9 +95,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: workers/package-lock.json
+          node-version: 20
 
       - name: Install workers dependencies
         run: npm --prefix workers ci

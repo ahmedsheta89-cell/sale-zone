@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-02-27T23:07:47.117Z",
+  "branch": "main",
+  "result": "skipped",
+  "reason": "missing_github_context",
+  "required_contexts": [
+    "preflight",
+    "contracts-check",
+    "security-regression-check",
+    "workers-paranoid-gate",
+    "ci-parity"
+  ]
+}

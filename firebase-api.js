@@ -258,25 +258,82 @@ async function getBanners() {
     }
 }
 
+function normalizeBannerPayloadForWrite(input) {
+    const source = input && typeof input === 'object' ? input : {};
+    const nowIso = new Date().toISOString();
+    const payload = {
+        icon: String(source.icon || '🎉').trim() || '🎉',
+        title: String(source.title || '').trim(),
+        text: String(source.text || '').trim(),
+        btn: String(source.btn || 'تسوق الآن').trim() || 'تسوق الآن',
+        category: String(source.category || 'all').trim() || 'all',
+        updatedAt: source.updatedAt || nowIso
+    };
+    if (source.createdAt) payload.createdAt = source.createdAt;
+    return payload;
+}
+
 async function addBanner(banner) {
+    let grouped = false;
     try {
         const db = getFirebaseDB();
-        const docRef = await db.collection('banners').add(banner);
+        const payload = normalizeBannerPayloadForWrite(banner);
+        if (!payload.title) {
+            throw new Error('banner-title-required');
+        }
+        payload.createdAt = payload.createdAt || new Date().toISOString();
+
+        console.groupCollapsed('[FIREBASE_BANNER_WRITE] add banner');
+        grouped = true;
+        console.info('[FIREBASE_BANNER_WRITE] payload:', payload);
+
+        const docRef = await db.collection('banners').add(payload);
+        const verify = await db.collection('banners').doc(String(docRef.id)).get();
+        if (!verify.exists) {
+            throw new Error('banner-write-verification-failed');
+        }
         console.log('[OK] Banner added to Firebase:', docRef.id);
+        if (grouped) {
+            console.groupEnd();
+            grouped = false;
+        }
         return docRef.id;
     } catch (e) {
         console.error('addBanner error:', e);
+        if (grouped) console.groupEnd();
         throw e;
     }
 }
 
 async function updateBanner(id, data) {
+    let grouped = false;
     try {
         const db = getFirebaseDB();
-        await db.collection('banners').doc(id).set(data, { merge: true });
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('banner-id-required');
+        const payload = normalizeBannerPayloadForWrite(data);
+        if (!payload.title) {
+            throw new Error('banner-title-required');
+        }
+
+        console.groupCollapsed('[FIREBASE_BANNER_WRITE] update banner');
+        grouped = true;
+        console.info('[FIREBASE_BANNER_WRITE] bannerId:', docId);
+        console.info('[FIREBASE_BANNER_WRITE] payload:', payload);
+
+        await db.collection('banners').doc(docId).set(payload, { merge: true });
+        const verify = await db.collection('banners').doc(docId).get();
+        if (!verify.exists) {
+            throw new Error('banner-update-verification-failed');
+        }
         console.log('[OK] Banner updated in Firebase:', id);
+        if (grouped) {
+            console.groupEnd();
+            grouped = false;
+        }
     } catch (e) {
         console.error('updateBanner error:', e);
+        if (grouped) console.groupEnd();
         throw e;
     }
 }
@@ -348,11 +405,17 @@ function buildProductSearchTokens(product) {
     const addTokens = (value) => tokenizeSearchText(value).forEach((token) => tokenSet.add(token));
 
     addTokens(source.name);
+    addTokens(source.nameEn);
     addTokens(source.desc);
+    addTokens(source.usageInstructions);
+    addTokens(source.brand);
     addTokens(source.code);
     addTokens(source.category);
     addTokens(source.supplierName);
     addTokens(source.supplierCode);
+    if (Array.isArray(source.tags)) {
+        source.tags.forEach((tag) => addTokens(tag));
+    }
 
     return Array.from(tokenSet).slice(0, 120);
 }
@@ -424,28 +487,73 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     };
 }
 
-async function getAllProducts() {
+// Pagination state for products
+let productsPaginationState = {
+    lastVisible: null,
+    hasMore: true,
+    pageSize: 50,
+    loading: false
+};
+
+async function getAllProducts(loadMore = false) {
     try {
         const db = getFirebaseDB();
-        const snapshot = await db.collection('products').get();
-        const products = snapshot.docs.map(mapProductFromSnapshot);
-        return products;
+        
+        if (loadMore && (!productsPaginationState.hasMore || productsPaginationState.loading)) {
+            return [];
+        }
+        
+        productsPaginationState.loading = true;
+        
+        let query = db.collection('products')
+            .orderBy('id')
+            .limit(productsPaginationState.pageSize);
+            
+        if (loadMore && productsPaginationState.lastVisible) {
+            query = query.startAfter(productsPaginationState.lastVisible);
+        }
+        
+        const snapshot = await query.get();
+        const newProducts = snapshot.docs.map(mapProductFromSnapshot);
+        
+        if (loadMore) {
+            productsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            productsPaginationState.hasMore = snapshot.docs.length === productsPaginationState.pageSize;
+        } else {
+            productsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            productsPaginationState.hasMore = snapshot.docs.length === productsPaginationState.pageSize;
+        }
+        
+        productsPaginationState.loading = false;
+        return newProducts;
     } catch (e) {
         console.error('getAllProducts error:', e);
-        return null;
+        productsPaginationState.loading = false;
+        return loadMore ? [] : null;
     }
 }
 
 function mapProductFromSnapshot(doc) {
     const data = doc.data();
+    const tags = Array.isArray(data.tags)
+        ? data.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 30)
+        : [];
+    const images = Array.isArray(data.images)
+        ? data.images.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 12)
+        : [];
     return {
         id: doc.id,
-        name: data.name || '',
+        name: data.name || data.nameEn || '',
+        nameEn: data.nameEn || '',
         desc: data.desc || '',
+        usageInstructions: data.usageInstructions || '',
+        brand: data.brand || '',
+        tags,
         category: data.category || '',
         price: data.price || 0,
         oldPrice: data.oldPrice || null,
-        image: data.image || '',
+        image: data.image || images[0] || '',
+        images,
         rating: data.rating || 4.5,
         ratingCount: data.ratingCount || 0,
         code: data.code || '',
@@ -470,17 +578,79 @@ function mapProductFromSnapshot(doc) {
     };
 }
 
-async function getPublishedProducts() {
+// Pagination state for published products
+let publishedProductsPaginationState = {
+    lastVisible: null,
+    hasMore: true,
+    pageSize: 50,
+    loading: false
+};
+
+async function getPublishedProducts(loadMore = false) {
     try {
         const db = getFirebaseDB();
-        const snapshot = await db.collection('products')
+        
+        if (loadMore && (!publishedProductsPaginationState.hasMore || publishedProductsPaginationState.loading)) {
+            return [];
+        }
+        
+        publishedProductsPaginationState.loading = true;
+        
+        let query = db.collection('products')
             .where('isPublished', '==', true)
-            .get();
-        return snapshot.docs.map(mapProductFromSnapshot);
+            .orderBy('id')
+            .limit(publishedProductsPaginationState.pageSize);
+            
+        if (loadMore && publishedProductsPaginationState.lastVisible) {
+            query = query.startAfter(publishedProductsPaginationState.lastVisible);
+        }
+        
+        const snapshot = await query.get();
+        const newProducts = snapshot.docs.map(mapProductFromSnapshot);
+        
+        if (loadMore) {
+            publishedProductsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            publishedProductsPaginationState.hasMore = snapshot.docs.length === publishedProductsPaginationState.pageSize;
+        } else {
+            publishedProductsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            publishedProductsPaginationState.hasMore = snapshot.docs.length === publishedProductsPaginationState.pageSize;
+        }
+        
+        publishedProductsPaginationState.loading = false;
+        return newProducts;
     } catch (e) {
         console.error('getPublishedProducts error:', e);
-        return null;
+        publishedProductsPaginationState.loading = false;
+        return loadMore ? [] : null;
     }
+}
+
+// Helper functions for loading more products
+async function loadMoreProducts() {
+    return await getAllProducts(true);
+}
+
+async function loadMorePublishedProducts() {
+    return await getPublishedProducts(true);
+}
+
+// Reset pagination states (useful for filters or search)
+function resetProductsPagination() {
+    productsPaginationState = {
+        lastVisible: null,
+        hasMore: true,
+        pageSize: 50,
+        loading: false
+    };
+}
+
+function resetPublishedProductsPagination() {
+    publishedProductsPaginationState = {
+        lastVisible: null,
+        hasMore: true,
+        pageSize: 50,
+        loading: false
+    };
 }
 
 async function addProduct(product) {

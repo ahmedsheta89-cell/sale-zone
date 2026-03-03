@@ -25,9 +25,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run preflight
@@ -42,11 +40,19 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run hash stability check
         run: node tools/hash-stability-check.js
 
@@ -59,11 +65,19 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run smoke-check
         run: node tools/smoke-check.js
 
@@ -76,11 +90,19 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run contracts check
         run: node tools/contracts-check.js
 
@@ -93,20 +115,30 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run security regression check
         run: |
-          if [[ -f tools/security-regression-check.js ]]; then
-            node tools/security-regression-check.js
-          elif [[ -f tools/security-regression.js ]]; then
-            node tools/security-regression.js
-          else
-            echo "No security regression script found; running in STABLE_LEGACY skip mode."
+          SCRIPT=""
+          if [ -f "tools/security-regression-check.js" ]; then
+            SCRIPT="tools/security-regression-check.js"
+          elif [ -f "tools/security-regression.js" ]; then
+            SCRIPT="tools/security-regression.js"
+          elif [ -f "security/security-regression-check.js" ]; then
+            SCRIPT="security/security-regression-check.js"
           fi
+
+          if [ -z "$SCRIPT" ]; then
+            echo "::error::No security regression script found"
+            echo "Checked: tools/security-regression-check.js"
+            echo "Checked: tools/security-regression.js"
+            echo "Checked: security/security-regression-check.js"
+            exit 1
+          fi
+
+          echo "Running: $SCRIPT"
+          node "$SCRIPT"
 
   admin-function-monitor:
     name: admin-function-monitor
@@ -117,11 +149,19 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run admin function monitor
         run: node tools/admin-function-monitor.js
 
@@ -134,11 +174,19 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run rules gate
         run: node tools/rules-test.js
 
@@ -151,11 +199,19 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Debug paths
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---"
+          ls -la sale-zone/ 2>/dev/null || echo "no sale-zone dir"
+          echo "---"
+          ls -la tools/ 2>/dev/null || echo "no tools dir"
+          echo "---"
+          cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run E2E gate
         run: node tools/e2e-check.js
 
@@ -168,9 +224,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
-          cache: npm
-          cache-dependency-path: sale-zone/package.json
+          node-version: 20
       - name: Detect workers runtime tree
         id: workers_tree
         run: |
@@ -218,7 +272,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20
       - name: Verify CI parity
         run: node scripts/verify-ci-parity.js --strict
 
@@ -239,8 +293,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20
       - name: Enforce branch protection
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/enforce-branch-protection.mjs
       - name: Verify branch protection
         run: node scripts/verify-branch-protection.mjs
@@ -261,7 +317,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.17.0
+          node-version: 20
       - name: Console smoke assertions (backend-warning noise guard)
         run: |
           node -e "const fs=require('fs'); const api=fs.readFileSync('firebase-api.js','utf8'); const htmlFiles=fs.readdirSync('.').filter(f=>/\.html$/i.test(f)); const adminPath=htmlFiles.find(f=>{ try { return fs.readFileSync(f,'utf8').includes('admin24hLastSource'); } catch { return false; } }); if(!adminPath){ console.error('missing admin html file containing admin24hLastSource marker'); process.exit(1); } const admin=fs.readFileSync(adminPath,'utf8'); const checks=[{ok:/isBackendApiUnavailableError/.test(api),msg:'missing backend unavailable classifier in firebase-api.js'},{ok:/backendUnavailableNoticePrinted/.test(api),msg:'missing one-time backend notice guard in firebase-api.js'},{ok:/GATE_STATE_BACKEND_OPTIONAL_DISABLED/.test(admin),msg:'missing backend optional disabled diagnostic in admin HTML'},{ok:/admin24hLastSource/.test(admin),msg:'missing source-change log throttle in admin HTML'}]; const fails=checks.filter(c=>!c.ok); if(fails.length){console.error(fails.map(f=>'- '+f.msg).join('\n')); process.exit(1);} console.log('Risk 3 proof: backend-warning noise guard assertions passed in',adminPath);"
