@@ -2136,6 +2136,8 @@
                 </div>
             `;
             }).join('');
+            // WHY: provide explicit render success log for production verification after fallback/product query changes.
+            console.log('✅ Products rendered in store:', displayProducts.length);
         }
 
         function getAdvancedFilters() {

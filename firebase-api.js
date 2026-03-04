@@ -241,20 +241,30 @@ async function getBanners() {
         const db = getFirebaseDB();
         const snapshot = await db.collection('banners').get();
         const banners = snapshot.docs.map(doc => {
-            const data = doc.data();
+            // WHY: preserve full banner schema and avoid dropping custom fields.
+            const data = doc.data() || {};
             return { 
-                id: doc.id, 
-                icon: data.icon || '🛍️',
+                // WHY: keep Firestore document id for update/delete consistency.
+                id: doc.id,
+                // WHY: keep all stored fields such as image/link/priority without truncation.
+                ...data,
+                // WHY: keep safe defaults for core banner fields while preserving schema.
+                icon: data.icon || '',
+                // WHY: keep safe defaults for core banner fields while preserving schema.
                 title: data.title || '',
+                // WHY: keep safe defaults for core banner fields while preserving schema.
                 text: data.text || '',
-                btn: data.btn || 'تسوق الآن',
-                category: data.category || 'all'
+                // WHY: keep safe defaults for core banner fields while preserving schema.
+                btn: data.btn || '',
+                // WHY: keep safe defaults for core banner fields while preserving schema.
+                category: data.category || ''
             };
         });
         return banners;
     } catch (e) {
         console.error('getBanners error:', e);
-        return null;
+        // WHY: do not hide Firestore read failures behind silent null fallback.
+        throw e;
     }
 }
 
@@ -454,7 +464,8 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     const defaults = options.defaults && typeof options.defaults === 'object' ? options.defaults : {};
 
     const hasIsPublished = Object.prototype.hasOwnProperty.call(input, 'isPublished');
-    const isPublished = hasIsPublished ? input.isPublished !== false : (defaults.isPublished !== false);
+    // WHY: never write undefined isPublished and treat missing state as false unless explicitly true.
+    const isPublished = hasIsPublished ? input.isPublished === true : (defaults.isPublished === true);
     const visibilityState = isPublished ? 'published' : 'hidden';
 
     const pricing = normalizePricingFields({
@@ -487,6 +498,36 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     };
 }
 
+// WHY: detect Firestore index/precondition errors to trigger safe query fallback.
+function isFirestoreIndexError(error) {
+    const msg = String(error && (error.message || error.code) || '').toLowerCase();
+    return (
+        msg.includes('failed-precondition')
+        || msg.includes('requires an index')
+        || msg.includes('create_composite')
+    );
+}
+
+// WHY: normalize createdAt value from Timestamp/Date/number/string into milliseconds.
+function toMillis(value) {
+    if (!value) return 0;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (value instanceof Date) return value.getTime();
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed.getTime() : 0;
+}
+
+// WHY: keep stable product ordering when server-side orderBy is unavailable.
+function sortProductsClientSide(rows) {
+    return (Array.isArray(rows) ? rows : []).slice().sort((a, b) => {
+        const diff = toMillis(b && b.createdAt) - toMillis(a && a.createdAt);
+        if (diff !== 0) return diff;
+        return String(a && a.name || '').localeCompare(String(b && b.name || ''), 'ar');
+    });
+}
+
 // Pagination state for products
 let productsPaginationState = {
     lastVisible: null,
@@ -498,43 +539,73 @@ let productsPaginationState = {
 async function getAllProducts(loadMore = false) {
     try {
         const db = getFirebaseDB();
-        
+
         if (loadMore && (!productsPaginationState.hasMore || productsPaginationState.loading)) {
             return [];
         }
-        
+
         productsPaginationState.loading = true;
-        
+
+        // WHY: use createdAt ordering and avoid legacy id-based sorting.
+        const pageSize = Number(productsPaginationState.pageSize) || 50;
+        // WHY: reset cursor when loading first page to avoid stale pagination.
+        if (!loadMore) productsPaginationState.lastVisible = null;
+
+        // WHY: primary query path keeps pagination while using a meaningful sort key.
         let query = db.collection('products')
-            .orderBy('id')
-            .limit(productsPaginationState.pageSize);
-            
+            .orderBy('createdAt', 'desc')
+            .limit(pageSize);
+
         if (loadMore && productsPaginationState.lastVisible) {
             query = query.startAfter(productsPaginationState.lastVisible);
         }
-        
-        const snapshot = await query.get();
-        const newProducts = snapshot.docs.map(mapProductFromSnapshot);
-        
-        if (loadMore) {
-            productsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
-            productsPaginationState.hasMore = snapshot.docs.length === productsPaginationState.pageSize;
-        } else {
-            productsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
-            productsPaginationState.hasMore = snapshot.docs.length === productsPaginationState.pageSize;
+
+        let snapshot;
+        try {
+            snapshot = await query.get();
+        } catch (indexErr) {
+            // WHY: fallback to unordered query when createdAt index/field precondition is not satisfied.
+            if (isFirestoreIndexError(indexErr)) {
+                console.warn('⚠️ getAllProducts createdAt index missing — fallback to unordered query');
+                let fallbackQuery = db.collection('products').limit(pageSize);
+                if (loadMore && productsPaginationState.lastVisible) {
+                    fallbackQuery = fallbackQuery.startAfter(productsPaginationState.lastVisible);
+                }
+                snapshot = await fallbackQuery.get();
+            } else {
+                throw indexErr;
+            }
         }
-        
+
+        // WHY: confirm first page emptiness via second unordered query to avoid false empty states.
+        if (snapshot.empty && !loadMore) {
+            console.warn('⚠️ getAllProducts first page empty — retrying unordered query');
+            snapshot = await db.collection('products').limit(pageSize).get();
+        }
+
+        // WHY: always update pagination cursor from the actual snapshot used in this request.
+        productsPaginationState.lastVisible = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
+        // WHY: keep hasMore aligned with the requested page size after fallback paths.
+        productsPaginationState.hasMore = snapshot.docs.length === pageSize;
+
+        // WHY: enforce consistent ordering regardless of query path.
+        const rows = sortProductsClientSide(snapshot.docs.map(mapProductFromSnapshot));
+        // WHY: expose counts for mismatch diagnosis without changing existing query logic.
+        console.log('✅ getAllProducts:', rows.length, 'products loaded |', 'rawDocs:', snapshot.docs.length, '|', 'published:', rows.filter((p) => p && p.isPublished === true).length);
+        return rows;
+    } catch (err) {
+        console.error('❌ getAllProducts error:', err);
+        // WHY: never return null to avoid blank states in admin views.
+        return [];
+    } finally {
         productsPaginationState.loading = false;
-        return newProducts;
-    } catch (e) {
-        console.error('getAllProducts error:', e);
-        productsPaginationState.loading = false;
-        return loadMore ? [] : null;
     }
 }
 
 function mapProductFromSnapshot(doc) {
     const data = doc.data();
+    // WHY: missing isPublished must be treated as false for safety and consistency.
+    const published = data.isPublished === true;
     const tags = Array.isArray(data.tags)
         ? data.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 30)
         : [];
@@ -569,8 +640,10 @@ function mapProductFromSnapshot(doc) {
         manualPriceOverride: data.manualPriceOverride === true,
         manualPriceReason: String(data.manualPriceReason || ''),
         searchTokens: Array.isArray(data.searchTokens) ? data.searchTokens : buildProductSearchTokens(data),
-        isPublished: data.isPublished !== false,
-        visibilityState: data.visibilityState || (data.isPublished === false ? 'hidden' : 'published'),
+        // WHY: enforce explicit publish boolean on reads and never assume published by default.
+        isPublished: published,
+        // WHY: derive visibility state from explicit publish boolean to avoid undefined drift.
+        visibilityState: data.visibilityState || (published ? 'published' : 'hidden'),
         importBatchId: data.importBatchId || '',
         importSource: data.importSource || '',
         createdAt: data.createdAt || '',
@@ -589,39 +662,72 @@ let publishedProductsPaginationState = {
 async function getPublishedProducts(loadMore = false) {
     try {
         const db = getFirebaseDB();
-        
+
         if (loadMore && (!publishedProductsPaginationState.hasMore || publishedProductsPaginationState.loading)) {
             return [];
         }
-        
+
         publishedProductsPaginationState.loading = true;
-        
+
+        // WHY: avoid composite index dependency and remove legacy id-based sort coupling.
+        const pageSize = Number(publishedProductsPaginationState.pageSize) || 50;
+        // WHY: reset cursor when reading from first page.
+        if (!loadMore) publishedProductsPaginationState.lastVisible = null;
+
+        // WHY: primary query keeps only published products without requiring explicit order index.
         let query = db.collection('products')
             .where('isPublished', '==', true)
-            .orderBy('id')
-            .limit(publishedProductsPaginationState.pageSize);
-            
+            .limit(pageSize);
+
         if (loadMore && publishedProductsPaginationState.lastVisible) {
             query = query.startAfter(publishedProductsPaginationState.lastVisible);
         }
-        
-        const snapshot = await query.get();
-        const newProducts = snapshot.docs.map(mapProductFromSnapshot);
-        
-        if (loadMore) {
-            publishedProductsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
-            publishedProductsPaginationState.hasMore = snapshot.docs.length === publishedProductsPaginationState.pageSize;
-        } else {
-            publishedProductsPaginationState.lastVisible = snapshot.docs[snapshot.docs.length - 1];
-            publishedProductsPaginationState.hasMore = snapshot.docs.length === publishedProductsPaginationState.pageSize;
+
+        let snapshot;
+        try {
+            snapshot = await query.get();
+        } catch (indexErr) {
+            // WHY: retry safely without order constraints when Firestore precondition/index errors occur.
+            if (isFirestoreIndexError(indexErr)) {
+                console.warn('⚠️ Index missing — retrying getPublishedProducts with safe fallback query');
+                let fallbackQuery = db.collection('products')
+                    .where('isPublished', '==', true)
+                    .limit(pageSize);
+                if (loadMore && publishedProductsPaginationState.lastVisible) {
+                    fallbackQuery = fallbackQuery.startAfter(publishedProductsPaginationState.lastVisible);
+                }
+                snapshot = await fallbackQuery.get();
+            } else {
+                throw indexErr;
+            }
         }
-        
-        publishedProductsPaginationState.loading = false;
+
+        // WHY: always sync pagination state with returned docs from current query path.
+        publishedProductsPaginationState.lastVisible = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
+        // WHY: keep hasMore deterministic without server-side order dependency.
+        publishedProductsPaginationState.hasMore = snapshot.docs.length === pageSize;
+
+        if (!snapshot || snapshot.empty) {
+            console.info('ℹ️ getPublishedProducts empty; fallback to realtime/cache rendering path');
+            return [];
+        }
+
+        // WHY: ensure missing isPublished is never treated as published.
+        let newProducts = snapshot.docs
+            .map(mapProductFromSnapshot)
+            .filter((p) => p && p.isPublished === true);
+
+        // WHY: stabilize product order client-side when orderBy is removed.
+        newProducts = sortProductsClientSide(newProducts);
+        // WHY: confirm published filter behavior against raw snapshot size for diagnostics.
+        console.log('✅ getPublishedProducts:', newProducts.length, 'products loaded |', 'rawDocs:', snapshot.docs.length);
         return newProducts;
-    } catch (e) {
-        console.error('getPublishedProducts error:', e);
+    } catch (err) {
+        console.error('❌ getPublishedProducts error:', err);
+        // WHY: never return null to avoid blank store screens.
+        return [];
+    } finally {
         publishedProductsPaginationState.loading = false;
-        return loadMore ? [] : null;
     }
 }
 
@@ -678,7 +784,8 @@ async function updateProduct(id, data) {
             ...payload
         }, {
             defaults: {
-                isPublished: existing.isPublished !== false
+                // WHY: enforce explicit boolean defaults so missing publish state never stays undefined.
+                isPublished: existing.isPublished === true
             }
         });
         await ref.set(normalizedPayload, { merge: true });

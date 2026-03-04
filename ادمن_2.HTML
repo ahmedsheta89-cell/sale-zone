@@ -2400,6 +2400,8 @@
         };
         let salesChart, categoriesChart;
         const PENDING_PRODUCT_OPS_KEY = 'sale_zone_pending_ops';
+        // WHY: cap pending operation retention window to prevent replaying stale writes.
+        const PENDING_OPS_MAX_AGE_HOURS = 48;
         const PRODUCT_SAVED_FILTERS_KEY = 'sale_zone_admin_saved_product_filters';
         const MAX_ADMIN_PRODUCTS_LOCAL_CACHE = 800;
         const DEFAULT_PRODUCT_IMAGE = './assets/placeholder.svg';
@@ -2597,9 +2599,44 @@
         }
 
         function ensureProductsSchema(list) {
-            return (Array.isArray(list) ? list : [])
-                .map((p) => normalizeProductForStorage(p, { isPublished: true }))
-                .filter((p) => p.name && p.price >= 0);
+            // WHY: guard against non-array input to keep admin rendering stable.
+            if (!Array.isArray(list)) return [];
+            // WHY: track dropped invalid records for diagnosis without hiding issues.
+            let droppedCount = 0;
+            // WHY: track normalized records to explain fallback behavior in logs.
+            let normalizedCount = 0;
+            // WHY: keep only object-like records and avoid hard crashes from null rows.
+            const result = list
+                .filter((item) => {
+                    // WHY: drop only null/undefined/non-object rows to avoid blank table regressions.
+                    if (!item || typeof item !== 'object') {
+                        droppedCount += 1;
+                        return false;
+                    }
+                    return true;
+                })
+                .map((item) => {
+                    // WHY: count rows that need schema defaults to diagnose upstream data quality.
+                    const needsNormalize = !item.name || item.price === undefined;
+                    if (needsNormalize) normalizedCount += 1;
+                    return {
+                        // WHY: preserve existing product fields while filling missing required fields.
+                        ...item,
+                        // WHY: use safe name fallback instead of dropping the record.
+                        name: item.name || '(بدون اسم)',
+                        // WHY: ensure numeric price fallback to prevent admin blank state filtering.
+                        price: item.price ?? 0,
+                        // WHY: treat missing publish flag as false for consistent behavior.
+                        isPublished: item.isPublished === true,
+                        // WHY: force visibility to published/hidden only and avoid carrying unknown states.
+                        visibilityState: (item.visibilityState === 'published' || item.isPublished === true) ? 'published' : 'hidden',
+                        // WHY: guarantee image key exists to prevent undefined access in renderers.
+                        image: item.image || ''
+                    };
+                });
+            // WHY: expose normalization telemetry to diagnose product schema drift.
+            console.warn('[ADMIN_PRODUCTS_NORMALIZE] dropped:', droppedCount, '| normalized:', normalizedCount, '| valid:', result.length);
+            return result;
         }
 
         function ensureSuppliersSchema(list) {
@@ -2628,7 +2665,45 @@
         }
 
         function persistPendingProductOps() {
+            // WHY: persist canonical pending queue for existing admin offline sync flow.
             localStorage.setItem(PENDING_PRODUCT_OPS_KEY, JSON.stringify(pendingProductOps));
+            try {
+                // WHY: mirror canonical queue to compatibility key expected by verification tooling.
+                localStorage.setItem('PENDING_PRODUCT_OPS', JSON.stringify(pendingProductOps));
+            } catch (_) {}
+        }
+
+        // WHY: normalize pending-op timestamp from numeric/ISO values for expiration checks.
+        function getPendingOpTimestampMs(op) {
+            // WHY: guard against malformed queue entries.
+            const source = op && typeof op === 'object' ? op : {};
+            // WHY: prefer explicit enqueue timestamp when available.
+            const preferred = source.enqueuedAt;
+            // WHY: fallback to createdAt used by legacy queue entries.
+            const legacy = source.createdAt;
+            // WHY: parse numeric timestamps directly when present.
+            if (Number.isFinite(Number(preferred))) return Number(preferred);
+            // WHY: parse ISO timestamp strings for enqueue time.
+            const parsedPreferred = Date.parse(String(preferred || ''));
+            if (Number.isFinite(parsedPreferred)) return parsedPreferred;
+            // WHY: parse numeric legacy createdAt values when available.
+            if (Number.isFinite(Number(legacy))) return Number(legacy);
+            // WHY: parse ISO legacy timestamps for compatibility.
+            const parsedLegacy = Date.parse(String(legacy || ''));
+            // WHY: fallback to zero when timestamp cannot be parsed.
+            return Number.isFinite(parsedLegacy) ? parsedLegacy : 0;
+        }
+
+        // WHY: drop stale pending operations older than configured max age.
+        function isPendingOpExpired(op, maxAgeHours = PENDING_OPS_MAX_AGE_HOURS) {
+            // WHY: convert hour threshold to milliseconds for deterministic comparison.
+            const maxAgeMs = Math.max(1, Number(maxAgeHours || 0)) * 60 * 60 * 1000;
+            // WHY: resolve entry timestamp with legacy/new compatibility handling.
+            const timestampMs = getPendingOpTimestampMs(op);
+            // WHY: treat missing timestamps as expired to avoid replaying unknown stale entries.
+            if (!timestampMs) return true;
+            // WHY: compare age to configured threshold.
+            return (Date.now() - timestampMs) > maxAgeMs;
         }
 
         function getPendingOpEffectiveId(rawId) {
@@ -2731,6 +2806,29 @@
 
             pendingOpsInFlight = true;
             try {
+                // WHY: remove expired pending ops before attempting remote replay.
+                const activeOps = [];
+                // WHY: track dropped expired entries for diagnostics.
+                let droppedExpired = 0;
+                // WHY: keep only fresh entries according to max age policy.
+                for (const op of pendingProductOps) {
+                    if (isPendingOpExpired(op)) {
+                        droppedExpired += 1;
+                        continue;
+                    }
+                    activeOps.push(op);
+                }
+                // WHY: replace queue with active entries after expiration filter.
+                pendingProductOps = activeOps;
+                // WHY: surface max-age cleanup outcome in console diagnostics.
+                if (droppedExpired > 0) {
+                    console.log('[PENDING_OPS] Dropped expired ops:', droppedExpired, `(maxAgeHours=${PENDING_OPS_MAX_AGE_HOURS})`);
+                }
+                // WHY: persist filtered queue state before replay.
+                persistPendingProductOps();
+                // WHY: short-circuit when all entries were expired.
+                if (!pendingProductOps.length) return;
+
                 const remaining = [];
                 for (const op of pendingProductOps) {
                     try {
@@ -3211,6 +3309,10 @@
                 }
             });
             loadPendingProductOps();
+            // WHY: flush any persisted pending ops from previous sessions at startup.
+            flushPendingProductOpsCompat().catch((error) => {
+                console.warn('[PENDING_OPS] startup compat flush warning:', error);
+            });
             window.addEventListener('online', () => {
                 flushPendingProductOps();
             });
@@ -3316,6 +3418,9 @@
                 banners = (bannersResult.status === 'fulfilled' && Array.isArray(bannersResult.value))
                     ? bannersResult.value
                     : (getStorageData('BANNERS') || []);
+                if (bannersResult.status === 'fulfilled' && !Array.isArray(bannersResult.value)) {
+                    console.warn('⚠️ Admin banners returned non-array, fallback to cache:', bannersResult.value);
+                }
                 if (bannersResult.status === 'rejected') {
                     console.warn('⚠️ Admin banners fetch failed, fallback to cache:', bannersResult.reason);
                 }
@@ -4442,6 +4547,166 @@ function adminLogout(){
             showNotification('success', 'تم مسح كل المنتجات');
         }
 
+        // WHY: identify only true transient Firestore write failures and exclude auth/permission issues.
+        function isTransientFirestoreWriteError(error) {
+            // WHY: keep transient detection explicitly limited to connectivity/capacity conditions.
+            const TRANSIENT_CODES = ['unavailable', 'deadline-exceeded', 'resource-exhausted'];
+            // WHY: normalize error code for robust matching across Firebase/Web SDK formats.
+            const code = String(error && error.code || '').toLowerCase();
+            // WHY: normalize message fallback because some SDK errors only expose textual details.
+            const msg = String(error && error.message || '').toLowerCase();
+            // WHY: match only approved transient codes to avoid misclassifying permission errors.
+            return TRANSIENT_CODES.some((token) => code.includes(token) || msg.includes(token));
+        }
+
+        // WHY: provide user-facing Arabic feedback that reflects the exact failure category.
+        function formatProductSaveError(error) {
+            // WHY: normalize error code for deterministic category mapping.
+            const code = String(error && error.code || '').toLowerCase();
+            // WHY: explain permission/auth failures clearly without pretending local success.
+            if (code.includes('permission-denied') || code.includes('unauthenticated')) {
+                return 'فشل الحفظ: ليس لديك صلاحية لهذه العملية. تأكد من تسجيل الدخول بحساب مخوّل.';
+            }
+            // WHY: explain transient failures as local queue success with deferred Firebase sync.
+            if (isTransientFirestoreWriteError(error)) {
+                return 'تم الحفظ محليًا وسيتم الرفع تلقائيًا عند استقرار الاتصال.';
+            }
+            // WHY: keep unknown errors actionable with original message fallback.
+            return `فشل الحفظ: ${String(error && error.message || 'خطأ غير معروف')}`;
+        }
+
+        // WHY: adapt new op shape to current queue contract without breaking existing pending flow.
+        function enqueuePendingProductOpCompat(op) {
+            // WHY: guard against invalid payloads to avoid corrupt queue entries.
+            const input = op && typeof op === 'object' ? op : null;
+            if (!input) return null;
+            // WHY: normalize operation type for consistent mapping.
+            const type = String(input.type || '').trim().toLowerCase();
+            if (!type) return null;
+
+            // WHY: preserve legacy queue behavior by delegating to existing enqueue implementation.
+            let queuedOp = null;
+            if (type === 'update') {
+                // WHY: require a concrete product id and data object before enqueueing update op.
+                const productId = String(input.productId || '').trim();
+                if (!productId || !input.data || typeof input.data !== 'object') return null;
+                queuedOp = enqueuePendingProductOp('update', { id: productId, data: input.data });
+            } else if (type === 'add') {
+                // WHY: require object payload and map it to existing add-op schema.
+                const productData = input.data && typeof input.data === 'object' ? input.data : null;
+                if (!productData) return null;
+                // WHY: create deterministic pending id namespace for optimistic records.
+                const tmpId = String(input.tmpId || `pending_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+                queuedOp = enqueuePendingProductOp('add', { tmpId, product: productData });
+            } else {
+                return null;
+            }
+
+            try {
+                // WHY: mirror queued ops into compatibility key requested by external workflows.
+                const mirrorKey = 'PENDING_PRODUCT_OPS';
+                // WHY: load current mirror queue safely to avoid JSON parse crashes.
+                const raw = localStorage.getItem(mirrorKey);
+                const mirrorQueue = raw ? JSON.parse(raw) : [];
+                // WHY: append normalized op with timestamp so queue survives reloads.
+                mirrorQueue.push({ ...input, enqueuedAt: Date.now() });
+                // WHY: persist mirror queue back to localStorage for compatibility diagnostics.
+                localStorage.setItem(mirrorKey, JSON.stringify(mirrorQueue));
+            } catch (mirrorError) {
+                // WHY: log mirror failures without blocking core pending-op enqueue path.
+                console.warn('[PENDING_OPS] mirror write warning:', mirrorError);
+            }
+
+            // WHY: expose explicit enqueue diagnostics for support/debug sessions.
+            console.warn('[PENDING_OPS] Enqueued op:', type, String(input.productId || '(new)'));
+            return queuedOp;
+        }
+
+        // WHY: replay compatibility queue into current queue contract and flush via existing pipeline.
+        async function flushPendingProductOpsCompat() {
+            // WHY: read mirrored compatibility queue key without changing primary key behavior.
+            const mirrorKey = 'PENDING_PRODUCT_OPS';
+            const raw = localStorage.getItem(mirrorKey);
+            if (!raw) {
+                // WHY: still flush primary queue if mirror key is empty.
+                if (typeof flushPendingProductOps === 'function') await flushPendingProductOps();
+                return;
+            }
+
+            let mirrorQueue = [];
+            try {
+                // WHY: parse compatibility queue safely; malformed payloads should not crash flow.
+                mirrorQueue = JSON.parse(raw);
+            } catch (parseError) {
+                // WHY: clear malformed mirror queue to prevent repeated parse failures.
+                localStorage.removeItem(mirrorKey);
+                console.warn('[PENDING_OPS] mirror parse warning:', parseError);
+                if (typeof flushPendingProductOps === 'function') await flushPendingProductOps();
+                return;
+            }
+
+            // WHY: normalize to array to avoid iterating over invalid mirror payload shapes.
+            const entries = Array.isArray(mirrorQueue) ? mirrorQueue : [];
+            // WHY: remove expired mirror entries before replaying to primary queue.
+            const freshEntries = entries.filter((entry) => !isPendingOpExpired(entry));
+            // WHY: compute dropped mirror count to expose max-age behavior diagnostics.
+            const droppedExpired = entries.length - freshEntries.length;
+            // WHY: log dropped mirror entries for operator visibility.
+            if (droppedExpired > 0) {
+                console.log('[PENDING_OPS] Dropped expired ops:', droppedExpired, `(maxAgeHours=${PENDING_OPS_MAX_AGE_HOURS})`);
+            }
+            if (freshEntries.length > 0) {
+                // WHY: build signature set from primary queue to avoid duplicate enqueue.
+                const primarySignatures = new Set((Array.isArray(pendingProductOps) ? pendingProductOps : []).map((entry) => {
+                    const opType = String(entry && entry.type || '');
+                    const payload = entry && entry.payload ? entry.payload : {};
+                    const id = String(payload.id || payload.tmpId || '');
+                    const data = payload.data || payload.product || null;
+                    return JSON.stringify({ type: opType, productId: id, data });
+                }));
+
+                // WHY: replay mirror entries into primary queue only when signature is missing.
+                freshEntries.forEach((entry) => {
+                    const input = entry && typeof entry === 'object' ? entry : null;
+                    if (!input) return;
+                    const type = String(input.type || '').trim().toLowerCase();
+                    if (!type) return;
+                    const signature = JSON.stringify({
+                        type,
+                        productId: String(input.productId || input.tmpId || ''),
+                        data: input.data || null
+                    });
+                    if (primarySignatures.has(signature)) return;
+                    if (type === 'update' && input.data && typeof input.data === 'object') {
+                        enqueuePendingProductOp('update', { id: String(input.productId || ''), data: input.data });
+                    } else if (type === 'add' && input.data && typeof input.data === 'object') {
+                        const tmpId = String(input.tmpId || `pending_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+                        enqueuePendingProductOp('add', { tmpId, product: input.data });
+                    }
+                });
+            }
+
+            // WHY: clear mirror queue after replay to prevent duplicate processing on next online event.
+            localStorage.removeItem(mirrorKey);
+            // WHY: flush primary queue using existing hardened pipeline.
+            if (typeof flushPendingProductOps === 'function') await flushPendingProductOps();
+        }
+
+        // WHY: attach one online listener that flushes compatibility queue when connectivity is restored.
+        if (!window.__pendingProductOpsCompatOnlineHookAdded) {
+            // WHY: guard prevents duplicate listeners across script re-evaluations.
+            window.__pendingProductOpsCompatOnlineHookAdded = true;
+            // WHY: flush queued operations automatically when browser regains connectivity.
+            window.addEventListener('online', () => {
+                // WHY: explicit log helps verify auto-flush behavior in production diagnostics.
+                console.log('[PENDING_OPS] Connection restored — flushing queue...');
+                // WHY: run async flush path without blocking UI thread.
+                flushPendingProductOpsCompat().catch((error) => {
+                    console.warn('[PENDING_OPS] compat flush warning:', error);
+                });
+            });
+        }
+
         async function saveProduct(e) {
             e.preventDefault();
             const id = document.getElementById('productId').value.trim();
@@ -4492,6 +4757,8 @@ function adminLogout(){
                     showNotification('error', 'المنتج غير موجود');
                     return;
                 }
+                // WHY: track deferred local writes so we do not show false remote-success messages.
+                let updateDeferredLocally = false;
 
                 const current = products[idx];
                 const merged = normalizeProductForStorage({
@@ -4514,9 +4781,17 @@ function adminLogout(){
                         }
                         await updateProduct(id, updatePayload);
                     } catch (error) {
-                        console.error('Firebase update error:', error);
-                        showNotification('error', 'فشل تحديث المنتج على Firebase');
-                        return;
+                        // WHY: enqueue only transient failures and keep admin table consistent locally.
+                        if (isTransientFirestoreWriteError(error)) {
+                            enqueuePendingProductOpCompat({ type: 'update', productId: String(id), data: updatePayload });
+                            showNotification('warning', formatProductSaveError(error));
+                            updateDeferredLocally = true;
+                        } else {
+                            // WHY: do not mask non-transient permission/auth errors as successful saves.
+                            showNotification('error', formatProductSaveError(error));
+                            console.error('[SAVE_PRODUCT] Non-transient update error:', error);
+                            return;
+                        }
                     }
                 } else if (String(id).startsWith('tmp_')) {
                     patchPendingAddByTempId(String(id), (draft) => ({ ...draft, ...updatePayload }));
@@ -4528,7 +4803,8 @@ function adminLogout(){
                 }
 
                 products[idx] = merged;
-                showNotification('success', 'تم تحديث المنتج');
+                // WHY: avoid success toast when write was deferred to local pending queue.
+                if (!updateDeferredLocally) showNotification('success', 'تم تحديث المنتج');
             } else {
                 const nowIso = new Date().toISOString();
                 const newProduct = normalizeProductForStorage({
@@ -4542,6 +4818,8 @@ function adminLogout(){
 
                 const createPayload = { ...newProduct };
                 delete createPayload.id;
+                // WHY: track deferred add writes to avoid false remote-success messaging.
+                let addDeferredLocally = false;
 
                 if (online) {
                     try {
@@ -4552,9 +4830,18 @@ function adminLogout(){
                         const firebaseId = await addProduct(createPayload);
                         newProduct.id = String(firebaseId);
                     } catch (error) {
-                        console.error('Firebase create error:', error);
-                        showNotification('error', 'فشل إضافة المنتج على Firebase');
-                        return;
+                        // WHY: queue transient create failures for automatic retry when connection stabilizes.
+                        if (isTransientFirestoreWriteError(error)) {
+                            enqueuePendingProductOpCompat({ type: 'add', data: createPayload });
+                            showNotification('warning', formatProductSaveError(error));
+                            newProduct.id = `pending_${Date.now()}`;
+                            addDeferredLocally = true;
+                        } else {
+                            // WHY: keep non-transient create failures explicit and prevent false success.
+                            showNotification('error', formatProductSaveError(error));
+                            console.error('[SAVE_PRODUCT] Non-transient create error:', error);
+                            return;
+                        }
                     }
                 } else {
                     const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -4564,7 +4851,8 @@ function adminLogout(){
                 }
 
                 products.push(newProduct);
-                showNotification('success', 'تمت إضافة المنتج');
+                // WHY: avoid remote-success toast when create was deferred to pending queue.
+                if (!addDeferredLocally) showNotification('success', 'تمت إضافة المنتج');
             }
 
             saveProducts();
@@ -5532,15 +5820,38 @@ function adminLogout(){
                 if (editingBannerId) {
                     if (typeof updateBanner !== 'function') throw new Error('updateBanner unavailable');
                     await updateBanner(String(editingBannerId), data);
-                    banners = (banners || []).map((item) => (
-                        String(item && item.id) === String(editingBannerId)
-                            ? { ...item, ...data, id: String(editingBannerId) }
-                            : item
-                    ));
+                    let mergedLocal = { ...data, id: String(editingBannerId) };
+                    try {
+                        // WHY: best-effort refresh from Firebase to preserve full banner schema after update.
+                        const remoteBanners = (typeof getBanners === 'function') ? await getBanners() : null;
+                        if (Array.isArray(remoteBanners)) {
+                            const latest = remoteBanners.find((item) => String(item && item.id) === String(editingBannerId));
+                            if (latest) mergedLocal = { ...latest };
+                        }
+                    } catch (refreshError) {
+                        console.warn('[ADMIN_BANNER_SAVE] refresh-after-update skipped:', refreshError);
+                    }
+                    // WHY: merge form data into existing local banner object to preserve any extra fields.
+                    const editIndex = (banners || []).findIndex((item) => String(item && item.id) === String(editingBannerId));
+                    // WHY: update existing row in-place when found to avoid dropping schema fields.
+                    if (editIndex >= 0) banners[editIndex] = { ...(banners[editIndex] || {}), ...mergedLocal, id: String(editingBannerId) };
+                    // WHY: keep local cache resilient by adding record if realtime cache missed the target id.
+                    else banners.push({ ...mergedLocal, id: String(editingBannerId) });
                 } else {
                     if (typeof addBanner !== 'function') throw new Error('addBanner unavailable');
                     const firebaseId = await addBanner(data);
-                    banners.push({ ...data, id: String(firebaseId) });
+                    let createdLocal = { ...data, id: String(firebaseId) };
+                    try {
+                        // WHY: best-effort refresh from Firebase to preserve full banner schema after create.
+                        const remoteBanners = (typeof getBanners === 'function') ? await getBanners() : null;
+                        if (Array.isArray(remoteBanners)) {
+                            const latest = remoteBanners.find((item) => String(item && item.id) === String(firebaseId));
+                            if (latest) createdLocal = { ...latest };
+                        }
+                    } catch (refreshError) {
+                        console.warn('[ADMIN_BANNER_SAVE] refresh-after-create skipped:', refreshError);
+                    }
+                    banners.push(createdLocal);
                 }
             } catch (error) {
                 logAdmin('error', editingBannerId ? 'ADMIN_BANNER_UPDATE_FAILED' : 'ADMIN_BANNER_CREATE_FAILED', 'Failed to save banner in Firebase', {
@@ -5580,6 +5891,7 @@ function adminLogout(){
                 await requireAdminPermission();
                 if (typeof deleteBannerFromFirebase !== 'function') throw new Error('deleteBannerFromFirebase unavailable');
                 await deleteBannerFromFirebase(String(id));
+                console.info('[ADMIN_BANNER_DELETE] deleted from Firebase:', String(id || ''));
             } catch (error) {
                 logAdmin('error', 'ADMIN_BANNER_DELETE_FAILED', 'Failed to delete banner from Firebase', {
                     bannerId: String(id || ''),
@@ -9196,15 +9508,47 @@ function normalizeFilenameForMatch(value) {
         .trim();
 }
 
+function normalizeImageKey(value) {
+    // WHY: keep a single normalization path for uploader matching keys.
+    return normalizeFilenameForMatch(value);
+}
+
 function collectRequiredImageMap(productsList) {
     const requiredMap = new Map();
     const duplicateRequiredNames = [];
+    // WHY: count invalid image entries excluded from required map diagnostics.
+    let skippedInvalidCount = 0;
     const rows = Array.isArray(productsList) ? productsList : [];
     rows.forEach((product) => {
+        // WHY: read image source from each product row before matching.
         const rawImage = product && product.image;
+        // WHY: skip missing or base64 sources to prevent impossible upload requirements.
+        if (!rawImage || String(rawImage).trim().startsWith('data:')) {
+            skippedInvalidCount += 1;
+            return;
+        }
+        // WHY: skip empty normalized keys to avoid fake required entries.
+        const normalizedKey = normalizeImageKey(rawImage);
+        // WHY: enforce non-empty normalized key before adding to map.
+        if (!normalizedKey || !String(normalizedKey).trim()) {
+            skippedInvalidCount += 1;
+            return;
+        }
+        // WHY: keep display filename for reporting while using normalized key for matching.
         const fileName = extractFilenameFromImageValue(rawImage);
-        const key = normalizeFilenameForMatch(fileName || rawImage);
-        if (!key) return;
+        // WHY: allow only http(s) URLs or image-like filename sources and skip unsupported keys.
+        const rawImageValue = String(rawImage).trim();
+        // WHY: detect direct http/https image sources safely.
+        const isHttpSource = /^https?:\/\//i.test(rawImageValue);
+        // WHY: detect image-like filename sources to support filename-based Cloudinary flows.
+        const isImageLikeFileName = /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)(?:[?#].*)?$/i.test(fileName || rawImageValue);
+        // WHY: exclude unsupported non-http/non-image entries to avoid ghost image requests.
+        if (!isHttpSource && !isImageLikeFileName) {
+            skippedInvalidCount += 1;
+            return;
+        }
+        // WHY: keep stable key regardless of file extension or URL form.
+        const key = normalizedKey;
 
         if (!requiredMap.has(key)) {
             requiredMap.set(key, {
@@ -9220,6 +9564,8 @@ function collectRequiredImageMap(productsList) {
         if (fileName) entry.displayNames.add(fileName);
         if (rawImage != null && String(rawImage).trim()) entry.rawValues.add(String(rawImage).trim());
     });
+    // WHY: expose map/skip counters for uploader diagnostics in production console.
+    console.log('[IMAGE_MAP] Required:', requiredMap.size, '| Skipped invalid:', skippedInvalidCount);
     return { requiredMap, duplicateRequiredNames };
 }
 
@@ -9228,70 +9574,53 @@ function collectRequiredImageNames(productsList) {
 }
 
 async function fetchAllProductsForImageUpload() {
-    const byId = new Map();
-    const addRows = (rows) => {
-        if (!Array.isArray(rows)) return;
-        rows.forEach((item) => {
-            if (!item || typeof item !== 'object') return;
-            const id = String(item.id || item.docId || item.code || `${Math.random()}`);
-            if (!byId.has(id)) byId.set(id, item);
-        });
-    };
-
     try {
-        if (typeof resetProductsPagination === 'function') {
-            resetProductsPagination();
-        }
-
-        if (typeof getAllProducts === 'function') {
-            let guard = 0;
-            let batch = await getAllProducts(false);
-            addRows(batch);
-
-            while (Array.isArray(batch) && batch.length > 0 && guard < 300) {
-                guard += 1;
-                let nextBatch = [];
-                if (typeof loadMoreProducts === 'function') nextBatch = await loadMoreProducts();
-                else nextBatch = await getAllProducts(true);
-                if (!Array.isArray(nextBatch) || nextBatch.length === 0) break;
-                addRows(nextBatch);
-                batch = nextBatch;
+        // WHY: image uploader should process only explicitly published products.
+        if (typeof getPublishedProducts === 'function') {
+            const results = [];
+            let page = await getPublishedProducts(false);
+            if (Array.isArray(page)) results.push(...page);
+            // WHY: use configurable page threshold while paginating through published products.
+            const pageSize = Number((typeof window !== 'undefined' && window.PAGE_SIZE) || 20);
+            // WHY: continue pagination until API returns less than a full page.
+            while (Array.isArray(page) && page.length > 0 && page.length >= pageSize) {
+                page = await getPublishedProducts(true);
+                if (!Array.isArray(page) || page.length === 0) break;
+                results.push(...page);
                 await waitExcelUploadTick();
             }
+            // WHY: normalize schema first to prevent ghost rows from malformed records.
+            const validated = ensureProductsSchema(results)
+                // WHY: keep only explicitly published products for image upload scope.
+                .filter((item) => item && item.isPublished === true)
+                // WHY: exclude empty/base64 image values from uploader requirements.
+                .filter((item) => item && item.image && !String(item.image).startsWith('data:'));
+            // WHY: expose final validated count for uploader diagnostics.
+            console.log('[IMAGE_UPLOADER] Published products for upload:', validated.length);
+            return validated;
         }
-    } catch (error) {
-        console.error('[EXCEL_IMAGE_UPLOAD] helper pagination fetch failed:', error);
-    }
 
-    if (byId.size > 0) {
-        console.info('[EXCEL_IMAGE_UPLOAD] fetched via helpers:', byId.size);
-        return Array.from(byId.values());
-    }
-
-    try {
+        // WHY: use Firestore fallback with published-only filter when helper function is unavailable.
         const firestore = (typeof db !== 'undefined' && db && typeof db.collection === 'function')
             ? db
             : (typeof firebase !== 'undefined' && firebase && typeof firebase.firestore === 'function' ? firebase.firestore() : null);
-
+        // WHY: safely read published-only products from Firestore in uploader fallback path.
         if (firestore && typeof firestore.collection === 'function') {
-            const snapshot = await firestore.collection('products').get();
-            snapshot.forEach((doc) => {
-                byId.set(String(doc.id), { id: doc.id, ...(doc.data() || {}) });
-            });
-            if (byId.size > 0) {
-                console.info('[EXCEL_IMAGE_UPLOAD] fetched via Firestore fallback:', byId.size);
-                return Array.from(byId.values());
-            }
+            const snap = await firestore.collection('products').where('isPublished', '==', true).get();
+            // WHY: filter out invalid image values even in direct Firestore fallback.
+            const rows = snap.docs
+                .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+                .filter((item) => item && item.image && !String(item.image).startsWith('data:'));
+            // WHY: expose fallback count for upload diagnostics.
+            console.log('[IMAGE_UPLOADER] Firestore fallback count:', rows.length);
+            return rows;
         }
-    } catch (error) {
-        console.error('[EXCEL_IMAGE_UPLOAD] firestore fallback fetch failed:', error);
+        return [];
+    } catch (err) {
+        // WHY: never fallback to stale local cache to avoid ghost required-image requests.
+        console.error('[IMAGE_UPLOADER] Failed to fetch products for upload:', err);
+        return [];
     }
-
-    if (typeof products !== 'undefined' && Array.isArray(products)) {
-        addRows(products);
-    }
-    console.info('[EXCEL_IMAGE_UPLOAD] fetched via in-memory fallback:', byId.size);
-    return Array.from(byId.values());
 }
 
 function isImageFileCandidate(file) {
