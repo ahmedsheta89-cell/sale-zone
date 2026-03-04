@@ -590,8 +590,8 @@ async function getAllProducts(loadMore = false) {
 
         // WHY: enforce consistent ordering regardless of query path.
         const rows = sortProductsClientSide(snapshot.docs.map(mapProductFromSnapshot));
-        // WHY: expose deterministic success logs for verification in browser console.
-        console.log('✅ getAllProducts:', rows.length, 'products loaded');
+        // WHY: expose counts for mismatch diagnosis without changing existing query logic.
+        console.log('✅ getAllProducts:', rows.length, 'products loaded |', 'rawDocs:', snapshot.docs.length, '|', 'published:', rows.filter((p) => p && p.isPublished === true).length);
         return rows;
     } catch (err) {
         console.error('❌ getAllProducts error:', err);
@@ -719,8 +719,8 @@ async function getPublishedProducts(loadMore = false) {
 
         // WHY: stabilize product order client-side when orderBy is removed.
         newProducts = sortProductsClientSide(newProducts);
-        // WHY: emit explicit success logs for validation in production console.
-        console.log('✅ getPublishedProducts:', newProducts.length, 'products loaded');
+        // WHY: confirm published filter behavior against raw snapshot size for diagnostics.
+        console.log('✅ getPublishedProducts:', newProducts.length, 'products loaded |', 'rawDocs:', snapshot.docs.length);
         return newProducts;
     } catch (err) {
         console.error('❌ getPublishedProducts error:', err);
