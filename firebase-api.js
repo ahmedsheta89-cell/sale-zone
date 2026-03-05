@@ -276,15 +276,7 @@ async function saveReleaseGateState(state) {
 // ==========================================
 async function getCoupons() {
     try {
-        if (shouldUseBackendApi()) {
-            const data = await callBackendApi('/v1/coupons', {
-                method: 'GET',
-                requireAuth: false,
-                requireAppCheck: false,
-                strict: false
-            });
-            if (data && Array.isArray(data.items)) return data.items;
-        }
+        // WHY: Backend API removed (Firebase Spark plan - no Cloud Functions).
         const db = getFirebaseDB();
         const snapshot = await db.collection('coupons').get();
         const coupons = snapshot.docs.map(doc => {
@@ -300,20 +292,23 @@ async function getCoupons() {
         return coupons;
     } catch (e) {
         console.error('getCoupons error:', e);
-        return null;
+        return [];
     }
 }
 
 async function addCoupon(coupon) {
     try {
-        const data = await callBackendApi('/v1/admin/coupons', {
-            method: 'POST',
-            body: coupon,
-            requireAuth: true,
-            requireAppCheck: true
+        // WHY: write coupons directly to Firestore to avoid CORS/backend dependency.
+        const db = getFirebaseDB();
+        const payload = coupon && typeof coupon === 'object' ? coupon : {};
+        const nowIso = new Date().toISOString();
+        const docRef = await db.collection('coupons').add({
+            ...payload,
+            createdAt: payload.createdAt || nowIso,
+            updatedAt: nowIso
         });
-        console.log('[OK] Coupon added via backend:', data && data.id ? data.id : '');
-        return data && data.id ? data.id : null;
+        console.log('[OK] Coupon added via Firestore:', docRef.id);
+        return docRef.id;
     } catch (e) {
         console.error('addCoupon error:', e);
         throw e;
@@ -322,13 +317,16 @@ async function addCoupon(coupon) {
 
 async function updateCoupon(id, data) {
     try {
-        await callBackendApi(`/v1/admin/coupons/${encodeURIComponent(String(id || ''))}`, {
-            method: 'PATCH',
-            body: data,
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        console.log('[OK] Coupon updated via backend:', id);
+        // WHY: update coupons directly in Firestore.
+        const db = getFirebaseDB();
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('coupon id is required');
+        const payload = data && typeof data === 'object' ? data : {};
+        await db.collection('coupons').doc(docId).set({
+            ...payload,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('[OK] Coupon updated via Firestore:', docId);
     } catch (e) {
         console.error('updateCoupon error:', e);
         throw e;
@@ -337,12 +335,12 @@ async function updateCoupon(id, data) {
 
 async function deleteCoupon(id) {
     try {
-        await callBackendApi(`/v1/admin/coupons/${encodeURIComponent(String(id || ''))}`, {
-            method: 'DELETE',
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        console.log('[OK] Coupon deleted via backend:', id);
+        // WHY: delete coupons directly from Firestore.
+        const db = getFirebaseDB();
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('coupon id is required');
+        await db.collection('coupons').doc(docId).delete();
+        console.log('[OK] Coupon deleted via Firestore:', docId);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -354,15 +352,7 @@ async function deleteCoupon(id) {
 // ==========================================
 async function getBanners() {
     try {
-        if (shouldUseBackendApi()) {
-            const data = await callBackendApi('/v1/banners', {
-                method: 'GET',
-                requireAuth: false,
-                requireAppCheck: false,
-                strict: false
-            });
-            if (data && Array.isArray(data.items)) return data.items;
-        }
+        // WHY: Backend API removed (Firebase Spark plan - no Cloud Functions).
         const db = getFirebaseDB();
         const snapshot = await db.collection('banners').get();
         const banners = snapshot.docs.map(doc => {
@@ -379,20 +369,23 @@ async function getBanners() {
         return banners;
     } catch (e) {
         console.error('getBanners error:', e);
-        return null;
+        return [];
     }
 }
 
 async function addBanner(banner) {
     try {
-        const data = await callBackendApi('/v1/admin/banners', {
-            method: 'POST',
-            body: banner,
-            requireAuth: true,
-            requireAppCheck: true
+        // WHY: write banners directly to Firestore to avoid backend dependency.
+        const db = getFirebaseDB();
+        const payload = banner && typeof banner === 'object' ? banner : {};
+        const nowIso = new Date().toISOString();
+        const docRef = await db.collection('banners').add({
+            ...payload,
+            createdAt: payload.createdAt || nowIso,
+            updatedAt: nowIso
         });
-        console.log('[OK] Banner added via backend:', data && data.id ? data.id : '');
-        return data && data.id ? data.id : null;
+        console.log('[OK] Banner added via Firestore:', docRef.id);
+        return docRef.id;
     } catch (e) {
         console.error('addBanner error:', e);
         throw e;
@@ -401,13 +394,16 @@ async function addBanner(banner) {
 
 async function updateBanner(id, data) {
     try {
-        await callBackendApi(`/v1/admin/banners/${encodeURIComponent(String(id || ''))}`, {
-            method: 'PATCH',
-            body: data,
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        console.log('[OK] Banner updated via backend:', id);
+        // WHY: update banners directly in Firestore.
+        const db = getFirebaseDB();
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('banner id is required');
+        const payload = data && typeof data === 'object' ? data : {};
+        await db.collection('banners').doc(docId).set({
+            ...payload,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('[OK] Banner updated via Firestore:', docId);
     } catch (e) {
         console.error('updateBanner error:', e);
         throw e;
@@ -416,12 +412,12 @@ async function updateBanner(id, data) {
 
 async function deleteBanner(id) {
     try {
-        await callBackendApi(`/v1/admin/banners/${encodeURIComponent(String(id || ''))}`, {
-            method: 'DELETE',
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        console.log('[OK] Banner deleted via backend:', id);
+        // WHY: delete banners directly from Firestore.
+        const db = getFirebaseDB();
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('banner id is required');
+        await db.collection('banners').doc(docId).delete();
+        console.log('[OK] Banner deleted via Firestore:', docId);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
@@ -562,22 +558,14 @@ function normalizeProductPayloadForWrite(product, options = {}) {
 
 async function getAllProducts() {
     try {
-        if (shouldUseBackendApi()) {
-            const data = await callBackendApi('/v1/admin/products?limit=2000', {
-                method: 'GET',
-                requireAuth: true,
-                requireAppCheck: true,
-                strict: false
-            });
-            if (data && Array.isArray(data.items)) return data.items;
-        }
+        // WHY: always use Firestore directly for admin products.
         const db = getFirebaseDB();
         const snapshot = await db.collection('products').get();
         const products = snapshot.docs.map(mapProductFromSnapshot);
         return products;
     } catch (e) {
         console.error('getAllProducts error:', e);
-        return null;
+        return [];
     }
 }
 
@@ -617,15 +605,7 @@ function mapProductFromSnapshot(doc) {
 
 async function getPublishedProducts() {
     try {
-        if (shouldUseBackendApi()) {
-            const data = await callBackendApi('/v1/products?limit=200', {
-                method: 'GET',
-                requireAuth: false,
-                requireAppCheck: false,
-                strict: false
-            });
-            if (data && Array.isArray(data.items)) return data.items;
-        }
+        // WHY: always read published products from Firestore.
         const db = getFirebaseDB();
         const snapshot = await db.collection('products')
             .where('isPublished', '==', true)
@@ -633,21 +613,18 @@ async function getPublishedProducts() {
         return snapshot.docs.map(mapProductFromSnapshot);
     } catch (e) {
         console.error('getPublishedProducts error:', e);
-        return null;
+        return [];
     }
 }
 
 async function addProduct(product) {
     try {
         const payload = normalizeProductPayloadForWrite(product, { defaults: { isPublished: true } });
-        const data = await callBackendApi('/v1/admin/products', {
-            method: 'POST',
-            body: payload,
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        console.log('[OK] Product added via backend:', data && data.id ? data.id : '');
-        return data && data.id ? data.id : null;
+        // WHY: create products directly in Firestore to remove backend dependency.
+        const db = getFirebaseDB();
+        const docRef = await db.collection('products').add(payload);
+        console.log('[OK] Product added via Firestore:', docRef.id);
+        return docRef.id;
     } catch (e) {
         console.error('addProduct error:', e);
         throw e;
@@ -660,13 +637,12 @@ async function updateProduct(id, data) {
         const normalizedPayload = normalizeProductPayloadForWrite(payload, {
             defaults: { isPublished: true }
         });
-        await callBackendApi(`/v1/admin/products/${encodeURIComponent(String(id || ''))}`, {
-            method: 'PATCH',
-            body: normalizedPayload,
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        console.log('[OK] Product updated via backend:', id);
+        // WHY: update products directly in Firestore.
+        const db = getFirebaseDB();
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('product id is required');
+        await db.collection('products').doc(docId).set(normalizedPayload, { merge: true });
+        console.log('[OK] Product updated via Firestore:', docId);
     } catch (e) {
         console.error('updateProduct error:', e);
         throw e;
@@ -772,12 +748,12 @@ async function deleteProductsBatch(ids, options = {}) {
 
 async function deleteProductFromFirebase(id) {
     try {
-        await callBackendApi(`/v1/admin/products/${encodeURIComponent(String(id || ''))}`, {
-            method: 'DELETE',
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        console.log('[OK] Product deleted via backend:', id);
+        // WHY: delete products directly from Firestore.
+        const db = getFirebaseDB();
+        const docId = String(id || '').trim();
+        if (!docId) throw new Error('product id is required');
+        await db.collection('products').doc(docId).delete();
+        console.log('[OK] Product deleted via Firestore:', docId);
     } catch (e) {
         console.error('deleteProduct error:', e);
         throw e;
@@ -981,29 +957,59 @@ async function upsertOrderQueueDocument(dbRef, queueItem, status = 'queued', det
 }
 
 async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
-    requireBackendApiForSensitiveWrite('order-create');
-    const data = await callBackendApi('/v1/orders', {
-        method: 'POST',
-        body: {
-            ...orderPayload,
-            syncState: String(meta && meta.syncState || 'synced')
-        },
-        requireAuth: true,
-        requireAppCheck: true
+    // WHY: Spark plan has no backend API, so order persistence must be Firestore-direct.
+    const fireDB = dbRef || getFirebaseDB();
+    const payload = orderPayload && typeof orderPayload === 'object' ? { ...orderPayload } : {};
+    const nowIso = new Date().toISOString();
+    const idempotencyKey = String(payload.idempotencyKey || '').trim();
+
+    if (idempotencyKey) {
+        const existingSnapshot = await fireDB
+            .collection('orders')
+            .where('idempotencyKey', '==', idempotencyKey)
+            .limit(1)
+            .get();
+        if (!existingSnapshot.empty) {
+            const existingDoc = existingSnapshot.docs[0];
+            const existingData = existingDoc.data() || {};
+            return {
+                id: String(existingDoc.id || ''),
+                status: String(existingData.status || 'saved'),
+                duplicate: true,
+                queued: false
+            };
+        }
+    }
+
+    const orderId = String(payload.id || normalizeOrderDocId(idempotencyKey)).trim();
+    payload.id = orderId;
+    payload.syncState = String(meta && meta.syncState || payload.syncState || 'synced');
+    payload.updatedAt = nowIso;
+    payload.createdAt = String(payload.createdAt || nowIso);
+
+    await fireDB.collection('orders').doc(orderId).set(payload, { merge: true });
+    await appendOrderEvent(fireDB, 'ORDER_CREATED', payload, {
+        source: String(meta && meta.source || payload.source || 'store-web'),
+        payload: { syncState: payload.syncState }
     });
+    await appendAuditLog(fireDB, 'ORDER_CREATED', {
+        targetId: orderId,
+        scope: 'orders',
+        uid: String(payload.uid || ''),
+        details: { syncState: payload.syncState }
+    });
+
     return {
-        id: String(data && data.id || ''),
-        status: String(data && data.status || 'saved'),
-        duplicate: data && data.duplicate === true,
+        id: orderId,
+        status: String(payload.status || 'saved'),
+        duplicate: false,
         queued: false
     };
 }
 
 async function flushOrderQueue(options = {}) {
     if (orderQueueFlushInFlight) return { flushed: 0, pending: readOrderQueueLocal().length };
-    if (!shouldUseBackendApi()) {
-        return { flushed: 0, pending: readOrderQueueLocal().length };
-    }
+    // WHY: queue flush must run with Firestore direct writes even when backend API is disabled.
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         return { flushed: 0, pending: readOrderQueueLocal().length };
     }
@@ -1092,32 +1098,7 @@ async function getAllOrders() {
 }
 
 async function listOrdersPage(options = {}) {
-    if (shouldUseBackendApi()) {
-        const safeLimit = Math.max(1, Math.min(200, Number(options && options.limit) || 50));
-        const params = new URLSearchParams();
-        params.set('limit', String(safeLimit));
-        const cursor = String(options && options.cursor || '').trim();
-        const status = String(options && options.status || '').trim();
-        const dateFromIso = String(options && options.dateFromIso || '').trim();
-        const dateToIso = String(options && options.dateToIso || '').trim();
-        const searchText = String(options && options.searchText || '').trim();
-        if (cursor) params.set('cursor', cursor);
-        if (status) params.set('status', status);
-        if (dateFromIso) params.set('dateFrom', dateFromIso);
-        if (dateToIso) params.set('dateTo', dateToIso);
-        if (searchText) params.set('search', searchText);
-        const data = await callBackendApi(`/v1/orders?${params.toString()}`, {
-            method: 'GET',
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        return {
-            items: Array.isArray(data && data.items) ? data.items : [],
-            hasMore: data && data.hasMore === true,
-            nextCursor: String(data && data.nextCursor || '')
-        };
-    }
-
+    // WHY: list orders from Firestore directly (server truth without backend dependency).
     const db = getFirebaseDB();
     const safeLimit = Math.max(1, Math.min(200, Number(options && options.limit) || 50));
     const cursorId = String(options && options.cursor || '').trim();
@@ -1232,7 +1213,6 @@ async function getOrdersByCustomerUid(uid = '', limitCount = 50) {
 
 async function addOrder(order, options = {}) {
     try {
-        requireBackendApiForSensitiveWrite('order-create');
         const dbRef = getFirebaseDB();
         const normalizedOrder = normalizeOrderPayloadForWrite(order, options);
         const allowQueue = options && options.allowQueue !== false;
@@ -1281,15 +1261,39 @@ async function updateOrderStatus(id, status) {
         const orderId = String(id || '').trim();
         const nextStatus = String(status || '').trim().toLowerCase();
         if (!orderId || !nextStatus) throw new Error('order id and status are required');
-        requireBackendApiForSensitiveWrite('order-status-update');
-        await callBackendApi(`/v1/admin/orders/${encodeURIComponent(orderId)}/status`, {
-            method: 'PATCH',
-            body: { status: nextStatus },
-            requireAuth: true,
-            requireAppCheck: true
+        // WHY: update order status directly in Firestore to remove backend dependency.
+        const dbRef = getFirebaseDB();
+        const docRef = dbRef.collection('orders').doc(orderId);
+        const snapshot = await docRef.get();
+        if (!snapshot.exists) throw new Error('order not found');
+        const current = snapshot.data() || {};
+        const nowIso = new Date().toISOString();
+        const statusHistory = Array.isArray(current.statusHistory) ? [...current.statusHistory] : [];
+        statusHistory.push({ status: nextStatus, date: nowIso, note: 'تم تحديث حالة الطلب' });
+
+        await docRef.set({
+            status: nextStatus,
+            updatedAt: nowIso,
+            statusHistory
+        }, { merge: true });
+
+        await appendOrderEvent(dbRef, 'ORDER_STATUS_UPDATED', {
+            id: orderId,
+            uid: String(current.uid || ''),
+            idempotencyKey: String(current.idempotencyKey || ''),
+            source: String(current.source || 'admin-panel')
+        }, {
+            source: 'admin:status-update',
+            payload: { from: String(current.status || ''), to: nextStatus }
+        });
+        await appendAuditLog(dbRef, 'ORDER_STATUS_UPDATED', {
+            targetId: orderId,
+            scope: 'orders',
+            uid: String(current.uid || ''),
+            details: { from: String(current.status || ''), to: nextStatus }
         });
 
-        console.log('[OK] Order status updated:', orderId);
+        console.log('[OK] Order status updated via Firestore:', orderId);
     } catch (e) {
         console.error('updateOrderStatus error:', e);
         throw e;
@@ -1788,28 +1792,20 @@ async function deleteCustomerFromFirebase(id) {
 // ==========================================
 async function getAllCoupons() {
     try {
-        if (shouldUseBackendApi()) {
-            const data = await callBackendApi('/v1/admin/coupons?limit=1000', {
-                method: 'GET',
-                requireAuth: true,
-                requireAppCheck: true,
-                strict: false
-            });
-            if (data && Array.isArray(data.items)) return data.items;
-        }
+        // WHY: admin coupons must use Firestore directly (no backend dependency).
         const db = getFirebaseDB();
         const snapshot = await db.collection('coupons').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
         console.error('getAllCoupons error:', e);
-        return null;
+        return [];
     }
 }
 
 async function deleteCouponFromFirebase(id) {
     try {
         await deleteCoupon(id);
-        console.log('[OK] Coupon deleted via backend:', id);
+        console.log('[OK] Coupon deleted via Firestore:', id);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -1821,28 +1817,20 @@ async function deleteCouponFromFirebase(id) {
 // ==========================================
 async function getAllBanners() {
     try {
-        if (shouldUseBackendApi()) {
-            const data = await callBackendApi('/v1/admin/banners?limit=1000', {
-                method: 'GET',
-                requireAuth: true,
-                requireAppCheck: true,
-                strict: false
-            });
-            if (data && Array.isArray(data.items)) return data.items;
-        }
+        // WHY: admin banners must use Firestore directly (no backend dependency).
         const db = getFirebaseDB();
         const snapshot = await db.collection('banners').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
         console.error('getAllBanners error:', e);
-        return null;
+        return [];
     }
 }
 
 async function deleteBannerFromFirebase(id) {
     try {
         await deleteBanner(id);
-        console.log('[OK] Banner deleted via backend:', id);
+        console.log('[OK] Banner deleted via Firestore:', id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
