@@ -1,4 +1,4 @@
-name: Deploy Backend
+﻿name: Deploy Backend
 
 on:
   workflow_dispatch:
@@ -101,7 +101,7 @@ jobs:
       - name: Install Firebase CLI
         run: |
           set -euo pipefail
-          npm install -g firebase-tools@13.32.0
+          npm install -g firebase-tools
 
       - name: Verify required backend files
         run: |
@@ -110,7 +110,7 @@ jobs:
 
           if [[ ! -f functions/package.json ]]; then
             echo "functions/package.json missing - creating minimal fallback"
-            cat <<'JSON' > functions/package.json
+                        cat <<''JSON'' > functions/package.json
             {
               "name": "firebase-backend",
               "version": "1.0.0",
@@ -129,8 +129,7 @@ jobs:
                 "cors": "^2.8.5"
               }
             }
-          JSON
-          fi
+            JSON          fi
 
           if [[ ! -f firestore.indexes.json ]]; then
             echo "firestore.indexes.json missing - creating minimal fallback"
@@ -152,7 +151,7 @@ jobs:
           set -euo pipefail
           mkdir -p backend-artifact
           created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          cat > backend-artifact/backend-metadata.json <<EOF
+                    cat > backend-artifact/backend-metadata.json <<EOF
           {
             "commitSha": "${{ github.event.inputs.target_sha }}",
             "workflow": "deploy-backend",
@@ -161,10 +160,11 @@ jobs:
             "indexesAttempted": true
           }
           EOF
-
       - name: Upload backend metadata artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-${{ github.event.inputs.target_sha }}
           path: backend-artifact/backend-metadata.json
           if-no-files-found: error
+
+
