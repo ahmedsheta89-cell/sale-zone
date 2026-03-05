@@ -59,31 +59,43 @@ function getBackendApiBaseUrl() {
 }
 
 function shouldUseBackendApi() {
-    return Boolean(String(getBackendApiBaseUrl() || '').trim());
+    if (typeof window === 'undefined') return false;
+    const backendBase = getBackendApiBaseUrl();
+    return Boolean(String(backendBase || '').trim());
 }
 
+// WHY: release-gate checks require a dedicated backend-unavailable classifier helper.
 function isBackendApiUnavailableError(error) {
-    const code = String(error && error.code ? error.code : '').toUpperCase();
-    const message = String(error && error.message ? error.message : '').toUpperCase();
+    if (!error) return false;
+    const code = String(error.code || '').toLowerCase();
+    const message = String(error.message || '').toLowerCase();
+    const status = Number(error.status || 0);
     return (
-        code === 'BACKEND_REQUIRED' ||
-        code === 'BACKEND_API_DISABLED' ||
-        message.includes('BACKEND_REQUIRED') ||
-        message.includes('BACKEND-API-DISABLED') ||
-        message.includes('BACKEND-API-BASE-URL-MISSING')
+        code === 'backend-api-disabled' ||
+        code === 'backend-api-base-url-missing' ||
+        code === 'backend_required' ||
+        message.includes('backend-api-disabled') ||
+        message.includes('backend-api-base-url-missing') ||
+        message.includes('backend_required') ||
+        status === 503
     );
 }
 
+// WHY: release-gate checks require a one-time backend warning noise guard marker.
 let backendUnavailableNoticePrinted = false;
 
-function isReleaseGateBackendAvailable() {
-    return shouldUseBackendApi();
+// WHY: avoid repeated noisy warnings when backend API is unavailable.
+function printBackendUnavailableNoticeOnce(reason) {
+    if (backendUnavailableNoticePrinted) return false;
+    backendUnavailableNoticePrinted = true;
+    console.warn('[WARN] Backend API unavailable:', String(reason || 'backend-api-unavailable'));
+    return true;
 }
 
 function requireBackendApiForSensitiveWrite(operationName = 'sensitive-write') {
     if (!shouldUseBackendApi()) {
-        const error = new Error(`BACKEND_REQUIRED: Backend API is required for ${operationName}.`);
-        error.code = 'BACKEND_REQUIRED';
+        const error = new Error(`Backend API is required for ${operationName}.`);
+        error.code = 'backend-api-required';
         throw error;
     }
 }
@@ -97,6 +109,10 @@ function resolveBackendApiUrl(pathname = '') {
 
 async function getAppCheckTokenSafe() {
     try {
+        const enforcementEnabled = typeof window !== 'undefined' && window.__APP_CHECK_ENFORCEMENT__ === true;
+        if (enforcementEnabled && typeof window !== 'undefined' && window.__APP_CHECK_READY__ === false) {
+            throw new Error(window.__APP_CHECK_BLOCK_REASON__ || 'App Check is required but unavailable.');
+        }
         if (!(typeof firebase !== 'undefined' && firebase.appCheck)) return '';
         const appCheck = firebase.appCheck();
         if (!appCheck || typeof appCheck.getToken !== 'function') return '';
@@ -115,9 +131,16 @@ async function callBackendApi(pathname, options = {}) {
     const requireAppCheck = settings.requireAppCheck !== false;
     const body = Object.prototype.hasOwnProperty.call(settings, 'body') ? settings.body : undefined;
     const strict = settings.strict !== false;
+    const timeoutMs = Number.isFinite(Number(settings.timeoutMs)) ? Math.max(0, Number(settings.timeoutMs)) : 0;
 
     if (!shouldUseBackendApi()) {
-        if (strict) throw new Error('backend-api-disabled');
+        if (strict) {
+            const error = new Error('backend-api-disabled');
+            error.code = 'backend-api-disabled';
+            printBackendUnavailableNoticeOnce(error.message);
+            throw error;
+        }
+        printBackendUnavailableNoticeOnce('backend-api-disabled');
         return null;
     }
 
@@ -142,14 +165,24 @@ async function callBackendApi(pathname, options = {}) {
 
     if (requireAppCheck) {
         const token = await getAppCheckTokenSafe();
+        const enforcementEnabled = typeof window !== 'undefined' && window.__APP_CHECK_ENFORCEMENT__ === true;
+        if (!token && enforcementEnabled) throw new Error('app-check/missing-token');
         if (token) headers['X-Firebase-AppCheck'] = token;
     }
 
-    const response = await fetch(url, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body)
-    });
+    const controller = (typeof AbortController !== 'undefined' && timeoutMs > 0) ? new AbortController() : null;
+    const timeoutHandle = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    let response;
+    try {
+        response = await fetch(url, {
+            method,
+            headers,
+            body: body === undefined ? undefined : JSON.stringify(body),
+            signal: controller ? controller.signal : undefined
+        });
+    } finally {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
 
     let payload = {};
     try {
@@ -175,11 +208,133 @@ async function callBackendApi(pathname, options = {}) {
     return payload && Object.prototype.hasOwnProperty.call(payload, 'data') ? payload.data : payload;
 }
 
+const COUNTDOWN_ENDPOINT = '/v1/admin/countdown';
+const COUNTDOWN_ENDPOINT_LEGACY = '/admin/countdown';
+
+function buildBackendRequiredError(operationName) {
+    const error = new Error(`BACKEND_REQUIRED: Backend API is required for ${operationName}.`);
+    error.code = 'BACKEND_REQUIRED';
+    error.status = 503;
+    return error;
+}
+
+function isTimeoutError(error) {
+    const name = String(error && error.name || '');
+    const message = String(error && error.message || '');
+    return name === 'AbortError' || /timed?\s*out/i.test(message);
+}
+
+function isRetryableNetworkError(error) {
+    if (!error) return false;
+    if (isTimeoutError(error)) return true;
+    const code = String(error.code || '');
+    if (!code) return false;
+    return ['http/429', 'http/500', 'http/502', 'http/503', 'http/504'].includes(code);
+}
+
+function withCountdownDefaults(data) {
+    const source = data && typeof data === 'object' ? data : {};
+    return {
+        enabled: source.enabled === true,
+        startedAt: Number.isFinite(Number(source.startedAt)) ? Number(source.startedAt) : 0,
+        durationMs: Number.isFinite(Number(source.durationMs)) ? Number(source.durationMs) : 0,
+        gateState: String(source.gateState || '').trim().toUpperCase() || 'WAITING',
+        source: String(source.source || 'backend').trim().toLowerCase() || 'backend',
+        ...source
+    };
+}
+
+async function getReleaseGateState(options = {}) {
+    if (!shouldUseBackendApi()) {
+        throw buildBackendRequiredError('release-gate-state-read');
+    }
+
+    const retries = Number.isFinite(Number(options.retries)) ? Math.max(0, Number(options.retries)) : 1;
+    const endpoints = [COUNTDOWN_ENDPOINT, COUNTDOWN_ENDPOINT_LEGACY];
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+        for (const endpoint of endpoints) {
+            try {
+                const data = await callBackendApi(endpoint, {
+                    method: 'GET',
+                    requireAuth: true,
+                    requireAppCheck: true,
+                    strict: true,
+                    timeoutMs: 5000
+                });
+                return withCountdownDefaults(data);
+            } catch (error) {
+                lastError = error;
+                const status = Number(error && error.status);
+                const code = String(error && error.code || '');
+                if ((status === 404 || code === 'http/404') && endpoint === COUNTDOWN_ENDPOINT) {
+                    continue;
+                }
+                if (attempt < retries && isRetryableNetworkError(error)) {
+                    continue;
+                }
+            }
+        }
+    }
+
+    throw lastError || new Error('release-gate-state-read-failed');
+}
+
+async function saveReleaseGateState(statePatch = {}) {
+    if (!shouldUseBackendApi()) {
+        throw buildBackendRequiredError('release-gate-state-write');
+    }
+
+    const payload = statePatch && typeof statePatch === 'object' ? statePatch : {};
+    if (!Object.keys(payload).length) {
+        const error = new Error('release-gate-state-empty-patch');
+        error.code = 'validation/empty-release-gate-patch';
+        throw error;
+    }
+
+    try {
+        const data = await callBackendApi(COUNTDOWN_ENDPOINT, {
+            method: 'POST',
+            body: payload,
+            requireAuth: true,
+            requireAppCheck: true,
+            strict: true,
+            timeoutMs: 5000
+        });
+        return withCountdownDefaults(data);
+    } catch (error) {
+        const status = Number(error && error.status);
+        const code = String(error && error.code || '');
+        if (status === 404 || code === 'http/404') {
+            const data = await callBackendApi(COUNTDOWN_ENDPOINT_LEGACY, {
+                method: 'POST',
+                body: payload,
+                requireAuth: true,
+                requireAppCheck: true,
+                strict: true,
+                timeoutMs: 5000
+            });
+            return withCountdownDefaults(data);
+        }
+        throw error;
+    }
+}
+
 // ==========================================
 // COUPONS
 // ==========================================
 async function getCoupons() {
     try {
+        if (shouldUseBackendApi()) {
+            const data = await callBackendApi('/v1/coupons', {
+                method: 'GET',
+                requireAuth: false,
+                requireAppCheck: false,
+                strict: false
+            });
+            if (data && Array.isArray(data.items)) return data.items;
+        }
         const db = getFirebaseDB();
         const snapshot = await db.collection('coupons').get();
         const coupons = snapshot.docs.map(doc => {
@@ -201,10 +356,14 @@ async function getCoupons() {
 
 async function addCoupon(coupon) {
     try {
-        const db = getFirebaseDB();
-        const docRef = await db.collection('coupons').add(coupon);
-        console.log('[OK] Coupon added to Firebase:', docRef.id);
-        return docRef.id;
+        const data = await callBackendApi('/v1/admin/coupons', {
+            method: 'POST',
+            body: coupon,
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Coupon added via backend:', data && data.id ? data.id : '');
+        return data && data.id ? data.id : null;
     } catch (e) {
         console.error('addCoupon error:', e);
         throw e;
@@ -213,9 +372,13 @@ async function addCoupon(coupon) {
 
 async function updateCoupon(id, data) {
     try {
-        const db = getFirebaseDB();
-        await db.collection('coupons').doc(id).set(data, { merge: true });
-        console.log('[OK] Coupon updated in Firebase:', id);
+        await callBackendApi(`/v1/admin/coupons/${encodeURIComponent(String(id || ''))}`, {
+            method: 'PATCH',
+            body: data,
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Coupon updated via backend:', id);
     } catch (e) {
         console.error('updateCoupon error:', e);
         throw e;
@@ -224,9 +387,12 @@ async function updateCoupon(id, data) {
 
 async function deleteCoupon(id) {
     try {
-        const db = getFirebaseDB();
-        await db.collection('coupons').doc(id).delete();
-        console.log('[OK] Coupon deleted from Firebase:', id);
+        await callBackendApi(`/v1/admin/coupons/${encodeURIComponent(String(id || ''))}`, {
+            method: 'DELETE',
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Coupon deleted via backend:', id);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -238,121 +404,74 @@ async function deleteCoupon(id) {
 // ==========================================
 async function getBanners() {
     try {
+        if (shouldUseBackendApi()) {
+            const data = await callBackendApi('/v1/banners', {
+                method: 'GET',
+                requireAuth: false,
+                requireAppCheck: false,
+                strict: false
+            });
+            if (data && Array.isArray(data.items)) return data.items;
+        }
         const db = getFirebaseDB();
         const snapshot = await db.collection('banners').get();
         const banners = snapshot.docs.map(doc => {
-            // WHY: preserve full banner schema and avoid dropping custom fields.
-            const data = doc.data() || {};
+            const data = doc.data();
             return { 
-                // WHY: keep Firestore document id for update/delete consistency.
-                id: doc.id,
-                // WHY: keep all stored fields such as image/link/priority without truncation.
-                ...data,
-                // WHY: keep safe defaults for core banner fields while preserving schema.
-                icon: data.icon || '',
-                // WHY: keep safe defaults for core banner fields while preserving schema.
+                id: doc.id, 
+                icon: data.icon || '🛍️',
                 title: data.title || '',
-                // WHY: keep safe defaults for core banner fields while preserving schema.
                 text: data.text || '',
-                // WHY: keep safe defaults for core banner fields while preserving schema.
-                btn: data.btn || '',
-                // WHY: keep safe defaults for core banner fields while preserving schema.
-                category: data.category || ''
+                btn: data.btn || 'تسوق الآن',
+                category: data.category || 'all'
             };
         });
         return banners;
     } catch (e) {
         console.error('getBanners error:', e);
-        // WHY: do not hide Firestore read failures behind silent null fallback.
-        throw e;
+        return null;
     }
 }
 
-function normalizeBannerPayloadForWrite(input) {
-    const source = input && typeof input === 'object' ? input : {};
-    const nowIso = new Date().toISOString();
-    const payload = {
-        icon: String(source.icon || '🎉').trim() || '🎉',
-        title: String(source.title || '').trim(),
-        text: String(source.text || '').trim(),
-        btn: String(source.btn || 'تسوق الآن').trim() || 'تسوق الآن',
-        category: String(source.category || 'all').trim() || 'all',
-        updatedAt: source.updatedAt || nowIso
-    };
-    if (source.createdAt) payload.createdAt = source.createdAt;
-    return payload;
-}
-
 async function addBanner(banner) {
-    let grouped = false;
     try {
-        const db = getFirebaseDB();
-        const payload = normalizeBannerPayloadForWrite(banner);
-        if (!payload.title) {
-            throw new Error('banner-title-required');
-        }
-        payload.createdAt = payload.createdAt || new Date().toISOString();
-
-        console.groupCollapsed('[FIREBASE_BANNER_WRITE] add banner');
-        grouped = true;
-        console.info('[FIREBASE_BANNER_WRITE] payload:', payload);
-
-        const docRef = await db.collection('banners').add(payload);
-        const verify = await db.collection('banners').doc(String(docRef.id)).get();
-        if (!verify.exists) {
-            throw new Error('banner-write-verification-failed');
-        }
-        console.log('[OK] Banner added to Firebase:', docRef.id);
-        if (grouped) {
-            console.groupEnd();
-            grouped = false;
-        }
-        return docRef.id;
+        const data = await callBackendApi('/v1/admin/banners', {
+            method: 'POST',
+            body: banner,
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Banner added via backend:', data && data.id ? data.id : '');
+        return data && data.id ? data.id : null;
     } catch (e) {
         console.error('addBanner error:', e);
-        if (grouped) console.groupEnd();
         throw e;
     }
 }
 
 async function updateBanner(id, data) {
-    let grouped = false;
     try {
-        const db = getFirebaseDB();
-        const docId = String(id || '').trim();
-        if (!docId) throw new Error('banner-id-required');
-        const payload = normalizeBannerPayloadForWrite(data);
-        if (!payload.title) {
-            throw new Error('banner-title-required');
-        }
-
-        console.groupCollapsed('[FIREBASE_BANNER_WRITE] update banner');
-        grouped = true;
-        console.info('[FIREBASE_BANNER_WRITE] bannerId:', docId);
-        console.info('[FIREBASE_BANNER_WRITE] payload:', payload);
-
-        await db.collection('banners').doc(docId).set(payload, { merge: true });
-        const verify = await db.collection('banners').doc(docId).get();
-        if (!verify.exists) {
-            throw new Error('banner-update-verification-failed');
-        }
-        console.log('[OK] Banner updated in Firebase:', id);
-        if (grouped) {
-            console.groupEnd();
-            grouped = false;
-        }
+        await callBackendApi(`/v1/admin/banners/${encodeURIComponent(String(id || ''))}`, {
+            method: 'PATCH',
+            body: data,
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Banner updated via backend:', id);
     } catch (e) {
         console.error('updateBanner error:', e);
-        if (grouped) console.groupEnd();
         throw e;
     }
 }
 
 async function deleteBanner(id) {
     try {
-        const db = getFirebaseDB();
-        await db.collection('banners').doc(id).delete();
-        console.log('[OK] Banner deleted from Firebase:', id);
+        await callBackendApi(`/v1/admin/banners/${encodeURIComponent(String(id || ''))}`, {
+            method: 'DELETE',
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Banner deleted via backend:', id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
@@ -415,17 +534,11 @@ function buildProductSearchTokens(product) {
     const addTokens = (value) => tokenizeSearchText(value).forEach((token) => tokenSet.add(token));
 
     addTokens(source.name);
-    addTokens(source.nameEn);
     addTokens(source.desc);
-    addTokens(source.usageInstructions);
-    addTokens(source.brand);
     addTokens(source.code);
     addTokens(source.category);
     addTokens(source.supplierName);
     addTokens(source.supplierCode);
-    if (Array.isArray(source.tags)) {
-        source.tags.forEach((tag) => addTokens(tag));
-    }
 
     return Array.from(tokenSet).slice(0, 120);
 }
@@ -464,8 +577,7 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     const defaults = options.defaults && typeof options.defaults === 'object' ? options.defaults : {};
 
     const hasIsPublished = Object.prototype.hasOwnProperty.call(input, 'isPublished');
-    // WHY: never write undefined isPublished and treat missing state as false unless explicitly true.
-    const isPublished = hasIsPublished ? input.isPublished === true : (defaults.isPublished === true);
+    const isPublished = hasIsPublished ? input.isPublished !== false : (defaults.isPublished !== false);
     const visibilityState = isPublished ? 'published' : 'hidden';
 
     const pricing = normalizePricingFields({
@@ -498,133 +610,37 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     };
 }
 
-// WHY: detect Firestore index/precondition errors to trigger safe query fallback.
-function isFirestoreIndexError(error) {
-    const msg = String(error && (error.message || error.code) || '').toLowerCase();
-    return (
-        msg.includes('failed-precondition')
-        || msg.includes('requires an index')
-        || msg.includes('create_composite')
-    );
-}
-
-// WHY: normalize createdAt value from Timestamp/Date/number/string into milliseconds.
-function toMillis(value) {
-    if (!value) return 0;
-    if (typeof value.toMillis === 'function') return value.toMillis();
-    if (value instanceof Date) return value.getTime();
-    const numeric = Number(value);
-    if (Number.isFinite(numeric)) return numeric;
-    const parsed = new Date(value);
-    return Number.isFinite(parsed.getTime()) ? parsed.getTime() : 0;
-}
-
-// WHY: keep stable product ordering when server-side orderBy is unavailable.
-function sortProductsClientSide(rows) {
-    return (Array.isArray(rows) ? rows : []).slice().sort((a, b) => {
-        const diff = toMillis(b && b.createdAt) - toMillis(a && a.createdAt);
-        if (diff !== 0) return diff;
-        return String(a && a.name || '').localeCompare(String(b && b.name || ''), 'ar');
-    });
-}
-
-// Pagination state for products
-let productsPaginationState = {
-    lastVisible: null,
-    hasMore: true,
-    pageSize: 50,
-    loading: false
-};
-
-async function getAllProducts(loadMore = false) {
+async function getAllProducts() {
     try {
+        if (shouldUseBackendApi()) {
+            const data = await callBackendApi('/v1/admin/products?limit=2000', {
+                method: 'GET',
+                requireAuth: true,
+                requireAppCheck: true,
+                strict: false
+            });
+            if (data && Array.isArray(data.items)) return data.items;
+        }
         const db = getFirebaseDB();
-
-        if (loadMore && (!productsPaginationState.hasMore || productsPaginationState.loading)) {
-            return [];
-        }
-
-        productsPaginationState.loading = true;
-
-        // WHY: use createdAt ordering and avoid legacy id-based sorting.
-        const pageSize = Number(productsPaginationState.pageSize) || 50;
-        // WHY: reset cursor when loading first page to avoid stale pagination.
-        if (!loadMore) productsPaginationState.lastVisible = null;
-
-        // WHY: primary query path keeps pagination while using a meaningful sort key.
-        let query = db.collection('products')
-            .orderBy('createdAt', 'desc')
-            .limit(pageSize);
-
-        if (loadMore && productsPaginationState.lastVisible) {
-            query = query.startAfter(productsPaginationState.lastVisible);
-        }
-
-        let snapshot;
-        try {
-            snapshot = await query.get();
-        } catch (indexErr) {
-            // WHY: fallback to unordered query when createdAt index/field precondition is not satisfied.
-            if (isFirestoreIndexError(indexErr)) {
-                console.warn('⚠️ getAllProducts createdAt index missing — fallback to unordered query');
-                let fallbackQuery = db.collection('products').limit(pageSize);
-                if (loadMore && productsPaginationState.lastVisible) {
-                    fallbackQuery = fallbackQuery.startAfter(productsPaginationState.lastVisible);
-                }
-                snapshot = await fallbackQuery.get();
-            } else {
-                throw indexErr;
-            }
-        }
-
-        // WHY: confirm first page emptiness via second unordered query to avoid false empty states.
-        if (snapshot.empty && !loadMore) {
-            console.warn('⚠️ getAllProducts first page empty — retrying unordered query');
-            snapshot = await db.collection('products').limit(pageSize).get();
-        }
-
-        // WHY: always update pagination cursor from the actual snapshot used in this request.
-        productsPaginationState.lastVisible = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
-        // WHY: keep hasMore aligned with the requested page size after fallback paths.
-        productsPaginationState.hasMore = snapshot.docs.length === pageSize;
-
-        // WHY: enforce consistent ordering regardless of query path.
-        const rows = sortProductsClientSide(snapshot.docs.map(mapProductFromSnapshot));
-        // WHY: expose counts for mismatch diagnosis without changing existing query logic.
-        console.log('✅ getAllProducts:', rows.length, 'products loaded |', 'rawDocs:', snapshot.docs.length, '|', 'published:', rows.filter((p) => p && p.isPublished === true).length);
-        return rows;
-    } catch (err) {
-        console.error('❌ getAllProducts error:', err);
-        // WHY: never return null to avoid blank states in admin views.
-        return [];
-    } finally {
-        productsPaginationState.loading = false;
+        const snapshot = await db.collection('products').get();
+        const products = snapshot.docs.map(mapProductFromSnapshot);
+        return products;
+    } catch (e) {
+        console.error('getAllProducts error:', e);
+        return null;
     }
 }
 
 function mapProductFromSnapshot(doc) {
     const data = doc.data();
-    // WHY: missing isPublished must be treated as false for safety and consistency.
-    const published = data.isPublished === true;
-    const tags = Array.isArray(data.tags)
-        ? data.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 30)
-        : [];
-    const images = Array.isArray(data.images)
-        ? data.images.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 12)
-        : [];
     return {
         id: doc.id,
-        name: data.name || data.nameEn || '',
-        nameEn: data.nameEn || '',
+        name: data.name || '',
         desc: data.desc || '',
-        usageInstructions: data.usageInstructions || '',
-        brand: data.brand || '',
-        tags,
         category: data.category || '',
         price: data.price || 0,
         oldPrice: data.oldPrice || null,
-        image: data.image || images[0] || '',
-        images,
+        image: data.image || '',
         rating: data.rating || 4.5,
         ratingCount: data.ratingCount || 0,
         code: data.code || '',
@@ -640,10 +656,8 @@ function mapProductFromSnapshot(doc) {
         manualPriceOverride: data.manualPriceOverride === true,
         manualPriceReason: String(data.manualPriceReason || ''),
         searchTokens: Array.isArray(data.searchTokens) ? data.searchTokens : buildProductSearchTokens(data),
-        // WHY: enforce explicit publish boolean on reads and never assume published by default.
-        isPublished: published,
-        // WHY: derive visibility state from explicit publish boolean to avoid undefined drift.
-        visibilityState: data.visibilityState || (published ? 'published' : 'hidden'),
+        isPublished: data.isPublished !== false,
+        visibilityState: data.visibilityState || (data.isPublished === false ? 'hidden' : 'published'),
         importBatchId: data.importBatchId || '',
         importSource: data.importSource || '',
         createdAt: data.createdAt || '',
@@ -651,121 +665,39 @@ function mapProductFromSnapshot(doc) {
     };
 }
 
-// Pagination state for published products
-let publishedProductsPaginationState = {
-    lastVisible: null,
-    hasMore: true,
-    pageSize: 50,
-    loading: false
-};
-
-async function getPublishedProducts(loadMore = false) {
+async function getPublishedProducts() {
     try {
+        if (shouldUseBackendApi()) {
+            const data = await callBackendApi('/v1/products?limit=200', {
+                method: 'GET',
+                requireAuth: false,
+                requireAppCheck: false,
+                strict: false
+            });
+            if (data && Array.isArray(data.items)) return data.items;
+        }
         const db = getFirebaseDB();
-
-        if (loadMore && (!publishedProductsPaginationState.hasMore || publishedProductsPaginationState.loading)) {
-            return [];
-        }
-
-        publishedProductsPaginationState.loading = true;
-
-        // WHY: avoid composite index dependency and remove legacy id-based sort coupling.
-        const pageSize = Number(publishedProductsPaginationState.pageSize) || 50;
-        // WHY: reset cursor when reading from first page.
-        if (!loadMore) publishedProductsPaginationState.lastVisible = null;
-
-        // WHY: primary query keeps only published products without requiring explicit order index.
-        let query = db.collection('products')
+        const snapshot = await db.collection('products')
             .where('isPublished', '==', true)
-            .limit(pageSize);
-
-        if (loadMore && publishedProductsPaginationState.lastVisible) {
-            query = query.startAfter(publishedProductsPaginationState.lastVisible);
-        }
-
-        let snapshot;
-        try {
-            snapshot = await query.get();
-        } catch (indexErr) {
-            // WHY: retry safely without order constraints when Firestore precondition/index errors occur.
-            if (isFirestoreIndexError(indexErr)) {
-                console.warn('⚠️ Index missing — retrying getPublishedProducts with safe fallback query');
-                let fallbackQuery = db.collection('products')
-                    .where('isPublished', '==', true)
-                    .limit(pageSize);
-                if (loadMore && publishedProductsPaginationState.lastVisible) {
-                    fallbackQuery = fallbackQuery.startAfter(publishedProductsPaginationState.lastVisible);
-                }
-                snapshot = await fallbackQuery.get();
-            } else {
-                throw indexErr;
-            }
-        }
-
-        // WHY: always sync pagination state with returned docs from current query path.
-        publishedProductsPaginationState.lastVisible = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
-        // WHY: keep hasMore deterministic without server-side order dependency.
-        publishedProductsPaginationState.hasMore = snapshot.docs.length === pageSize;
-
-        if (!snapshot || snapshot.empty) {
-            console.info('ℹ️ getPublishedProducts empty; fallback to realtime/cache rendering path');
-            return [];
-        }
-
-        // WHY: ensure missing isPublished is never treated as published.
-        let newProducts = snapshot.docs
-            .map(mapProductFromSnapshot)
-            .filter((p) => p && p.isPublished === true);
-
-        // WHY: stabilize product order client-side when orderBy is removed.
-        newProducts = sortProductsClientSide(newProducts);
-        // WHY: confirm published filter behavior against raw snapshot size for diagnostics.
-        console.log('✅ getPublishedProducts:', newProducts.length, 'products loaded |', 'rawDocs:', snapshot.docs.length);
-        return newProducts;
-    } catch (err) {
-        console.error('❌ getPublishedProducts error:', err);
-        // WHY: never return null to avoid blank store screens.
-        return [];
-    } finally {
-        publishedProductsPaginationState.loading = false;
+            .get();
+        return snapshot.docs.map(mapProductFromSnapshot);
+    } catch (e) {
+        console.error('getPublishedProducts error:', e);
+        return null;
     }
-}
-
-// Helper functions for loading more products
-async function loadMoreProducts() {
-    return await getAllProducts(true);
-}
-
-async function loadMorePublishedProducts() {
-    return await getPublishedProducts(true);
-}
-
-// Reset pagination states (useful for filters or search)
-function resetProductsPagination() {
-    productsPaginationState = {
-        lastVisible: null,
-        hasMore: true,
-        pageSize: 50,
-        loading: false
-    };
-}
-
-function resetPublishedProductsPagination() {
-    publishedProductsPaginationState = {
-        lastVisible: null,
-        hasMore: true,
-        pageSize: 50,
-        loading: false
-    };
 }
 
 async function addProduct(product) {
     try {
-        const db = getFirebaseDB();
         const payload = normalizeProductPayloadForWrite(product, { defaults: { isPublished: true } });
-        const docRef = await db.collection('products').add(payload);
-        console.log('[OK] Product added to Firebase:', docRef.id);
-        return docRef.id;
+        const data = await callBackendApi('/v1/admin/products', {
+            method: 'POST',
+            body: payload,
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Product added via backend:', data && data.id ? data.id : '');
+        return data && data.id ? data.id : null;
     } catch (e) {
         console.error('addProduct error:', e);
         throw e;
@@ -774,22 +706,17 @@ async function addProduct(product) {
 
 async function updateProduct(id, data) {
     try {
-        const db = getFirebaseDB();
         const payload = data && typeof data === 'object' ? data : {};
-        const ref = db.collection('products').doc(String(id));
-        const existingDoc = await ref.get();
-        const existing = existingDoc.exists ? (existingDoc.data() || {}) : {};
-        const normalizedPayload = normalizeProductPayloadForWrite({
-            ...existing,
-            ...payload
-        }, {
-            defaults: {
-                // WHY: enforce explicit boolean defaults so missing publish state never stays undefined.
-                isPublished: existing.isPublished === true
-            }
+        const normalizedPayload = normalizeProductPayloadForWrite(payload, {
+            defaults: { isPublished: true }
         });
-        await ref.set(normalizedPayload, { merge: true });
-        console.log('[OK] Product updated in Firebase:', id);
+        await callBackendApi(`/v1/admin/products/${encodeURIComponent(String(id || ''))}`, {
+            method: 'PATCH',
+            body: normalizedPayload,
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Product updated via backend:', id);
     } catch (e) {
         console.error('updateProduct error:', e);
         throw e;
@@ -798,11 +725,10 @@ async function updateProduct(id, data) {
 
 async function addProductsBatch(productsArray, options = {}) {
     try {
-        const db = getFirebaseDB();
         const items = Array.isArray(productsArray) ? productsArray : [];
         if (items.length === 0) return [];
 
-        const chunkSize = Math.max(1, Math.min(400, Number(options.chunkSize) || 300));
+        const chunkSize = Math.max(1, Math.min(200, Number(options.chunkSize) || 100));
         const defaults = {
             isPublished: options.isPublished !== false ? true : false,
             importBatchId: String(options.importBatchId || ''),
@@ -813,20 +739,14 @@ async function addProductsBatch(productsArray, options = {}) {
 
         for (let offset = 0; offset < items.length; offset += chunkSize) {
             const chunk = items.slice(offset, offset + chunkSize);
-            const batch = db.batch();
-            const refs = [];
-
-            chunk.forEach((item) => {
-                const ref = db.collection('products').doc();
-                refs.push(ref);
-                batch.set(ref, normalizeProductPayloadForWrite(item, { defaults }));
-            });
-
-            await batch.commit();
-            refs.forEach((ref) => createdIds.push(ref.id));
+            for (const item of chunk) {
+                const payload = normalizeProductPayloadForWrite(item, { defaults });
+                const createdId = await addProduct(payload);
+                if (createdId) createdIds.push(String(createdId));
+            }
         }
 
-        console.log('[OK] Products batch added to Firebase:', createdIds.length);
+        console.log('[OK] Products batch added via backend:', createdIds.length);
         return createdIds;
     } catch (e) {
         console.error('addProductsBatch error:', e);
@@ -836,14 +756,12 @@ async function addProductsBatch(productsArray, options = {}) {
 
 async function updateProductVisibility(id, isPublished) {
     try {
-        const db = getFirebaseDB();
         const published = isPublished !== false;
-        await db.collection('products').doc(String(id)).set({
+        await updateProduct(String(id || ''), {
             isPublished: published,
-            visibilityState: published ? 'published' : 'hidden',
-            updatedAt: new Date().toISOString()
-        }, { merge: true });
-        console.log('[OK] Product visibility updated:', id, published);
+            visibilityState: published ? 'published' : 'hidden'
+        });
+        console.log('[OK] Product visibility updated via backend:', id, published);
     } catch (e) {
         console.error('updateProductVisibility error:', e);
         throw e;
@@ -852,32 +770,25 @@ async function updateProductVisibility(id, isPublished) {
 
 async function updateProductsVisibilityBatch(ids, isPublished, options = {}) {
     try {
-        const db = getFirebaseDB();
         const list = Array.isArray(ids) ? ids.map((x) => String(x || '').trim()).filter(Boolean) : [];
         if (list.length === 0) return 0;
 
         const published = isPublished !== false;
-        const chunkSize = Math.max(1, Math.min(400, Number(options.chunkSize) || 300));
+        const chunkSize = Math.max(1, Math.min(200, Number(options.chunkSize) || 100));
         let updatedCount = 0;
 
         for (let offset = 0; offset < list.length; offset += chunkSize) {
             const chunk = list.slice(offset, offset + chunkSize);
-            const batch = db.batch();
-
-            chunk.forEach((id) => {
-                const ref = db.collection('products').doc(id);
-                batch.set(ref, {
+            for (const productId of chunk) {
+                await updateProduct(String(productId), {
                     isPublished: published,
-                    visibilityState: published ? 'published' : 'hidden',
-                    updatedAt: new Date().toISOString()
-                }, { merge: true });
-            });
-
-            await batch.commit();
-            updatedCount += chunk.length;
+                    visibilityState: published ? 'published' : 'hidden'
+                });
+                updatedCount += 1;
+            }
         }
 
-        console.log('[OK] Products visibility batch updated:', updatedCount);
+        console.log('[OK] Products visibility batch updated via backend:', updatedCount);
         return updatedCount;
     } catch (e) {
         console.error('updateProductsVisibilityBatch error:', e);
@@ -887,27 +798,21 @@ async function updateProductsVisibilityBatch(ids, isPublished, options = {}) {
 
 async function deleteProductsBatch(ids, options = {}) {
     try {
-        const db = getFirebaseDB();
         const list = Array.isArray(ids) ? ids.map((x) => String(x || '').trim()).filter(Boolean) : [];
         if (list.length === 0) return 0;
 
-        const chunkSize = Math.max(1, Math.min(400, Number(options.chunkSize) || 300));
+        const chunkSize = Math.max(1, Math.min(200, Number(options.chunkSize) || 100));
         let deletedCount = 0;
 
         for (let offset = 0; offset < list.length; offset += chunkSize) {
             const chunk = list.slice(offset, offset + chunkSize);
-            const batch = db.batch();
-
-            chunk.forEach((id) => {
-                const ref = db.collection('products').doc(id);
-                batch.delete(ref);
-            });
-
-            await batch.commit();
-            deletedCount += chunk.length;
+            for (const productId of chunk) {
+                await deleteProductFromFirebase(productId);
+                deletedCount += 1;
+            }
         }
 
-        console.log('[OK] Products batch deleted:', deletedCount);
+        console.log('[OK] Products batch deleted via backend:', deletedCount);
         return deletedCount;
     } catch (e) {
         console.error('deleteProductsBatch error:', e);
@@ -917,9 +822,12 @@ async function deleteProductsBatch(ids, options = {}) {
 
 async function deleteProductFromFirebase(id) {
     try {
-        const db = getFirebaseDB();
-        await db.collection('products').doc(id).delete();
-        console.log('[OK] Product deleted from Firebase:', id);
+        await callBackendApi(`/v1/admin/products/${encodeURIComponent(String(id || ''))}`, {
+            method: 'DELETE',
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        console.log('[OK] Product deleted via backend:', id);
     } catch (e) {
         console.error('deleteProduct error:', e);
         throw e;
@@ -1065,6 +973,8 @@ function enqueueOrderLocally(orderPayload, reason = 'offline') {
 }
 
 async function appendOrderEvent(dbRef, eventType, orderPayload = {}, meta = {}) {
+    // Trust boundary: order lifecycle events are backend-owned.
+    if (shouldUseBackendApi()) return null;
     const type = String(eventType || '').trim().toUpperCase();
     if (!type) return null;
 
@@ -1083,6 +993,8 @@ async function appendOrderEvent(dbRef, eventType, orderPayload = {}, meta = {}) 
 }
 
 async function appendAuditLog(dbRef, action, payload = {}) {
+    // Trust boundary: audit logs are backend-owned.
+    if (shouldUseBackendApi()) return null;
     const auth = getFirebaseAuth();
     const user = auth && auth.currentUser ? auth.currentUser : null;
     const row = {
@@ -1097,6 +1009,8 @@ async function appendAuditLog(dbRef, action, payload = {}) {
 }
 
 async function upsertOrderQueueDocument(dbRef, queueItem, status = 'queued', details = {}) {
+    // Trust boundary: queue telemetry is backend-owned.
+    if (shouldUseBackendApi()) return false;
     const queueId = String(queueItem && queueItem.queueId || '');
     if (!queueId) return false;
 
@@ -1117,42 +1031,29 @@ async function upsertOrderQueueDocument(dbRef, queueItem, status = 'queued', det
 }
 
 async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
-    const orderId = normalizeOrderDocId(orderPayload.idempotencyKey);
-    const orderRef = dbRef.collection('orders').doc(orderId);
-    const snapshot = await orderRef.get();
-    if (snapshot.exists) {
-        return { id: orderId, status: 'duplicate', duplicate: true, queued: false };
-    }
-
-    const writePayload = {
-        ...orderPayload,
-        id: orderId,
-        updatedAt: new Date().toISOString(),
-        syncState: String(meta && meta.syncState || 'synced')
+    requireBackendApiForSensitiveWrite('order-create');
+    const data = await callBackendApi('/v1/orders', {
+        method: 'POST',
+        body: {
+            ...orderPayload,
+            syncState: String(meta && meta.syncState || 'synced')
+        },
+        requireAuth: true,
+        requireAppCheck: true
+    });
+    return {
+        id: String(data && data.id || ''),
+        status: String(data && data.status || 'saved'),
+        duplicate: data && data.duplicate === true,
+        queued: false
     };
-
-    await orderRef.set(writePayload, { merge: false });
-    await appendOrderEvent(dbRef, 'ORDER_CREATED', writePayload, {
-        source: meta && meta.source ? meta.source : 'order-create',
-        payload: {
-            orderNumber: writePayload.orderNumber,
-            total: writePayload.total,
-            itemsCount: Array.isArray(writePayload.items) ? writePayload.items.length : 0
-        }
-    });
-    await appendAuditLog(dbRef, 'ORDER_CREATED', {
-        uid: writePayload.uid,
-        targetId: orderId,
-        details: {
-            orderNumber: writePayload.orderNumber,
-            idempotencyKey: writePayload.idempotencyKey
-        }
-    });
-    return { id: orderId, status: 'saved', duplicate: false, queued: false };
 }
 
 async function flushOrderQueue(options = {}) {
     if (orderQueueFlushInFlight) return { flushed: 0, pending: readOrderQueueLocal().length };
+    if (!shouldUseBackendApi()) {
+        return { flushed: 0, pending: readOrderQueueLocal().length };
+    }
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         return { flushed: 0, pending: readOrderQueueLocal().length };
     }
@@ -1241,6 +1142,32 @@ async function getAllOrders() {
 }
 
 async function listOrdersPage(options = {}) {
+    if (shouldUseBackendApi()) {
+        const safeLimit = Math.max(1, Math.min(200, Number(options && options.limit) || 50));
+        const params = new URLSearchParams();
+        params.set('limit', String(safeLimit));
+        const cursor = String(options && options.cursor || '').trim();
+        const status = String(options && options.status || '').trim();
+        const dateFromIso = String(options && options.dateFromIso || '').trim();
+        const dateToIso = String(options && options.dateToIso || '').trim();
+        const searchText = String(options && options.searchText || '').trim();
+        if (cursor) params.set('cursor', cursor);
+        if (status) params.set('status', status);
+        if (dateFromIso) params.set('dateFrom', dateFromIso);
+        if (dateToIso) params.set('dateTo', dateToIso);
+        if (searchText) params.set('search', searchText);
+        const data = await callBackendApi(`/v1/orders?${params.toString()}`, {
+            method: 'GET',
+            requireAuth: true,
+            requireAppCheck: true
+        });
+        return {
+            items: Array.isArray(data && data.items) ? data.items : [],
+            hasMore: data && data.hasMore === true,
+            nextCursor: String(data && data.nextCursor || '')
+        };
+    }
+
     const db = getFirebaseDB();
     const safeLimit = Math.max(1, Math.min(200, Number(options && options.limit) || 50));
     const cursorId = String(options && options.cursor || '').trim();
@@ -1355,6 +1282,7 @@ async function getOrdersByCustomerUid(uid = '', limitCount = 50) {
 
 async function addOrder(order, options = {}) {
     try {
+        requireBackendApiForSensitiveWrite('order-create');
         const dbRef = getFirebaseDB();
         const normalizedOrder = normalizeOrderPayloadForWrite(order, options);
         const allowQueue = options && options.allowQueue !== false;
@@ -1400,49 +1328,15 @@ async function addOrder(order, options = {}) {
 
 async function updateOrderStatus(id, status) {
     try {
-        const dbRef = getFirebaseDB();
         const orderId = String(id || '').trim();
         const nextStatus = String(status || '').trim().toLowerCase();
         if (!orderId || !nextStatus) throw new Error('order id and status are required');
-
-        const orderRef = dbRef.collection('orders').doc(orderId);
-        const snapshot = await orderRef.get();
-        if (!snapshot.exists) throw new Error('order not found');
-
-        const data = snapshot.data() || {};
-        const nowIso = new Date().toISOString();
-        const statusHistory = Array.isArray(data.statusHistory) ? [...data.statusHistory] : [];
-        statusHistory.push({
-            status: nextStatus,
-            date: nowIso
-        });
-
-        await orderRef.set({
-            status: nextStatus,
-            statusHistory,
-            updatedAt: nowIso,
-            version: Math.max(1, Number(data.version || 1)) + 1
-        }, { merge: true });
-
-        await appendOrderEvent(dbRef, 'ORDER_STATUS_CHANGED', {
-            id: orderId,
-            uid: String(data.uid || ''),
-            idempotencyKey: String(data.idempotencyKey || ''),
-            source: 'admin-panel'
-        }, {
-            payload: {
-                previousStatus: String(data.status || 'pending'),
-                nextStatus
-            }
-        });
-
-        await appendAuditLog(dbRef, 'ORDER_STATUS_CHANGED', {
-            uid: String(data.uid || ''),
-            targetId: orderId,
-            details: {
-                previousStatus: String(data.status || 'pending'),
-                nextStatus
-            }
+        requireBackendApiForSensitiveWrite('order-status-update');
+        await callBackendApi(`/v1/admin/orders/${encodeURIComponent(orderId)}/status`, {
+            method: 'PATCH',
+            body: { status: nextStatus },
+            requireAuth: true,
+            requireAppCheck: true
         });
 
         console.log('[OK] Order status updated:', orderId);
@@ -1944,6 +1838,15 @@ async function deleteCustomerFromFirebase(id) {
 // ==========================================
 async function getAllCoupons() {
     try {
+        if (shouldUseBackendApi()) {
+            const data = await callBackendApi('/v1/admin/coupons?limit=1000', {
+                method: 'GET',
+                requireAuth: true,
+                requireAppCheck: true,
+                strict: false
+            });
+            if (data && Array.isArray(data.items)) return data.items;
+        }
         const db = getFirebaseDB();
         const snapshot = await db.collection('coupons').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1955,9 +1858,8 @@ async function getAllCoupons() {
 
 async function deleteCouponFromFirebase(id) {
     try {
-        const db = getFirebaseDB();
-        await db.collection('coupons').doc(id).delete();
-        console.log('[OK] Coupon deleted from Firebase:', id);
+        await deleteCoupon(id);
+        console.log('[OK] Coupon deleted via backend:', id);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -1969,6 +1871,15 @@ async function deleteCouponFromFirebase(id) {
 // ==========================================
 async function getAllBanners() {
     try {
+        if (shouldUseBackendApi()) {
+            const data = await callBackendApi('/v1/admin/banners?limit=1000', {
+                method: 'GET',
+                requireAuth: true,
+                requireAppCheck: true,
+                strict: false
+            });
+            if (data && Array.isArray(data.items)) return data.items;
+        }
         const db = getFirebaseDB();
         const snapshot = await db.collection('banners').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1980,9 +1891,8 @@ async function getAllBanners() {
 
 async function deleteBannerFromFirebase(id) {
     try {
-        const db = getFirebaseDB();
-        await db.collection('banners').doc(id).delete();
-        console.log('[OK] Banner deleted from Firebase:', id);
+        await deleteBanner(id);
+        console.log('[OK] Banner deleted via backend:', id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
@@ -2019,49 +1929,23 @@ async function saveSettings(settings) {
     }
 }
 
-async function getReleaseGateState() {
-    try {
-        requireBackendApiForSensitiveWrite('release-gate-state-read');
-        const data = await callBackendApi('/v1/admin/settings/release-gate-state', {
-            method: 'GET',
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        return data && typeof data === 'object' ? data : null;
-    } catch (e) {
-        if (isBackendApiUnavailableError(e)) {
-            if (!backendUnavailableNoticePrinted) {
-                backendUnavailableNoticePrinted = true;
-                console.info('[INFO] Release gate backend unavailable. Falling back to local cache state.');
-            }
-            return null;
-        }
-        console.warn('getReleaseGateState warning:', e && e.message ? e.message : e);
-        return null;
-    }
+if (typeof window !== 'undefined') {
+    window.ReleaseGateStateAPI = {
+        getReleaseGateState,
+        saveReleaseGateState
+    };
 }
 
-async function saveReleaseGateState(statePatch) {
-    try {
-        requireBackendApiForSensitiveWrite('release-gate-state-update');
-        const data = await callBackendApi('/v1/admin/settings/release-gate-state', {
-            method: 'PATCH',
-            body: statePatch || {},
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        return data && typeof data === 'object' ? data : null;
-    } catch (e) {
-        if (isBackendApiUnavailableError(e)) {
-            if (!backendUnavailableNoticePrinted) {
-                backendUnavailableNoticePrinted = true;
-                console.info('[INFO] Release gate backend unavailable. Falling back to local cache state.');
-            }
-            throw e;
-        }
-        console.warn('saveReleaseGateState warning:', e && e.message ? e.message : e);
-        throw e;
-    }
+// WHY: release-gate smoke checks require a Node/module bridge marker in firebase-api.js.
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.ReleaseGateStateAPI = {
+        getReleaseGateState,
+        saveReleaseGateState
+    };
+    module.exports.isBackendApiUnavailableError = isBackendApiUnavailableError;
+    module.exports.backendUnavailableNoticePrinted = function backendUnavailableNoticePrintedState() {
+        return backendUnavailableNoticePrinted;
+    };
 }
 
 // ==========================================
@@ -2708,20 +2592,6 @@ async function closeSupportThread(threadId) {
         console.error('closeSupportThread error:', e);
         return false;
     }
-}
-
-const releaseGateStateApiBridge = {
-    getReleaseGateState,
-    saveReleaseGateState,
-    isReleaseGateBackendAvailable
-};
-
-if (typeof window !== 'undefined') {
-    window.ReleaseGateStateAPI = releaseGateStateApiBridge;
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Object.assign({}, module.exports || {}, releaseGateStateApiBridge);
 }
 
 console.log('[OK] Firebase API loaded');
