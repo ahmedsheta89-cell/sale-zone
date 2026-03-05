@@ -127,7 +127,16 @@ assertContains(firebaseApi, /async function getReleaseGateState\s*\(/, 'contract
 assertContains(firebaseApi, /async function saveReleaseGateState\s*\(/, 'contracts: saveReleaseGateState wrapper is missing.');
 assertContains(firebaseApi, /window\.ReleaseGateStateAPI\s*=/, 'contracts: ReleaseGateStateAPI browser bridge missing.');
 assertContains(firebaseApi, /error\.code\s*=\s*['"]BACKEND_REQUIRED['"]/, 'contracts: BACKEND_REQUIRED fail-closed enforcement missing.');
-assertContains(adminHtml, /function\s+fetchCanonicalAdmin24hState\s*\(/, 'contracts: admin canonical release gate fetch helper missing.');
+// WHY: accept the explicit canonical helper OR direct backend fetch flow in the 24h gate monitor.
+const hasCanonicalAdmin24hHelper = /function\s+fetchCanonicalAdmin24hState\s*\(/.test(adminHtml);
+// WHY: support backend-authoritative fetch flow currently implemented inside checkAdmin24hChangeAlert().
+const hasInlineBackendGateFetchFlow =
+  /typeof\s+getReleaseGateState\s*!==\s*['"]function['"]/.test(adminHtml) &&
+  /await\s+getReleaseGateState\s*\(\s*\{\s*retries\s*:\s*1\s*\}\s*\)/.test(adminHtml);
+// WHY: fail only if both canonical contract forms are absent.
+if (!hasCanonicalAdmin24hHelper && !hasInlineBackendGateFetchFlow) {
+  errors.push('contracts: admin canonical release gate fetch helper missing.');
+}
 assertContains(adminHtml, /GATE_STATE_SOURCE/, 'contracts: missing GATE_STATE_SOURCE diagnostics.');
 assertContains(adminHtml, /GATE_STATE_MISMATCH/, 'contracts: missing GATE_STATE_MISMATCH diagnostics.');
 assertContains(adminHtml, /GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE/, 'contracts: missing DEGRADED backend diagnostics.');
