@@ -36,7 +36,8 @@ exports.api = onRequest(
     region: 'us-central1',
     timeoutSeconds: 60,
     memory: '512MiB',
-    cors: true,
+    // WHY: CORS is enforced in Express app middleware to avoid dual-layer conflicts.
+    cors: false,
     secrets: [CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]
   },
   app
