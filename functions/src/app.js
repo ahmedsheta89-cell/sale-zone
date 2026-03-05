@@ -13,6 +13,36 @@ const { createAdminSettingsRouter, createAdminCountdownRouter } = require('./rou
 const { createOrdersRouter, createAdminOrdersRouter } = require('./routes/orders');
 const { createMediaRouter } = require('./routes/media');
 
+// WHY: explicit allow-list for trusted browser origins instead of permissive origin:true.
+const allowedOrigins = [
+  'https://ahmedsheta89-cell.github.io',
+  'https://ahmedsheta89-cell.github.io/sale-zone',
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+  'http://127.0.0.1:3000'
+];
+
+// WHY: centralize CORS behavior to support production github.io + local dev + strict rejection.
+const corsOptions = {
+  origin(origin, callback) {
+    // WHY: allow non-browser clients that do not send Origin (curl/Postman/mobile).
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS: origin not allowed: ${origin}`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'X-Admin-Token'
+  ],
+  credentials: false,
+  maxAge: 86400,
+  optionsSuccessStatus: 200
+};
+
 function createRequestId(req, _res, next) {
   const incoming = String(req.headers['x-request-id'] || '').trim();
   req.requestId = incoming || `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -39,7 +69,18 @@ function createApp(deps) {
 
   const app = express();
   app.disable('x-powered-by');
-  app.use(cors({ origin: true, credentials: false }));
+  // WHY: apply CORS policy globally before all route handlers.
+  app.use(cors(corsOptions));
+  // WHY: handle CORS preflight explicitly for all endpoints.
+  app.options('*', cors(corsOptions));
+  // WHY: enforce baseline response security headers for all backend responses.
+  app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
   app.use(express.json({ limit: '1mb' }));
   app.use(createRequestId);
 
