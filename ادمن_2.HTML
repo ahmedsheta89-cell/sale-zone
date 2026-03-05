@@ -3109,15 +3109,13 @@
         // 🔥 Firebase + LocalStorage Hybrid Data Loading
         async function loadAllData() {
             if (typeof getAllProducts !== 'function') {
-                console.warn('⚠️ Firebase API unavailable, using localStorage');
-                const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
-                const cachedStoreProducts = getStorageData('PRODUCTS');
-                products = Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []);
-                orders = getStorageData('ORDERS') || [];
-                coupons = getStorageData('COUPONS') || [];
-                banners = getStorageData('BANNERS') || [];
+                console.warn('⚠️ Firebase API unavailable — Server Truth Only active (no local fallback)');
+                products = [];
+                orders = [];
+                coupons = [];
+                banners = [];
                 users = [];
-                suppliers = getStorageData('SUPPLIERS') || [];
+                suppliers = [];
                 supportThreads = [];
                 try {
                     const localErrors = JSON.parse(localStorage.getItem('adminErrors') || '[]');
@@ -3149,34 +3147,33 @@
                 getAllProducts(),
                 getAllCoupons(),
                 getAllBanners(),
+                (typeof listOrdersPage === 'function' ? listOrdersPage({ limit: 50 }) : Promise.resolve({ items: [] })),
                 (typeof getSuppliers === 'function' ? getSuppliers() : Promise.resolve(null)),
                 getSettings(),
                 (typeof getClientErrorLogs === 'function' ? getClientErrorLogs(50) : Promise.resolve([]))
             ]);
 
-            const [productsResult, couponsResult, bannersResult, suppliersResult, settingsResult, errorsResult] = collectionTasks;
+            const [productsResult, couponsResult, bannersResult, ordersResult, suppliersResult, settingsResult, errorsResult] = collectionTasks;
 
-            const cachedAdminProducts = getStorageData('PRODUCTS_ADMIN');
-            const cachedStoreProducts = getStorageData('PRODUCTS');
             products = (productsResult.status === 'fulfilled' && Array.isArray(productsResult.value))
                 ? productsResult.value
-                : (Array.isArray(cachedAdminProducts) ? cachedAdminProducts : (Array.isArray(cachedStoreProducts) ? cachedStoreProducts : []));
-            if (productsResult.status === 'rejected') {
-                console.warn('⚠️ Admin products fetch failed, fallback to cache:', productsResult.reason);
+                : [];
+            if (productsResult.status !== 'fulfilled') {
+                console.warn('⚠️ Admin products fetch failed, using empty list:', productsResult.reason);
             }
 
             coupons = (couponsResult.status === 'fulfilled' && Array.isArray(couponsResult.value))
                 ? couponsResult.value
-                : (getStorageData('COUPONS') || []);
-            if (couponsResult.status === 'rejected') {
-                console.warn('⚠️ Admin coupons fetch failed, fallback to cache:', couponsResult.reason);
+                : [];
+            if (couponsResult.status !== 'fulfilled') {
+                console.warn('⚠️ Admin coupons fetch failed, using empty list:', couponsResult.reason);
             }
 
             banners = (bannersResult.status === 'fulfilled' && Array.isArray(bannersResult.value))
                 ? bannersResult.value
-                : (getStorageData('BANNERS') || []);
-            if (bannersResult.status === 'rejected') {
-                console.warn('⚠️ Admin banners fetch failed, fallback to cache:', bannersResult.reason);
+                : [];
+            if (bannersResult.status !== 'fulfilled') {
+                console.warn('⚠️ Admin banners fetch failed, using empty list:', bannersResult.reason);
             }
 
             suppliers = (suppliersResult.status === 'fulfilled' && Array.isArray(suppliersResult.value))
@@ -3231,12 +3228,23 @@
             }
             supportThreads = Array.isArray(fbSupportThreads) ? fbSupportThreads : [];
 
-            const cachedOrders = getStorageData('ORDERS');
-            orders = Array.isArray(cachedOrders) ? cachedOrders : [];
-            ordersPageCursor = '';
-            ordersHasMore = false;
+            const ordersPage = (ordersResult.status === 'fulfilled' && ordersResult.value && typeof ordersResult.value === 'object')
+                ? ordersResult.value
+                : { items: [], hasMore: false, nextCursor: '' };
+            orders = Array.isArray(ordersPage.items) ? ordersPage.items : [];
+            ordersPageCursor = String(ordersPage.nextCursor || '');
+            ordersHasMore = ordersPage.hasMore === true;
+            if (ordersResult.status !== 'fulfilled') {
+                console.warn('⚠️ Admin orders fetch failed, using empty list:', ordersResult.reason);
+            }
             ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
             users = [];
+
+            // WHY: keep localStorage as mirror only after server-truth assignment.
+            saveProducts();
+            saveCoupons();
+            saveBanners();
+            saveOrders();
 
             console.log('✅ Admin data loaded with isolated collection fallback');
             console.log('📦 Products:', products.length);
