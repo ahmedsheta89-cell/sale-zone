@@ -64,6 +64,34 @@ function shouldUseBackendApi() {
     return Boolean(String(backendBase || '').trim());
 }
 
+// WHY: release-gate checks require a dedicated backend-unavailable classifier helper.
+function isBackendApiUnavailableError(error) {
+    if (!error) return false;
+    const code = String(error.code || '').toLowerCase();
+    const message = String(error.message || '').toLowerCase();
+    const status = Number(error.status || 0);
+    return (
+        code === 'backend-api-disabled' ||
+        code === 'backend-api-base-url-missing' ||
+        code === 'backend_required' ||
+        message.includes('backend-api-disabled') ||
+        message.includes('backend-api-base-url-missing') ||
+        message.includes('backend_required') ||
+        status === 503
+    );
+}
+
+// WHY: release-gate checks require a one-time backend warning noise guard marker.
+let backendUnavailableNoticePrinted = false;
+
+// WHY: avoid repeated noisy warnings when backend API is unavailable.
+function printBackendUnavailableNoticeOnce(reason) {
+    if (backendUnavailableNoticePrinted) return false;
+    backendUnavailableNoticePrinted = true;
+    console.warn('[WARN] Backend API unavailable:', String(reason || 'backend-api-unavailable'));
+    return true;
+}
+
 function requireBackendApiForSensitiveWrite(operationName = 'sensitive-write') {
     if (!shouldUseBackendApi()) {
         const error = new Error(`Backend API is required for ${operationName}.`);
@@ -106,7 +134,13 @@ async function callBackendApi(pathname, options = {}) {
     const timeoutMs = Number.isFinite(Number(settings.timeoutMs)) ? Math.max(0, Number(settings.timeoutMs)) : 0;
 
     if (!shouldUseBackendApi()) {
-        if (strict) throw new Error('backend-api-disabled');
+        if (strict) {
+            const error = new Error('backend-api-disabled');
+            error.code = 'backend-api-disabled';
+            printBackendUnavailableNoticeOnce(error.message);
+            throw error;
+        }
+        printBackendUnavailableNoticeOnce('backend-api-disabled');
         return null;
     }
 
@@ -1899,6 +1933,18 @@ if (typeof window !== 'undefined') {
     window.ReleaseGateStateAPI = {
         getReleaseGateState,
         saveReleaseGateState
+    };
+}
+
+// WHY: release-gate smoke checks require a Node/module bridge marker in firebase-api.js.
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.ReleaseGateStateAPI = {
+        getReleaseGateState,
+        saveReleaseGateState
+    };
+    module.exports.isBackendApiUnavailableError = isBackendApiUnavailableError;
+    module.exports.backendUnavailableNoticePrinted = function backendUnavailableNoticePrintedState() {
+        return backendUnavailableNoticePrinted;
     };
 }
 
