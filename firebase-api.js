@@ -124,6 +124,9 @@ async function getAppCheckTokenSafe() {
     }
 }
 
+// NOTE: Backend API disabled (Firebase Spark plan)
+// All functions migrated to Firestore direct
+// Keep this function for future use when Functions are enabled
 async function callBackendApi(pathname, options = {}) {
     const settings = options && typeof options === 'object' ? options : {};
     const method = String(settings.method || 'GET').toUpperCase();
@@ -244,80 +247,27 @@ function withCountdownDefaults(data) {
     };
 }
 
-async function getReleaseGateState(options = {}) {
-    if (!shouldUseBackendApi()) {
-        throw buildBackendRequiredError('release-gate-state-read');
+// WHY: removed Backend API dependency (Spark plan - no Functions)
+async function getReleaseGateState() {
+    try {
+        const db = getFirebaseDB();
+        const doc = await db.collection('settings').doc('release-gate-state').get();
+        return doc.exists ? doc.data() : { state: 'open' };
+    } catch (e) {
+        console.error('getReleaseGateState error:', e);
+        return { state: 'open' };
     }
-
-    const retries = Number.isFinite(Number(options.retries)) ? Math.max(0, Number(options.retries)) : 1;
-    const endpoints = [COUNTDOWN_ENDPOINT, COUNTDOWN_ENDPOINT_LEGACY];
-    let lastError = null;
-
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
-        for (const endpoint of endpoints) {
-            try {
-                const data = await callBackendApi(endpoint, {
-                    method: 'GET',
-                    requireAuth: true,
-                    requireAppCheck: true,
-                    strict: true,
-                    timeoutMs: 5000
-                });
-                return withCountdownDefaults(data);
-            } catch (error) {
-                lastError = error;
-                const status = Number(error && error.status);
-                const code = String(error && error.code || '');
-                if ((status === 404 || code === 'http/404') && endpoint === COUNTDOWN_ENDPOINT) {
-                    continue;
-                }
-                if (attempt < retries && isRetryableNetworkError(error)) {
-                    continue;
-                }
-            }
-        }
-    }
-
-    throw lastError || new Error('release-gate-state-read-failed');
 }
 
-async function saveReleaseGateState(statePatch = {}) {
-    if (!shouldUseBackendApi()) {
-        throw buildBackendRequiredError('release-gate-state-write');
-    }
-
-    const payload = statePatch && typeof statePatch === 'object' ? statePatch : {};
-    if (!Object.keys(payload).length) {
-        const error = new Error('release-gate-state-empty-patch');
-        error.code = 'validation/empty-release-gate-patch';
-        throw error;
-    }
-
+// WHY: removed Backend API dependency (Spark plan - no Functions)
+async function saveReleaseGateState(state) {
     try {
-        const data = await callBackendApi(COUNTDOWN_ENDPOINT, {
-            method: 'POST',
-            body: payload,
-            requireAuth: true,
-            requireAppCheck: true,
-            strict: true,
-            timeoutMs: 5000
-        });
-        return withCountdownDefaults(data);
-    } catch (error) {
-        const status = Number(error && error.status);
-        const code = String(error && error.code || '');
-        if (status === 404 || code === 'http/404') {
-            const data = await callBackendApi(COUNTDOWN_ENDPOINT_LEGACY, {
-                method: 'POST',
-                body: payload,
-                requireAuth: true,
-                requireAppCheck: true,
-                strict: true,
-                timeoutMs: 5000
-            });
-            return withCountdownDefaults(data);
-        }
-        throw error;
+        const db = getFirebaseDB();
+        await db.collection('settings').doc('release-gate-state').set(state, { merge: true });
+        return { success: true };
+    } catch (e) {
+        console.error('saveReleaseGateState error:', e);
+        return { success: false, error: e.message };
     }
 }
 
@@ -1914,18 +1864,14 @@ async function getSettings() {
 }
 
 async function saveSettings(settings) {
+    // WHY: removed Backend API dependency (Spark plan - no Functions)
     try {
-        requireBackendApiForSensitiveWrite('settings-update');
-        await callBackendApi('/v1/admin/settings/store', {
-            method: 'PATCH',
-            body: settings,
-            requireAuth: true,
-            requireAppCheck: true
-        });
-        console.log('[OK] Settings saved via backend');
+        const db = getFirebaseDB();
+        await db.collection('settings').doc('store').set(settings, { merge: true });
+        return { success: true };
     } catch (e) {
         console.error('saveSettings error:', e);
-        throw e;
+        return { success: false, error: e.message };
     }
 }
 
