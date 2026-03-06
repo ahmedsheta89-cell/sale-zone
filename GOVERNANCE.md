@@ -30,6 +30,18 @@ Required checks (exact names):
 - `contracts-check`
 - `admin-function-monitor`
 
+## Security — App Check
+- Status: PREPARED (awaiting reCAPTCHA v3 site key)
+- Risk: HIGH if not activated
+- Activation steps:
+  1. Open `https://www.google.com/recaptcha/admin`
+  2. Register `ahmedsheta89-cell.github.io` as a reCAPTCHA v3 site
+  3. Copy the site key
+  4. Open Firebase App Check for `sale-zone-601f0`
+  5. Register the web app and paste the site key
+  6. Set the key in `<meta name="firebase-app-check-site-key">` or `window.FIREBASE_APP_CHECK_SITE_KEY`
+  7. Reload the app and verify App Check is active
+
 ## Release Gate Jobs
 | Job | Purpose | Trigger |
 |-----|---------|---------|
@@ -94,6 +106,18 @@ These files require `version.json` bump when changed:
 - `متجر_2.HTML`
 - `firebase-config.js`
 
+## Workflow Status
+| Workflow | Status | Last Run | When to enable |
+|----------|--------|----------|----------------|
+| `release-gate.yml` | ACTIVE | Every PR/push | Always on |
+| `policy-governance.yml` | ACTIVE | Every PR/push | Always on |
+| `workers-paranoid-gate.yml` | ACTIVE | Every PR/push | Always on |
+| `deploy-firestore-rules.yml` | ACTIVE | On rules change | Always on |
+| `daily-health-check.yml` | ACTIVE | Daily 6AM UTC | Always on |
+| `deploy-backend.yml` | DISABLED | 2026-02-27 | Upgrade to Blaze |
+| `rollback-production.yml` | READY | Manual only | Emergency only |
+| `workers-rollout.yml` | READY | Manual only | When workers are deployed |
+
 ## PR History
 | PR | Description | Status |
 |----|-------------|--------|
@@ -107,6 +131,8 @@ These files require `version.json` bump when changed:
 | #26 | Settings -> Firestore | Merged |
 | #27 | All API -> Firestore direct | Merged |
 | #28 | Line endings normalized | Merged |
+| #29 | Governance Phases 2-6 | Merged |
+| #30 | Comprehensive fixes | Merged |
 
 ## Notes
 - CI installs tool parser dependencies from `sale-zone/` before running root-level governance scripts.

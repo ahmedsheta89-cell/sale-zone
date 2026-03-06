@@ -93,6 +93,23 @@ try {
     }
 } catch (_) {}
 
+// ════════════════════════════════════════
+// APP CHECK — SECURITY LAYER
+// WHY: Protects Firestore from unauthorized access and scripted abuse.
+// STATUS: PREPARED — activation is blocked only by the missing reCAPTCHA v3 site key.
+//
+// ACTIVATION STEPS:
+// 1. Go to: https://www.google.com/recaptcha/admin
+// 2. Register: ahmedsheta89-cell.github.io
+// 3. Choose: reCAPTCHA v3
+// 4. Copy the generated site key
+// 5. Go to: https://console.firebase.google.com/project/sale-zone-601f0/appcheck
+// 6. Register the web app and paste the site key
+// 7. Set the key in either:
+//    - <meta name="firebase-app-check-site-key" content="...">
+//    - window.FIREBASE_APP_CHECK_SITE_KEY
+// 8. Reload the app and verify __FIREBASE_APP_CHECK_ACTIVE__ === true
+// ════════════════════════════════════════
 function resolveAppCheckSiteKey() {
     if (typeof window.FIREBASE_APP_CHECK_SITE_KEY === 'string' && window.FIREBASE_APP_CHECK_SITE_KEY.trim()) {
         return window.FIREBASE_APP_CHECK_SITE_KEY.trim();

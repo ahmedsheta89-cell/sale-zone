@@ -7,6 +7,9 @@
   "scripts": {
     "preflight": "node tools/codex-preflight.js",
     "governance": "node tools/verify-branch-protection.js",
-    "health": "node tools/smoke-check.js && node tools/contracts-check.js && node tools/admin-function-monitor.js"
+    "health": "node tools/smoke-check.js && node tools/contracts-check.js && node tools/admin-function-monitor.js",
+    "smoke": "node tools/smoke-check.js",
+    "contracts": "node tools/contracts-check.js",
+    "monitor": "node tools/admin-function-monitor.js"
   }
 }

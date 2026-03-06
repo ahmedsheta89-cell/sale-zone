@@ -1,3 +1,7 @@
+# STATUS: READY — never triggered
+# PURPOSE: Roll out workers to the selected environment after explicit approval.
+# TRIGGER: Manual only
+# WHEN TO USE: After worker infrastructure is actively deployed and verified.
 name: workers-rollout
 
 on:

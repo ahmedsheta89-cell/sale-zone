@@ -522,7 +522,7 @@
     <!-- Navbar -->
     <nav class="navbar">
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="ابحث عن منتج...">
+            <input type="text" id="searchInput" placeholder="ابحث عن منتج..." autocomplete="off">
             <button onclick="searchProducts()">🔍</button>
         </div>
         <div class="nav-actions">
@@ -636,15 +636,15 @@
             </div>
             <div class="filter-group">
                 <label style="display:flex;align-items:center;gap:6px;">
-                    <input type="checkbox" id="inStockOnly" onchange="applyAdvancedFilters()">
+                    <input type="checkbox" id="inStockOnly" onchange="applyAdvancedFilters()" autocomplete="off">
                     متاح فقط
                 </label>
             </div>
             <div class="filter-group price-range">
                 <label>السعر:</label>
-                <input type="number" class="price-input" id="minPrice" placeholder="من" onchange="filterByPrice()">
+                <input type="number" class="price-input" id="minPrice" placeholder="من" onchange="filterByPrice()" autocomplete="off">
                 <span>-</span>
-                <input type="number" class="price-input" id="maxPrice" placeholder="إلى" onchange="filterByPrice()">
+                <input type="number" class="price-input" id="maxPrice" placeholder="إلى" onchange="filterByPrice()" autocomplete="off">
             </div>
             <div class="filter-group">
                 <button class="filter-btn" onclick="resetFilters()">🔄 إعادة تعيين</button>
@@ -745,7 +745,7 @@
         </div>
         <div class="cart-footer">
             <div class="coupon-section">
-                <input type="text" class="coupon-input" id="couponInput" placeholder="كود الخصم">
+                <input type="text" class="coupon-input" id="couponInput" placeholder="كود الخصم" autocomplete="off">
                 <button class="apply-coupon-btn" onclick="applyCoupon()">تطبيق</button>
             </div>
             <div class="points-section hidden" id="pointsSection">
@@ -754,7 +754,7 @@
                     <strong id="availablePoints">0</strong>
                 </div>
                 <div class="points-input-group">
-                    <input type="number" class="points-input" id="pointsToUse" placeholder="عدد النقاط">
+                    <input type="number" class="points-input" id="pointsToUse" placeholder="عدد النقاط" autocomplete="off">
                     <button class="points-apply-btn" onclick="applyPoints()">استبدال</button>
                 </div>
                 <div class="points-info" id="pointsInfo">كل 10 نقاط = 1 ج.م</div>
@@ -816,26 +816,26 @@
                 <form id="loginForm" onsubmit="handleLogin(event)">
                     <div class="form-group">
                         <label>📧 البريد الإلكتروني <span class="required">*</span></label>
-                        <input type="email" id="loginIdentifier" required placeholder="user@email.com">
+                        <input type="email" id="loginIdentifier" required placeholder="user@email.com" autocomplete="username">
                     </div>
                     <div class="form-group">
                         <label>🔐 كلمة المرور <span class="required">*</span></label>
-                        <input type="password" id="loginPassword" required>
+                        <input type="password" id="loginPassword" required autocomplete="current-password">
                     </div>
                     <button type="submit" class="submit-btn">دخول 🔓</button>
                 </form>
                 <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
                     <div class="form-group">
                         <label>👤 الاسم <span class="required">*</span></label>
-                        <input type="text" id="registerName" required>
+                        <input type="text" id="registerName" required autocomplete="name">
                     </div>
                     <div class="form-group">
                         <label>📱 الهاتف <span class="required">*</span></label>
-                        <input type="tel" id="registerPhone" required placeholder="01xxxxxxxxx">
+                        <input type="tel" id="registerPhone" required placeholder="01xxxxxxxxx" autocomplete="tel">
                     </div>
                     <div class="form-group">
                         <label>📧 الإيميل <span class="required">*</span></label>
-                        <input type="email" id="registerEmail" required>
+                        <input type="email" id="registerEmail" required autocomplete="email">
                     </div>
                     <div class="form-group">
                         <label>📍 العنوان <span class="required">*</span></label>
@@ -843,11 +843,11 @@
                     </div>
                     <div class="form-group">
                         <label>🔐 كلمة المرور <span class="required">*</span></label>
-                        <input type="password" id="registerPassword" required>
+                        <input type="password" id="registerPassword" required autocomplete="new-password">
                     </div>
                     <div class="form-group">
                         <label>🔐 تأكيد كلمة المرور <span class="required">*</span></label>
-                        <input type="password" id="registerPasswordConfirm" required>
+                        <input type="password" id="registerPasswordConfirm" required autocomplete="new-password">
                     </div>
                     <button type="submit" class="submit-btn">إنشاء حساب ✓</button>
                 </form>
@@ -867,11 +867,11 @@
                 <form id="checkoutForm" onsubmit="handleCheckout(event)">
                     <div class="form-group">
                         <label>👤 الاسم <span class="required">*</span></label>
-                        <input type="text" id="checkoutName" required>
+                        <input type="text" id="checkoutName" required autocomplete="name">
                     </div>
                     <div class="form-group">
                         <label>📱 الهاتف <span class="required">*</span></label>
-                        <input type="tel" id="checkoutPhone" required>
+                        <input type="tel" id="checkoutPhone" required autocomplete="tel">
                     </div>
                     <div class="form-group">
                         <label>📍 العنوان <span class="required">*</span></label>
@@ -897,7 +897,7 @@
             <div class="modal-body" id="trackingModalBody">
                 <div class="form-group">
                     <label>أدخل رقم الطلب</label>
-                    <input type="text" id="trackOrderNumber" placeholder="SZ-XXXXXXXX">
+                    <input type="text" id="trackOrderNumber" placeholder="SZ-XXXXXXXX" autocomplete="off">
                 </div>
                 <button class="submit-btn" onclick="trackOrder()">تتبع 🔍</button>
                 <div id="trackingResult" style="margin-top: 20px;"></div>
@@ -927,15 +927,15 @@
                 <form onsubmit="handleChangePassword(event)">
                     <div class="form-group">
                         <label>🔐 الحالية <span class="required">*</span></label>
-                        <input type="password" id="currentPassword" required>
+                        <input type="password" id="currentPassword" required autocomplete="current-password">
                     </div>
                     <div class="form-group">
                         <label>🔐 الجديدة <span class="required">*</span></label>
-                        <input type="password" id="newPassword" required>
+                        <input type="password" id="newPassword" required autocomplete="new-password">
                     </div>
                     <div class="form-group">
                         <label>🔐 تأكيد <span class="required">*</span></label>
-                        <input type="password" id="confirmNewPassword" required>
+                        <input type="password" id="confirmNewPassword" required autocomplete="new-password">
                     </div>
                     <button type="submit" class="submit-btn">تغيير 🔑</button>
                 </form>
@@ -984,7 +984,7 @@
                 <div class="chat-message bot">مرحباً! كيف أساعدك؟ 😊</div>
             </div>
             <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب..." onkeypress="if(event.key==='Enter')sendChatMessage()">
+                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب..." onkeypress="if(event.key==='Enter')sendChatMessage()" autocomplete="off">
                 <button class="chat-send" onclick="sendChatMessage()">➤</button>
             </div>
         </div>
@@ -2241,7 +2241,7 @@
             const isFav = favorites.includes(String(p && p.id));
             document.getElementById('productModalBody').innerHTML = `
                 <div style="text-align: center;">
-                    <img src="${safeImageSrc}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;" onerror="this.src='${safeFallbackImage}'">
+                    <img src="${safeImageSrc}" alt="${safeName}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;" onerror="this.src='${safeFallbackImage}'">
                     <h2 style="font-size: 20px; color: var(--navy); margin-bottom: 8px;">${safeName}</h2>
                     <p style="color: #666; margin-bottom: 15px; font-size: 13px;">${safeDesc}</p>
                     <div style="margin-bottom: 15px;" data-product-id="${safeProductId}" onclick="showRatingModal(this.dataset.productId)">
@@ -2390,7 +2390,7 @@
                 const safePrice = hasValidPrice ? escapeHtml(Number(displayPrice || 0).toFixed(2)) : 'السعر غير متاح';
                 return `
                     <div class="fav-item">
-                        <div class="fav-item-image"><img src="${safeImageSrc}" onerror="this.src='${safeFallbackImage}'"></div>
+                        <div class="fav-item-image"><img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'"></div>
                         <div class="fav-item-details">
                             <div class="fav-item-name">${safeName}</div>
                             <div class="fav-item-price">${hasValidPrice ? `${safePrice} ج.م` : safePrice}</div>
@@ -2463,7 +2463,7 @@
                 const safeQuantity = escapeHtml(Number(item && item.quantity || 0).toFixed(0));
                 return `
                 <div class="cart-item">
-                    <div class="cart-item-image"><img src="${safeImageSrc}" onerror="this.src='${safeFallbackImage}'"></div>
+                    <div class="cart-item-image"><img src="${safeImageSrc}" alt="${safeItemName}" onerror="this.src='${safeFallbackImage}'"></div>
                     <div class="cart-item-details">
                         <div class="cart-item-name">${safeItemName}</div>
                         <div class="cart-item-price">${safeItemPrice} ج.م</div>
