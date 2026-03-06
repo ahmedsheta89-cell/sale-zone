@@ -1,0 +1,12 @@
+{
+  "name": "sale-zone-governance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Governance entrypoints for Sale Zone root checks",
+  "type": "commonjs",
+  "scripts": {
+    "preflight": "node tools/codex-preflight.js",
+    "governance": "node tools/verify-branch-protection.js",
+    "health": "node tools/smoke-check.js && node tools/contracts-check.js && node tools/admin-function-monitor.js"
+  }
+}

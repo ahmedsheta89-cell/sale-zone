@@ -1,0 +1,54 @@
+name: Daily Health Check
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install root governance package
+        run: npm ci
+
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
+
+      - name: Run smoke check
+        run: node tools/smoke-check.js
+
+      - name: Run contracts check
+        run: node tools/contracts-check.js
+
+      - name: Run admin monitor
+        run: node tools/admin-function-monitor.js
+
+      - name: Verify branch protection
+        run: node tools/verify-branch-protection.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Daily Health Check Failed - ' + new Date().toISOString().split('T')[0],
+              body: '## Daily Health Check Failed\n\nOne or more governance checks failed.\n\nPlease investigate immediately.\n\nRun: ' + context.runId,
+              labels: ['governance', 'critical']
+            });

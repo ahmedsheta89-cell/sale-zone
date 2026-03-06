@@ -1,0 +1,25 @@
+{
+  "baseline_version": "1.0.0",
+  "updated_at": "2026-03-06T06:10:00.000Z",
+  "description": "Source of truth for branch protection on main",
+  "branch": "main",
+  "required_status_checks": {
+    "strict": true,
+    "contexts": [
+      "policy-governance",
+      "hash-stability",
+      "release-gate",
+      "smoke-check",
+      "contracts-check",
+      "admin-function-monitor"
+    ]
+  },
+  "enforce_admins": true,
+  "required_approving_review_count": 1,
+  "dismiss_stale_reviews": true,
+  "notes": [
+    "NEVER remove contexts to unblock a PR",
+    "If context name changes in workflow, update here too",
+    "Verify with: node tools/verify-branch-protection.js"
+  ]
+}
