@@ -125,6 +125,32 @@ function resolveAppCheckSiteKey() {
     return DEFAULT_FIREBASE_APP_CHECK_SITE_KEY;
 }
 
+async function waitForAppCheck(maxWaitMs = 5000) {
+    const start = Date.now();
+    while ((Date.now() - start) < maxWaitMs) {
+        try {
+            if (!(firebase && typeof firebase.appCheck === 'function')) {
+                return false;
+            }
+            const appCheck = firebase.appCheck();
+            if (appCheck && typeof appCheck.getToken === 'function') {
+                const tokenResult = await appCheck.getToken(false);
+                if (tokenResult && tokenResult.token) {
+                    console.log('[App Check] Token ready ✅');
+                    return true;
+                }
+            }
+        } catch (_) {
+            // Token not ready yet. Keep polling until the timeout expires.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    console.warn('[App Check] Token not ready after timeout — continuing anyway');
+    return false;
+}
+
+window.waitForAppCheck = waitForAppCheck;
+
 function setupFirebaseAppCheck() {
     try {
         if (!(firebase && typeof firebase.appCheck === 'function')) {
@@ -141,11 +167,29 @@ function setupFirebaseAppCheck() {
             return;
         }
 
-        const appCheck = firebase.appCheck();
-        appCheck.activate(appCheckKey, true);
-        window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
-        window.__FIREBASE_APP_CHECK_REASON__ = 'active';
-        console.log('[OK] Firebase App Check activated');
+        const activateAppCheck = () => {
+            try {
+                const appCheck = firebase.appCheck();
+                appCheck.activate(appCheckKey, true);
+                window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
+                window.__FIREBASE_APP_CHECK_REASON__ = 'active';
+                console.log('[OK] Firebase App Check activated');
+            } catch (error) {
+                window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+                window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';
+                console.warn('Firebase App Check activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
+            }
+        };
+
+        // WHY: the App Check SDK may try to inject DOM nodes before <head> is ready.
+        if (!(document.head || document.documentElement)) {
+            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+            window.__FIREBASE_APP_CHECK_REASON__ = 'dom-pending';
+            document.addEventListener('DOMContentLoaded', activateAppCheck, { once: true });
+            return;
+        }
+
+        activateAppCheck();
     } catch (error) {
         window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
         window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';

@@ -1519,6 +1519,11 @@
                     throw new Error('Firebase not available');
                 }
 
+                // WHY: allow App Check to mint its first token before Firestore reads begin.
+                if (typeof window.waitForAppCheck === 'function' && window.firebase && typeof firebase.appCheck === 'function') {
+                    await window.waitForAppCheck(3000);
+                }
+
                 console.log('🔥 Loading from Firebase...');
                 const productsReader = (typeof getPublishedProducts === 'function')
                     ? getPublishedProducts
@@ -1590,7 +1595,7 @@
             });
         }
 
-        async function loadDataWithTimeout(ms = 9000) {
+        async function loadDataWithTimeout(ms = 20000) {
             let timedOut = false;
             const timer = setTimeout(() => {
                 timedOut = true;
