@@ -1,4 +1,7 @@
-﻿name: Deploy Backend
+﻿# DISABLED: Firebase Spark plan has no Cloud Functions.
+# Re-enable when upgrading to Blaze plan.
+# Last failed: 2026-02-27 (Functions API not enabled)
+name: Deploy Backend
 
 on:
   workflow_dispatch:
@@ -166,5 +169,6 @@ jobs:
           name: backend-${{ github.event.inputs.target_sha }}
           path: backend-artifact/backend-metadata.json
           if-no-files-found: error
+
 
 
