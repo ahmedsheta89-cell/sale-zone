@@ -1505,13 +1505,13 @@
                     return list;
                 }
                 if (result.status === 'fulfilled' && !Array.isArray(result.value)) {
-                    console.warn(`${label} firebase returned non-array payload, fallback to localStorage.`);
+                    console.warn(`${label} firebase returned non-array payload, using empty list (Server Truth Only).`);
                 }
                 if (result.status === 'rejected') {
-                    console.warn(`${label} firebase read failed, fallback to localStorage:`, result.reason);
+                    console.warn(`${label} firebase read failed, using empty list (Server Truth Only):`, result.reason);
                 }
-                console.log(`📦 ${label} loaded from localStorage:`, localFallback.length);
-                return localFallback;
+                console.log(`📦 ${label} using empty list (Server Truth Only):`, 0);
+                return [];
             };
 
             try {
@@ -1545,13 +1545,13 @@
 
                 users = [];
             } catch (error) {
-                console.warn('⚠️ Firebase error, using localStorage:', error);
-                trackStoreEvent('DATA_SYNC_FALLBACK', 'Firebase read failed, fallback to localStorage', 'warning', {
+                console.warn('⚠️ Firebase error, using empty lists (Server Truth Only):', error);
+                trackStoreEvent('DATA_SYNC_FALLBACK', 'Firebase read failed, empty lists used (Server Truth Only)', 'warning', {
                     error: error && error.message ? String(error.message) : String(error)
                 });
-                products = normalizeStoreProducts(localProducts);
-                coupons = localCoupons;
-                banners = localBanners;
+                products = [];
+                coupons = [];
+                banners = [];
                 if (localSettings && typeof localSettings === 'object') {
                     storeSettings = { ...storeSettings, ...localSettings };
                 }
@@ -1798,10 +1798,14 @@
             const trimmed = url.trim();
             if (trimmed.startsWith('data:')) return trimmed;
             if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
+            if (/^https:\/\/res\.cloudinary\.com\//i.test(trimmed)) return trimmed;
 
             try {
                 const parsed = new URL(trimmed, window.location.origin);
                 if (parsed.origin === window.location.origin) {
+                    if (/^\/images\//i.test(parsed.pathname)) {
+                        return `/sale-zone${parsed.pathname}${parsed.search}${parsed.hash}`;
+                    }
                     return parsed.pathname + parsed.search + parsed.hash;
                 }
             } catch (e) {
@@ -4160,5 +4164,3 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
     </script>
 </body>
 </html>
-
-

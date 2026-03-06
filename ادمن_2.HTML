@@ -3178,9 +3178,9 @@
 
             suppliers = (suppliersResult.status === 'fulfilled' && Array.isArray(suppliersResult.value))
                 ? suppliersResult.value
-                : (getStorageData('SUPPLIERS') || []);
+                : [];
             if (suppliersResult.status === 'rejected') {
-                console.warn('⚠️ Admin suppliers fetch failed, fallback to cache:', suppliersResult.reason);
+                console.warn('⚠️ Admin suppliers fetch failed, using empty list (Server Truth Only):', suppliersResult.reason);
             }
 
             if (settingsResult.status === 'fulfilled' && settingsResult.value && typeof settingsResult.value === 'object') {
@@ -3246,7 +3246,7 @@
             saveBanners();
             saveOrders();
 
-            console.log('✅ Admin data loaded with isolated collection fallback');
+            console.log('✅ Admin data loaded with server-truth collection reads');
             console.log('📦 Products:', products.length);
             console.log('📦 Banners:', banners.length);
             console.log('🛍️ Orders:', orders.length);
@@ -3567,7 +3567,7 @@ function adminLogout(){
             document.getElementById('productsCount').textContent = products.length;
             const suppliersBadge = document.getElementById('suppliersCount');
             if (suppliersBadge) suppliersBadge.textContent = (suppliers || []).filter((s) => s && s.active !== false).length;
-            document.getElementById('ordersCount').textContent = orders.filter(o => o.status === 'pending').length;
+            document.getElementById('ordersCount').textContent = getOrdersForRender().length;
             const supportBadge = document.getElementById('supportUnreadCount');
             if (supportBadge) {
                 const unread = (supportThreads || []).reduce((sum, thread) => sum + Math.max(0, Number(thread && thread.unreadForAdmin || 0)), 0);
@@ -3585,10 +3585,14 @@ function adminLogout(){
             const trimmed = url.trim();
             if (trimmed.startsWith('data:')) return trimmed;
             if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
+            if (/^https:\/\/res\.cloudinary\.com\//i.test(trimmed)) return trimmed;
 
             try {
                 const parsed = new URL(trimmed, window.location.origin);
                 if (parsed.origin === window.location.origin) {
+                    if (/^\/images\//i.test(parsed.pathname)) {
+                        return `/sale-zone${parsed.pathname}${parsed.search}${parsed.hash}`;
+                    }
                     return parsed.pathname + parsed.search + parsed.hash;
                 }
             } catch (e) {
@@ -4843,6 +4847,8 @@ function adminLogout(){
         function renderOrdersTable() {
             const tbody = document.getElementById('ordersTable');
             const rows = getOrdersForRender();
+            const ordersBadge = document.getElementById('ordersCount');
+            if (ordersBadge) ordersBadge.textContent = String(rows.length);
             if (rows.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🛍️</div><p>لا توجد طلبات</p></div></td></tr>';
                 updateOrdersPaginationUi();
@@ -8304,5 +8310,3 @@ async function uploadAndPreview(input) {
 </script>
 </body>
 </html>
-
-

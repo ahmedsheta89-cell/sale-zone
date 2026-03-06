@@ -15,6 +15,26 @@
     lastRemoteAt: 0
   };
 
+  // WHY: transport noise and resource-load failures are not actionable runtime defects.
+  var IGNORED_ERROR_MESSAGES = [
+    'ERR_ABORTED',
+    'AbortError',
+    'Failed to fetch',
+    'Load failed',
+    'NetworkError',
+    'ResizeObserver loop limit exceeded',
+    'ResizeObserver loop completed with undelivered notifications',
+    'Non-Error promise rejection'
+  ];
+
+  // WHY: Firestore long-poll endpoints frequently abort during normal reconnect cycles.
+  var IGNORED_ERROR_URL_PARTS = [
+    'firestore.googleapis.com',
+    'googleapis.com',
+    'long-poll',
+    'Listen/channel'
+  ];
+
   function detectEnvironment() {
     try {
       var host = String((global.location && global.location.hostname) || '').toLowerCase();
@@ -38,6 +58,41 @@
     }
     if (typeof metadata === 'object') return metadata;
     return { value: String(metadata) };
+  }
+
+  function getStringValue(value) {
+    return String(value || '');
+  }
+
+  function containsIgnoredMessage(message) {
+    var text = getStringValue(message);
+    return IGNORED_ERROR_MESSAGES.some(function (fragment) {
+      return text.indexOf(fragment) !== -1;
+    });
+  }
+
+  function containsIgnoredUrl(url) {
+    var text = getStringValue(url);
+    return IGNORED_ERROR_URL_PARTS.some(function (fragment) {
+      return text.indexOf(fragment) !== -1;
+    });
+  }
+
+  function isResourceLoadEvent(event) {
+    var target = event && event.target ? event.target : null;
+    if (!target || target === global || target === global.document) return false;
+    return typeof target.tagName === 'string' && target.tagName.length > 0;
+  }
+
+  function shouldIgnoreRuntimeEvent(event, reason) {
+    var source = getStringValue((event && event.filename) || (event && event.target && event.target.src) || (event && event.target && event.target.href) || '');
+    var message = getStringValue((event && event.message) || (reason && reason.message) || reason);
+
+    if (isResourceLoadEvent(event)) return true;
+    if (containsIgnoredMessage(message)) return true;
+    if (containsIgnoredUrl(source)) return true;
+    if (containsIgnoredUrl(getStringValue(reason && reason.stack))) return true;
+    return false;
   }
 
   function resolveUserId() {
@@ -159,6 +214,7 @@
 
     try {
       global.addEventListener('error', function (event) {
+        if (shouldIgnoreRuntimeEvent(event, event && event.error)) return;
         var err = event && event.error ? event.error : null;
         emit(
           'error',
@@ -176,6 +232,7 @@
 
       global.addEventListener('unhandledrejection', function (event) {
         var reason = event && typeof event.reason !== 'undefined' ? event.reason : null;
+        if (shouldIgnoreRuntimeEvent(null, reason)) return;
         var reasonMessage = (reason && reason.message) ? reason.message : String(reason || 'Unhandled promise rejection');
         emit(
           'error',

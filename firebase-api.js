@@ -760,6 +760,29 @@ async function deleteProductFromFirebase(id) {
     }
 }
 
+async function deleteProductImage(productId) {
+    try {
+        // WHY: Cloudinary asset deletion requires backend signing, which is unavailable on Spark.
+        // Remove image references from Firestore so the UI stops rendering the broken CDN asset.
+        const db = getFirebaseDB();
+        const docId = String(productId || '').trim();
+        if (!docId) throw new Error('product id is required');
+        await db.collection('products').doc(docId).set({
+            image: null,
+            imageUrl: null,
+            imagePublicId: null,
+            public_id: null,
+            images: [],
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('[OK] Product image references cleared via Firestore:', docId);
+        return { success: true };
+    } catch (e) {
+        console.error('deleteProductImage error:', e);
+        return { success: false, error: e && e.message ? e.message : String(e) };
+    }
+}
+
 // ==========================================
 // ORDERS
 // ==========================================

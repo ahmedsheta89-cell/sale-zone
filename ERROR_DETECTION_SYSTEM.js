@@ -20,6 +20,24 @@ class ErrorDetectionSystem {
         this.lastRemoteErrorFingerprint = '';
         this.remoteErrorThrottleMs = 8000;
         this.networkOfflineSince = null;
+        this.globalHandlersAttached = false;
+        this.firebaseFetchWrapped = false;
+        this.ignoredErrorMessages = [
+            'ERR_ABORTED',
+            'AbortError',
+            'Failed to fetch',
+            'Load failed',
+            'NetworkError',
+            'ResizeObserver loop limit exceeded',
+            'ResizeObserver loop completed with undelivered notifications',
+            'Non-Error promise rejection'
+        ];
+        this.ignoredUrlParts = [
+            'firestore.googleapis.com',
+            'googleapis.com',
+            'long-poll',
+            'Listen/channel'
+        ];
         
         this.initialize();
     }
@@ -27,6 +45,7 @@ class ErrorDetectionSystem {
     // 🚀 تهيئة النظام
     initialize() {
         this.setupGlobalErrorHandler();
+        this.setupImageFallbackHandling();
         this.setupPerformanceMonitoring();
         this.setupUserActionTracking();
         this.setupSystemHealthChecks();
@@ -39,8 +58,50 @@ class ErrorDetectionSystem {
     }
 
     // 🛡️ معالج الأخطاء العام
+    setupImageFallbackHandling() {
+        if (window.__saleZoneImageFallbackHandlerAttached === true) {
+            return;
+        }
+        window.__saleZoneImageFallbackHandlerAttached = true;
+
+        document.addEventListener('error', (event) => {
+            const target = event && event.target ? event.target : null;
+            if (!target || target.tagName !== 'IMG') {
+                return;
+            }
+            if (target.dataset && target.dataset.fallbackApplied === 'true') {
+                return;
+            }
+            if (target.dataset) {
+                target.dataset.fallbackApplied = 'true';
+            }
+            target.src = './assets/placeholder.svg';
+            if (!target.alt) {
+                target.alt = 'صورة غير متاحة';
+            }
+        }, true);
+    }
+
     setupGlobalErrorHandler() {
+        if (window.logger && window.logger.__isCentralLogger === true) {
+            return;
+        }
+        if (this.globalHandlersAttached) {
+            return;
+        }
+        this.globalHandlersAttached = true;
+
         window.addEventListener('error', (event) => {
+            const filename = event?.filename || event?.target?.src || event?.target?.href || '';
+            if (this.shouldIgnoreError({
+                type: 'JAVASCRIPT_ERROR',
+                message: event?.message || '',
+                filename,
+                targetTagName: event?.target?.tagName || '',
+                stack: event?.error?.stack || ''
+            })) {
+                return;
+            }
             this.logError({
                 type: 'JAVASCRIPT_ERROR',
                 message: event.message,
@@ -55,6 +116,14 @@ class ErrorDetectionSystem {
         });
 
         window.addEventListener('unhandledrejection', (event) => {
+            const reason = event?.reason;
+            if (this.shouldIgnoreError({
+                type: 'UNHANDLED_PROMISE_REJECTION',
+                message: reason?.message || String(reason || ''),
+                stack: reason?.stack || ''
+            })) {
+                return;
+            }
             this.logError({
                 type: 'UNHANDLED_PROMISE_REJECTION',
                 message: event.reason?.message || 'Unhandled Promise Rejection',
@@ -445,6 +514,9 @@ class ErrorDetectionSystem {
 
     // 📝 تسجيل الخطأ
     logError(error) {
+        if (this.shouldIgnoreError(error)) {
+            return;
+        }
         this.errors.push(error);
         this.handleError(error);
         this.updateSystemHealth();
@@ -456,6 +528,27 @@ class ErrorDetectionSystem {
     }
 
     // ⚠️ تسجيل التحذير
+    shouldIgnoreError(error) {
+        const message = String(error?.message || '');
+        const url = String(error?.url || error?.filename || error?.source || '');
+        const stack = String(error?.stack || '');
+        const targetTagName = String(error?.targetTagName || '').toUpperCase();
+
+        if (targetTagName && targetTagName !== 'WINDOW') {
+            return true;
+        }
+
+        if (this.ignoredErrorMessages.some(fragment => message.includes(fragment))) {
+            return true;
+        }
+
+        if (this.ignoredUrlParts.some(fragment => url.includes(fragment) || stack.includes(fragment))) {
+            return true;
+        }
+
+        return false;
+    }
+
     logWarning(warning) {
         this.warnings.push(warning);
         console.warn('🟡 WARNING DETECTED:', warning);
@@ -834,7 +927,11 @@ class ErrorDetectionSystem {
 let errorDetectionSystem;
 
 document.addEventListener('DOMContentLoaded', function() {
+    if (window.errorDetectionSystem && typeof window.errorDetectionSystem.getSystemReport === 'function') {
+        return;
+    }
     errorDetectionSystem = new ErrorDetectionSystem();
+    window.errorDetectionSystem = errorDetectionSystem;
     
     // إضافة وظيفة عالمية للحصول على التقرير
     window.getSystemReport = () => errorDetectionSystem.getSystemReport();
