@@ -125,37 +125,39 @@ function resolveAppCheckSiteKey() {
     return DEFAULT_FIREBASE_APP_CHECK_SITE_KEY;
 }
 
-async function waitForAppCheck(maxWaitMs = 5000) {
+async function waitForAppCheck(maxWaitMs = 3000) {
+    if (!(firebase && typeof firebase.appCheck === 'function')) return false;
+
     const start = Date.now();
     while ((Date.now() - start) < maxWaitMs) {
         try {
-            if (!(firebase && typeof firebase.appCheck === 'function')) {
-                return false;
-            }
-            const appCheck = firebase.appCheck();
-            if (appCheck && typeof appCheck.getToken === 'function') {
-                const tokenResult = await appCheck.getToken(false);
-                if (tokenResult && tokenResult.token) {
-                    console.log('[App Check] Token ready ✅');
-                    return true;
-                }
+            const tokenResult = await firebase.appCheck().getToken(false);
+            if (tokenResult && tokenResult.token) {
+                console.log('[App Check] Token ready ✅');
+                return true;
             }
         } catch (_) {
-            // Token not ready yet. Keep polling until the timeout expires.
+            // WHY: token not ready yet. Keep waiting until timeout expires.
         }
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 300));
     }
-    console.warn('[App Check] Token not ready after timeout — continuing anyway');
+
+    // WHY: App Check is optional at runtime. Do not block Auth or Firestore forever.
+    console.warn('[App Check] Continuing without token');
     return false;
 }
 
 window.waitForAppCheck = waitForAppCheck;
 
-function setupFirebaseAppCheck() {
+function initAppCheck() {
+    if (window.__FIREBASE_APP_CHECK_INIT_ATTEMPTED__ === true) return;
+    window.__FIREBASE_APP_CHECK_INIT_ATTEMPTED__ = true;
+
     try {
         if (!(firebase && typeof firebase.appCheck === 'function')) {
             window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
             window.__FIREBASE_APP_CHECK_REASON__ = 'sdk-missing';
+            console.warn('[App Check] Not available in this SDK version');
             return;
         }
 
@@ -167,34 +169,29 @@ function setupFirebaseAppCheck() {
             return;
         }
 
-        const activateAppCheck = () => {
-            try {
-                const appCheck = firebase.appCheck();
-                appCheck.activate(appCheckKey, true);
-                window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
-                window.__FIREBASE_APP_CHECK_REASON__ = 'active';
-                console.log('[OK] Firebase App Check activated');
-            } catch (error) {
-                window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-                window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';
-                console.warn('Firebase App Check activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
-            }
-        };
-
-        // WHY: the App Check SDK may try to inject DOM nodes before <head> is ready.
-        if (!(document.head || document.documentElement)) {
-            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-            window.__FIREBASE_APP_CHECK_REASON__ = 'dom-pending';
-            document.addEventListener('DOMContentLoaded', activateAppCheck, { once: true });
-            return;
-        }
-
-        activateAppCheck();
+        firebase.appCheck().activate(appCheckKey, true);
+        window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
+        window.__FIREBASE_APP_CHECK_REASON__ = 'active';
+        console.log('[App Check] ✅ Activated successfully');
     } catch (error) {
+        // WHY: non-fatal. App functionality must continue while console enforcement is OFF.
         window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
         window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';
-        console.warn('Firebase App Check activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
+        console.warn('[App Check] Activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
     }
+}
+
+function setupFirebaseAppCheck() {
+    window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+    window.__FIREBASE_APP_CHECK_REASON__ = 'waiting-for-window-load';
+
+    // WHY: compat SDK needs full DOM + window.load before it injects the reCAPTCHA script safely.
+    if (document.readyState === 'complete') {
+        initAppCheck();
+        return;
+    }
+
+    window.addEventListener('load', initAppCheck, { once: true });
 }
 
 function setupFirestoreAutoReconnect() {
