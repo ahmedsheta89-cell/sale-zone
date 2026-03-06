@@ -332,12 +332,12 @@ class EnhancedMobile {
         
         document.addEventListener('touchstart', e => {
             touchStartX = e.changedTouches[0].screenX;
-        });
-        
+        }, { passive: true });
+
         document.addEventListener('touchend', e => {
             touchEndX = e.changedTouches[0].screenX;
             this.handleSwipe(touchStartX, touchEndX);
-        });
+        }, { passive: true });
     }
     
     static handleSwipe(startX, endX) {
@@ -441,7 +441,7 @@ class EnhancedPerformance {
             }
         }
         
-        window.addEventListener('scroll', this.throttle(requestTick, 16));
+        window.addEventListener('scroll', this.throttle(requestTick, 16), { passive: true });
     }
 }
 

@@ -1,3 +1,7 @@
+# STATUS: READY — never triggered
+# PURPOSE: Roll back GitHub Pages production to a known-good deployed SHA.
+# TRIGGER: Manual only
+# WHEN TO USE: Emergency rollback after a bad main deployment.
 name: Rollback Production
 
 on:
