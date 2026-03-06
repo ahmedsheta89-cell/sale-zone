@@ -28,6 +28,9 @@ class ErrorDetectionSystem {
             'Failed to fetch',
             'Load failed',
             'NetworkError',
+            'appCheck/throttled',
+            'AppCheck: Requests throttled',
+            'exchangeRecaptchaV3Token',
             'ResizeObserver loop limit exceeded',
             'ResizeObserver loop completed with undelivered notifications',
             'Non-Error promise rejection'
