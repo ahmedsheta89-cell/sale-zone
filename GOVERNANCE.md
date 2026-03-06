@@ -31,15 +31,17 @@ Required checks (exact names):
 - `admin-function-monitor`
 
 ## Security — App Check
-- Status: PREPARED (awaiting reCAPTCHA v3 site key)
-- Risk: HIGH if not activated
-- Activation steps:
+- Status: ACTIVE
+- Site key: configured
+- Activated: 2026-03-06
+- Residual risk: MEDIUM if the key is rotated in reCAPTCHA/Firebase and not updated here
+- Activation / rotation steps:
   1. Open `https://www.google.com/recaptcha/admin`
   2. Register `ahmedsheta89-cell.github.io` as a reCAPTCHA v3 site
   3. Copy the site key
   4. Open Firebase App Check for `sale-zone-601f0`
   5. Register the web app and paste the site key
-  6. Set the key in `<meta name="firebase-app-check-site-key">` or `window.FIREBASE_APP_CHECK_SITE_KEY`
+  6. Set the key in `<meta name="firebase-app-check-site-key">`, `window.FIREBASE_APP_CHECK_SITE_KEY`, or `DEFAULT_FIREBASE_APP_CHECK_SITE_KEY` in `firebase-config.js`
   7. Reload the app and verify App Check is active
 
 ## Release Gate Jobs
