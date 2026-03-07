@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl" data-page="admin">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone Store Admin - لوحة التحكم">
     <meta name="firebase-app-check-site-key" content="">
@@ -65,7 +65,8 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { -webkit-text-size-adjust: 100%; }
         body { font-family: var(--font-arabic); background: #f5f6fa; min-height: 100vh; text-rendering: optimizeLegibility; overscroll-behavior: none; touch-action: manipulation; }
-        button { min-height: 44px; }
+        button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+        button, .btn, .submit-btn, .action-btn, .menu-item, .tab-btn, .points-btn, .close-modal, .logout-btn, .login-btn, .mobile-menu-btn { min-height: 44px; min-width: 44px; touch-action: manipulation; }
         input, textarea, select { font-size: 16px; }
 
         /* Login */
@@ -119,6 +120,7 @@
         /* Dashboard */
         .dashboard { display: none; min-height: 100vh; }
         .dashboard.active { display: flex; }
+        body.sidebar-open { overflow: hidden; }
 
         /* Sidebar */
         .sidebar {
@@ -299,22 +301,44 @@
         }
         .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .btn {
-            padding: 8px 16px;
+            padding: 10px 16px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 13px;
             transition: var(--transition);
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1.35;
         }
         .btn-lg {
             padding: 12px 18px;
             font-size: 15px;
             font-weight: 700;
         }
+        .header-actions > * { flex: 0 0 auto; }
+        .toggle-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #fafafc;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+        .toggle-option input {
+            margin-top: 2px;
+            width: 18px;
+            height: 18px;
+            min-width: 18px;
+            min-height: 18px;
+        }
+        .wizard-help { font-size: 12px; color: #5f6a72; margin-top: 8px; line-height: 1.6; }
         #excelImagesUploaderBtn[aria-busy="true"] {
             opacity: 0.9;
             filter: saturate(1.15);
@@ -381,17 +405,17 @@
             font-size: 10px;
             font-weight: 600;
         }
-        .action-btns { display: flex; gap: 5px; }
+        .action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
         .action-btn {
-            width: 30px;
-            height: 30px;
-            border-radius: 6px;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
             border: none;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 13px;
             transition: var(--transition);
         }
         .action-btn:hover { transform: scale(1.1); }
@@ -524,13 +548,13 @@
         }
         .modal-header h2 { font-size: 18px; color: var(--navy); display: flex; align-items: center; gap: 8px; }
         .close-modal {
-            width: 32px;
-            height: 32px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: var(--cream);
             border: none;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 18px;
             transition: var(--transition);
         }
         .close-modal:hover { background: #ddd; transform: rotate(90deg); }
@@ -544,12 +568,13 @@
         .form-group label { display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px; font-size: 13px; }
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
-            padding: 10px 14px;
+            padding: 12px 14px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 13px;
+            border-radius: 10px;
+            font-size: 16px;
             font-family: var(--font-arabic);
             transition: var(--transition);
+            line-height: 1.5;
         }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             border-color: var(--gold);
@@ -699,12 +724,13 @@
             display: none;
             background: var(--gold);
             color: var(--white);
-            width: 38px;
-            height: 38px;
-            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
             border: none;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 18px;
+            box-shadow: var(--shadow-sm);
         }
         .overlay {
             display: none;
@@ -719,24 +745,39 @@
         .overlay.active { display: block; }
 
         @media (max-width: 1024px) {
-            .mobile-menu-btn { display: flex; align-items: center; justify-content: center; }
-            .sidebar { transform: translateX(100%); }
+            .mobile-menu-btn { display: inline-flex; align-items: center; justify-content: center; }
+            .sidebar { width: min(86vw, 320px); transform: translateX(100%); box-shadow: -12px 0 32px rgba(0,0,0,0.18); }
             .sidebar.active { transform: translateX(0); }
             .main-content { margin-right: 0; }
+            .top-bar-actions { width: 100%; justify-content: space-between; }
         }
         @media (max-width: 768px) {
+            body { font-size: 14px; line-height: 1.5; }
             .main-content { padding: 12px; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .top-bar { padding: 12px; border-radius: 14px; }
+            .page-title { font-size: 18px; }
+            .admin-info { width: 100%; justify-content: flex-start; font-size: 12px; }
+            .header-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 10px; }
+            .header-actions .btn { width: 100%; }
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .stat-card { padding: 14px; }
             .stat-value { font-size: 20px; }
-            .form-row, .form-row-3 { grid-template-columns: 1fr; }
-            .charts-grid { grid-template-columns: 1fr; }
+            .stat-label, .status-badge, .menu-section-title, .sidebar-subtitle, .notification-message, .support-message-meta { font-size: 12px; }
+            .menu-item { font-size: 14px; padding: 12px 14px; }
+            .form-row, .form-row-3, .settings-grid, .charts-grid, .support-layout { grid-template-columns: 1fr; }
+            .section-header, .section-body, .modal-header, .modal-body { padding-left: 16px; padding-right: 16px; }
+            .table-container { margin: 0 -8px; padding: 0 8px 8px; overflow-x: auto; }
+            .data-table { min-width: 640px; }
+            .data-table th, .data-table td { font-size: 12px; white-space: normal; }
+            .action-btn { width: 44px; height: 44px; font-size: 14px; }
             .modal-overlay { align-items: flex-end; padding: 10px; }
-            .modal { max-width: 100%; max-height: 92dvh; border-radius: 16px; }
-            .modal-body { padding: 16px; }
+            .modal { width: 95vw; max-width: 95vw; max-height: 90vh; border-radius: 18px 18px 0 0; }
+            .modal-body { padding: 16px; max-height: calc(90vh - 78px); }
             .close-modal { top: 10px; left: 10px; }
         }
-        @media (max-width: 480px) {
+        @media (max-width: 400px) {
             .stats-grid { grid-template-columns: 1fr; }
+            .header-actions { grid-template-columns: 1fr; }
             .settings-grid { grid-template-columns: 1fr; }
             .modal-header h2 { font-size: 16px; }
             .modal-body { padding: 14px; }
@@ -744,13 +785,14 @@
 
         /* Status Select */
         .status-select {
-            padding: 6px 12px;
+            padding: 10px 12px;
             border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 11px;
+            border-radius: 10px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             background: var(--white);
+            min-height: 44px;
         }
         .status-select:focus { border-color: var(--gold); outline: none; }
 
@@ -798,11 +840,11 @@
         }
         .user-points-actions { display: flex; gap: 6px; }
         .points-btn {
-            padding: 6px 12px;
+            padding: 10px 14px;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 600;
         }
         .points-btn.add { background: var(--success); color: white; }
@@ -964,7 +1006,7 @@
 
     <!-- Dashboard -->
     <div class="dashboard" id="dashboard">
-        <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+        <div class="overlay" id="overlay" aria-hidden="true" onclick="toggleSidebar(false)"></div>
 
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
@@ -1006,7 +1048,7 @@
         <main class="main-content">
             <div class="top-bar">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+                    <button type="button" class="mobile-menu-btn" id="sidebarToggleBtn" aria-label="??? ??????? ????????" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar()">?</button>
                     <h1 class="page-title" id="pageTitle">📊 نظرة عامة</h1>
                 </div>
                 <div class="top-bar-actions">
@@ -1969,18 +2011,23 @@
       <div class="wizard-panel" id="wizardStep5">
         <div class="form-row">
           <div class="form-group">
-            <label>مصدر الاستيراد</label>
+            <label>???? ?????????</label>
             <input type="text" id="wizardImportSource" readonly>
           </div>
           <div class="form-group">
-            <label>حالة المنتجات الجديدة</label>
-            <input type="text" value="مخفي افتراضيًا (نشر يدوي)" readonly>
+            <label>??? ????? ??? ?????????</label>
+            <label class="toggle-option" for="publishAfterImport">
+              <input type="checkbox" id="publishAfterImport" checked onchange="updateImportPublishHint(this.checked)">
+              <span>??? ???????? ???????? ??? ?????????</span>
+            </label>
+            <div class="wizard-help" id="wizardPublishHint">???? ??? ???????? ??????? ?????? ??? ??????? ????? ???? ?????? ??? ??????? ????? ????????.</div>
           </div>
         </div>
         <div class="wizard-progress">
           <div class="wizard-progress-fill" id="wizardProgressFill"></div>
         </div>
-        <div style="margin-top:8px;font-size:12px;color:#666" id="wizardProgressText">جاهز للتنفيذ.</div>
+        <div style="margin-top:8px;font-size:12px;color:#666" id="wizardProgressText">???? ???????.</div>
+        <div class="wizard-help" id="wizardImportSummary" style="display:none;"></div>
       </div>
 
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
@@ -7076,7 +7123,9 @@ function adminLogout(){
                 validatedProducts: [],
                 invalidRows: [],
                 isCommitting: false,
-                importBatchId: ''
+                importBatchId: '',
+                publishAfterImport: true,
+                lastImportSummary: null
             };
         }
 
@@ -7086,6 +7135,16 @@ function adminLogout(){
             const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
             if (fill) fill.style.width = `${safePercent}%`;
             if (text) text.textContent = message || '';
+        }
+
+        function updateImportPublishHint(isChecked) {
+            importWizardState = importWizardState || createEmptyImportWizardState();
+            importWizardState.publishAfterImport = isChecked !== false;
+            const hint = document.getElementById('wizardPublishHint');
+            if (!hint) return;
+            hint.textContent = importWizardState.publishAfterImport
+                ? '???? ??? ???????? ??????? ?????? ??? ??????? ????? ???? ?????? ??? ??????? ????? ????????.'
+                : '???? ??????? ???????? ????? ????? ??? ??????? ??????? ?????? ?? ???? ??????.';
         }
 
         function resetImportWizardState() {
@@ -7098,34 +7157,44 @@ function adminLogout(){
             const importSource = document.getElementById('wizardImportSource');
             const validationReport = document.getElementById('wizardValidationReport');
             const fileValidation = document.getElementById('wizardFileValidation');
+            const publishToggle = document.getElementById('publishAfterImport');
+            const publishHint = document.getElementById('wizardPublishHint');
+            const importSummary = document.getElementById('wizardImportSummary');
 
-            if (sheetSelect) sheetSelect.innerHTML = '<option value="">اختر الشيت</option>';
+            if (sheetSelect) sheetSelect.innerHTML = '<option value="">???? ?????</option>';
             if (fileInput) fileInput.value = '';
             if (headerRowInput) headerRowInput.value = '1';
             if (headerHint) headerHint.value = '';
             if (importSource) importSource.value = '';
-            if (validationReport) validationReport.textContent = 'لا يوجد تقرير بعد.';
-            if (fileValidation) fileValidation.textContent = 'سيتم اختبار الملف تلقائيًا بعد اختياره.';
+            if (publishToggle) publishToggle.checked = true;
+            if (publishHint) publishHint.textContent = '???? ??? ???????? ??????? ?????? ??? ??????? ????? ???? ?????? ??? ??????? ????? ????????.';
+            if (importSummary) {
+                importSummary.textContent = '';
+                importSummary.style.display = 'none';
+            }
+            if (validationReport) validationReport.textContent = '?? ???? ????? ???.';
+            if (fileValidation) fileValidation.textContent = '???? ?????? ????? ???????? ??? ???????.';
 
             ['wizardSheetPreview', 'wizardHeaderPreview'].forEach((id) => {
                 const el = document.getElementById(id);
-                if (el) el.textContent = 'لا توجد بيانات للعرض.';
+                if (el) el.textContent = '?? ???? ?????? ?????.';
             });
 
             ['mapNameCol', 'mapPriceCol', 'mapDescCol', 'mapCategoryCol', 'mapImageCol', 'mapOldPriceCol', 'mapCodeCol', 'mapStockCol']
                 .forEach((id) => {
                     const select = document.getElementById(id);
                     if (!select) return;
-                    select.innerHTML = '<option value="">-- غير محدد --</option>';
+                    select.innerHTML = '<option value="">-- ??? ???? --</option>';
                 });
 
-            setWizardProgress(0, 'جاهز للتنفيذ.');
+            setWizardProgress(0, '???? ???????.');
             showImportWizardStep(1);
         }
 
         function openImportWizard() {
             resetImportWizardState();
             openModal('importWizardModal');
+            updateImportPublishHint(true);
         }
 
         function showImportWizardStep(step) {
@@ -7761,7 +7830,7 @@ function adminLogout(){
             }
 
             if (!validRows.length) {
-                showNotification('error', 'لا توجد صفوف صالحة للاستيراد');
+                showNotification('error', '?? ???? ???? ????? ?????????');
                 return;
             }
 
@@ -7779,18 +7848,26 @@ function adminLogout(){
             importWizardState.importBatchId = importBatchId;
             const importSource = `${importWizardState.fileName || 'unknown-file'} :: ${importWizardState.sheetName || 'Sheet1'}`;
             const sourceInput = document.getElementById('wizardImportSource');
+            const publishToggle = document.getElementById('publishAfterImport');
+            const importSummary = document.getElementById('wizardImportSummary');
+            const publishAfterImport = !(publishToggle && publishToggle.checked === false);
+            importWizardState.publishAfterImport = publishAfterImport;
             if (sourceInput) sourceInput.value = `${importSource} | ${importBatchId}`;
+            if (importSummary) {
+                importSummary.textContent = '';
+                importSummary.style.display = 'none';
+            }
 
             const normalizedProducts = validRows.map((row) => normalizeProductForStorage({
                 ...row.product,
-                // WHY: imported Excel products should become visible to admins, uploader flows, and the storefront immediately when pricing is valid.
-                isPublished: true,
-                visibilityState: 'published',
+                // WHY: mobile import should respect the explicit publish toggle while still keeping invalid rows hidden during normalization.
+                isPublished: publishAfterImport,
+                visibilityState: publishAfterImport ? 'published' : 'hidden',
                 importBatchId,
                 importSource
             }, {
-                // WHY: default imported products to published; normalizeProductForStorage still keeps invalid-price rows hidden safely.
-                isPublished: true,
+                // WHY: default imported products to the selected publishing mode; normalizeProductForStorage still protects invalid-price rows.
+                isPublished: publishAfterImport,
                 category: row.product.category
             }));
 
@@ -7806,8 +7883,8 @@ function adminLogout(){
                     await requireAdminPermission();
                 } catch (error) {
                     console.error('Import permission check failed:', error);
-                    setWizardProgress(0, 'فشل التحقق من صلاحيات الأدمن.');
-                    showNotification('error', 'تعذر التحقق من صلاحيات الأدمن');
+                    setWizardProgress(0, '??? ?????? ?? ??????? ??????.');
+                    showNotification('error', '???? ?????? ?? ??????? ??????');
                     importWizardState.isCommitting = false;
                     showImportWizardStep(5);
                     return;
@@ -7828,8 +7905,8 @@ function adminLogout(){
                         try {
                             if (typeof addProductsBatch === 'function') {
                                 createdIds = await addProductsBatch(payloadChunk, {
-                                    // WHY: keep imported Excel products published by default so they surface in both admin and store without a second manual batch-publish step.
-                                    isPublished: true,
+                                    // WHY: keep Firestore in sync with the chosen mobile import publish mode.
+                                    isPublished: publishAfterImport,
                                     importBatchId,
                                     importSource,
                                     chunkSize: chunk.length
@@ -7868,7 +7945,7 @@ function adminLogout(){
                     });
 
                     const done = Math.min(normalizedProducts.length, offset + chunk.length);
-                    setWizardProgress(Math.round((done / normalizedProducts.length) * 100), `تمت معالجة ${done} من ${normalizedProducts.length}`);
+                    setWizardProgress(Math.round((done / normalizedProducts.length) * 100), `??? ?????? ${done} ?? ${normalizedProducts.length}`);
                     await new Promise((resolve) => setTimeout(resolve, 0));
                 }
 
@@ -7887,12 +7964,19 @@ function adminLogout(){
                     updateStats();
                 }
 
-                setWizardProgress(100, `اكتمل الاستيراد: ${localImported.length} منتج | مباشر: ${syncedCount} | انتظار: ${queuedCount}`);
-                showNotification('success', `تم استيراد ${localImported.length} منتج (دفعة: ${importBatchId})`);
+                const publishedCount = localImported.filter((item) => item && item.isPublished === true).length;
+                const hiddenCount = Math.max(0, localImported.length - publishedCount);
+                const summaryMessage = `?? ??????? ${localImported.length} ???? ? ${publishedCount} ????? ? ${hiddenCount} ????`;
+                setWizardProgress(100, `????? ?????????: ${localImported.length} ???? | ?????: ${syncedCount} | ??????: ${queuedCount}`);
+                if (importSummary) {
+                    importSummary.textContent = summaryMessage;
+                    importSummary.style.display = 'block';
+                }
+                showNotification('success', `${summaryMessage} (????: ${importBatchId})`);
             } catch (error) {
                 console.error('commitImportBatch error:', error);
-                setWizardProgress(0, 'فشل تنفيذ الاستيراد.');
-                showNotification('error', 'فشل تنفيذ الاستيراد');
+                setWizardProgress(0, '??? ????? ?????????.');
+                showNotification('error', '??? ????? ?????????');
             } finally {
                 importWizardState.isCommitting = false;
                 showImportWizardStep(5);
@@ -8002,15 +8086,28 @@ function adminLogout(){
         // ============================================
         // UI
         // ============================================
+        function setSidebarState(isOpen) {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            const toggleBtn = document.getElementById('sidebarToggleBtn');
+            const shouldOpen = Boolean(isOpen);
+            if (sidebar) sidebar.classList.toggle('active', shouldOpen);
+            if (overlay) {
+                overlay.classList.toggle('active', shouldOpen);
+                overlay.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+            }
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            document.body.classList.toggle('sidebar-open', shouldOpen);
+        }
+
         function showSection(name) {
             document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
             document.getElementById(name + 'Section').classList.add('active');
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
             event?.target?.classList.add('active');
-            const titles = { overview: '📊 نظرة عامة', products: '📦 المنتجات', suppliers: '🏭 الموردين', orders: '🛍️ الطلبات', banners: '🎠 البانرات', coupons: '🎫 الكوبونات', users: '👥 العملاء', support: '💬 الدردشة الداخلية', loyalty: '💎 نقاط الولاء', reports: '📈 التقارير', storeSettings: '🏪 المتجر', settings: '⚙️ النظام' };
+            const titles = { overview: '?? ???? ????', products: '?? ????????', suppliers: '?? ????????', orders: '??? ???????', banners: '?? ????????', coupons: '?? ?????????', users: '?? ???????', support: '?? ??????? ????????', loyalty: '?? ???? ??????', reports: '?? ????????', storeSettings: '?? ??????', settings: '?? ??????' };
             document.getElementById('pageTitle').textContent = titles[name] || name;
-            document.getElementById('sidebar').classList.remove('active');
-            document.getElementById('overlay').classList.remove('active');
+            setSidebarState(false);
             if (name === 'reports') {
                 renderClientErrorLogsTable();
                 refreshClientErrorLogs();
@@ -8024,9 +8121,11 @@ function adminLogout(){
             }
         }
 
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('active');
-            document.getElementById('overlay').classList.toggle('active');
+        function toggleSidebar(forceState) {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            const shouldOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('active');
+            setSidebarState(shouldOpen);
         }
 
         function applyAutoTooltips(root = document) {
@@ -9002,21 +9101,39 @@ async function readDirectoryHandleFiles(dirHandle, output = []) {
     return output;
 }
 
+function isMobileFolderPickerMode() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(String(navigator.userAgent || ''));
+}
+
+function pickImageFilesFromInput(options = {}) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/*';
+    if (options.directory === true) {
+        input.setAttribute('webkitdirectory', '');
+    }
+    return new Promise((resolve) => {
+        input.addEventListener('change', () => {
+            resolve(Array.from(input.files || []).filter(isImageFileCandidate));
+        }, { once: true });
+        input.click();
+    });
+}
+
 async function pickImageFolderFiles() {
+    if (isMobileFolderPickerMode()) {
+        showNotification('info', '???? ????? ???? ???? ??? ?????? ???????? ????? ?????? ??????? ????????.');
+        return pickImageFilesFromInput({ directory: false });
+    }
+
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
     input.accept = 'image/*';
 
     if ('webkitdirectory' in input) {
-        input.setAttribute('webkitdirectory', '');
-        return new Promise((resolve) => {
-            input.addEventListener('change', () => {
-                const files = Array.from(input.files || []).filter(isImageFileCandidate);
-                resolve(files);
-            }, { once: true });
-            input.click();
-        });
+        return pickImageFilesFromInput({ directory: true });
     }
 
     if (typeof window.showDirectoryPicker === 'function') {
@@ -9029,7 +9146,7 @@ async function pickImageFolderFiles() {
         }
     }
 
-    throw new Error('المتصفح لا يدعم اختيار مجلد كامل. استخدم Chrome أو Edge.');
+    throw new Error('??????? ?? ???? ?????? ???? ????. ?????? Chrome ?? Edge.');
 }
 
 async function pickFolderFilesWithFallback() {
@@ -9039,17 +9156,8 @@ async function pickFolderFilesWithFallback() {
         console.warn('[EXCEL_IMAGE_UPLOAD] folder picker fallback:', error);
     }
 
-    showNotification('warning', 'المتصفح لا يدعم اختيار مجلد كامل. يمكنك اختيار الملفات يدويًا أو استخدام Chrome/Edge.');
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = 'image/*';
-    return new Promise((resolve) => {
-        input.addEventListener('change', () => {
-            resolve(Array.from(input.files || []).filter(isImageFileCandidate));
-        }, { once: true });
-        input.click();
-    });
+    showNotification('warning', '??????? ?? ???? ?????? ???? ????. ????? ?????? ????? ?????? ?? ??????? Chrome/Edge.');
+    return pickImageFilesFromInput({ directory: false });
 }
 
 function buildSelectedFileIndex(selectedFiles) {
