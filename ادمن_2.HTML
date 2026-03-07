@@ -310,6 +310,26 @@
             align-items: center;
             gap: 5px;
         }
+        .btn-lg {
+            padding: 12px 18px;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        #excelImagesUploaderBtn[aria-busy="true"] {
+            opacity: 0.9;
+            filter: saturate(1.15);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.5), 0 0 0 4px rgba(15,122,51,0.35);
+        }
+        #excelCloudinaryUploadModal .wizard-progress-fill {
+            background: linear-gradient(90deg, #0f7a33, #50C878);
+        }
+        #excelCloudinaryUploadModal #excelImageUploadPreviewList li {
+            padding: 4px 0;
+            border-bottom: 1px dashed #e5e7eb;
+        }
+        #excelCloudinaryUploadModal #excelImageUploadPreviewList li:last-child {
+            border-bottom: none;
+        }
         .btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white); }
         .btn-gold:hover { box-shadow: 0 4px 15px rgba(212,175,55,0.4); }
         .btn-success { background: var(--success); color: var(--white); }
@@ -1099,6 +1119,7 @@
                             <button class="btn btn-navy" onclick="openAddCategoryPrompt()">🏷️ قسم جديد</button>
                             <button class="btn btn-success" onclick="exportProductsExcel()">📤 Excel</button>
                             <button class="btn btn-info" onclick="openImportWizard()">📥 استيراد مرن</button>
+                            <button id="excelImagesUploaderBtn" class="btn btn-success btn-lg" aria-label="رفع الصور المطلوبة من الإكسل إلى Cloudinary" title="رفع الصور المطلوبة من الإكسل إلى Cloudinary" onclick="openExcelImagesOnlyUploader()">📁 رفع الصور اللي في الإكسل فقط (Cloudinary)</button>
                             <button class="btn btn-navy" onclick="publishBatchPrompt()">🚀 نشر دفعة</button>
                             <button class="btn btn-warning" onclick="setAllProductsVisibility(false)">🙈 إخفاء الكل</button>
                             <button class="btn btn-danger" onclick="deleteAllProducts()">🧨 مسح الكل</button>
@@ -8317,6 +8338,1449 @@ function closeModal(modalId) {
         }
     </script>
     <script>
+const EXCEL_IMAGE_UPLOAD_MODAL_ID = 'excelCloudinaryUploadModal';
+const EXCEL_UPLOADER_BUTTON_ID = 'excelImagesUploaderBtn';
+const EXCEL_UPLOAD_DELAY_MS = 300;
+const EXCEL_PREVIEW_LIMIT = 400;
+const EXCEL_PREVIEW_RENDER_BATCH = 80;
+const EXCEL_LARGE_SELECTION_WARN = 500;
+const EXCEL_HARD_LIMIT_FILES = 2500;
+const EXCEL_UPLOAD_MAX_ATTEMPTS = 3;
+const EXCEL_UPLOAD_RETRY_DELAYS = [300, 700, 1500];
+const EXCEL_THUMBNAIL_LIMIT = 24;
+const EXCEL_UPLOAD_LIVE_THROTTLE_MS = 400;
+const EXCEL_EXT_PRIORITY = {
+    avif: 70,
+    webp: 60,
+    jpg: 50,
+    jpeg: 50,
+    png: 40,
+    gif: 30,
+    bmp: 20,
+    svg: 10
+};
+
+function getExcelImageUploaderRuntime() {
+    if (!window.__excelImageUploaderRuntime) {
+        window.__excelImageUploaderRuntime = {
+            inFlight: false,
+            cancelRequested: false,
+            controller: null,
+            previewResolver: null,
+            focusReturnEl: null,
+            missingListText: '',
+            failedRetryQueue: [],
+            activeObjectUrls: new Set(),
+            lastMatchResult: null,
+            lastFailedItems: [],
+            uploadSessionId: null,
+            retryTimerId: null,
+            lastLiveUpdateAt: 0
+        };
+    }
+    return window.__excelImageUploaderRuntime;
+}
+
+function waitExcelUploadTick() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function buildExcelUploadSessionId() {
+    return `excel-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function revokeExcelPreviewObjectUrls() {
+    const runtime = getExcelImageUploaderRuntime();
+    if (!(runtime.activeObjectUrls instanceof Set) || runtime.activeObjectUrls.size === 0) return;
+    runtime.activeObjectUrls.forEach((url) => {
+        try { URL.revokeObjectURL(url); } catch (_) {}
+    });
+    runtime.activeObjectUrls.clear();
+}
+
+function excelWaitAbortError() {
+    const error = new Error('تم إلغاء الرفع');
+    error.code = 'UPLOAD_ABORTED';
+    error.transient = false;
+    return error;
+}
+
+async function waitAbortable(ms, signal, runtime) {
+    const waitMs = Math.max(0, Number(ms || 0));
+    if (waitMs <= 0) return;
+    const tick = 50;
+    let elapsed = 0;
+
+    while (elapsed < waitMs) {
+        if ((runtime && runtime.cancelRequested) || (signal && signal.aborted)) {
+            throw excelWaitAbortError();
+        }
+
+        const slice = Math.min(tick, waitMs - elapsed);
+        await new Promise((resolve) => {
+            if (runtime) runtime.retryTimerId = setTimeout(resolve, slice);
+            else setTimeout(resolve, slice);
+        });
+        if (runtime) runtime.retryTimerId = null;
+        elapsed += slice;
+    }
+}
+
+function isTransientUploadFailure(error) {
+    if (!error) return false;
+    if (error.transient === true) return true;
+
+    const statusCode = Number(error.statusCode || error.status || 0);
+    if (statusCode === 429 || statusCode >= 500) return true;
+
+    const message = String(error.message || error || '').toLowerCase();
+    if (!message) return false;
+    return /network|timeout|timed out|econn|failed to fetch|429|too many requests|temporar|تعذر الاتصال|حد الرفع المؤقت/.test(message);
+}
+
+function getFileExtension(name) {
+    const value = String(name || '').trim();
+    const match = value.match(/\.([a-z0-9]+)$/i);
+    return match ? match[1].toLowerCase() : '';
+}
+
+function getPreferredFileScore(file) {
+    const ext = getFileExtension(file && file.name);
+    const extScore = EXCEL_EXT_PRIORITY[ext] || 0;
+    const typeBonus = String(file && file.type || '').toLowerCase().startsWith('image/') ? 1 : 0;
+    return (extScore * 1000000) + (typeBonus * 1000) + Number(file && file.size || 0);
+}
+
+function toDisplaySizeLabel(bytes) {
+    const size = Math.max(0, Number(bytes || 0));
+    if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    if (size >= 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+    return `${size} B`;
+}
+
+function createPreviewObjectUrl(file) {
+    const runtime = getExcelImageUploaderRuntime();
+    if (!file || !(runtime.activeObjectUrls instanceof Set)) return '';
+    try {
+        const objectUrl = URL.createObjectURL(file);
+        runtime.activeObjectUrls.add(objectUrl);
+        return objectUrl;
+    } catch (_) {
+        return '';
+    }
+}
+
+function toggleExcelUploaderButtonLoading(isLoading) {
+    const button = document.getElementById(EXCEL_UPLOADER_BUTTON_ID);
+    if (!button) return;
+
+    if (isLoading) {
+        if (!button.dataset.originalLabel) {
+            button.dataset.originalLabel = button.textContent || '📁 رفع الصور اللي في الإكسل فقط (Cloudinary)';
+        }
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.textContent = '⏳ جارٍ تجهيز الرفع...';
+        return;
+    }
+
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    if (button.dataset.originalLabel) button.textContent = button.dataset.originalLabel;
+}
+
+function isCloudinaryReadyForExcelUpload() {
+    return Boolean(
+        typeof CLOUDINARY_CONFIG !== 'undefined' &&
+        CLOUDINARY_CONFIG &&
+        String(CLOUDINARY_CONFIG.cloudName || '').trim() &&
+        String(CLOUDINARY_CONFIG.uploadPreset || '').trim()
+    );
+}
+
+function closeExcelImageUploadModal() {
+    const runtime = getExcelImageUploaderRuntime();
+    revokeExcelPreviewObjectUrls();
+    if (runtime.retryTimerId) {
+        clearTimeout(runtime.retryTimerId);
+        runtime.retryTimerId = null;
+    }
+    closeModal(EXCEL_IMAGE_UPLOAD_MODAL_ID);
+    if (runtime.focusReturnEl && typeof runtime.focusReturnEl.focus === 'function') {
+        runtime.focusReturnEl.focus();
+    }
+    runtime.focusReturnEl = null;
+}
+
+function escapeUploadHtml(value) {
+    const text = String(value == null ? '' : value);
+    if (typeof escapeHtml === 'function') return escapeHtml(text);
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function ensureExcelImageUploadModal() {
+    let overlay = document.getElementById(EXCEL_IMAGE_UPLOAD_MODAL_ID);
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = EXCEL_IMAGE_UPLOAD_MODAL_ID;
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'excelImageUploadModalTitle');
+    overlay.innerHTML = `
+        <div class="modal large" tabindex="-1">
+            <div class="modal-header">
+                <h2 id="excelImageUploadModalTitle">📁 رفع صور المنتجات المطلوبة</h2>
+                <button class="close-modal" type="button" id="excelImageUploadCloseX" aria-label="إغلاق نافذة رفع الصور">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="excelImageUploadSummary" style="font-size:13px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;">
+                    جارٍ تجهيز العملية...
+                </div>
+                <div id="excelImageUploadLive" aria-live="polite" aria-atomic="true" style="position:absolute;left:-9999px;top:-9999px;" aria-hidden="false"></div>
+                <div class="wizard-progress" style="margin-top:12px;">
+                    <div id="excelImageUploadProgressFill" class="wizard-progress-fill"></div>
+                </div>
+                <div id="excelImageUploadProgressPercent" style="font-size:12px;color:#666;margin-top:6px;">0%</div>
+                <div id="excelImageUploadCounter" style="font-size:13px;font-weight:700;color:#0A1128;margin-top:10px;">جاري رفع 0 من 0</div>
+                <div id="excelImageUploadCurrentFile" style="font-size:12px;color:#475569;margin-top:4px;">الملف الحالي: -</div>
+                <div id="excelImageUploadPreviewWrap" style="display:none;margin-top:12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:10px;">
+                    <div style="font-weight:700;color:#0A1128;margin-bottom:6px;">سيتم رفع الملفات المطابقة التالية:</div>
+                    <div id="excelImageUploadPreviewMeta" style="font-size:12px;color:#475569;margin-bottom:8px;"></div>
+                    <input id="excelImageUploadPreviewSearch" type="text" placeholder="ابحث داخل أسماء الصور المطابقة..." aria-label="بحث داخل قائمة الصور المطابقة" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;">
+                    <ul id="excelImageUploadPreviewList" style="margin:0;padding:0;list-style:none;max-height:220px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;background:#fff;"></ul>
+                </div>
+                <div id="excelImageUploadReport" class="wizard-report" style="display:none;margin-top:12px;"></div>
+                <textarea id="excelImageUploadMissingTextarea" style="position:absolute;left:-9999px;top:-9999px;" aria-hidden="true"></textarea>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+                    <button type="button" class="btn btn-success" id="excelImageUploadStartBtn" style="display:none;" aria-label="بدء رفع الصور الآن">بدء الرفع</button>
+                    <button type="button" class="btn btn-warning" id="excelImageUploadCancelBtn" style="display:none;" aria-label="إلغاء عملية الرفع">إلغاء</button>
+                    <button type="button" class="btn btn-info" id="excelImageUploadCopyMissingBtn" style="display:none;" aria-label="نسخ قائمة الصور الناقصة">نسخ قائمة الصور الناقصة</button>
+                    <button type="button" class="btn btn-warning" id="excelImageUploadRetryFailedBtn" style="display:none;" aria-label="إعادة محاولة الملفات الفاشلة">إعادة محاولة الفاشلة فقط</button>
+                    <button type="button" class="btn btn-navy" id="excelImageUploadCloseBtn" style="display:none;" aria-label="إغلاق">إغلاق</button>
+                    <button type="button" class="btn btn-success" id="excelImageUploadReloadBtn" style="display:none;" aria-label="تحديث الصفحة">تحديث الصفحة</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const closeHandler = () => {
+        const runtime = getExcelImageUploaderRuntime();
+        if (runtime.inFlight) {
+            showNotification('warning', 'لا يمكن إغلاق النافذة أثناء الرفع. استخدم زر "إلغاء".');
+            return;
+        }
+        if (runtime.previewResolver) {
+            runtime.previewResolver('cancel');
+            runtime.previewResolver = null;
+        }
+        closeExcelImageUploadModal();
+    };
+
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) closeHandler();
+    });
+    overlay.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        const runtime = getExcelImageUploaderRuntime();
+        if (runtime.inFlight || runtime.previewResolver) {
+            requestExcelImagesUploadCancel();
+            return;
+        }
+        closeHandler();
+    });
+    overlay.querySelector('#excelImageUploadCloseX')?.addEventListener('click', closeHandler);
+    overlay.querySelector('#excelImageUploadCloseBtn')?.addEventListener('click', closeHandler);
+    overlay.querySelector('#excelImageUploadCancelBtn')?.addEventListener('click', requestExcelImagesUploadCancel);
+    overlay.querySelector('#excelImageUploadReloadBtn')?.addEventListener('click', () => location.reload());
+    overlay.querySelector('#excelImageUploadCopyMissingBtn')?.addEventListener('click', copyMissingListToClipboard);
+    overlay.querySelector('#excelImageUploadRetryFailedBtn')?.addEventListener('click', retryFailedUploadsOnly);
+    overlay.querySelector('#excelImageUploadPreviewSearch')?.addEventListener('input', () => {
+        const runtime = getExcelImageUploaderRuntime();
+        if (runtime.lastMatchResult) renderPreUploadPreview(runtime.lastMatchResult);
+    });
+    overlay.querySelector('#excelImageUploadStartBtn')?.addEventListener('click', () => {
+        const runtime = getExcelImageUploaderRuntime();
+        if (runtime.previewResolver) {
+            runtime.previewResolver('start');
+            runtime.previewResolver = null;
+        }
+    });
+
+    overlay.addEventListener('keydown', (event) => {
+        if (event.key !== 'Tab') return;
+        const focusables = Array.from(overlay.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+            .filter((el) => el.offsetParent !== null);
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+    return overlay;
+}
+
+function getExcelImageUploadElements() {
+    const root = ensureExcelImageUploadModal();
+    return {
+        root,
+        modal: root.querySelector('.modal'),
+        summary: root.querySelector('#excelImageUploadSummary'),
+        live: root.querySelector('#excelImageUploadLive'),
+        progressFill: root.querySelector('#excelImageUploadProgressFill'),
+        progressPercent: root.querySelector('#excelImageUploadProgressPercent'),
+        counter: root.querySelector('#excelImageUploadCounter'),
+        currentFile: root.querySelector('#excelImageUploadCurrentFile'),
+        previewWrap: root.querySelector('#excelImageUploadPreviewWrap'),
+        previewMeta: root.querySelector('#excelImageUploadPreviewMeta'),
+        previewSearch: root.querySelector('#excelImageUploadPreviewSearch'),
+        previewList: root.querySelector('#excelImageUploadPreviewList'),
+        report: root.querySelector('#excelImageUploadReport'),
+        missingTextarea: root.querySelector('#excelImageUploadMissingTextarea'),
+        startBtn: root.querySelector('#excelImageUploadStartBtn'),
+        cancelBtn: root.querySelector('#excelImageUploadCancelBtn'),
+        copyMissingBtn: root.querySelector('#excelImageUploadCopyMissingBtn'),
+        retryFailedBtn: root.querySelector('#excelImageUploadRetryFailedBtn'),
+        closeBtn: root.querySelector('#excelImageUploadCloseBtn'),
+        reloadBtn: root.querySelector('#excelImageUploadReloadBtn')
+    };
+}
+
+function resetExcelImageUploadModalState() {
+    const runtime = getExcelImageUploaderRuntime();
+    const ui = getExcelImageUploadElements();
+    revokeExcelPreviewObjectUrls();
+    if (runtime.retryTimerId) {
+        clearTimeout(runtime.retryTimerId);
+        runtime.retryTimerId = null;
+    }
+    runtime.missingListText = '';
+    runtime.failedRetryQueue = [];
+    runtime.lastFailedItems = [];
+    runtime.lastMatchResult = null;
+    runtime.uploadSessionId = null;
+    runtime.cancelRequested = false;
+    runtime.inFlight = false;
+    runtime.controller = null;
+    runtime.lastLiveUpdateAt = 0;
+    if (ui.summary) ui.summary.textContent = 'جارٍ تجهيز العملية...';
+    if (ui.live) ui.live.textContent = '';
+    if (ui.progressFill) ui.progressFill.style.width = '0%';
+    if (ui.progressPercent) ui.progressPercent.textContent = '0%';
+    if (ui.counter) ui.counter.textContent = 'جاري رفع 0 من 0';
+    if (ui.currentFile) ui.currentFile.textContent = 'الملف الحالي: -';
+    if (ui.previewWrap) ui.previewWrap.style.display = 'none';
+    if (ui.previewMeta) ui.previewMeta.textContent = '';
+    if (ui.previewSearch) ui.previewSearch.value = '';
+    if (ui.previewList) ui.previewList.innerHTML = '';
+    if (ui.report) {
+        ui.report.style.display = 'none';
+        ui.report.innerHTML = '';
+    }
+    if (ui.missingTextarea) ui.missingTextarea.value = '';
+    if (ui.startBtn) {
+        ui.startBtn.style.display = 'none';
+        ui.startBtn.disabled = false;
+    }
+    if (ui.cancelBtn) {
+        ui.cancelBtn.style.display = 'none';
+        ui.cancelBtn.disabled = false;
+        ui.cancelBtn.textContent = 'إلغاء';
+    }
+    if (ui.copyMissingBtn) ui.copyMissingBtn.style.display = 'none';
+    if (ui.retryFailedBtn) ui.retryFailedBtn.style.display = 'none';
+    if (ui.closeBtn) ui.closeBtn.style.display = 'none';
+    if (ui.reloadBtn) ui.reloadBtn.style.display = 'none';
+}
+
+function setExcelImageUploadProgress(payload = {}) {
+    const runtime = getExcelImageUploaderRuntime();
+    const ui = getExcelImageUploadElements();
+    const percent = Math.max(0, Math.min(100, Number(payload.percent || 0)));
+    const completed = Number(payload.completed || 0);
+    const total = Number(payload.total || 0);
+    const currentFile = String(payload.currentFile || '-');
+
+    if (ui.progressFill) ui.progressFill.style.width = `${percent}%`;
+    if (ui.progressPercent) ui.progressPercent.textContent = `${percent}%`;
+    if (ui.counter) ui.counter.textContent = `جاري رفع ${completed} من ${total}`;
+    if (ui.currentFile) ui.currentFile.textContent = `الملف الحالي: ${currentFile}`;
+    if (payload.summary && ui.summary) ui.summary.textContent = String(payload.summary);
+    if (ui.live) {
+        const now = Date.now();
+        if (!runtime.lastLiveUpdateAt || (now - runtime.lastLiveUpdateAt) >= EXCEL_UPLOAD_LIVE_THROTTLE_MS || percent === 100) {
+            ui.live.textContent = `التقدم ${percent}% - ${completed} من ${total} - ${currentFile}`;
+            runtime.lastLiveUpdateAt = now;
+        }
+    }
+}
+
+function finalizeExcelImageUploadModal(reportPayload = {}) {
+    const runtime = getExcelImageUploaderRuntime();
+    const ui = getExcelImageUploadElements();
+    const uploaded = Array.isArray(reportPayload.uploaded)
+        ? reportPayload.uploaded
+        : (Array.isArray(reportPayload.success) ? reportPayload.success : []);
+    const missing = Array.isArray(reportPayload.missingRequired)
+        ? reportPayload.missingRequired
+        : (Array.isArray(reportPayload.missing) ? reportPayload.missing : []);
+    const failed = Array.isArray(reportPayload.failed) ? reportPayload.failed : [];
+    const skipped = Number(reportPayload.nonMatchedSelectedCount || reportPayload.skippedCount || 0);
+    const duplicates = Array.isArray(reportPayload.duplicatesSkipped)
+        ? reportPayload.duplicatesSkipped
+        : (Array.isArray(reportPayload.duplicates) ? reportPayload.duplicates : []);
+    const canceled = reportPayload.canceled === true;
+    runtime.failedRetryQueue = failed.map((item) => ({ ...item }));
+    runtime.lastFailedItems = failed.map((item) => ({ ...item }));
+
+    runtime.missingListText = ['filename\tnote', ...missing.map((name) => `${name}\tmissing_in_folder`)].join('\n');
+    if (ui.missingTextarea) ui.missingTextarea.value = runtime.missingListText;
+
+    const missingHtml = missing.length
+        ? `<ul style="margin:6px 0 0;padding-inline-start:18px;">${missing.slice(0, 200).map((name) => `<li>${escapeUploadHtml(name)}</li>`).join('')}</ul>`
+        : '<div style="color:#0f7c33;margin-top:6px;">لا توجد صور ناقصة ✅</div>';
+
+    const failedHtml = failed.length
+        ? `<ul style="margin:6px 0 0;padding-inline-start:18px;">${failed.slice(0, 120).map((item) => `<li>${escapeUploadHtml(item.file)} — ${escapeUploadHtml(item.error)}</li>`).join('')}</ul>`
+        : '<div style="color:#0f7c33;margin-top:6px;">لا توجد أخطاء رفع ✅</div>';
+
+    const duplicateHtml = duplicates.length
+        ? `<div style="margin-top:8px;color:#7c2d12;">⚠️ تم تجاهل نسخ مكررة: ${duplicates.length}</div>`
+        : '';
+
+    const manualFailed = failed.filter((item) => item && item.transient !== true);
+    const transientFailed = failed.filter((item) => item && item.transient === true);
+
+    if (ui.summary) {
+        if (canceled) {
+            ui.summary.textContent = `تم إلغاء العملية. تم رفع ${uploaded.length} صورة قبل الإلغاء.`;
+        } else {
+            ui.summary.textContent = 'اكتملت عملية الرفع.';
+        }
+    }
+
+    if (ui.report) {
+        ui.report.style.display = 'block';
+        ui.report.innerHTML = `
+            <div style="line-height:1.9;">
+                <div>✅ نجح: <strong>${uploaded.length}</strong></div>
+                <div>⚠️ ناقص في الفولدر: <strong>${missing.length}</strong></div>
+                ${missingHtml}
+                <hr style="margin:10px 0;border:none;border-top:1px solid #ddd;">
+                <div>❌ فشل الرفع: <strong>${failed.length}</strong></div>
+                ${failedHtml}
+                <div style="margin-top:8px;color:#475569;">إخفاقات مؤقتة قابلة لإعادة المحاولة: ${transientFailed.length}</div>
+                <div style="margin-top:4px;color:#7c2d12;">إخفاقات تتطلب تدخلًا يدويًا: ${manualFailed.length}</div>
+                <div style="margin-top:8px;color:#7c2d12;">ℹ️ مكرر: ${duplicates.length}</div>
+                ${duplicateHtml}
+                <div style="margin-top:8px;color:#475569;">ℹ️ غير مطابق: ${skipped}</div>
+            </div>
+        `;
+    }
+
+    if (ui.previewWrap) ui.previewWrap.style.display = 'none';
+    if (ui.startBtn) ui.startBtn.style.display = 'none';
+    if (ui.cancelBtn) ui.cancelBtn.style.display = 'none';
+    if (ui.copyMissingBtn) ui.copyMissingBtn.style.display = missing.length ? 'inline-flex' : 'none';
+    if (ui.retryFailedBtn) ui.retryFailedBtn.style.display = failed.length ? 'inline-flex' : 'none';
+    if (ui.closeBtn) ui.closeBtn.style.display = 'inline-flex';
+    if (ui.reloadBtn) ui.reloadBtn.style.display = 'inline-flex';
+}
+
+function requestExcelImagesUploadCancel() {
+    const runtime = getExcelImageUploaderRuntime();
+    if (runtime.previewResolver && !runtime.inFlight) {
+        runtime.previewResolver('cancel');
+        runtime.previewResolver = null;
+        return;
+    }
+
+    if (!runtime.inFlight) {
+        closeExcelImageUploadModal();
+        return;
+    }
+
+    runtime.cancelRequested = true;
+    if (runtime.retryTimerId) {
+        clearTimeout(runtime.retryTimerId);
+        runtime.retryTimerId = null;
+    }
+    if (runtime.controller) {
+        try { runtime.controller.abort(); } catch (_) {}
+    }
+
+    const ui = getExcelImageUploadElements();
+    if (ui.cancelBtn) {
+        ui.cancelBtn.disabled = true;
+        ui.cancelBtn.textContent = 'جارٍ الإلغاء...';
+    }
+    if (ui.summary) ui.summary.textContent = 'جارٍ إلغاء الرفع...';
+    showNotification('warning', 'تم طلب إلغاء العملية. لن يتم بدء أي رفع جديد.');
+}
+
+function extractFilenameFromImageValue(value) {
+    let candidate = String(value || '').trim();
+    if (!candidate || candidate.startsWith('data:')) return '';
+    try { candidate = decodeURIComponent(candidate); } catch (_) {}
+    if (typeof candidate.normalize === 'function') {
+        try { candidate = candidate.normalize('NFKC'); } catch (_) {}
+    }
+    candidate = candidate.replace(/[?#].*$/g, '').replace(/\\/g, '/');
+    return (candidate.split('/').pop() || '').trim();
+}
+
+function basenameWithoutExt(value) {
+    const fileName = extractFilenameFromImageValue(value);
+    if (!fileName) return '';
+    return fileName.replace(/\.[^./]+$/g, '').trim();
+}
+
+function normalizeFilenameForMatch(value) {
+    const base = basenameWithoutExt(value);
+    if (!base) return '';
+    let normalized = base;
+    if (typeof normalized.normalize === 'function') {
+        try { normalized = normalized.normalize('NFKC'); } catch (_) {}
+    }
+    return normalized
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function normalizeImageKey(value) {
+    // WHY: keep a single normalization path for uploader matching keys.
+    return normalizeFilenameForMatch(value);
+}
+
+function collectRequiredImageMap(productsList) {
+    const requiredMap = new Map();
+    const duplicateRequiredNames = [];
+    // WHY: count invalid image entries excluded from required map diagnostics.
+    let skippedInvalidCount = 0;
+    const rows = Array.isArray(productsList) ? productsList : [];
+    rows.forEach((product) => {
+        // WHY: read image source from each product row before matching.
+        const rawImage = product && product.image;
+        // WHY: skip missing or base64 sources to prevent impossible upload requirements.
+        if (!rawImage || String(rawImage).trim().startsWith('data:')) {
+            skippedInvalidCount += 1;
+            return;
+        }
+        // WHY: skip empty normalized keys to avoid fake required entries.
+        const normalizedKey = normalizeImageKey(rawImage);
+        // WHY: enforce non-empty normalized key before adding to map.
+        if (!normalizedKey || !String(normalizedKey).trim()) {
+            skippedInvalidCount += 1;
+            return;
+        }
+        // WHY: keep display filename for reporting while using normalized key for matching.
+        const fileName = extractFilenameFromImageValue(rawImage);
+        // WHY: allow only http(s) URLs or image-like filename sources and skip unsupported keys.
+        const rawImageValue = String(rawImage).trim();
+        // WHY: detect direct http/https image sources safely.
+        const isHttpSource = /^https?:\/\//i.test(rawImageValue);
+        // WHY: detect image-like filename sources to support filename-based Cloudinary flows.
+        const isImageLikeFileName = /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)(?:[?#].*)?$/i.test(fileName || rawImageValue);
+        // WHY: exclude unsupported non-http/non-image entries to avoid ghost image requests.
+        if (!isHttpSource && !isImageLikeFileName) {
+            skippedInvalidCount += 1;
+            return;
+        }
+        // WHY: keep stable key regardless of file extension or URL form.
+        const key = normalizedKey;
+
+        if (!requiredMap.has(key)) {
+            requiredMap.set(key, {
+                key,
+                displayNames: new Set(),
+                rawValues: new Set()
+            });
+        } else {
+            duplicateRequiredNames.push(fileName || String(rawImage || key));
+        }
+
+        const entry = requiredMap.get(key);
+        if (fileName) entry.displayNames.add(fileName);
+        if (rawImage != null && String(rawImage).trim()) entry.rawValues.add(String(rawImage).trim());
+    });
+    // WHY: expose map/skip counters for uploader diagnostics in production console.
+    console.log('[IMAGE_MAP] Required:', requiredMap.size, '| Skipped invalid:', skippedInvalidCount);
+    return { requiredMap, duplicateRequiredNames };
+}
+
+function collectRequiredImageNames(productsList) {
+    return collectRequiredImageMap(productsList);
+}
+
+async function fetchAllProductsForImageUpload() {
+    try {
+        // WHY: declare uploader source explicitly to remove ambiguity between admin table and Firestore.
+        console.info('[IMAGE_UPLOADER] source=firestore_published');
+        // WHY: image uploader should process only explicitly published products.
+        if (typeof getPublishedProducts === 'function') {
+            const results = [];
+            let page = await getPublishedProducts(false);
+            if (Array.isArray(page)) results.push(...page);
+            // WHY: use configurable page threshold while paginating through published products.
+            const pageSize = Number((typeof window !== 'undefined' && window.PAGE_SIZE) || 20);
+            // WHY: continue pagination until API returns less than a full page.
+            while (Array.isArray(page) && page.length > 0 && page.length >= pageSize) {
+                page = await getPublishedProducts(true);
+                if (!Array.isArray(page) || page.length === 0) break;
+                results.push(...page);
+                await waitExcelUploadTick();
+            }
+            // WHY: normalize schema first to prevent ghost rows from malformed records.
+            const validated = ensureProductsSchema(results)
+                // WHY: keep only explicitly published products for image upload scope.
+                .filter((item) => item && item.isPublished === true)
+                // WHY: exclude empty/base64 image values from uploader requirements.
+                .filter((item) => item && item.image && !String(item.image).startsWith('data:'));
+            // WHY: expose final validated count for uploader diagnostics.
+            console.log('[IMAGE_UPLOADER] Published products for upload:', validated.length);
+            // WHY: log a compact sample of the matched source rows for fast production diagnosis.
+            console.table(validated.slice(0, 20).map((item) => ({
+                id: String(item && item.id || ''),
+                name: String(item && (item.name || item.nameEn) || ''),
+                isPublished: item && item.isPublished === true,
+                image: String(item && item.image || '').slice(0, 120)
+            })));
+            return validated;
+        }
+
+        // WHY: use Firestore fallback with published-only filter when helper function is unavailable.
+        const firestore = (typeof db !== 'undefined' && db && typeof db.collection === 'function')
+            ? db
+            : (typeof firebase !== 'undefined' && firebase && typeof firebase.firestore === 'function' ? firebase.firestore() : null);
+        // WHY: safely read published-only products from Firestore in uploader fallback path.
+        if (firestore && typeof firestore.collection === 'function') {
+            const snap = await firestore.collection('products').where('isPublished', '==', true).get();
+            // WHY: filter out invalid image values even in direct Firestore fallback.
+            const rows = snap.docs
+                .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+                .filter((item) => item && item.image && !String(item.image).startsWith('data:'));
+            // WHY: expose fallback count for upload diagnostics.
+            console.log('[IMAGE_UPLOADER] Firestore fallback count:', rows.length);
+            // WHY: keep source trace visible when fallback query path is used.
+            console.info('[IMAGE_UPLOADER] source=firestore_published_fallback');
+            // WHY: provide quick sample for debugging count mismatches without opening Firestore console.
+            console.table(rows.slice(0, 20).map((item) => ({
+                id: String(item && item.id || ''),
+                name: String(item && (item.name || item.nameEn) || ''),
+                isPublished: item && item.isPublished === true,
+                image: String(item && item.image || '').slice(0, 120)
+            })));
+            return rows;
+        }
+        return [];
+    } catch (err) {
+        // WHY: never fallback to stale local cache to avoid ghost required-image requests.
+        console.error('[IMAGE_UPLOADER] Failed to fetch products for upload:', err);
+        return [];
+    }
+}
+
+function isImageFileCandidate(file) {
+    if (!file || !file.name) return false;
+    const byType = typeof file.type === 'string' && file.type.toLowerCase().startsWith('image/');
+    const byExt = /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)$/i.test(file.name);
+    return byType || byExt;
+}
+
+async function readDirectoryHandleFiles(dirHandle, output = []) {
+    for await (const entry of dirHandle.values()) {
+        if (entry.kind === 'file') {
+            const file = await entry.getFile();
+            if (isImageFileCandidate(file)) output.push(file);
+        } else if (entry.kind === 'directory') {
+            await readDirectoryHandleFiles(entry, output);
+        }
+    }
+    return output;
+}
+
+async function pickImageFolderFiles() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/*';
+
+    if ('webkitdirectory' in input) {
+        input.setAttribute('webkitdirectory', '');
+        return new Promise((resolve) => {
+            input.addEventListener('change', () => {
+                const files = Array.from(input.files || []).filter(isImageFileCandidate);
+                resolve(files);
+            }, { once: true });
+            input.click();
+        });
+    }
+
+    if (typeof window.showDirectoryPicker === 'function') {
+        try {
+            const handle = await window.showDirectoryPicker();
+            return await readDirectoryHandleFiles(handle, []);
+        } catch (error) {
+            if (error && error.name === 'AbortError') return [];
+            throw error;
+        }
+    }
+
+    throw new Error('المتصفح لا يدعم اختيار مجلد كامل. استخدم Chrome أو Edge.');
+}
+
+async function pickFolderFilesWithFallback() {
+    try {
+        return await pickImageFolderFiles();
+    } catch (error) {
+        console.warn('[EXCEL_IMAGE_UPLOAD] folder picker fallback:', error);
+    }
+
+    showNotification('warning', 'المتصفح لا يدعم اختيار مجلد كامل. يمكنك اختيار الملفات يدويًا أو استخدام Chrome/Edge.');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/*';
+    return new Promise((resolve) => {
+        input.addEventListener('change', () => {
+            resolve(Array.from(input.files || []).filter(isImageFileCandidate));
+        }, { once: true });
+        input.click();
+    });
+}
+
+function buildSelectedFileIndex(selectedFiles) {
+    const selectedIndex = new Map();
+    const seenFileSignature = new Set();
+    (Array.isArray(selectedFiles) ? selectedFiles : []).forEach((file) => {
+        if (!isImageFileCandidate(file)) return;
+        const key = normalizeFilenameForMatch(file.name);
+        if (!key) return;
+        const signature = `${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}::${Number(file.lastModified || 0)}`;
+        if (seenFileSignature.has(signature)) return;
+        seenFileSignature.add(signature);
+
+        if (!selectedIndex.has(key)) {
+            selectedIndex.set(key, { key, primary: file, duplicates: [] });
+            return;
+        }
+        const bucket = selectedIndex.get(key);
+        const currentPrimary = bucket.primary;
+        const candidateScore = getPreferredFileScore(file);
+        const currentScore = getPreferredFileScore(currentPrimary);
+        if (candidateScore > currentScore) {
+            bucket.duplicates.push({
+                name: currentPrimary.name,
+                reason: 'تم اختيار ملف أعلى جودة لنفس الاسم.'
+            });
+            bucket.primary = file;
+        } else {
+            bucket.duplicates.push({
+                name: file.name,
+                reason: 'ملف مكرر لنفس الاسم الأساسي.'
+            });
+        }
+    });
+    return selectedIndex;
+}
+
+function matchFilesByBasename(requiredMap, selectedIndex) {
+    const required = requiredMap instanceof Map ? requiredMap : new Map();
+    const matchedFiles = [];
+    const missingRequired = [];
+    const duplicatesSkipped = [];
+    const usedKeys = new Set();
+
+    required.forEach((entry, key) => {
+        const selected = selectedIndex.get(key);
+        if (!selected) {
+            const display = Array.from((entry && entry.displayNames) || []);
+            missingRequired.push(display[0] || key);
+            return;
+        }
+        usedKeys.add(key);
+        matchedFiles.push({
+            file: selected.primary,
+            key,
+            requiredDisplay: Array.from((entry && entry.displayNames) || [])
+        });
+        if (Array.isArray(selected.duplicates) && selected.duplicates.length) {
+            selected.duplicates.forEach((dup) => {
+                if (typeof dup === 'string') duplicatesSkipped.push({ name: dup, reason: 'ملف مكرر' });
+                else duplicatesSkipped.push(dup);
+            });
+        }
+    });
+
+    let skippedCount = 0;
+    selectedIndex.forEach((item, key) => {
+        if (!usedKeys.has(key)) skippedCount += 1;
+        skippedCount += Array.isArray(item.duplicates) ? item.duplicates.length : 0;
+    });
+
+    return { matchedFiles, missingRequired, duplicatesSkipped, nonMatchedSelectedCount: skippedCount };
+}
+
+function filterMatchingFiles(selectedFiles, requiredMap) {
+    const selectedIndex = buildSelectedFileIndex(selectedFiles);
+    const result = matchFilesByBasename(requiredMap, selectedIndex);
+    return {
+        matchedFiles: result.matchedFiles,
+        missingRequired: result.missingRequired,
+        duplicates: result.duplicatesSkipped,
+        skippedCount: result.nonMatchedSelectedCount
+    };
+}
+
+async function uploadMatchedFilesToCloudinary(matchedFiles) {
+    const files = Array.isArray(matchedFiles) ? matchedFiles : [];
+    const runtime = getExcelImageUploaderRuntime();
+    const uploadSessionId = buildExcelUploadSessionId();
+    runtime.inFlight = true;
+    runtime.cancelRequested = false;
+    runtime.controller = null;
+    runtime.uploadSessionId = uploadSessionId;
+    runtime.lastFailedItems = [];
+    console.info('[EXCEL_IMAGE_UPLOAD] queue started:', {
+        totalFiles: files.length,
+        delayMs: EXCEL_UPLOAD_DELAY_MS,
+        maxAttempts: EXCEL_UPLOAD_MAX_ATTEMPTS,
+        sessionId: uploadSessionId
+    });
+
+    const uploaded = [];
+    const failed = [];
+    const total = files.length;
+
+    for (let i = 0; i < files.length; i += 1) {
+        if (runtime.cancelRequested || runtime.uploadSessionId !== uploadSessionId) break;
+        const fileItem = files[i] || {};
+        const file = fileItem.file;
+        if (!file) continue;
+        const displayIndex = i + 1;
+        const publicId = basenameWithoutExt(file.name)
+            .replace(/\s+/g, '-')
+            .replace(/[^a-zA-Z0-9_-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+
+        runtime.controller = new AbortController();
+        setExcelImageUploadProgress({
+            summary: 'جاري رفع الملفات إلى Cloudinary...',
+            percent: Math.round((i / Math.max(total, 1)) * 100),
+            completed: displayIndex,
+            total,
+            currentFile: file.name || '-'
+        });
+
+        try {
+            let attempt = 0;
+            let uploadDone = false;
+            let lastMessage = '';
+            console.groupCollapsed('[EXCEL_IMAGE_UPLOAD] file start');
+            console.info('[EXCEL_IMAGE_UPLOAD] file meta:', {
+                name: String(file.name || ''),
+                size: Number(file.size || 0),
+                type: String(file.type || ''),
+                publicId
+            });
+
+            while (!uploadDone && attempt < EXCEL_UPLOAD_MAX_ATTEMPTS) {
+                attempt += 1;
+                console.info('[EXCEL_IMAGE_UPLOAD] attempt:', {
+                    file: file.name,
+                    attempt,
+                    maxAttempts: EXCEL_UPLOAD_MAX_ATTEMPTS
+                });
+                try {
+                    const result = await uploadToCloudinary(file, {
+                        folder: 'salezone_products',
+                        publicId,
+                        signal: runtime.controller.signal,
+                        onProgress: (filePercent) => {
+                            const safeFilePercent = Math.max(0, Math.min(100, Number(filePercent || 0)));
+                            const overallPercent = Math.round(((i + (safeFilePercent / 100)) / Math.max(total, 1)) * 100);
+                            setExcelImageUploadProgress({
+                                percent: overallPercent,
+                                completed: displayIndex,
+                                total,
+                                currentFile: `${file.name || '-'} (محاولة ${attempt}/${EXCEL_UPLOAD_MAX_ATTEMPTS})`
+                            });
+                        }
+                    });
+                    uploaded.push({
+                        file: file.name,
+                        publicId: String(result && (result.publicId || result.public_id || publicId) || publicId),
+                        secureUrl: String(result && (result.url || result.secure_url) || '')
+                    });
+                    console.info('[EXCEL_IMAGE_UPLOAD] upload success:', {
+                        file: file.name,
+                        publicId: String(result && (result.publicId || result.public_id || publicId) || publicId),
+                        secureUrl: String(result && (result.url || result.secure_url) || '')
+                    });
+                    uploadDone = true;
+                } catch (attemptError) {
+                    lastMessage = String(attemptError && attemptError.message || 'فشل غير معروف').trim();
+                    if (runtime.cancelRequested || /تم إلغاء الرفع|aborted|canceled/i.test(lastMessage)) {
+                        throw attemptError;
+                    }
+
+                    const transient = isTransientUploadFailure(attemptError);
+                    if (!transient || attempt >= EXCEL_UPLOAD_MAX_ATTEMPTS) {
+                        throw attemptError;
+                    }
+
+                    const baseWait = EXCEL_UPLOAD_RETRY_DELAYS[Math.min(attempt - 1, EXCEL_UPLOAD_RETRY_DELAYS.length - 1)] || 1500;
+                    const jitter = Math.round(Math.random() * 180);
+                    const waitMs = baseWait + jitter;
+                    console.warn('[EXCEL_IMAGE_UPLOAD] transient upload failure; retry scheduled:', {
+                        file: file.name,
+                        attempt,
+                        waitMs,
+                        message: lastMessage
+                    });
+                    setExcelImageUploadProgress({
+                        summary: `تعذر رفع ${file.name}. إعادة المحاولة خلال ${waitMs}ms...`,
+                        percent: Math.round((i / Math.max(total, 1)) * 100),
+                        completed: displayIndex,
+                        total,
+                        currentFile: file.name || '-'
+                    });
+                    await waitAbortable(waitMs, runtime.controller ? runtime.controller.signal : null, runtime);
+                }
+            }
+
+            if (!uploadDone) {
+                throw new Error(lastMessage || 'فشل الرفع بعد عدة محاولات');
+            }
+        } catch (error) {
+            const message = String(error && error.message || 'فشل غير معروف').trim();
+            if (runtime.cancelRequested || /تم إلغاء الرفع|upload canceled|aborted|canceled/i.test(message)) {
+                break;
+            }
+            failed.push({
+                file: file.name,
+                error: message,
+                transient: isTransientUploadFailure(error)
+            });
+            console.error('[EXCEL_IMAGE_UPLOAD] upload failed:', file.name, error);
+        } finally {
+            console.groupEnd();
+            runtime.controller = null;
+        }
+
+        const donePercent = Math.round(((i + 1) / Math.max(total, 1)) * 100);
+        setExcelImageUploadProgress({
+            percent: donePercent,
+            completed: displayIndex,
+            total,
+            currentFile: file.name || '-'
+        });
+        if (!runtime.cancelRequested && i < files.length - 1) {
+            await waitAbortable(EXCEL_UPLOAD_DELAY_MS, null, runtime);
+        }
+        await waitExcelUploadTick();
+    }
+
+    const canceled = runtime.cancelRequested === true;
+    runtime.lastFailedItems = failed.map((item) => ({ ...item }));
+    runtime.inFlight = false;
+    runtime.cancelRequested = false;
+    runtime.controller = null;
+    runtime.retryTimerId = null;
+    runtime.uploadSessionId = null;
+    return { uploaded, failed, canceled };
+}
+
+async function runCloudinaryUploadQueue(matchedFiles, state) {
+    void state;
+    return uploadMatchedFilesToCloudinary(matchedFiles);
+}
+
+function renderFinalUploadReport(result) {
+    return finalizeExcelImageUploadModal(result);
+}
+
+function renderPreUploadPreview(matchResult) {
+    const runtime = getExcelImageUploaderRuntime();
+    const ui = getExcelImageUploadElements();
+    const matched = Array.isArray(matchResult && matchResult.matchedFiles) ? matchResult.matchedFiles : [];
+    const missingCount = Array.isArray(matchResult && matchResult.missingRequired) ? matchResult.missingRequired.length : 0;
+    const duplicateCount = Array.isArray(matchResult && matchResult.duplicatesSkipped) ? matchResult.duplicatesSkipped.length : (Array.isArray(matchResult && matchResult.duplicates) ? matchResult.duplicates.length : 0);
+    const skippedCount = Number(matchResult && (matchResult.nonMatchedSelectedCount || matchResult.skippedCount) || 0);
+    runtime.lastMatchResult = {
+        ...(matchResult || {}),
+        matchedFiles: matched
+    };
+
+    revokeExcelPreviewObjectUrls();
+    const previewRows = matched
+        .map((item) => item && item.file)
+        .filter(Boolean)
+        .map((file, index) => {
+            const isImage = isImageFileCandidate(file);
+            const icon = isImage ? '🖼️' : '📄';
+            const thumbUrl = index < EXCEL_THUMBNAIL_LIMIT ? createPreviewObjectUrl(file) : '';
+            return {
+                name: file.name,
+                sizeLabel: toDisplaySizeLabel(file.size),
+                icon,
+                thumbUrl
+            };
+        });
+    const searchTerm = String(ui.previewSearch && ui.previewSearch.value || '').toLowerCase().trim();
+    const filteredRows = searchTerm
+        ? previewRows.filter((row) => String(row.name || '').toLowerCase().includes(searchTerm))
+        : previewRows;
+    const limitedRows = filteredRows.slice(0, EXCEL_PREVIEW_LIMIT);
+    const extraCount = Math.max(0, filteredRows.length - EXCEL_PREVIEW_LIMIT);
+
+    if (ui.previewWrap) ui.previewWrap.style.display = 'block';
+    if (ui.previewMeta) {
+        ui.previewMeta.textContent = `مطابق: ${previewRows.length} | ناقص: ${missingCount} | مكرر: ${duplicateCount} | غير مطابق: ${skippedCount}`;
+    }
+    if (ui.previewList) {
+        ui.previewList.innerHTML = '';
+        const totalRows = limitedRows.length;
+        let cursor = 0;
+
+        const appendChunk = () => {
+            const fragment = document.createDocumentFragment();
+            const end = Math.min(cursor + EXCEL_PREVIEW_RENDER_BATCH, totalRows);
+            for (let i = cursor; i < end; i += 1) {
+                const row = limitedRows[i];
+                const li = document.createElement('li');
+                li.style.padding = '8px 10px';
+                li.style.borderBottom = '1px solid #eef2f7';
+                li.style.display = 'flex';
+                li.style.alignItems = 'center';
+                li.style.gap = '8px';
+                const thumbHtml = row.thumbUrl
+                    ? `<img src="${escapeUploadHtml(row.thumbUrl)}" alt="معاينة ${escapeUploadHtml(row.name)}" style="width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;">`
+                    : `<span style="font-size:18px;line-height:1;">${row.icon}</span>`;
+                li.innerHTML = `
+                    ${thumbHtml}
+                    <div style="min-width:0;">
+                        <div style="font-size:12px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeUploadHtml(row.name)}</div>
+                        <div style="font-size:11px;color:#64748b;">${escapeUploadHtml(row.sizeLabel)}</div>
+                    </div>
+                `;
+                fragment.appendChild(li);
+            }
+            ui.previewList.appendChild(fragment);
+            cursor = end;
+            if (cursor < totalRows) {
+                requestAnimationFrame(appendChunk);
+            } else if (extraCount > 0) {
+                const li = document.createElement('li');
+                li.style.padding = '8px 10px';
+                li.style.color = '#475569';
+                li.textContent = `... و ${extraCount} ملف إضافي`;
+                ui.previewList.appendChild(li);
+            }
+        };
+        requestAnimationFrame(appendChunk);
+    }
+
+    if (ui.startBtn) {
+        ui.startBtn.style.display = 'inline-flex';
+        ui.startBtn.disabled = false;
+    }
+    if (ui.cancelBtn) {
+        ui.cancelBtn.style.display = 'inline-flex';
+        ui.cancelBtn.disabled = false;
+        ui.cancelBtn.textContent = 'إلغاء';
+        if (runtime.inFlight) ui.cancelBtn.focus();
+        else if (ui.startBtn) ui.startBtn.focus();
+    }
+}
+
+function waitForUploadPreviewDecision() {
+    const runtime = getExcelImageUploaderRuntime();
+    return new Promise((resolve) => {
+        runtime.previewResolver = resolve;
+    });
+}
+
+async function copyMissingListToClipboard() {
+    const runtime = getExcelImageUploaderRuntime();
+    const ui = getExcelImageUploadElements();
+    const text = String(runtime.missingListText || '').trim();
+    if (!text) {
+        showNotification('info', 'لا توجد قائمة ناقصة لنسخها.');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(text);
+        showNotification('success', 'تم نسخ قائمة الصور الناقصة.');
+    } catch (_) {
+        if (ui.missingTextarea) {
+            ui.missingTextarea.focus();
+            ui.missingTextarea.select();
+            try {
+                document.execCommand('copy');
+                showNotification('success', 'تم نسخ قائمة الصور الناقصة.');
+            } catch (error) {
+                console.error('[EXCEL_IMAGE_UPLOAD] clipboard fallback failed:', error);
+                showNotification('error', 'تعذر نسخ القائمة تلقائيًا. انسخها يدويًا من التقرير.');
+            }
+        }
+    }
+}
+
+async function retryFailedUploadsOnly() {
+    const runtime = getExcelImageUploaderRuntime();
+    const failedQueue = Array.isArray(runtime.failedRetryQueue) ? runtime.failedRetryQueue : [];
+    if (!failedQueue.length) {
+        showNotification('info', 'لا توجد ملفات فاشلة لإعادة المحاولة.');
+        return;
+    }
+
+    try {
+        const transientQueue = failedQueue.filter((item) => item && item.transient === true);
+        const manualQueue = failedQueue.filter((item) => item && item.transient !== true);
+        if (manualQueue.length > 0) {
+            showNotification('warning', `هناك ${manualQueue.length} ملفًا يحتاج تدخلًا يدويًا (ليس فشلًا مؤقتًا).`);
+        }
+
+        const toRetrySource = transientQueue.length ? transientQueue : failedQueue;
+        const toRetry = toRetrySource
+            .map((item) => item && item.file)
+            .filter(Boolean)
+            .map((name) => ({ file: { name }, key: normalizeFilenameForMatch(name) }))
+            .filter((item) => item.key);
+
+        if (!toRetry.length) {
+            showNotification('warning', 'تعذر تجهيز قائمة إعادة المحاولة.');
+            return;
+        }
+
+        showNotification('info', `إعادة محاولة ${toRetry.length} ملف فاشل...`);
+        const retryInputFiles = await pickFolderFilesWithFallback();
+        if (!retryInputFiles.length) {
+            showNotification('warning', 'تم إلغاء اختيار الملفات لإعادة المحاولة.');
+            return;
+        }
+
+        const retryIndex = buildSelectedFileIndex(retryInputFiles);
+        const retryMatched = [];
+        toRetry.forEach((item) => {
+            const selected = retryIndex.get(item.key);
+            if (selected && selected.primary) retryMatched.push({ file: selected.primary, key: item.key, requiredDisplay: [selected.primary.name] });
+        });
+
+        if (!retryMatched.length) {
+            showNotification('warning', 'لا توجد ملفات مطابقة لإعادة المحاولة.');
+            return;
+        }
+
+        const ui = getExcelImageUploadElements();
+        if (ui.retryFailedBtn) ui.retryFailedBtn.style.display = 'none';
+        if (ui.copyMissingBtn) ui.copyMissingBtn.style.display = 'none';
+        if (ui.closeBtn) ui.closeBtn.style.display = 'none';
+        if (ui.reloadBtn) ui.reloadBtn.style.display = 'none';
+        if (ui.cancelBtn) {
+            ui.cancelBtn.style.display = 'inline-flex';
+            ui.cancelBtn.disabled = false;
+            ui.cancelBtn.textContent = 'إلغاء';
+        }
+
+        const retryResult = await runCloudinaryUploadQueue(retryMatched, { mode: 'retry-failed' });
+        finalizeExcelImageUploadModal({
+            uploaded: retryResult.uploaded,
+            missingRequired: [],
+            failed: retryResult.failed,
+            nonMatchedSelectedCount: 0,
+            duplicatesSkipped: [],
+            canceled: retryResult.canceled
+        });
+
+        if (retryResult.failed.length > 0) {
+            showNotification('warning', `اكتملت إعادة المحاولة مع ${retryResult.failed.length} ملف فاشل.`);
+        } else {
+            showNotification('success', 'تمت إعادة محاولة الملفات الفاشلة بنجاح.');
+        }
+    } catch (error) {
+        console.error('[EXCEL_IMAGE_UPLOAD] retry failed error:', error);
+        showNotification('error', `فشلت إعادة المحاولة: ${String(error && error.message || 'خطأ غير معروف')}`);
+    }
+}
+
+function renderCloudinaryConfigError() {
+    const ui = getExcelImageUploadElements();
+    if (ui.summary) ui.summary.textContent = 'إعدادات Cloudinary غير مكتملة.';
+    if (ui.report) {
+        ui.report.style.display = 'block';
+        ui.report.innerHTML = `
+            <div style="line-height:1.9;">
+                <div>❌ لا يمكن بدء الرفع لأن إعدادات Cloudinary غير مفعّلة.</div>
+                <div style="margin-top:8px;">
+                    راجع إعدادات الحساب ثم أعد المحاولة:
+                    <a href="https://console.cloudinary.com/settings/upload" target="_blank" rel="noopener noreferrer">فتح إعدادات Cloudinary</a>
+                </div>
+            </div>
+        `;
+    }
+    if (ui.closeBtn) ui.closeBtn.style.display = 'inline-flex';
+}
+
+async function openExcelImagesOnlyUploader() {
+    const runtime = getExcelImageUploaderRuntime();
+    if (runtime.inFlight) {
+        showNotification('warning', 'هناك عملية رفع جارية بالفعل.');
+        return;
+    }
+
+    console.groupCollapsed('[EXCEL_IMAGE_UPLOAD] بدء تدفق رفع صور الإكسل');
+    console.info('[EXCEL_IMAGE_UPLOAD] runtime state:', {
+        inFlight: runtime.inFlight,
+        cancelRequested: runtime.cancelRequested
+    });
+
+    runtime.focusReturnEl = document.activeElement;
+    ensureExcelImageUploadModal();
+    openModal(EXCEL_IMAGE_UPLOAD_MODAL_ID);
+    resetExcelImageUploadModalState();
+
+    const ui = getExcelImageUploadElements();
+    setTimeout(() => {
+        if (ui.modal && typeof ui.modal.focus === 'function') ui.modal.focus();
+    }, 0);
+
+    try {
+        if (!isCloudinaryReadyForExcelUpload()) {
+            renderCloudinaryConfigError();
+            showNotification('error', 'إعدادات Cloudinary غير مكتملة.');
+            return;
+        }
+
+        toggleExcelUploaderButtonLoading(true);
+        setExcelImageUploadProgress({
+            summary: 'جارٍ قراءة صور المنتجات المطلوبة من Firebase...',
+            percent: 0,
+            completed: 0,
+            total: 0,
+            currentFile: '-'
+        });
+
+        const productsList = await fetchAllProductsForImageUpload();
+        if (!Array.isArray(productsList) || productsList.length === 0) {
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                missing: [],
+                failed: [],
+                nonMatchedSelectedCount: 0,
+                duplicates: [],
+                canceled: false
+            });
+            showNotification('info', 'لا توجد منتجات متاحة حاليًا.');
+            return;
+        }
+
+        const requiredResult = collectRequiredImageMap(productsList);
+        const requiredMap = requiredResult.requiredMap;
+        console.info('[EXCEL_IMAGE_UPLOAD] required basenames:', requiredMap.size);
+        if (requiredMap.size === 0) {
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                missing: [],
+                failed: [],
+                nonMatchedSelectedCount: 0,
+                duplicates: [],
+                canceled: false
+            });
+            showNotification('info', 'لا توجد أسماء صور مطلوبة داخل المنتجات.');
+            return;
+        }
+        if (Array.isArray(requiredResult.duplicateRequiredNames) && requiredResult.duplicateRequiredNames.length) {
+            console.warn('[EXCEL_IMAGE_UPLOAD] duplicate required basenames:', requiredResult.duplicateRequiredNames);
+        }
+
+        setExcelImageUploadProgress({
+            // WHY: clarify to admins that required image names come from published Firestore products.
+            summary: `تم العثور على ${requiredMap.size} اسم صورة مطلوب من المنتجات المنشورة في Firestore. اختر مجلد الصور الآن.`,
+            percent: 0,
+            completed: 0,
+            total: requiredMap.size,
+            currentFile: '-'
+        });
+        toggleExcelUploaderButtonLoading(false);
+
+        const selectedFiles = await pickFolderFilesWithFallback();
+        if (!Array.isArray(selectedFiles) || selectedFiles.length === 0) {
+            showNotification('info', 'تم إلغاء اختيار الملفات.');
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                missingRequired: Array.from(requiredMap.values()).map((entry) => Array.from(entry.displayNames || [entry.key])[0]),
+                failed: [],
+                nonMatchedSelectedCount: 0,
+                duplicatesSkipped: [],
+                canceled: true
+            });
+            return;
+        }
+        if (selectedFiles.length > EXCEL_HARD_LIMIT_FILES) {
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                missingRequired: [],
+                failed: [{ file: 'selection', error: `تم اختيار ${selectedFiles.length} ملفًا، والحد الأقصى الموصى به هو ${EXCEL_HARD_LIMIT_FILES} ملف.` }],
+                nonMatchedSelectedCount: 0,
+                duplicatesSkipped: [],
+                canceled: true
+            });
+            showNotification('error', `عدد الملفات المحدد كبير جدًا (${selectedFiles.length}). يُرجى التقسيم إلى دفعات أصغر.`);
+            return;
+        }
+        if (selectedFiles.length > EXCEL_LARGE_SELECTION_WARN) {
+            const shouldContinue = confirm(`تم اختيار ${selectedFiles.length} ملفًا. قد تستغرق المعالجة وقتًا أطول. هل تريد المتابعة؟`);
+            if (!shouldContinue) {
+                showNotification('info', 'تم إيقاف العملية بناءً على طلبك.');
+                return;
+            }
+        }
+
+        const { matchedFiles, missingRequired, duplicates, skippedCount } = filterMatchingFiles(selectedFiles, requiredMap);
+        console.info('[EXCEL_IMAGE_UPLOAD] matching summary:', {
+            selected: selectedFiles.length,
+            matched: matchedFiles.length,
+            missing: missingRequired.length,
+            duplicates: duplicates.length,
+            nonMatchedSelectedCount: skippedCount
+        });
+        if (duplicates.length > 0) {
+            console.warn('[EXCEL_IMAGE_UPLOAD] duplicate files skipped:', duplicates);
+            showNotification('warning', `تم تجاوز ${duplicates.length} ملف مكرر بنفس اسم المنتج.`);
+        }
+        if (!matchedFiles.length) {
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                missingRequired,
+                failed: [],
+                nonMatchedSelectedCount: skippedCount,
+                duplicatesSkipped: duplicates,
+                canceled: false
+            });
+            showNotification('warning', 'لا توجد ملفات مطابقة لأسماء الصور المطلوبة.');
+            return;
+        }
+
+        renderPreUploadPreview({
+            matchedFiles,
+            missingRequired,
+            duplicatesSkipped: duplicates,
+            nonMatchedSelectedCount: skippedCount
+        });
+        setExcelImageUploadProgress({
+            summary: `سيتم رفع ${matchedFiles.length} صورة مطابقة. راجع القائمة ثم اضغط "بدء الرفع".`,
+            percent: 0,
+            completed: 0,
+            total: matchedFiles.length,
+            currentFile: '-'
+        });
+
+        const previewDecision = await waitForUploadPreviewDecision();
+        if (previewDecision !== 'start') {
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                missingRequired,
+                failed: [],
+                nonMatchedSelectedCount: skippedCount,
+                duplicatesSkipped: duplicates,
+                canceled: true
+            });
+            showNotification('warning', 'تم إلغاء العملية قبل بدء الرفع.');
+            return;
+        }
+
+        if (ui.previewWrap) ui.previewWrap.style.display = 'none';
+        revokeExcelPreviewObjectUrls();
+        if (ui.startBtn) ui.startBtn.style.display = 'none';
+        if (ui.cancelBtn) {
+            ui.cancelBtn.style.display = 'inline-flex';
+            ui.cancelBtn.disabled = false;
+            ui.cancelBtn.textContent = 'إلغاء';
+            ui.cancelBtn.focus();
+        }
+
+        showNotification('info', `بدء رفع ${matchedFiles.length} صورة مطابقة من أصل ${requiredMap.size} صورة مطلوبة.`);
+        console.info('[EXCEL_IMAGE_UPLOAD] required:', requiredMap.size, 'selected:', selectedFiles.length, 'matched:', matchedFiles.length);
+        const uploadResult = await runCloudinaryUploadQueue(matchedFiles, { mode: 'main' });
+        console.info('[EXCEL_IMAGE_UPLOAD] upload result:', {
+            uploaded: uploadResult.uploaded.length,
+            failed: uploadResult.failed.length,
+            canceled: uploadResult.canceled === true
+        });
+
+        finalizeExcelImageUploadModal({
+            uploaded: uploadResult.uploaded,
+            missingRequired,
+            failed: uploadResult.failed,
+            nonMatchedSelectedCount: skippedCount,
+            duplicatesSkipped: duplicates,
+            canceled: uploadResult.canceled
+        });
+
+        if (uploadResult.canceled) {
+            showNotification('warning', `تم إلغاء الرفع. تم رفع ${uploadResult.uploaded.length} صورة قبل الإلغاء.`);
+        } else if (uploadResult.failed.length > 0) {
+            showNotification('warning', `اكتمل الرفع مع إخفاق ${uploadResult.failed.length} ملف.`);
+        } else {
+            showNotification('success', `تم رفع ${uploadResult.uploaded.length} صورة بنجاح.`);
+        }
+    } catch (error) {
+        console.error('[EXCEL_IMAGE_UPLOAD] fatal error:', error);
+        finalizeExcelImageUploadModal({
+            uploaded: [],
+            missingRequired: [],
+            failed: [{ file: 'process', error: String(error && error.message || error) }],
+            nonMatchedSelectedCount: 0,
+            duplicatesSkipped: [],
+            canceled: false
+        });
+        showNotification('error', `فشل تنفيذ رفع صور الإكسل: ${String(error && error.message || 'خطأ غير معروف')}`);
+    } finally {
+        toggleExcelUploaderButtonLoading(false);
+        console.groupEnd();
+    }
+}
+
+// Safety net: abort any in-flight upload and revoke preview object URLs on page unload.
+// صمام أمان: إيقاف أي رفع جارٍ وتنظيف روابط المعاينة عند مغادرة الصفحة.
+window.addEventListener('beforeunload', () => {
+    const runtime = window.__excelImageUploaderRuntime;
+    if (!runtime) return;
+    try {
+        if (runtime.controller) runtime.controller.abort();
+    } catch (_) {}
+    if (runtime.retryTimerId) {
+        try { clearTimeout(runtime.retryTimerId); } catch (_) {}
+        runtime.retryTimerId = null;
+    }
+    if (runtime.activeObjectUrls instanceof Set) {
+        runtime.activeObjectUrls.forEach((url) => {
+            try { URL.revokeObjectURL(url); } catch (_) {}
+        });
+        runtime.activeObjectUrls.clear();
+    }
+});
+
 async function uploadAndPreview(input) {
     if(!input.files[0]) return;
     // معاينة
