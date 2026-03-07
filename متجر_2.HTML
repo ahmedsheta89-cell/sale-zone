@@ -249,8 +249,8 @@
         .product-fav { position: absolute; top: 10px; left: 10px; z-index: 11; background: var(--white); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); box-shadow: var(--shadow-sm); }
         .product-fav:hover { transform: scale(1.1); }
         .product-fav.active { background: var(--error); color: var(--white); }
-        .product-image { width: 100%; height: 200px; overflow: hidden; position: relative; }
-        .product-image img { width: 100%; height: 100%; object-fit: cover; transition: var(--transition); }
+        .product-image { width: 100%; height: 220px; overflow: hidden; position: relative; border-radius: 8px; background: #f5f5f5; }
+        .product-image img, .product-card img { width: 100%; height: 100%; object-fit: cover; object-position: center; transition: var(--transition); border-radius: 8px; background: #f5f5f5; }
         .product-card:hover .product-image img { transform: scale(1.08); }
         .product-actions { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; opacity: 0; transition: var(--transition); }
         .product-card:hover .product-actions { opacity: 1; }
@@ -463,7 +463,7 @@
             .loyalty-badge span:last-child { display: none; }
             .cart-sidebar, .fav-sidebar { max-width: 100%; }
             .products-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-            .product-image { height: 160px; }
+            .product-image { height: 180px; }
             .product-name { font-size: 13px; }
             .section-title h2 { font-size: 24px; }
             .banner-title { font-size: 24px; }
@@ -1112,6 +1112,7 @@
             { id: 2, icon: '🚚', title: 'توصيل مجاني', text: 'للطلبات أكثر من 500 جنيه', btn: 'اطلب الآن', category: 'all' },
             { id: 3, icon: '💎', title: 'نقاط الولاء', text: 'اجمع نقاط واستبدلها بخصومات', btn: 'سجل الآن', category: 'all' }
         ];
+        const PRODUCT_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='18' fill='%23999' text-anchor='middle' dy='.3em'%3E%D8%B5%D9%88%D8%B1%D8%A9 %D8%BA%D9%8A%D8%B1 %D9%85%D8%AA%D8%A7%D8%AD%D8%A9%3C/text%3E%3C/svg%3E";
 
         // For emergency/dev only: add ?seed=1 to allow local demo defaults.
         const allowLocalSeedDefaults = new URLSearchParams(window.location.search).get('seed') === '1';
@@ -1151,6 +1152,13 @@
             return Number.isFinite(price) ? price : Number.POSITIVE_INFINITY;
         }
 
+        function getOptimizedProductImageUrl(cloudinaryUrl, width = 800) {
+            const rawUrl = String(cloudinaryUrl || '').trim();
+            if (!/^https:\/\/res\.cloudinary\.com\//i.test(rawUrl)) return rawUrl;
+            const safeWidth = Math.max(120, Math.min(2000, Number(width) || 800));
+            return rawUrl.replace('/upload/', `/upload/f_auto,q_auto,w_${safeWidth},c_fill/`);
+        }
+
         function normalizeStoreProduct(product) {
             const source = product && typeof product === 'object' ? product : {};
             const price = Number(source.price);
@@ -1174,7 +1182,8 @@
                 category: String(source.category || 'supplements'),
                 price: Number.isFinite(price) ? price : 0,
                 oldPrice: Number.isFinite(oldPrice) ? oldPrice : null,
-                image: String(source.image || './assets/placeholder.svg'),
+                image: String(source.imageUrl || source.image || PRODUCT_IMAGE_PLACEHOLDER),
+                imageUrl: String(source.imageUrl || source.image || PRODUCT_IMAGE_PLACEHOLDER),
                 rating: Number.isFinite(rating) ? rating : 4.5,
                 ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
                 supplierId: String(source.supplierId || ''),
@@ -1810,20 +1819,20 @@
         // ============================================
         // Image Sanitizer (avoid external ORB/CORS issues)
         // ============================================
-        function sanitizeImageUrl(url) {
-            const placeholder = './assets/placeholder.svg';
+        function sanitizeImageUrl(url, width = 400) {
+            const placeholder = PRODUCT_IMAGE_PLACEHOLDER;
             if (!url || typeof url !== 'string') return placeholder;
 
             const trimmed = url.trim();
             if (trimmed.startsWith('data:')) return trimmed;
             if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
-            if (/^https:\/\/res\.cloudinary\.com\//i.test(trimmed)) return trimmed;
+            if (/^https:\/\/res\.cloudinary\.com\//i.test(trimmed)) return getOptimizedProductImageUrl(trimmed, width);
 
             try {
                 const parsed = new URL(trimmed, window.location.origin);
                 if (parsed.origin === window.location.origin) {
-                    if (/^\/images\//i.test(parsed.pathname)) {
-                        return `/sale-zone${parsed.pathname}${parsed.search}${parsed.hash}`;
+                    if (/^\/(?:sale-zone\/)?images\//i.test(parsed.pathname)) {
+                        return placeholder;
                     }
                     return parsed.pathname + parsed.search + parsed.hash;
                 }
@@ -1966,8 +1975,8 @@
                 const safeProductId = escapeHtml(String(p && p.id || ''));
                 const safeName = escapeHtml(p && p.name || '');
                 const safeDesc = escapeHtml(p && p.desc || '');
-                const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
-                const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+                const safeImageSrc = escapeHtml(sanitizeImageUrl((p && (p.imageUrl || p.image)) || '', 400));
+                const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const isFav = favorites.includes(String(p && p.id));
                 const resolvedPrice = resolveDisplayPrice(p);
                 const hasValidPrice = Number.isFinite(resolvedPrice);
@@ -2316,8 +2325,8 @@
             const p = getVisibleProductsList().find((x) => String(x.id) === String(id));
             if (!p) return;
             const safeProductId = escapeHtml(String(p && p.id || ''));
-            const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
-            const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+            const safeImageSrc = escapeHtml(sanitizeImageUrl((p && (p.imageUrl || p.image)) || '', 800));
+            const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
             const safeName = escapeHtml(p && p.name || '');
             const safeDesc = escapeHtml(p && p.desc || '');
             const safeRatingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
@@ -2470,8 +2479,8 @@
                 const p = visibleProducts.find((x) => String(x.id) === String(id));
                 if (!p) return '';
                 const safeProductId = escapeHtml(String(p && p.id || ''));
-                const safeImageSrc = escapeHtml(sanitizeImageUrl(p && p.image));
-                const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+            const safeImageSrc = escapeHtml(sanitizeImageUrl((p && (p.imageUrl || p.image)) || '', 240));
+            const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const safeName = escapeHtml(p && p.name || '');
                 const displayPrice = resolveDisplayPrice(p);
                 const hasValidPrice = Number.isFinite(displayPrice);
@@ -2544,8 +2553,8 @@
 
             cartItems.innerHTML = cart.map((item) => {
                 const safeItemId = escapeHtml(String(item && item.id || ''));
-                const safeImageSrc = escapeHtml(sanitizeImageUrl(item && item.image));
-                const safeFallbackImage = escapeHtml(sanitizeImageUrl(''));
+            const safeImageSrc = escapeHtml(sanitizeImageUrl((item && (item.imageUrl || item.image)) || '', 240));
+            const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const safeItemName = escapeHtml(item && item.name || '');
                 const safeItemPrice = escapeHtml(Number(item && item.price || 0).toFixed(2));
                 const safeQuantity = escapeHtml(Number(item && item.quantity || 0).toFixed(0));

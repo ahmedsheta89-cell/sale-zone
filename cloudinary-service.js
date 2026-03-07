@@ -46,8 +46,62 @@ function isLikelyImageUploadFile(file) {
     return /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)$/i.test(String(file.name || ''));
 }
 
+function getOptimizedImageUrl(cloudinaryUrl, width = 800) {
+    const rawUrl = String(cloudinaryUrl || '').trim();
+    if (!isValidCloudinarySecureUrl(rawUrl)) return rawUrl;
+    const safeWidth = Math.max(120, Math.min(2000, Number(width) || 800));
+    return rawUrl.replace('/upload/', `/upload/f_auto,q_auto,w_${safeWidth},c_fill/`);
+}
+
+async function compressImageBeforeUpload(file, maxSizeKB = 500) {
+    if (!file || typeof document === 'undefined') return file;
+    if (Number(file.size || 0) <= maxSizeKB * 1024) return file;
+
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            resolve(file);
+            return;
+        }
+
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        const cleanup = () => {
+            try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+        };
+
+        img.onerror = () => {
+            cleanup();
+            resolve(file);
+        };
+
+        img.onload = () => {
+            const maxWidth = 1200;
+            const scale = img.width > maxWidth ? (maxWidth / img.width) : 1;
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+                cleanup();
+                if (!blob || Number(blob.size || 0) <= 0 || Number(blob.size || 0) >= Number(file.size || 0)) {
+                    resolve(file);
+                    return;
+                }
+                const normalizedName = String(file.name || 'image.jpg').replace(/\.[^.]+$/u, '.jpg');
+                resolve(new File([blob], normalizedName, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now()
+                }));
+            }, 'image/jpeg', 0.85);
+        };
+
+        img.src = objectUrl;
+    });
+}
+
 // Upload image with progress and fail-closed behavior (never fallback to base64).
-function uploadToCloudinary(file, options = {}) {
+async function uploadToCloudinary(file, options = {}) {
     if (!file) {
         return Promise.reject(buildCloudinaryUploadError('لم يتم اختيار صورة للرفع.', {
             code: 'CLOUDINARY_NO_FILE'
@@ -77,13 +131,22 @@ function uploadToCloudinary(file, options = {}) {
     const signal = options && typeof options === 'object' ? options.signal : null;
     const onAbort = typeof options.onAbort === 'function' ? options.onAbort : null;
     const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`;
+    let uploadFile = file;
+
+    try {
+        uploadFile = await compressImageBeforeUpload(file);
+    } catch (compressionError) {
+        console.warn('[CLOUDINARY_UPLOAD] compression skipped:', compressionError);
+        uploadFile = file;
+    }
 
     return new Promise((resolve, reject) => {
         console.groupCollapsed('[CLOUDINARY_UPLOAD] بدء رفع الصورة');
         console.info('[CLOUDINARY_UPLOAD] file:', {
-            name: file && file.name ? String(file.name) : '',
-            size: Number(file && file.size || 0),
-            type: String(file && file.type || '')
+            name: uploadFile && uploadFile.name ? String(uploadFile.name) : '',
+            size: Number(uploadFile && uploadFile.size || 0),
+            type: String(uploadFile && uploadFile.type || ''),
+            originalSize: Number(file && file.size || 0)
         });
         console.info('[CLOUDINARY_UPLOAD] config:', {
             cloudName: CLOUDINARY_CONFIG.cloudName,
@@ -258,7 +321,7 @@ function uploadToCloudinary(file, options = {}) {
         };
 
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', uploadFile);
         formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
         if (folder) formData.append('folder', folder);
         if (publicId) formData.append('public_id', publicId);
@@ -281,4 +344,9 @@ function uploadToCloudinary(file, options = {}) {
             safeReject(error);
         }
     });
+}
+
+if (typeof window !== 'undefined') {
+    window.getOptimizedImageUrl = getOptimizedImageUrl;
+    window.compressImageBeforeUpload = compressImageBeforeUpload;
 }
