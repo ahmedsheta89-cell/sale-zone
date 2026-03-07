@@ -1,9 +1,9 @@
 {
   "generatorVersion": "1.0.0",
-  "generatedAt": "2026-03-07T04:03:08.938Z",
+  "generatedAt": "2026-03-07T06:10:10.511Z",
   "sourceFile": "ادمن_2.HTML",
   "policyFile": "monitoring/admin-function-policy.json",
-  "sourceHash": "64bd9de70e67b55ebe31c57734e15495471250457cc3f098558660a0c2198e0e",
+  "sourceHash": "5f5be69976f462cbad92a231b0c1e4ef28940b7bf987632c8101b90a86916ebf",
   "policyHash": "21916e642fd098fb48953ad7499534b0b8b158a786c8ea91f5aadbee472eddc4",
   "functions": [
     {
@@ -51,7 +51,7 @@
     {
       "name": "applyAutoTooltips",
       "isAsync": false,
-      "line": 8023,
+      "line": 8032,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -149,7 +149,7 @@
     {
       "name": "autoPurgeSamplesOnce",
       "isAsync": true,
-      "line": 8195,
+      "line": 8204,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -163,7 +163,7 @@
     {
       "name": "basenameWithoutExt",
       "isAsync": false,
-      "line": 8847,
+      "line": 8856,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -219,7 +219,7 @@
     {
       "name": "buildExcelUploadSessionId",
       "isAsync": false,
-      "line": 8388,
+      "line": 8397,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -261,7 +261,7 @@
     {
       "name": "buildSelectedFileIndex",
       "isAsync": false,
-      "line": 9068,
+      "line": 9055,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -303,7 +303,7 @@
     {
       "name": "changeAdminPassword",
       "isAsync": true,
-      "line": 7941,
+      "line": 7950,
       "scriptIndex": 0,
       "group": "settings",
       "monitorLevel": "warning",
@@ -359,7 +359,7 @@
     {
       "name": "clearAllData",
       "isAsync": false,
-      "line": 7932,
+      "line": 7941,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -457,7 +457,7 @@
     {
       "name": "closeExcelImageUploadModal",
       "isAsync": false,
-      "line": 8501,
+      "line": 8510,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -471,7 +471,7 @@
     {
       "name": "closeModal",
       "isAsync": false,
-      "line": 8055,
+      "line": 8064,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -499,7 +499,7 @@
     {
       "name": "collectRequiredImageMap",
       "isAsync": false,
-      "line": 8871,
+      "line": 8880,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -513,7 +513,7 @@
     {
       "name": "collectRequiredImageNames",
       "isAsync": false,
-      "line": 8927,
+      "line": 8936,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -555,7 +555,7 @@
     {
       "name": "copyMissingListToClipboard",
       "isAsync": true,
-      "line": 9421,
+      "line": 9408,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -569,7 +569,7 @@
     {
       "name": "copyPreflightReport",
       "isAsync": false,
-      "line": 8331,
+      "line": 8340,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -597,7 +597,7 @@
     {
       "name": "createPreviewObjectUrl",
       "isAsync": false,
-      "line": 8461,
+      "line": 8470,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -821,7 +821,7 @@
     {
       "name": "ensureExcelImageUploadModal",
       "isAsync": false,
-      "line": 8526,
+      "line": 8535,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -877,7 +877,7 @@
     {
       "name": "escapeUploadHtml",
       "isAsync": false,
-      "line": 8515,
+      "line": 8524,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -891,7 +891,7 @@
     {
       "name": "excelWaitAbortError",
       "isAsync": false,
-      "line": 8401,
+      "line": 8410,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -905,7 +905,7 @@
     {
       "name": "exportAllDataJSON",
       "isAsync": false,
-      "line": 7901,
+      "line": 7910,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -1017,7 +1017,7 @@
     {
       "name": "extractFilenameFromImageValue",
       "isAsync": false,
-      "line": 8836,
+      "line": 8845,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1031,7 +1031,7 @@
     {
       "name": "fetchAllProductsForImageUpload",
       "isAsync": true,
-      "line": 8931,
+      "line": 8940,
       "scriptIndex": 1,
       "group": "products",
       "monitorLevel": "warning",
@@ -1045,7 +1045,7 @@
     {
       "name": "filterMatchingFiles",
       "isAsync": false,
-      "line": 9140,
+      "line": 9127,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1059,7 +1059,7 @@
     {
       "name": "finalizeExcelImageUploadModal",
       "isAsync": false,
-      "line": 8733,
+      "line": 8742,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1255,7 +1255,7 @@
     {
       "name": "getExcelImageUploadElements",
       "isAsync": false,
-      "line": 8638,
+      "line": 8647,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1269,7 +1269,7 @@
     {
       "name": "getExcelImageUploaderRuntime",
       "isAsync": false,
-      "line": 8363,
+      "line": 8372,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1283,7 +1283,7 @@
     {
       "name": "getFileExtension",
       "isAsync": false,
-      "line": 8441,
+      "line": 8450,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1381,7 +1381,7 @@
     {
       "name": "getPreferredFileScore",
       "isAsync": false,
-      "line": 8447,
+      "line": 8456,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1395,7 +1395,7 @@
     {
       "name": "getSamplePurgeTargets",
       "isAsync": false,
-      "line": 8094,
+      "line": 8103,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -1605,7 +1605,7 @@
     {
       "name": "importAllDataJSON",
       "isAsync": false,
-      "line": 7911,
+      "line": 7920,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1619,7 +1619,7 @@
     {
       "name": "importProductsExcel",
       "isAsync": false,
-      "line": 7893,
+      "line": 7902,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -1647,7 +1647,7 @@
     {
       "name": "initCharts",
       "isAsync": false,
-      "line": 7965,
+      "line": 7974,
       "scriptIndex": 0,
       "group": "reports",
       "monitorLevel": "info",
@@ -1675,7 +1675,7 @@
     {
       "name": "isCloudinaryReadyForExcelUpload",
       "isAsync": false,
-      "line": 8492,
+      "line": 8501,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1703,7 +1703,7 @@
     {
       "name": "isImageFileCandidate",
       "isAsync": false,
-      "line": 8999,
+      "line": 8986,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1745,7 +1745,7 @@
     {
       "name": "isTransientUploadFailure",
       "isAsync": false,
-      "line": 8429,
+      "line": 8438,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1913,7 +1913,7 @@
     {
       "name": "matchFilesByBasename",
       "isAsync": false,
-      "line": 9103,
+      "line": 9090,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1969,7 +1969,7 @@
     {
       "name": "normalizeFilenameForMatch",
       "isAsync": false,
-      "line": 8853,
+      "line": 8862,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1983,7 +1983,7 @@
     {
       "name": "normalizeImageKey",
       "isAsync": false,
-      "line": 8866,
+      "line": 8875,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2053,7 +2053,7 @@
     {
       "name": "openExcelImagesOnlyUploader",
       "isAsync": true,
-      "line": 9544,
+      "line": 9531,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2081,7 +2081,7 @@
     {
       "name": "openModal",
       "isAsync": false,
-      "line": 8049,
+      "line": 8058,
       "scriptIndex": 0,
       "group": "utility",
       "monitorLevel": "info",
@@ -2095,7 +2095,7 @@
     {
       "name": "openProductModal",
       "isAsync": false,
-      "line": 8050,
+      "line": 8059,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -2193,7 +2193,7 @@
     {
       "name": "pickFolderFilesWithFallback",
       "isAsync": true,
-      "line": 9048,
+      "line": 9035,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2207,7 +2207,7 @@
     {
       "name": "pickImageFolderFiles",
       "isAsync": true,
-      "line": 9018,
+      "line": 9005,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2263,7 +2263,7 @@
     {
       "name": "purgeSampleData",
       "isAsync": true,
-      "line": 8128,
+      "line": 8137,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -2319,7 +2319,7 @@
     {
       "name": "readDirectoryHandleFiles",
       "isAsync": true,
-      "line": 9006,
+      "line": 8993,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2543,7 +2543,7 @@
     {
       "name": "renderCloudinaryConfigError",
       "isAsync": false,
-      "line": 9526,
+      "line": 9513,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2571,7 +2571,7 @@
     {
       "name": "renderFinalUploadReport",
       "isAsync": false,
-      "line": 9316,
+      "line": 9303,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2627,7 +2627,7 @@
     {
       "name": "renderPreUploadPreview",
       "isAsync": false,
-      "line": 9320,
+      "line": 9307,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2809,7 +2809,7 @@
     {
       "name": "requestExcelImagesUploadCancel",
       "isAsync": false,
-      "line": 8805,
+      "line": 8814,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2879,7 +2879,7 @@
     {
       "name": "resetExcelImageUploadModalState",
       "isAsync": false,
-      "line": 8664,
+      "line": 8673,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2963,7 +2963,7 @@
     {
       "name": "retryFailedUploadsOnly",
       "isAsync": true,
-      "line": 9448,
+      "line": 9435,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2977,7 +2977,7 @@
     {
       "name": "revokeExcelPreviewObjectUrls",
       "isAsync": false,
-      "line": 8392,
+      "line": 8401,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2991,7 +2991,7 @@
     {
       "name": "runCloudinaryUploadQueue",
       "isAsync": true,
-      "line": 9311,
+      "line": 9298,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3005,7 +3005,7 @@
     {
       "name": "runPreflightCheck",
       "isAsync": true,
-      "line": 8279,
+      "line": 8288,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -3019,7 +3019,7 @@
     {
       "name": "runProductsSchemaMigration",
       "isAsync": true,
-      "line": 8201,
+      "line": 8210,
       "scriptIndex": 0,
       "group": "products",
       "monitorLevel": "warning",
@@ -3495,7 +3495,7 @@
     {
       "name": "setExcelImageUploadProgress",
       "isAsync": false,
-      "line": 8711,
+      "line": 8720,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3537,7 +3537,7 @@
     {
       "name": "setupAutoTooltips",
       "isAsync": false,
-      "line": 8041,
+      "line": 8050,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -3579,7 +3579,7 @@
     {
       "name": "showNotification",
       "isAsync": false,
-      "line": 8072,
+      "line": 8081,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -3593,7 +3593,7 @@
     {
       "name": "showSection",
       "isAsync": false,
-      "line": 7996,
+      "line": 8005,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -3747,7 +3747,7 @@
     {
       "name": "toDisplaySizeLabel",
       "isAsync": false,
-      "line": 8454,
+      "line": 8463,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3761,7 +3761,7 @@
     {
       "name": "toggleExcelUploaderButtonLoading",
       "isAsync": false,
-      "line": 8473,
+      "line": 8482,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3789,7 +3789,7 @@
     {
       "name": "toggleSidebar",
       "isAsync": false,
-      "line": 8018,
+      "line": 8027,
       "scriptIndex": 0,
       "group": "system",
       "monitorLevel": "info",
@@ -3929,7 +3929,7 @@
     {
       "name": "uploadAndPreview",
       "isAsync": true,
-      "line": 9784,
+      "line": 9773,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3943,7 +3943,7 @@
     {
       "name": "uploadMatchedFilesToCloudinary",
       "isAsync": true,
-      "line": 9151,
+      "line": 9138,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3985,7 +3985,7 @@
     {
       "name": "waitAbortable",
       "isAsync": true,
-      "line": 8408,
+      "line": 8417,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3999,7 +3999,7 @@
     {
       "name": "waitExcelUploadTick",
       "isAsync": false,
-      "line": 8384,
+      "line": 8393,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -4013,7 +4013,7 @@
     {
       "name": "waitForUploadPreviewDecision",
       "isAsync": false,
-      "line": 9414,
+      "line": 9401,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -4053,5 +4053,5 @@
       "reasonText": "تم تسجيل الدالة ضمن المتابعة."
     }
   ],
-  "registryHash": "77d303f5f4d158edad48f708297fdabbddfce4cfa9d8afd956e49bc25cf363bf"
+  "registryHash": "7d4d22f61d4a1c6fb898d8b41af3e1463317714a78a62d4774bb1b286592be39"
 }
