@@ -108,6 +108,15 @@ These files require `version.json` bump when changed:
 - `متجر_2.HTML`
 - `firebase-config.js`
 
+## Feature Protection System
+- `monitoring/feature-registry.json` is the source of truth for critical admin/store features that must never be removed accidentally.
+- Add a new critical feature by updating the correct file block in `monitoring/feature-registry.json`:
+  - `critical_ids` for protected DOM ids
+  - `critical_functions` for protected function definitions
+  - `critical_strings` for other must-exist markers such as section ids or modal ids
+- `node tools/contracts-check.js` reads the registry locally and in Release Gate.
+- If any protected feature is missing, `contracts-check` exits with code `1`, Release Gate fails, and the PR cannot merge until the feature is restored or the registry is intentionally updated.
+
 ## Workflow Status
 | Workflow | Status | Last Run | When to enable |
 |----------|--------|----------|----------------|
