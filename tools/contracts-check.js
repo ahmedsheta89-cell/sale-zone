@@ -1,4 +1,4 @@
-// Contract-level release checks for admin/store parity and regressions.
+﻿// Contract-level release checks for admin/store parity and regressions.
 // Run: node tools/contracts-check.js
 
 const fs = require('fs');
@@ -18,6 +18,10 @@ function assertContains(content, pattern, message) {
 
 function assertNotContains(content, pattern, message) {
   if (pattern.test(content)) errors.push(message);
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function runGit(command) {
@@ -190,6 +194,48 @@ assertContains(deployProductionWorkflow, /backend-\$\{targetSha\}/, 'contracts: 
 assertContains(deployProductionWorkflow, /Validate backend metadata artifact/, 'contracts: deploy-production backend metadata validation step missing.');
 assertContains(deployProductionWorkflow, /backend metadata commitSha mismatch/, 'contracts: deploy-production must fail on backend metadata SHA mismatch.');
 
+
+// 6) Feature protection registry.
+const featureRegistryPath = path.join(root, 'monitoring', 'feature-registry.json');
+let featureRegistry = null;
+try {
+  featureRegistry = JSON.parse(fs.readFileSync(featureRegistryPath, 'utf8'));
+} catch (error) {
+  errors.push(`contracts: failed to read monitoring/feature-registry.json (${error.message}).`);
+}
+
+if (featureRegistry && featureRegistry.files && typeof featureRegistry.files === 'object') {
+  for (const [filename, checks] of Object.entries(featureRegistry.files)) {
+    let content = '';
+    try {
+      content = read(filename);
+    } catch (error) {
+      errors.push(`contracts: failed to read ${filename} for feature protection (${error.message}).`);
+      continue;
+    }
+
+    for (const id of checks.critical_ids || []) {
+      if (!content.includes(`id=\"${id}\"`)) {
+        errors.push(`\u274C MISSING id=\"${id}\" in ${filename}`);
+      }
+    }
+
+    for (const fn of checks.critical_functions || []) {
+      const escaped = escapeRegex(fn);
+      const functionPattern = new RegExp(`(?:function\\s+${escaped}\\s*\\(|(?:const|let|var)\\s+${escaped}\\s*=|window\\.${escaped}\\s*=)`);
+      if (!functionPattern.test(content)) {
+        errors.push(`\u274C MISSING function ${fn} in ${filename}`);
+      }
+    }
+
+    for (const marker of checks.critical_strings || []) {
+      if (!content.includes(marker)) {
+        errors.push(`\u274C MISSING string ${marker} in ${filename}`);
+      }
+    }
+  }
+}
+
 if (errors.length) {
   console.error('Contracts check FAILED:');
   for (const item of errors) {
@@ -199,3 +245,4 @@ if (errors.length) {
 }
 
 console.log('Contracts check OK: parity, price, filters, and version guard validated.');
+
