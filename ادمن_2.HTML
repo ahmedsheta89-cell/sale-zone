@@ -7783,12 +7783,14 @@ function adminLogout(){
 
             const normalizedProducts = validRows.map((row) => normalizeProductForStorage({
                 ...row.product,
-                isPublished: false,
-                visibilityState: 'hidden',
+                // WHY: imported Excel products should become visible to admins, uploader flows, and the storefront immediately when pricing is valid.
+                isPublished: true,
+                visibilityState: 'published',
                 importBatchId,
                 importSource
             }, {
-                isPublished: false,
+                // WHY: default imported products to published; normalizeProductForStorage still keeps invalid-price rows hidden safely.
+                isPublished: true,
                 category: row.product.category
             }));
 
@@ -7826,7 +7828,8 @@ function adminLogout(){
                         try {
                             if (typeof addProductsBatch === 'function') {
                                 createdIds = await addProductsBatch(payloadChunk, {
-                                    isPublished: false,
+                                    // WHY: keep imported Excel products published by default so they surface in both admin and store without a second manual batch-publish step.
+                                    isPublished: true,
                                     importBatchId,
                                     importSource,
                                     chunkSize: chunk.length
@@ -7876,6 +7879,12 @@ function adminLogout(){
 
                 if (queuedCount > 0 && navigator.onLine) {
                     await flushPendingProductOps();
+                }
+                if (writeOnline && typeof loadAllData === 'function') {
+                    // WHY: refresh from Firestore after a successful online import so the admin table reflects server truth immediately.
+                    await loadAllData();
+                    renderProductsTable();
+                    updateStats();
                 }
 
                 setWizardProgress(100, `اكتمل الاستيراد: ${localImported.length} منتج | مباشر: ${syncedCount} | انتظار: ${queuedCount}`);
@@ -8930,60 +8939,39 @@ function collectRequiredImageNames(productsList) {
 
 async function fetchAllProductsForImageUpload() {
     try {
-        // WHY: declare uploader source explicitly to remove ambiguity between admin table and Firestore.
-        console.info('[IMAGE_UPLOADER] source=firestore_published');
-        // WHY: image uploader should process only explicitly published products.
-        if (typeof getPublishedProducts === 'function') {
-            const results = [];
-            let page = await getPublishedProducts(false);
-            if (Array.isArray(page)) results.push(...page);
-            // WHY: use configurable page threshold while paginating through published products.
-            const pageSize = Number((typeof window !== 'undefined' && window.PAGE_SIZE) || 20);
-            // WHY: continue pagination until API returns less than a full page.
-            while (Array.isArray(page) && page.length > 0 && page.length >= pageSize) {
-                page = await getPublishedProducts(true);
-                if (!Array.isArray(page) || page.length === 0) break;
-                results.push(...page);
-                await waitExcelUploadTick();
-            }
-            // WHY: normalize schema first to prevent ghost rows from malformed records.
+        // WHY: image uploader is an admin tool, so it must inspect all admin products, not only published storefront rows.
+        console.info('[IMAGE_UPLOADER] source=firestore_admin_products');
+        if (typeof getAllProducts === 'function') {
+            const results = await getAllProducts();
             const validated = ensureProductsSchema(results)
-                // WHY: keep only explicitly published products for image upload scope.
-                .filter((item) => item && item.isPublished === true)
                 // WHY: exclude empty/base64 image values from uploader requirements.
                 .filter((item) => item && item.image && !String(item.image).startsWith('data:'));
-            // WHY: expose final validated count for uploader diagnostics.
-            console.log('[IMAGE_UPLOADER] Published products for upload:', validated.length);
-            // WHY: log a compact sample of the matched source rows for fast production diagnosis.
+            console.log('[IMAGE_UPLOADER] Admin products for upload:', validated.length);
             console.table(validated.slice(0, 20).map((item) => ({
                 id: String(item && item.id || ''),
                 name: String(item && (item.name || item.nameEn) || ''),
                 isPublished: item && item.isPublished === true,
+                importBatchId: String(item && item.importBatchId || ''),
                 image: String(item && item.image || '').slice(0, 120)
             })));
             return validated;
         }
 
-        // WHY: use Firestore fallback with published-only filter when helper function is unavailable.
         const firestore = (typeof db !== 'undefined' && db && typeof db.collection === 'function')
             ? db
             : (typeof firebase !== 'undefined' && firebase && typeof firebase.firestore === 'function' ? firebase.firestore() : null);
-        // WHY: safely read published-only products from Firestore in uploader fallback path.
+        // WHY: read all products in the admin fallback path so newly imported hidden rows are still eligible for image upload.
         if (firestore && typeof firestore.collection === 'function') {
-            const snap = await firestore.collection('products').where('isPublished', '==', true).get();
-            // WHY: filter out invalid image values even in direct Firestore fallback.
-            const rows = snap.docs
-                .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+            const snap = await firestore.collection('products').get();
+            const rows = ensureProductsSchema(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))
                 .filter((item) => item && item.image && !String(item.image).startsWith('data:'));
-            // WHY: expose fallback count for upload diagnostics.
-            console.log('[IMAGE_UPLOADER] Firestore fallback count:', rows.length);
-            // WHY: keep source trace visible when fallback query path is used.
-            console.info('[IMAGE_UPLOADER] source=firestore_published_fallback');
-            // WHY: provide quick sample for debugging count mismatches without opening Firestore console.
+            console.log('[IMAGE_UPLOADER] Firestore admin fallback count:', rows.length);
+            console.info('[IMAGE_UPLOADER] source=firestore_admin_products_fallback');
             console.table(rows.slice(0, 20).map((item) => ({
                 id: String(item && item.id || ''),
                 name: String(item && (item.name || item.nameEn) || ''),
                 isPublished: item && item.isPublished === true,
+                importBatchId: String(item && item.importBatchId || ''),
                 image: String(item && item.image || '').slice(0, 120)
             })));
             return rows;
@@ -8995,7 +8983,6 @@ async function fetchAllProductsForImageUpload() {
         return [];
     }
 }
-
 function isImageFileCandidate(file) {
     if (!file || !file.name) return false;
     const byType = typeof file.type === 'string' && file.type.toLowerCase().startsWith('image/');
@@ -9580,6 +9567,8 @@ async function openExcelImagesOnlyUploader() {
             currentFile: '-'
         });
 
+        // WHY: start the folder picker inside the original click gesture before any async Firestore reads break browser permission heuristics.
+        const selectedFilesPromise = pickFolderFilesWithFallback();
         const productsList = await fetchAllProductsForImageUpload();
         if (!Array.isArray(productsList) || productsList.length === 0) {
             finalizeExcelImageUploadModal({
@@ -9614,8 +9603,8 @@ async function openExcelImagesOnlyUploader() {
         }
 
         setExcelImageUploadProgress({
-            // WHY: clarify to admins that required image names come from published Firestore products.
-            summary: `تم العثور على ${requiredMap.size} اسم صورة مطلوب من المنتجات المنشورة في Firestore. اختر مجلد الصور الآن.`,
+            // WHY: clarify that image requirements now come from all admin products, including fresh Excel batches.
+            summary: `?? ?????? ??? ${requiredMap.size} ??? ???? ????? ?? ?? ?????? ?????? ?? Firestore. ???? ???? ????? ????.`,
             percent: 0,
             completed: 0,
             total: requiredMap.size,
@@ -9623,7 +9612,7 @@ async function openExcelImagesOnlyUploader() {
         });
         toggleExcelUploaderButtonLoading(false);
 
-        const selectedFiles = await pickFolderFilesWithFallback();
+        const selectedFiles = await selectedFilesPromise;
         if (!Array.isArray(selectedFiles) || selectedFiles.length === 0) {
             showNotification('info', 'تم إلغاء اختيار الملفات.');
             finalizeExcelImageUploadModal({
