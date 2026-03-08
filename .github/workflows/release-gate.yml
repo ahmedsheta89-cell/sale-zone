@@ -103,7 +103,7 @@ jobs:
           ls -la tools/ 2>/dev/null || echo "no tools dir"
           echo "---"
           cat package.json | head -5 2>/dev/null || echo "no package.json"
-      - name: Run contracts check
+      - name: Contracts Check (definitions + calls)
         run: node tools/contracts-check.js
 
   security-regression-check:

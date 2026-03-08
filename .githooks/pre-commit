@@ -6,6 +6,8 @@ node --check assets/js/firebase-config.js
 node --check assets/js/firebase-api.js
 node --check assets/js/firebase-data.js
 node --check assets/js/ERROR_DETECTION_SYSTEM.js
+echo "[pre-commit] running tools/contracts-check.js"
+node tools/contracts-check.js
 echo "[pre-commit] running tools/preflight.js"
 node tools/preflight.js
 echo "[pre-commit] running tools/smoke-check.js"

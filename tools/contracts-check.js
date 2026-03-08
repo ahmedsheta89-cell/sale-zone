@@ -1,12 +1,10 @@
-﻿// Contract-level release checks for admin/store parity and regressions.
-// Run: node tools/contracts-check.js
-
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
 const root = process.cwd();
 const errors = [];
+const warnings = [];
 
 function read(file) {
   return fs.readFileSync(path.join(root, file), 'utf8');
@@ -86,14 +84,46 @@ function resolveChangedFiles() {
   return [];
 }
 
-const adminHtml = read('\u0627\u062f\u0645\u0646_2.HTML');
-const storeHtml = read('\u0645\u062a\u062c\u0631_2.HTML');
+function isFunctionDefined(content, fn) {
+  const escaped = escapeRegex(fn);
+  const patterns = [
+    new RegExp(`(?:async\\s+)?function\\s+${escaped}\\s*\\(`),
+    new RegExp(`(?:const|let|var)\\s+${escaped}\\s*=\\s*(?:async\\s+)?function\\s*\\(`),
+    new RegExp(`(?:const|let|var)\\s+${escaped}\\s*=\\s*\\([^)]*\\)\\s*=>`),
+    new RegExp(`window\\.${escaped}\\s*=\\s*(?:async\\s+)?function\\s*\\(`),
+    new RegExp(`window\\.${escaped}\\s*=\\s*\\([^)]*\\)\\s*=>`)
+  ];
+  return patterns.some((pattern) => pattern.test(content));
+}
+
+function stripFunctionDefinitions(content, fn) {
+  const escaped = escapeRegex(fn);
+  const patterns = [
+    new RegExp(`(?:async\\s+)?function\\s+${escaped}\\s*\\(`, 'g'),
+    new RegExp(`(?:const|let|var)\\s+${escaped}\\s*=\\s*(?:async\\s+)?function\\s*\\(`, 'g'),
+    new RegExp(`(?:const|let|var)\\s+${escaped}\\s*=\\s*\\([^)]*\\)\\s*=>`, 'g'),
+    new RegExp(`window\\.${escaped}\\s*=\\s*(?:async\\s+)?function\\s*\\(`, 'g'),
+    new RegExp(`window\\.${escaped}\\s*=\\s*\\([^)]*\\)\\s*=>`, 'g')
+  ];
+  let stripped = content;
+  for (const pattern of patterns) {
+    stripped = stripped.replace(pattern, '');
+  }
+  return stripped;
+}
+
+function isFunctionCalled(content, fn) {
+  const searchable = stripFunctionDefinitions(content, fn);
+  return new RegExp(`\\b${escapeRegex(fn)}\\s*\\(`).test(searchable);
+}
+
+const adminHtml = read('ادمن_2.HTML');
+const storeHtml = read('متجر_2.HTML');
 const firebaseApi = read('assets/js/firebase-api.js');
 const worker = read('assets/js/product-search-worker.js');
 const deployProductionWorkflow = read('.github/workflows/deploy-production.yml');
 const deployBackendWorkflow = read('.github/workflows/deploy-backend.yml');
 
-// 1) Admin CRUD parity for entities that already expose update APIs.
 const parityMatrix = [
   {
     entity: 'Banner',
@@ -113,7 +143,6 @@ for (const item of parityMatrix) {
   }
 }
 
-// 2) Orders filter contract presence.
 assertContains(adminHtml, /id="ordersStatusFilter"/, 'contracts: orders status filter id missing.');
 assertContains(adminHtml, /id="ordersSearchInput"/, 'contracts: orders search filter id missing.');
 assertContains(adminHtml, /id="ordersDateFrom"/, 'contracts: orders date-from filter id missing.');
@@ -126,18 +155,14 @@ assertContains(
   'contracts: listOrdersPage must receive status/date/search filters.'
 );
 
-// 2.1) Countdown canonical authority contract presence.
 assertContains(firebaseApi, /async function getReleaseGateState\s*\(/, 'contracts: getReleaseGateState wrapper is missing.');
 assertContains(firebaseApi, /async function saveReleaseGateState\s*\(/, 'contracts: saveReleaseGateState wrapper is missing.');
 assertContains(firebaseApi, /window\.ReleaseGateStateAPI\s*=/, 'contracts: ReleaseGateStateAPI browser bridge missing.');
 assertContains(firebaseApi, /error\.code\s*=\s*['"]BACKEND_REQUIRED['"]/, 'contracts: BACKEND_REQUIRED fail-closed enforcement missing.');
-// WHY: accept the explicit canonical helper OR direct backend fetch flow in the 24h gate monitor.
 const hasCanonicalAdmin24hHelper = /function\s+fetchCanonicalAdmin24hState\s*\(/.test(adminHtml);
-// WHY: support backend-authoritative fetch flow currently implemented inside checkAdmin24hChangeAlert().
 const hasInlineBackendGateFetchFlow =
   /typeof\s+getReleaseGateState\s*!==\s*['"]function['"]/.test(adminHtml) &&
   /await\s+getReleaseGateState\s*\(\s*\{\s*retries\s*:\s*1\s*\}\s*\)/.test(adminHtml);
-// WHY: fail only if both canonical contract forms are absent.
 if (!hasCanonicalAdmin24hHelper && !hasInlineBackendGateFetchFlow) {
   errors.push('contracts: admin canonical release gate fetch helper missing.');
 }
@@ -145,7 +170,6 @@ assertContains(adminHtml, /GATE_STATE_SOURCE/, 'contracts: missing GATE_STATE_SO
 assertContains(adminHtml, /GATE_STATE_MISMATCH/, 'contracts: missing GATE_STATE_MISMATCH diagnostics.');
 assertContains(adminHtml, /GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE/, 'contracts: missing DEGRADED backend diagnostics.');
 
-// 3) Price contract matrix.
 assertContains(storeHtml, /function\s+resolveDisplayPrice\s*\(/, 'contracts: store resolveDisplayPrice() missing.');
 assertContains(storeHtml, /function\s+resolveComparablePrice\s*\(/, 'contracts: store resolveComparablePrice() missing.');
 assertContains(worker, /function\s+resolveDisplayPrice\s*\(/, 'contracts: worker resolveDisplayPrice() missing.');
@@ -154,9 +178,8 @@ assertNotContains(storeHtml, /sellPrice\s*\|\|\s*price/, 'contracts: store uses 
 assertNotContains(firebaseApi, /sellPrice\s*\|\|\s*price/, 'contracts: firebase-api uses forbidden sellPrice || price pattern.');
 assertNotContains(worker, /sellPrice\s*\|\|\s*price/, 'contracts: worker uses forbidden sellPrice || price pattern.');
 
-// 4) Sensitive client changes must include version.json bump in the same diff range.
 const sensitiveClientFiles = new Set([
-  '\u0645\u062a\u062c\u0631_2.HTML',
+  'متجر_2.HTML',
   'firebase-api.js',
   'firebase-data.js',
   'firebase-config.js',
@@ -179,7 +202,6 @@ if (changedFiles.length) {
   }
 }
 
-// 5) Deploy chain contract.
 assertContains(deployBackendWorkflow, /name:\s*Deploy Backend/, 'contracts: deploy-backend workflow missing.');
 assertContains(deployBackendWorkflow, /project_id:\s*[\s\S]*required:\s*true/, 'contracts: deploy-backend project_id must be required.');
 assertContains(deployBackendWorkflow, /if:\s*\$\{\{\s*inputs\.target_sha\s*!=\s*''\s*\}\}/, 'contracts: deploy-backend must fail closed when target_sha is empty.');
@@ -194,8 +216,6 @@ assertContains(deployProductionWorkflow, /backend-\$\{targetSha\}/, 'contracts: 
 assertContains(deployProductionWorkflow, /Validate backend metadata artifact/, 'contracts: deploy-production backend metadata validation step missing.');
 assertContains(deployProductionWorkflow, /backend metadata commitSha mismatch/, 'contracts: deploy-production must fail on backend metadata SHA mismatch.');
 
-
-// 6) Feature protection registry.
 const featureRegistryPath = path.join(root, 'monitoring', 'feature-registry.json');
 let featureRegistry = null;
 try {
@@ -204,45 +224,79 @@ try {
   errors.push(`contracts: failed to read monitoring/feature-registry.json (${error.message}).`);
 }
 
+let verifiedIds = 0;
+let verifiedDefinitions = 0;
+let verifiedCalls = 0;
+let verifiedStrings = 0;
+
 if (featureRegistry && featureRegistry.files && typeof featureRegistry.files === 'object') {
   for (const [filename, checks] of Object.entries(featureRegistry.files)) {
-    let content = '';
-    try {
-      content = read(filename);
-    } catch (error) {
-      errors.push(`contracts: failed to read ${filename} for feature protection (${error.message}).`);
+    const filePath = path.join(root, filename);
+    if (!fs.existsSync(filePath)) {
+      errors.push(`❌ FILE MISSING: ${filename}`);
       continue;
     }
 
+    const content = fs.readFileSync(filePath, 'utf8');
+
     for (const id of checks.critical_ids || []) {
-      if (!content.includes(`id=\"${id}\"`)) {
-        errors.push(`\u274C MISSING id=\"${id}\" in ${filename}`);
+      verifiedIds += 1;
+      if (!content.includes(`id=\"${id}\"`) && !content.includes(`id='${id}'`)) {
+        errors.push(`❌ MISSING ID: id=\"${id}\" in ${filename}`);
       }
     }
 
-    for (const fn of checks.critical_functions || []) {
-      const escaped = escapeRegex(fn);
-      const functionPattern = new RegExp(`(?:function\\s+${escaped}\\s*\\(|(?:const|let|var)\\s+${escaped}\\s*=|window\\.${escaped}\\s*=)`);
-      if (!functionPattern.test(content)) {
-        errors.push(`\u274C MISSING function ${fn} in ${filename}`);
+    const functionChecks = checks.critical_functions || {};
+    const mustBeDefined = Array.isArray(functionChecks)
+      ? functionChecks
+      : (functionChecks.must_be_defined || []);
+    const mustBeCalled = Array.isArray(functionChecks)
+      ? []
+      : (functionChecks.must_be_called || []);
+
+    for (const fn of mustBeDefined) {
+      verifiedDefinitions += 1;
+      if (!isFunctionDefined(content, fn)) {
+        errors.push(`❌ MISSING DEFINITION: function ${fn}() not defined in ${filename}`);
+      }
+    }
+
+    for (const fn of mustBeCalled) {
+      verifiedCalls += 1;
+      if (!isFunctionCalled(content, fn)) {
+        warnings.push(`⚠️ NOT CALLED: ${fn}() has no call site in ${filename}`);
       }
     }
 
     for (const marker of checks.critical_strings || []) {
+      verifiedStrings += 1;
       if (!content.includes(marker)) {
-        errors.push(`\u274C MISSING string ${marker} in ${filename}`);
+        errors.push(`❌ MISSING STRING: \"${marker}\" in ${filename}`);
       }
     }
   }
 }
 
-if (errors.length) {
-  console.error('Contracts check FAILED:');
-  for (const item of errors) {
-    console.error(` - ${item}`);
+if (warnings.length) {
+  console.warn('\nWARNINGS:');
+  for (const item of warnings) {
+    console.warn(item);
   }
+}
+
+if (errors.length) {
+  console.error('\n❌ CONTRACTS FAILED:');
+  for (const item of errors) {
+    console.error(item);
+  }
+  console.error(`\nTotal errors: ${errors.length}`);
   process.exit(1);
 }
 
-console.log('Contracts check OK: parity, price, filters, and version guard validated.');
-
+console.log('✅ Contracts check passed');
+console.log(`   IDs verified: ${verifiedIds}`);
+console.log(`   Definitions verified: ${verifiedDefinitions}`);
+console.log(`   Calls verified: ${verifiedCalls}`);
+console.log(`   Strings verified: ${verifiedStrings}`);
+console.log('   Parity, price, filters, and version guard validated.');
+process.exit(0);
