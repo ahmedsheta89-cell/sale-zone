@@ -362,9 +362,25 @@
         .form-group textarea { resize: vertical; min-height: 80px; }
         .submit-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white); border-radius: 10px; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; transition: var(--transition); margin-bottom: 10px; }
         .submit-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
-        .auth-tabs { display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 18px; }
-        .auth-tab { flex: 1; padding: 10px; text-align: center; font-weight: 600; color: #999; background: transparent; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: var(--transition); font-size: 13px; }
-        .auth-tab.active { color: var(--gold-dark); border-bottom-color: var(--gold); }
+        .auth-modal { max-width: 420px; width: 95vw; border-radius: 20px; background: white; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+        .auth-tabs { display: flex; gap: 8px; margin-bottom: 24px; background: #f5f5f5; padding: 4px; border-radius: 12px; }
+        .auth-tab { flex: 1; padding: 10px; border: none; border-radius: 10px; background: transparent; cursor: pointer; font-size: 0.85rem; color: #666; transition: all 0.2s; font-weight: 600; }
+        .auth-tab.active { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); color: var(--navy); font-weight: 700; }
+        .auth-panel { display: block; }
+        .auth-panel.hidden { display: none; }
+        .auth-helper-text { font-size: 13px; line-height: 1.7; color: #666; margin-top: 12px; text-align: center; }
+        .btn-google { width: 100%; padding: 14px; border: 2px solid #ddd; border-radius: 12px; background: white; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1rem; cursor: pointer; transition: all 0.2s; font-weight: 700; color: #222; }
+        .btn-google:hover { border-color: #4285f4; background: #f8f9ff; }
+        .btn-magic-link { width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-magic-link:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(102, 126, 234, 0.25); }
+        .magic-link-sent { text-align: center; padding: 24px; border-radius: 16px; background: linear-gradient(180deg, #f8f9ff 0%, #ffffff 100%); border: 1px solid rgba(102, 126, 234, 0.1); }
+        .magic-link-sent .email-icon { font-size: 3rem; margin-bottom: 16px; }
+        .magic-link-email { font-weight: 700; color: var(--navy); word-break: break-word; }
+        .password-auth-switch { display: flex; gap: 8px; margin-bottom: 18px; background: #f8f6f0; padding: 4px; border-radius: 12px; }
+        .password-auth-tab { flex: 1; padding: 10px 12px; border: none; border-radius: 10px; background: transparent; color: #777; font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+        .password-auth-tab.active { background: var(--white); color: var(--gold-dark); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .auth-note-list { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+        .auth-note-list li { font-size: 13px; color: #666; display: flex; align-items: center; gap: 8px; justify-content: center; }
 
         /* Order Tracking */
         .tracking-section { padding: 40px 20px; max-width: 800px; margin: 0 auto; }
@@ -508,6 +524,9 @@
             .product-modal-content { grid-template-columns: 1fr; padding: 16px; gap: 18px; }
             .product-modal-price { font-size: 1.6rem; }
             .product-modal-thumb { width: 60px; height: 60px; }
+            .auth-modal { width: 100%; }
+            .auth-tabs { gap: 6px; }
+            .auth-tab { font-size: 0.8rem; padding: 10px 6px; }
         }
         @media (max-width: 480px) {
             .top-bar { font-size: 12px; gap: 8px; }
@@ -841,55 +860,92 @@
 
     <!-- Auth Modal -->
     <div class="modal-overlay" id="authModal">
-        <div class="modal">
+        <div class="modal auth-modal">
             <div class="modal-header">
                 <button class="close-modal" onclick="closeModal('authModal')">✕</button>
                 <h2 id="authModalTitle">تسجيل الدخول</h2>
-                <p>مرحباً بك</p>
+                <p id="authModalSubtitle">مرحباً بك</p>
             </div>
             <div class="modal-body">
-                <div class="auth-tabs">
-                    <button class="auth-tab active" onclick="switchAuthTab('login')">دخول</button>
-                    <button class="auth-tab" onclick="switchAuthTab('register')">تسجيل</button>
+                <div class="auth-tabs" role="tablist" aria-label="خيارات تسجيل الدخول">
+                    <button type="button" class="auth-tab active" data-tab="magic" onclick="switchAuthTab('magic')">دخول برابط</button>
+                    <button type="button" class="auth-tab" data-tab="google" onclick="switchAuthTab('google')">Google</button>
+                    <button type="button" class="auth-tab" data-tab="password" onclick="switchAuthTab('password')">بالباسورد</button>
                 </div>
-                <form id="loginForm" onsubmit="handleLogin(event)">
-                    <div class="form-group">
-                        <label>📧 البريد الإلكتروني <span class="required">*</span></label>
-                        <input type="email" id="loginIdentifier" required placeholder="user@email.com" autocomplete="username">
+
+                <div id="magicAuthPanel" class="auth-panel" data-auth-panel="magic">
+                    <form id="magicLinkForm" onsubmit="handleMagicLinkLogin(event)">
+                        <div class="form-group">
+                            <label>📧 البريد الإلكتروني <span class="required">*</span></label>
+                            <input type="email" id="magicLinkEmail" required placeholder="user@email.com" autocomplete="email">
+                        </div>
+                        <button type="submit" class="btn-magic-link">إرسال رابط الدخول ✉️</button>
+                    </form>
+                    <div id="magicLinkSentState" class="magic-link-sent hidden">
+                        <div class="email-icon">✉️</div>
+                        <h3>تم إرسال رابط الدخول</h3>
+                        <p>أرسلنا رابط تسجيل الدخول إلى:</p>
+                        <p class="magic-link-email" id="magicLinkSentEmail">-</p>
+                        <ul class="auth-note-list">
+                            <li>🔒 لا تحتاج باسورد أبداً</li>
+                            <li>⚡ افتح الرابط من بريدك ليتم تسجيل دخولك فوراً</li>
+                        </ul>
                     </div>
-                    <div class="form-group">
-                        <label>🔐 كلمة المرور <span class="required">*</span></label>
-                        <input type="password" id="loginPassword" required autocomplete="current-password">
+                    <p class="auth-helper-text">سيصلك رابط على بريدك الإلكتروني فوراً للدخول الآمن بدون كلمة مرور.</p>
+                </div>
+
+                <div id="googleAuthPanel" class="auth-panel hidden" data-auth-panel="google">
+                    <button type="button" class="btn-google" id="googleSignInBtn" onclick="handleGoogleSignIn()">
+                        <span aria-hidden="true">🟢</span>
+                        <span>تسجيل الدخول بـ Google</span>
+                    </button>
+                    <p class="auth-helper-text">Google Sign-In أسرع على الأجهزة الجديدة ويتطلب تفعيل المزود والدومين من Firebase Console.</p>
+                </div>
+
+                <div id="passwordAuthPanel" class="auth-panel hidden" data-auth-panel="password">
+                    <div class="password-auth-switch">
+                        <button type="button" class="password-auth-tab active" data-auth-mode="login" onclick="switchPasswordMode('login')">دخول</button>
+                        <button type="button" class="password-auth-tab" data-auth-mode="register" onclick="switchPasswordMode('register')">تسجيل</button>
                     </div>
-                    <button type="submit" class="submit-btn">دخول 🔓</button>
-                </form>
-                <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
-                    <div class="form-group">
-                        <label>👤 الاسم <span class="required">*</span></label>
-                        <input type="text" id="registerName" required autocomplete="name">
-                    </div>
-                    <div class="form-group">
-                        <label>📱 الهاتف <span class="required">*</span></label>
-                        <input type="tel" id="registerPhone" required placeholder="01xxxxxxxxx" autocomplete="tel">
-                    </div>
-                    <div class="form-group">
-                        <label>📧 الإيميل <span class="required">*</span></label>
-                        <input type="email" id="registerEmail" required autocomplete="email">
-                    </div>
-                    <div class="form-group">
-                        <label>📍 العنوان <span class="required">*</span></label>
-                        <textarea id="registerAddress" required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>🔐 كلمة المرور <span class="required">*</span></label>
-                        <input type="password" id="registerPassword" required autocomplete="new-password">
-                    </div>
-                    <div class="form-group">
-                        <label>🔐 تأكيد كلمة المرور <span class="required">*</span></label>
-                        <input type="password" id="registerPasswordConfirm" required autocomplete="new-password">
-                    </div>
-                    <button type="submit" class="submit-btn">إنشاء حساب ✓</button>
-                </form>
+                    <form id="loginForm" class="auth-password-form" onsubmit="handleLogin(event)">
+                        <div class="form-group">
+                            <label>📧 البريد الإلكتروني <span class="required">*</span></label>
+                            <input type="email" id="loginIdentifier" required placeholder="user@email.com" autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label>🔐 كلمة المرور <span class="required">*</span></label>
+                            <input type="password" id="loginPassword" required autocomplete="current-password">
+                        </div>
+                        <button type="submit" class="submit-btn">دخول 🔓</button>
+                    </form>
+                    <form id="registerForm" class="auth-password-form hidden" onsubmit="handleRegister(event)">
+                        <div class="form-group">
+                            <label>👤 الاسم <span class="required">*</span></label>
+                            <input type="text" id="registerName" required autocomplete="name">
+                        </div>
+                        <div class="form-group">
+                            <label>📱 الهاتف <span class="required">*</span></label>
+                            <input type="tel" id="registerPhone" required placeholder="01xxxxxxxxx" autocomplete="tel">
+                        </div>
+                        <div class="form-group">
+                            <label>📧 الإيميل <span class="required">*</span></label>
+                            <input type="email" id="registerEmail" required autocomplete="email">
+                        </div>
+                        <div class="form-group">
+                            <label>📍 العنوان <span class="required">*</span></label>
+                            <textarea id="registerAddress" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>🔐 كلمة المرور <span class="required">*</span></label>
+                            <input type="password" id="registerPassword" required autocomplete="new-password">
+                        </div>
+                        <div class="form-group">
+                            <label>🔐 تأكيد كلمة المرور <span class="required">*</span></label>
+                            <input type="password" id="registerPasswordConfirm" required autocomplete="new-password">
+                        </div>
+                        <button type="submit" class="submit-btn">إنشاء حساب ✓</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -1077,6 +1133,12 @@
         let bannerInterval;
         let liveSessionHeartbeatTimer = null;
         let authSubmitLock = false;
+        const AUTH_TAB_DEFAULT = 'magic';
+        const PASSWORD_AUTH_DEFAULT = 'login';
+        const MAGIC_LINK_STORAGE_KEY = 'sale_zone_email_for_signin';
+        const MAGIC_LINK_REDIRECT_URL = 'https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML';
+        let currentAuthTab = AUTH_TAB_DEFAULT;
+        let currentPasswordMode = PASSWORD_AUTH_DEFAULT;
         const VERIFICATION_EMAIL_COOLDOWN_MS = 120000;
         let lastVerificationEmailSentAt = 0;
         let chatMode = 'bot';
@@ -1361,6 +1423,9 @@
             safeRun('updateCartUI', updateCartUI);
             safeRun('updateFavUI', updateFavUI);
             safeRun('checkLoggedInUser', checkLoggedInUser);
+            completeMagicLinkSignInIfNeeded().catch((error) => {
+                console.error('completeMagicLinkSignInIfNeeded bootstrap error:', error);
+            });
             safeRun('startBannerSlider', startBannerSlider);
 
             // 🛡️ Safe loading screen hide
@@ -3034,6 +3099,179 @@
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
         }
 
+        function getFirebaseAuthInstance() {
+            if (!(firebase && firebase.auth)) return null;
+            return firebase.auth();
+        }
+
+        function getMagicLinkActionCodeSettings() {
+            return {
+                url: MAGIC_LINK_REDIRECT_URL,
+                handleCodeInApp: true
+            };
+        }
+
+        function setAuthModalCopy(tab, passwordMode = currentPasswordMode) {
+            const titleNode = document.getElementById('authModalTitle');
+            const subtitleNode = document.getElementById('authModalSubtitle');
+            if (!titleNode || !subtitleNode) return;
+
+            if (tab === 'magic') {
+                titleNode.textContent = 'دخول بدون كلمة مرور';
+                subtitleNode.textContent = 'رابط آمن يصلك على بريدك خلال ثوانٍ';
+                return;
+            }
+
+            if (tab === 'google') {
+                titleNode.textContent = 'تابع عبر Google';
+                subtitleNode.textContent = 'دخول سريع بحساب موثق وبدون كتابة باسورد';
+                return;
+            }
+
+            const isRegisterMode = passwordMode === 'register';
+            titleNode.textContent = isRegisterMode ? 'إنشاء حساب' : 'تسجيل الدخول';
+            subtitleNode.textContent = isRegisterMode
+                ? 'أنشئ حساباً جديداً لمتابعة الطلبات ونقاط الولاء'
+                : 'سجل دخولك بالبريد الإلكتروني وكلمة المرور';
+        }
+
+        function resetMagicLinkSentState(clearEmailField = false) {
+            const sentState = document.getElementById('magicLinkSentState');
+            const sentEmail = document.getElementById('magicLinkSentEmail');
+            const form = document.getElementById('magicLinkForm');
+            const emailInput = document.getElementById('magicLinkEmail');
+            if (sentState) sentState.classList.add('hidden');
+            if (sentEmail) sentEmail.textContent = '-';
+            if (form) form.classList.remove('hidden');
+            if (clearEmailField && emailInput) emailInput.value = '';
+        }
+
+        function setMagicLinkSentState(email) {
+            const sentState = document.getElementById('magicLinkSentState');
+            const sentEmail = document.getElementById('magicLinkSentEmail');
+            const form = document.getElementById('magicLinkForm');
+            if (sentEmail) sentEmail.textContent = String(email || '').trim().toLowerCase();
+            if (form) form.classList.add('hidden');
+            if (sentState) sentState.classList.remove('hidden');
+        }
+
+        function switchPasswordMode(mode = PASSWORD_AUTH_DEFAULT) {
+            currentPasswordMode = mode === 'register' ? 'register' : 'login';
+            document.querySelectorAll('.password-auth-tab').forEach((tab) => {
+                tab.classList.toggle('active', String(tab.dataset.authMode || '') === currentPasswordMode);
+            });
+            document.getElementById('loginForm')?.classList.toggle('hidden', currentPasswordMode !== 'login');
+            document.getElementById('registerForm')?.classList.toggle('hidden', currentPasswordMode !== 'register');
+            if (currentAuthTab === 'password') {
+                setAuthModalCopy('password', currentPasswordMode);
+            }
+        }
+
+        function switchAuthTab(tab = AUTH_TAB_DEFAULT) {
+            const requestedTab = String(tab || AUTH_TAB_DEFAULT).trim().toLowerCase();
+            const normalizedTab = (requestedTab === 'login' || requestedTab === 'register')
+                ? 'password'
+                : (['magic', 'google', 'password'].includes(requestedTab) ? requestedTab : AUTH_TAB_DEFAULT);
+
+            currentAuthTab = normalizedTab;
+            document.querySelectorAll('.auth-tab').forEach((authTab) => {
+                authTab.classList.toggle('active', String(authTab.dataset.tab || '') === normalizedTab);
+            });
+            document.querySelectorAll('[data-auth-panel]').forEach((panel) => {
+                panel.classList.toggle('hidden', String(panel.dataset.authPanel || '') !== normalizedTab);
+            });
+
+            if (requestedTab === 'register') {
+                switchPasswordMode('register');
+            } else if (requestedTab === 'login') {
+                switchPasswordMode('login');
+            } else if (normalizedTab === 'password') {
+                switchPasswordMode(currentPasswordMode);
+            }
+
+            setAuthModalCopy(normalizedTab, currentPasswordMode);
+        }
+
+        function showAuthModal(tab = AUTH_TAB_DEFAULT) {
+            openModal('authModal');
+            switchAuthTab(tab);
+        }
+
+        async function finalizeAuthenticatedCustomer(authUser, options = {}) {
+            const config = options && typeof options === 'object' ? options : {};
+            if (!authUser || !authUser.uid) {
+                throw new Error('تعذر إنشاء جلسة دخول');
+            }
+
+            if (typeof authUser.reload === 'function') {
+                await authUser.reload().catch(() => null);
+            }
+            if (typeof authUser.getIdToken === 'function') {
+                await authUser.getIdToken(true).catch(() => null);
+            }
+
+            const uid = String(authUser.uid || '').trim();
+            let profile = config.profile && typeof config.profile === 'object' ? config.profile : null;
+
+            if (!profile && typeof getMyCustomerProfile === 'function') {
+                profile = await getMyCustomerProfile(uid).catch(() => null);
+            }
+
+            if (!profile && typeof upsertMyCustomerProfile === 'function') {
+                profile = await upsertMyCustomerProfile(uid, {
+                    phone: String(config.phone || '').trim(),
+                    address: String(config.address || '').trim(),
+                    displayName: String(
+                        config.displayName
+                        || authUser.displayName
+                        || (authUser.email ? String(authUser.email).split('@')[0] : '')
+                        || 'عميل'
+                    ).trim()
+                }).catch(() => null);
+            }
+
+            currentUser = sanitizeCustomerRecord({
+                id: String(profile && profile.id || uid),
+                uid,
+                name: String(profile && (profile.displayName || profile.name) || authUser.displayName || (authUser.email ? String(authUser.email).split('@')[0] : 'عميل')),
+                phone: String(profile && profile.phone || config.phone || ''),
+                email: String(profile && profile.email || authUser.email || config.email || '').trim().toLowerCase(),
+                address: String(profile && profile.address || config.address || ''),
+                loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
+                createdAt: String(profile && profile.createdAt || new Date().toISOString()),
+                updatedAt: String(profile && profile.updatedAt || new Date().toISOString()),
+                role: String(profile && profile.role || 'customer'),
+                emailVerified: authUser.emailVerified === true
+            });
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            updateUserUI();
+            if (chatMode === 'support') {
+                ensureSupportChatReady().catch(() => null);
+            }
+            closeModal('authModal');
+            updateLiveSessionState({
+                customerId: String(currentUser.id || currentUser.uid || ''),
+                customerPhone: String(currentUser.phone || '')
+            });
+            trackStoreEvent(config.eventCode || 'LOGIN_SUCCESS', config.eventDescription || 'Customer auth success', 'info', {
+                customerId: String(currentUser.id || currentUser.uid || ''),
+                email: String(currentUser.email || '').toLowerCase(),
+                provider: String(config.provider || 'password')
+            });
+            users = [];
+            saveUsers();
+
+            if (config.showNotification !== false) {
+                if (config.warnUnverified !== false && authUser.emailVerified !== true) {
+                    showNotification('warning', config.successTitle || 'تم تسجيل الدخول', config.unverifiedMessage || 'يرجى تفعيل البريد الإلكتروني قبل الشراء أو الدردشة الداخلية.');
+                } else {
+                    showNotification('success', config.successTitle || 'مرحباً', config.successMessage || `أهلاً ${currentUser.name}!`);
+                }
+            }
+
+            return currentUser;
+        }
+
         async function signInCustomerAuth(email, password) {
             const normalizedEmail = String(email || '').trim().toLowerCase();
             const normalizedPassword = String(password || '');
@@ -3074,16 +3312,98 @@
             return users;
         }
 
-        function showAuthModal(tab = 'login') {
-            openModal('authModal');
-            switchAuthTab(tab);
+        async function handleMagicLinkLogin(e) {
+            e.preventDefault();
+            if (authSubmitLock) return;
+            authSubmitLock = true;
+            try {
+                const auth = getFirebaseAuthInstance();
+                if (!auth || typeof auth.sendSignInLinkToEmail !== 'function') {
+                    throw new Error('Magic Link unavailable');
+                }
+
+                const email = String(document.getElementById('magicLinkEmail')?.value || '').trim().toLowerCase();
+                if (!isEmailIdentifier(email)) {
+                    showNotification('error', 'خطأ', 'أدخل بريدًا إلكترونيًا صالحًا');
+                    return;
+                }
+
+                await auth.sendSignInLinkToEmail(email, getMagicLinkActionCodeSettings());
+                localStorage.setItem(MAGIC_LINK_STORAGE_KEY, email);
+                setMagicLinkSentState(email);
+                showNotification('success', 'تم الإرسال', 'تم إرسال رابط تسجيل الدخول إلى بريدك الإلكتروني ✉️');
+            } catch (error) {
+                console.error('handleMagicLinkLogin error:', error);
+                showNotification('error', 'فشل الإرسال', 'تعذر إرسال رابط الدخول الآن. حاول مرة أخرى لاحقاً.');
+            } finally {
+                authSubmitLock = false;
+            }
         }
 
-        function switchAuthTab(tab) {
-            document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1)));
-            document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
-            document.getElementById('registerForm').classList.toggle('hidden', tab !== 'register');
-            document.getElementById('authModalTitle').textContent = tab === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب';
+        async function handleGoogleSignIn() {
+            if (authSubmitLock) return;
+            authSubmitLock = true;
+            try {
+                const auth = getFirebaseAuthInstance();
+                if (!auth || !firebase || !firebase.auth || typeof firebase.auth.GoogleAuthProvider !== 'function') {
+                    throw new Error('Google Sign-In unavailable');
+                }
+
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+                const result = await auth.signInWithPopup(provider);
+                const user = result && result.user ? result.user : null;
+                await finalizeAuthenticatedCustomer(user, {
+                    provider: 'google',
+                    warnUnverified: false,
+                    successTitle: 'مرحباً',
+                    successMessage: `أهلاً ${String(user && (user.displayName || user.email || 'بك'))} ✅`
+                });
+            } catch (error) {
+                if (error && error.code === 'auth/popup-closed-by-user') {
+                    return;
+                }
+                console.error('handleGoogleSignIn error:', error);
+                showNotification('error', 'فشل تسجيل الدخول', 'فشل تسجيل الدخول بـ Google');
+            } finally {
+                authSubmitLock = false;
+            }
+        }
+
+        async function completeMagicLinkSignInIfNeeded() {
+            const auth = getFirebaseAuthInstance();
+            if (!auth || typeof auth.isSignInWithEmailLink !== 'function') return false;
+            if (!auth.isSignInWithEmailLink(window.location.href)) return false;
+
+            let email = String(localStorage.getItem(MAGIC_LINK_STORAGE_KEY) || '').trim().toLowerCase();
+            if (!email) {
+                email = String(window.prompt('أدخل بريدك الإلكتروني للتأكيد') || '').trim().toLowerCase();
+            }
+
+            if (!isEmailIdentifier(email)) {
+                showNotification('error', 'تعذر إكمال الدخول', 'نحتاج بريدك الإلكتروني لإكمال رابط الدخول.');
+                return false;
+            }
+
+            try {
+                const result = await auth.signInWithEmailLink(email, window.location.href);
+                localStorage.removeItem(MAGIC_LINK_STORAGE_KEY);
+                if (window.history && typeof window.history.replaceState === 'function') {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+                await finalizeAuthenticatedCustomer(result && result.user ? result.user : auth.currentUser, {
+                    provider: 'magic-link',
+                    warnUnverified: false,
+                    successTitle: 'مرحباً بك!',
+                    successMessage: 'تم تسجيل دخولك عبر البريد الإلكتروني ✅',
+                    email
+                });
+                return true;
+            } catch (error) {
+                console.error('completeMagicLinkSignInIfNeeded error:', error);
+                showNotification('error', 'فشل تسجيل الدخول', 'تعذر إكمال رابط الدخول. أرسل رابطاً جديداً وحاول مرة أخرى.');
+                return false;
+            }
         }
 
         async function handleLogin(e) {
@@ -3108,66 +3428,14 @@
             const authUser = authCred && authCred.user
                 ? authCred.user
                 : (firebase && firebase.auth ? firebase.auth().currentUser : null);
-            if (!authUser || !authUser.uid) {
-                throw new Error('تعذر إنشاء جلسة دخول');
-            }
-
-            if (typeof authUser.reload === 'function') {
-                await authUser.reload();
-            }
-            if (typeof authUser.getIdToken === 'function') {
-                await authUser.getIdToken(true).catch(() => null);
-            }
-
-            const uid = String(authUser.uid || '').trim();
-            let profile = null;
-            if (typeof getMyCustomerProfile === 'function') {
-                profile = await getMyCustomerProfile(uid).catch(() => null);
-            }
-
-            if (!profile && typeof upsertMyCustomerProfile === 'function') {
-                profile = await upsertMyCustomerProfile(uid, {
-                    phone: '',
-                    address: '',
-                    displayName: String(authUser.displayName || email.split('@')[0] || '')
-                }).catch(() => null);
-            }
-
-            currentUser = sanitizeCustomerRecord({
-                id: String(profile && profile.id || uid),
-                uid,
-                name: String(profile && (profile.displayName || profile.name) || authUser.displayName || email.split('@')[0] || 'عميل'),
-                phone: String(profile && profile.phone || ''),
-                email: String(profile && profile.email || authUser.email || email),
-                address: String(profile && profile.address || ''),
-                loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
-                createdAt: String(profile && profile.createdAt || new Date().toISOString()),
-                updatedAt: String(profile && profile.updatedAt || new Date().toISOString()),
-                role: String(profile && profile.role || 'customer'),
-                emailVerified: authUser.emailVerified === true
+            await finalizeAuthenticatedCustomer(authUser, {
+                provider: 'password',
+                displayName: email.split('@')[0] || '',
+                successTitle: 'مرحباً',
+                successMessage: `أهلاً ${String((authUser && (authUser.displayName || '')) || email.split('@')[0] || 'بك')}!`,
+                eventCode: 'LOGIN_SUCCESS',
+                eventDescription: 'Customer login success'
             });
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            updateUserUI();
-            if (chatMode === 'support') {
-                ensureSupportChatReady().catch(() => null);
-            }
-            closeModal('authModal');
-            if (authUser.emailVerified !== true) {
-                showNotification('warning', 'تم تسجيل الدخول', 'يرجى تفعيل البريد الإلكتروني قبل الشراء أو الدردشة الداخلية.');
-            } else {
-                showNotification('success', 'مرحباً', `أهلاً ${currentUser.name}!`);
-            }
-            updateLiveSessionState({
-                customerId: String(currentUser.id || currentUser.uid || ''),
-                customerPhone: String(currentUser.phone || '')
-            });
-            trackStoreEvent('LOGIN_SUCCESS', 'Customer login success', 'info', {
-                customerId: String(currentUser.id || currentUser.uid || ''),
-                email: String(currentUser.email || '').toLowerCase(),
-                emailVerified: currentUser.emailVerified === true
-            });
-            users = [];
-            saveUsers();
             } catch (error) {
                 console.error('handleLogin error:', error);
                 showNotification('error', 'فشل تسجيل الدخول', 'تحقق من البريد الإلكتروني وكلمة المرور');
@@ -3184,12 +3452,13 @@
             e.preventDefault();
             if (authSubmitLock) return;
             authSubmitLock = true;
+            let emailNormalized = '';
             try {
             const name = document.getElementById('registerName').value.trim();
             const phone = document.getElementById('registerPhone').value.trim();
             const phoneNormalized = normalizePhone(phone);
             const email = document.getElementById('registerEmail').value.trim();
-            const emailNormalized = email.toLowerCase();
+            emailNormalized = email.toLowerCase();
             const address = document.getElementById('registerAddress').value.trim();
             const password = document.getElementById('registerPassword').value;
             const confirm = document.getElementById('registerPasswordConfirm').value;
@@ -3467,12 +3736,7 @@
         }
         
         function showLoginModal() {
-            openModal('authModal');
-            // Switch to login tab
-            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-            document.querySelector('.auth-tab[onclick*="login"]').classList.add('active');
-            document.getElementById('loginForm').classList.add('active');
+            showAuthModal('login');
         }
 
         async function handleCheckout(e) {
