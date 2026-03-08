@@ -1,3 +1,6 @@
+function silentProductionLog() {}
+function silentProductionInfo() {}
+
 // ================================================
 // REAL-TIME SYNC - Sale Zone Store (lockdown mode)
 // ================================================
@@ -27,7 +30,7 @@ function shouldIgnoreStorageKey(key) {
 }
 
 function setupRealtimeSync() {
-    console.log('🔄 Setting up real-time synchronization...');
+    silentProductionLog('🔄 Setting up real-time synchronization...');
 
     window.addEventListener('storageUpdated', (event) => {
         const detail = event && event.detail ? event.detail : null;
@@ -42,7 +45,7 @@ function setupRealtimeSync() {
         handleCrossTabUpdate(key);
     });
 
-    console.log('✅ Real-time sync setup complete');
+    silentProductionLog('✅ Real-time sync setup complete');
 }
 
 function handleStorageUpdate(detail) {
@@ -90,7 +93,7 @@ function forceUpdate(type) {
 }
 
 function testRealtimeSync() {
-    console.log('Realtime sync test: active');
+    silentProductionLog('Realtime sync test: active');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -104,4 +107,4 @@ window.realtimeSync = {
     setupRealtimeSync
 };
 
-console.log('✅ REAL_TIME_SYNC.js loaded');
+silentProductionLog('✅ REAL_TIME_SYNC.js loaded');

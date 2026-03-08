@@ -59,7 +59,6 @@ class ErrorDetectionSystem {
         this.setupLocalStorageMonitoring();
         this.setupMobileSpecificMonitoring(); // إضافة مراقبة التليفون
         
-        console.log('🔍 Error Detection System initialized');
         this.startHealthCheck();
     }
 
@@ -182,12 +181,7 @@ class ErrorDetectionSystem {
 
             // Skip noisy false positives caused by background-tab resumes or stalled external assets.
             if (metrics.rawLoadMs > MAX_ACTIONABLE_LOAD_MS && metrics.effectiveLoadMs <= SLOW_PAGE_THRESHOLD_MS) {
-                console.info('[INFO] SLOW_PAGE_LOAD skipped (inflated raw load timing):', {
-                    rawLoadMs: Number(metrics.rawLoadMs.toFixed(2)),
-                    effectiveLoadMs: Number(metrics.effectiveLoadMs.toFixed(2)),
-                    timingSource: metrics.source,
-                    navigationType: metrics.navigationType
-                });
+                return;
             }
         });
     }
@@ -258,7 +252,6 @@ class ErrorDetectionSystem {
     setupFirebaseMonitoring() {
         // تخطي مراقبة Google Analytics و Firebase في GitHub Pages
         if (window.location.hostname === 'ahmedsheta89-cell.github.io') {
-            console.log('🔥 GitHub Pages detected - skipping Firebase monitoring to avoid errors');
             return;
         }
         
@@ -302,7 +295,6 @@ class ErrorDetectionSystem {
     setupMobileSpecificMonitoring() {
         // كشف مشاكل iOS/Safari
         if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-            console.log('📱 iOS device detected - enabling mobile monitoring');
             
             // مراقبة مشاكل الشبكة
             window.addEventListener('offline', () => {
@@ -329,7 +321,6 @@ class ErrorDetectionSystem {
             
             // مراقبة مشاكل Safari
             if (navigator.userAgent.includes('Safari')) {
-                console.log('🦁 Safari detected - monitoring for Safari-specific issues');
                 
                 // مراقبة مشاكل fetch في Safari
                 const originalFetch = window.fetch;
@@ -442,7 +433,6 @@ class ErrorDetectionSystem {
         const elementsToCheck = REQUIRED_ELEMENTS[pageContext] || [];
         
         if (elementsToCheck.length === 0) {
-            console.log(`🔍 No DOM elements to check for page context: ${pageContext}`);
             this.systemHealth.dom = true;
             return;
         }
@@ -616,7 +606,6 @@ class ErrorDetectionSystem {
     // 🏥 معالجة العناصر المفقودة
     handleMissingElements(elements) {
         elements.forEach(elementId => {
-            console.log(`🔧 Attempting to recreate missing element: ${elementId}`);
             // محاولة إعادة إنشاء العناصر المفقودة
             this.recreateElement(elementId);
         });
@@ -624,7 +613,6 @@ class ErrorDetectionSystem {
 
     // 🔥 معالجة أخطاء Firebase
     handleFirebaseError(error) {
-        console.log('🔥 Firebase error detected, switching to fallback mode');
         this.systemHealth.firebase = false;
         
         // إشعار المستخدم
@@ -635,7 +623,6 @@ class ErrorDetectionSystem {
 
     // 💾 معالجة أخطاء التخزين
     handleLocalStorageError(error) {
-        console.log('💾 LocalStorage error detected');
         this.systemHealth.localStorage = false;
         
         // محاولة تنظيف المساحة
@@ -646,7 +633,6 @@ class ErrorDetectionSystem {
             }, 0);
             
             if (totalSize > 5 * 1024 * 1024) { // 5MB
-                console.log('🧹 LocalStorage is full, attempting cleanup');
                 this.cleanupLocalStorage();
             }
         } catch (e) {
@@ -656,7 +642,6 @@ class ErrorDetectionSystem {
 
     // 🛠️ معالجة الخطأ العام
     handleGenericError(error) {
-        console.log('🔧 Handling generic error:', error);
         
         // محاولة الاستمرار في العمل
         if (window.showNotification) {
@@ -690,7 +675,6 @@ class ErrorDetectionSystem {
         const container = document.querySelector('.banner-section');
         if (container) {
             container.insertBefore(slider, container.firstChild);
-            console.log('✅ Banner slider recreated');
         }
     }
 
@@ -706,7 +690,6 @@ class ErrorDetectionSystem {
         const container = document.querySelector('.banner-section');
         if (container) {
             container.appendChild(dots);
-            console.log('✅ Banner dots recreated');
         }
     }
 
@@ -722,7 +705,6 @@ class ErrorDetectionSystem {
         const container = document.querySelector('.products-section');
         if (container) {
             container.appendChild(grid);
-            console.log('✅ Products grid recreated');
         }
     }
 
@@ -750,7 +732,6 @@ class ErrorDetectionSystem {
         }
         
         keysToRemove.forEach(key => localStorage.removeItem(key));
-        console.log(`🧹 Cleaned up ${keysToRemove.length} old localStorage entries`);
     }
 
     // 📊 تحديث صحة النظام
@@ -807,7 +788,6 @@ class ErrorDetectionSystem {
     // 📨 إشعار الأدمن
     notifyAdmin(error) {
         // يمكن إضافة إشعار للـ admin هنا
-        console.log('📨 Admin notification:', error);
         
         // حفظ الخطأ في LocalStorage للمراجعة
         const adminErrors = JSON.parse(localStorage.getItem('adminErrors') || '[]');
@@ -925,7 +905,6 @@ class ErrorDetectionSystem {
         this.errors = [];
         this.warnings = [];
         this.userActions = [];
-        console.log('🧹 Error detection system cleaned up');
     }
 }
 
@@ -943,7 +922,4 @@ document.addEventListener('DOMContentLoaded', function() {
     window.getSystemReport = () => errorDetectionSystem.getSystemReport();
     window.clearSystemErrors = () => errorDetectionSystem.cleanup();
     
-    console.log('🔍 Professional Error Detection System loaded');
-    console.log('💡 Use getSystemReport() to view system status');
-    console.log('💡 Use clearSystemErrors() to clear errors');
 });

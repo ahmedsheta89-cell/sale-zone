@@ -1,3 +1,6 @@
+function silentProductionLog() {}
+function silentProductionInfo() {}
+
 // ================================================
 // storage-keys.js - Sale Zone Store
 // ================================================
@@ -69,12 +72,12 @@ function getStorageData(key) {
     const data = localStorage.getItem(storageKey);
     
     if (!data) {
-      console.log(`📭 No data found for: ${key}`);
+      silentProductionLog(`📭 No data found for: ${key}`);
       return null;
     }
     
     const parsed = JSON.parse(data);
-    console.log(`✅ Loaded ${key}:`, parsed);
+    silentProductionLog(`✅ Loaded ${key}:`, parsed);
     return parsed;
     
   } catch (error) {
@@ -108,7 +111,7 @@ function setStorageData(key, data) {
     // تحديث تاريخ آخر تحديث
     localStorage.setItem(STORAGE_KEYS.LAST_UPDATE, Date.now().toString());
     
-    console.log(`💾 Saved ${key}:`, data);
+    silentProductionLog(`💾 Saved ${key}:`, data);
     
     // إطلاق event للإشعار بالتحديث
     window.dispatchEvent(new CustomEvent('storageUpdated', {
@@ -150,7 +153,7 @@ function removeStorageData(key) {
     localStorage.removeItem(storageKey);
     localStorage.setItem(STORAGE_KEYS.LAST_UPDATE, Date.now().toString());
     
-    console.log(`🗑️ Removed ${key}`);
+    silentProductionLog(`🗑️ Removed ${key}`);
     
     // إطلاق event
     window.dispatchEvent(new CustomEvent('storageUpdated', {
@@ -193,7 +196,7 @@ function exportAllData() {
     }
   });
   
-  console.log('📦 Exported all data:', allData);
+  silentProductionLog('📦 Exported all data:', allData);
   return allData;
 }
 
@@ -210,7 +213,7 @@ function importAllData(data) {
       }
     });
     
-    console.log('✅ Data imported successfully');
+    silentProductionLog('✅ Data imported successfully');
     alert('✅ تم استيراد البيانات بنجاح!');
     return true;
     
@@ -235,7 +238,7 @@ function clearAllData(confirm = false) {
     localStorage.removeItem(storageKey);
   });
   
-  console.log('🗑️ All data cleared');
+  silentProductionLog('🗑️ All data cleared');
   alert('✅ تم مسح جميع البيانات!');
   return true;
 }
@@ -279,14 +282,14 @@ function getStorageSize() {
 function debugStorage() {
   console.group('🔍 Storage Debug Info');
   
-  console.log('📊 Storage Size:', getStorageSize());
-  console.log('🕒 Last Update:', getLastUpdateTime());
+  silentProductionLog('📊 Storage Size:', getStorageSize());
+  silentProductionLog('🕒 Last Update:', getLastUpdateTime());
   
   console.group('📦 All Data:');
   Object.keys(STORAGE_KEYS).forEach(key => {
     const data = getStorageData(key);
     if (data) {
-      console.log(`${key}:`, data);
+      silentProductionLog(`${key}:`, data);
     }
   });
   console.groupEnd();
@@ -342,7 +345,7 @@ const SESSION_SCHEMA_VERSION = '2026.02.12.01';
 
   localStorage.setItem(STORAGE_SCHEMA_VERSION_KEY, STORAGE_SCHEMA_VERSION);
   if (removed > 0) {
-    console.log(`[OK] Storage migration removed ${removed} old key(s).`);
+    silentProductionLog(`[OK] Storage migration removed ${removed} old key(s).`);
   }
 })();
 
@@ -371,15 +374,15 @@ const SESSION_SCHEMA_VERSION = '2026.02.12.01';
 
   sessionStorage.setItem(SESSION_SCHEMA_VERSION_KEY, SESSION_SCHEMA_VERSION);
   if (removed > 0) {
-    console.log(`[OK] Session migration removed ${removed} old key(s).`);
+    silentProductionLog(`[OK] Session migration removed ${removed} old key(s).`);
   }
 })();
 
 // ================================================
 // إعلام في Console
 // ================================================
-console.log('[OK] storage-keys.js loaded successfully');
-console.log('Available functions:', {
+silentProductionLog('[OK] storage-keys.js loaded successfully');
+silentProductionLog('Available functions:', {
   'getStorageData(key)': 'Read data',
   'setStorageData(key, data)': 'Write data',
   'removeStorageData(key)': 'Delete data',
@@ -390,7 +393,7 @@ console.log('Available functions:', {
   'debugStorage()': 'Storage debug'
 });
 
-console.log('Example usage:');
-console.log("  setStorageData('BANNERS', [{id: 1, title: 'Test'}])");
-console.log("  getStorageData('BANNERS')");
-console.log("  debugStorage()");
+silentProductionLog('Example usage:');
+silentProductionLog("  setStorageData('BANNERS', [{id: 1, title: 'Test'}])");
+silentProductionLog("  getStorageData('BANNERS')");
+silentProductionLog("  debugStorage()");

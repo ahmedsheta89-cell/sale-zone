@@ -1,3 +1,6 @@
+function silentProductionLog() {}
+function silentProductionInfo() {}
+
 // advanced-features.js - Advanced Features for Sale Zone Store
 // =====================================================
 // 🚀 ميزات متقدمة إضافية مع الحفاظ على الوظائف الحالية
@@ -661,7 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
         socialCommunity
     };
     
-    console.log('✅ Advanced features initialized successfully');
+    silentProductionLog('✅ Advanced features initialized successfully');
 });
 
 // Export for use in other modules

@@ -1,3 +1,6 @@
+function silentProductionLog() {}
+function silentProductionInfo() {}
+
 // smart-features.js - Smart Features for Sale Zone Store
 // ===================================================
 // 🧠 ميزات ذكية لإضافة وظائف جديدة دون هدم الموجود
@@ -487,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 10 * 60 * 1000); // Every 10 minutes
     
-    console.log('✅ Smart features initialized successfully');
+    silentProductionLog('✅ Smart features initialized successfully');
 });
 
 // Make smart features available globally
@@ -502,4 +505,4 @@ window.smartFeatures = {
     smartNotifications
 };
 
-console.log('✅ Smart features initialized successfully');
+silentProductionLog('✅ Smart features initialized successfully');
