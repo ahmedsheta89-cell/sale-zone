@@ -88,8 +88,8 @@ function resolveChangedFiles() {
 
 const adminHtml = read('\u0627\u062f\u0645\u0646_2.HTML');
 const storeHtml = read('\u0645\u062a\u062c\u0631_2.HTML');
-const firebaseApi = read('firebase-api.js');
-const worker = read('product-search-worker.js');
+const firebaseApi = read('assets/js/firebase-api.js');
+const worker = read('assets/js/product-search-worker.js');
 const deployProductionWorkflow = read('.github/workflows/deploy-production.yml');
 const deployBackendWorkflow = read('.github/workflows/deploy-backend.yml');
 

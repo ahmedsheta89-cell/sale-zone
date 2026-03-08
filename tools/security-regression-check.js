@@ -1,6 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
+function walkJsFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return walkJsFiles(full);
+    return entry.isFile() && entry.name.endsWith('.js') ? [full] : [];
+  });
+}
+
 console.log('Security Regression Check v1.0');
 console.log('================================');
 
@@ -70,7 +79,7 @@ function checkFirestoreRules() {
 }
 
 // Run checks on key files
-const jsFiles = fs.readdirSync('.').filter(f => f.endsWith('.js'));
+const jsFiles = [...walkJsFiles('assets/js'), ...fs.readdirSync('.').filter(f => f.endsWith('.js'))];
 const htmlFiles = fs.readdirSync('.').filter(f => f.endsWith('.HTML') || f.endsWith('.html'));
 
 jsFiles.forEach(f => { checkNoSecrets(f); checkNoEval(f); });

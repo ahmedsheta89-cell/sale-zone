@@ -5,26 +5,26 @@
 |------|---------|---------|
 | `ادمن_2.HTML` | Admin dashboard SPA | Direct URL |
 | `متجر_2.HTML` | Store frontend SPA | Direct URL |
-| `firebase-api.js` | Firestore data access layer | Admin + Store |
-| `firebase-config.js` | Firebase init, transport policy, App Check prep | Admin + Store |
-| `firebase-data.js` | Data seeding and realtime glue | Store |
-| `cloudinary-service.js` | Cloudinary upload integration | Admin |
-| `ERROR_DETECTION_SYSTEM.js` | Global error monitoring and image fallback handling | Admin + Store |
-| `REAL_TIME_SYNC.js` | Realtime store synchronization | Store |
-| `enhancement-utils.js` | UI/performance utilities | Admin + Store |
-| `smart-features.js` | Store smart UX helpers | Store |
-| `advanced-features.js` | Advanced storefront behaviors | Store |
-| `UI_COMPONENTS.js` | Shared UI components | Admin + Store |
-| `auth-utils.js` | Auth helpers and session logic | Admin + Store |
-| `storage-keys.js` | localStorage key registry | Admin + Store |
-| `core/logger.js` | Central logging core | Admin + Store |
+| `assets/js/firebase-api.js` | Firestore data access layer | Admin + Store |
+| `assets/js/firebase-config.js` | Firebase init, transport policy, App Check prep | Admin + Store |
+| `assets/js/firebase-data.js` | Data seeding and realtime glue | Store |
+| `assets/js/cloudinary-service.js` | Cloudinary upload integration | Admin |
+| `assets/js/ERROR_DETECTION_SYSTEM.js` | Global error monitoring and image fallback handling | Admin + Store |
+| `assets/js/REAL_TIME_SYNC.js` | Realtime store synchronization | Store |
+| `assets/js/enhancement-utils.js` | UI/performance utilities | Admin + Store |
+| `assets/js/smart-features.js` | Store smart UX helpers | Store |
+| `assets/js/advanced-features.js` | Advanced storefront behaviors | Store |
+| `assets/js/UI_COMPONENTS.js` | Shared UI components | Admin + Store |
+| `assets/js/auth-utils.js` | Auth helpers and session logic | Admin + Store |
+| `assets/js/storage-keys.js` | localStorage key registry | Admin + Store |
+| `assets/js/core/logger.js` | Central logging core | Admin + Store |
 
 ## Data Flow
-`Admin -> firebase-api.js -> Firestore <- firebase-api.js <- Store`
+`Admin -> assets/js/firebase-api.js -> Firestore <- assets/js/firebase-api.js <- Store`
 
-`Admin -> cloudinary-service.js -> Cloudinary`
+`Admin -> assets/js/cloudinary-service.js -> Cloudinary`
 
-`Store <- REAL_TIME_SYNC.js <- Firestore`
+`Store <- assets/js/REAL_TIME_SYNC.js <- Firestore`
 
 ## Collections Reference
 | Collection | Admin | Store | Notes |
