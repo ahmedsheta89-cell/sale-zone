@@ -112,6 +112,8 @@ try {
 // 8. Reload the app and verify __FIREBASE_APP_CHECK_ACTIVE__ === true
 // ════════════════════════════════════════
 const DEFAULT_FIREBASE_APP_CHECK_SITE_KEY = '6LfACYIsAAAAACMUe3sMPY8UB8dv8y-BIlSiulNK';
+const APP_CHECK_MAX_RETRIES = 3;
+const APP_CHECK_RETRY_DELAY_MS = 3000;
 
 function resolveAppCheckSiteKey() {
     if (typeof window.FIREBASE_APP_CHECK_SITE_KEY === 'string' && window.FIREBASE_APP_CHECK_SITE_KEY.trim()) {
@@ -149,9 +151,34 @@ async function waitForAppCheck(maxWaitMs = 3000) {
 
 window.waitForAppCheck = waitForAppCheck;
 
+function enableAppCheckDebugTokenForLocalhost() {
+    if (!isLocalDev || typeof self === 'undefined') return;
+    if (typeof self.FIREBASE_APPCHECK_DEBUG_TOKEN === 'undefined') {
+        self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+}
+
+function scheduleAppCheckRetry(reason) {
+    const currentAttempts = Number(window.__FIREBASE_APP_CHECK_RETRY_COUNT__ || 0);
+    if (window.__FIREBASE_APP_CHECK_ACTIVE__ === true) return;
+    if (currentAttempts >= APP_CHECK_MAX_RETRIES) return;
+    if (window.__FIREBASE_APP_CHECK_RETRY_TIMER__) return;
+
+    window.__FIREBASE_APP_CHECK_RETRY_TIMER__ = window.setTimeout(() => {
+        window.__FIREBASE_APP_CHECK_RETRY_TIMER__ = null;
+        initAppCheck();
+    }, APP_CHECK_RETRY_DELAY_MS);
+
+    console.info(`[App Check] retry scheduled (${currentAttempts + 1}/${APP_CHECK_MAX_RETRIES}) reason=${String(reason || 'unknown')}`);
+}
+
 function initAppCheck() {
-    if (window.__FIREBASE_APP_CHECK_INIT_ATTEMPTED__ === true) return;
+    if (window.__FIREBASE_APP_CHECK_ACTIVE__ === true) return;
+    if (window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ === true) return;
+
     window.__FIREBASE_APP_CHECK_INIT_ATTEMPTED__ = true;
+    window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ = true;
+    window.__FIREBASE_APP_CHECK_RETRY_COUNT__ = Number(window.__FIREBASE_APP_CHECK_RETRY_COUNT__ || 0) + 1;
 
     try {
         if (!(firebase && typeof firebase.appCheck === 'function')) {
@@ -169,15 +196,37 @@ function initAppCheck() {
             return;
         }
 
+        enableAppCheckDebugTokenForLocalhost();
         firebase.appCheck().activate(appCheckKey, true);
-        window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
-        window.__FIREBASE_APP_CHECK_REASON__ = 'active';
-        console.log('[App Check] ✅ Activated successfully');
+        window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+        window.__FIREBASE_APP_CHECK_REASON__ = 'activating';
+        waitForAppCheck(1500).then((ready) => {
+            if (ready) {
+                window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
+                window.__FIREBASE_APP_CHECK_REASON__ = 'active';
+                console.log('[App Check] Token ready and active');
+                return;
+            }
+            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+            window.__FIREBASE_APP_CHECK_REASON__ = 'token-timeout';
+            scheduleAppCheckRetry('token-timeout');
+        }).catch((error) => {
+            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+            window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'token-error';
+            scheduleAppCheckRetry(window.__FIREBASE_APP_CHECK_REASON__);
+        }).finally(() => {
+            window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ = false;
+        });
+        return;
     } catch (error) {
-        // WHY: non-fatal. App functionality must continue while console enforcement is OFF.
         window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
         window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';
         console.warn('[App Check] Activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
+        scheduleAppCheckRetry(window.__FIREBASE_APP_CHECK_REASON__);
+    } finally {
+        if (window.__FIREBASE_APP_CHECK_REASON__ !== 'activating') {
+            window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ = false;
+        }
     }
 }
 
