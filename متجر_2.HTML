@@ -41,7 +41,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     
     <!-- Google Analytics -->
     <script>
@@ -83,8 +83,8 @@
             --error: #DC3545;
             --warning: #FFC107;
             --info: #17A2B8;
-            --font-display: 'Playfair Display', serif;
-            --font-arabic: 'Almarai', sans-serif;
+            --font-display: 'Cairo', 'Playfair Display', sans-serif;
+            --font-arabic: 'Cairo', 'Segoe UI', sans-serif;
             --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
             --shadow-md: 0 4px 20px rgba(0,0,0,0.15);
             --shadow-lg: 0 10px 40px rgba(0,0,0,0.2);
@@ -98,16 +98,20 @@
             font-family: var(--font-arabic);
             background-color: var(--cream);
             color: var(--navy);
+            font-size: 15px;
             line-height: 1.7;
             overflow-x: hidden;
             text-rendering: optimizeLegibility;
             overscroll-behavior: none;
             touch-action: manipulation;
         }
+        body, button, input, textarea, select { font-family: var(--font-arabic); }
         a { text-decoration: none; color: inherit; }
-        button { cursor: pointer; border: none; outline: none; font-family: var(--font-arabic); min-height: 44px; }
+        button { cursor: pointer; border: none; outline: none; font-family: var(--font-arabic); min-height: 44px; min-width: 44px; }
         input, textarea, select { font-family: var(--font-arabic); outline: none; font-size: 16px; }
         .hidden { display: none !important; }
+        .skip-nav { position: absolute; top: -120%; right: 0; background: #000; color: #fff; padding: 8px 16px; z-index: 9999; border-radius: 0 0 8px 0; }
+        .skip-nav:focus { top: 0; }
 
         /* Loading Screen */
         .loading-screen {
@@ -134,7 +138,7 @@
         .top-bar-marquee { flex: 1; overflow: hidden; }
         .top-bar-marquee span { display: inline-block; animation: marquee 25s linear infinite; white-space: nowrap; }
         .top-bar-contact { display: flex; align-items: center; gap: 15px; }
-        .top-bar-contact a { transition: var(--transition); opacity: 0.9; }
+        .top-bar-contact a { transition: var(--transition); opacity: 0.9; min-height: 44px; display: inline-flex; align-items: center; }
         .top-bar-contact a:hover { opacity: 1; }
 
         /* Header */
@@ -149,7 +153,7 @@
         .navbar { background: var(--white); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; position: sticky; top: 0; z-index: 1000; box-shadow: var(--shadow-md); }
         .search-box { display: flex; align-items: center; background: var(--cream); border: 2px solid var(--gold); border-radius: 50px; padding: 6px 15px; flex: 1; max-width: 350px; }
         .search-box input { flex: 1; border: none; background: transparent; font-size: 14px; padding: 5px; }
-        .search-box button { background: var(--gold); color: var(--white); width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
+        .search-box button { background: var(--gold); color: var(--white); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
         .search-box button:hover { background: var(--gold-dark); }
 
         .nav-actions { display: flex; align-items: center; gap: 10px; }
@@ -157,11 +161,11 @@
         .nav-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
         .cart-count, .fav-count { position: absolute; top: -6px; right: -6px; background: var(--burgundy); color: var(--white); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
         .loyalty-badge { background: linear-gradient(135deg, var(--burgundy), #a00030); color: var(--white); padding: 6px 14px; border-radius: 20px; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
-        .user-btn { background: var(--navy); color: var(--gold); width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
+        .user-btn { background: var(--navy); color: var(--gold); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
         .user-btn:hover { transform: scale(1.1); }
         .user-menu { position: relative; }
         .user-dropdown { position: absolute; top: 100%; left: 0; background: var(--white); border-radius: 12px; box-shadow: var(--shadow-lg); min-width: 170px; padding: 8px 0; opacity: 0; visibility: hidden; transform: translateY(10px); transition: var(--transition); z-index: 1001; }
-        .user-menu:hover .user-dropdown { opacity: 1; visibility: visible; transform: translateY(5px); }
+        .user-menu:hover .user-dropdown, .user-dropdown.force-open { opacity: 1; visibility: visible; transform: translateY(5px); }
         .user-dropdown a, .user-dropdown button { display: flex; align-items: center; gap: 8px; padding: 10px 15px; width: 100%; background: transparent; color: var(--navy); transition: var(--transition); font-size: 13px; }
         .user-dropdown a:hover, .user-dropdown button:hover { background: var(--cream); color: var(--gold-dark); }
 
@@ -174,7 +178,7 @@
         .banner-icon { font-size: 50px; margin-bottom: 15px; }
         .banner-title { font-family: var(--font-display); font-size: clamp(20px, 5vw, 32px); color: var(--gold); margin-bottom: 10px; }
         .banner-text { font-size: clamp(12px, 3.5vw, 16px); color: var(--gold-light); margin-bottom: 20px; }
-        .banner-btn { background: var(--gold); color: var(--navy); padding: 12px 30px; border-radius: 25px; font-weight: 700; display: inline-block; transition: var(--transition); }
+        .banner-btn { background: var(--gold); color: var(--navy); min-height: 44px; padding: 12px 30px; border-radius: 25px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: var(--transition); }
         .banner-btn:hover { transform: scale(1.05); box-shadow: var(--shadow-gold); }
         .banner-dots { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
         .banner-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: var(--transition); }
@@ -218,11 +222,11 @@
         .filter-bar { background: var(--white); padding: 15px 20px; margin-bottom: 20px; border-radius: 12px; box-shadow: var(--shadow-sm); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
         .filter-group { display: flex; align-items: center; gap: 8px; }
         .filter-group label { font-size: 13px; font-weight: 600; color: var(--navy); }
-        .filter-select { padding: 8px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 13px; background: var(--white); cursor: pointer; transition: var(--transition); }
+        .filter-select { min-height: 44px; padding: 8px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 13px; background: var(--white); cursor: pointer; transition: var(--transition); }
         .filter-select:focus { border-color: var(--gold); }
-        .filter-btn { padding: 8px 18px; border-radius: 20px; background: var(--cream); color: var(--navy); border: 2px solid #ddd; font-weight: 600; transition: var(--transition); font-size: 12px; }
+        .filter-btn { min-height: 40px; padding: 8px 18px; border-radius: 20px; background: var(--cream); color: var(--navy); border: 2px solid #ddd; font-weight: 600; transition: var(--transition); font-size: 12px; }
         .filter-btn:hover, .filter-btn.active { background: var(--gold); color: var(--white); border-color: var(--gold); }
-        .pagination-btn { min-width: 38px; height: 38px; border-radius: 10px; border: 1px solid #ddd; background: var(--white); color: var(--navy); font-weight: 700; padding: 0 10px; }
+        .pagination-btn { min-width: 44px; height: 44px; border-radius: 10px; border: 1px solid #ddd; background: var(--white); color: var(--navy); font-weight: 700; padding: 0 10px; }
         .pagination-btn.active { background: var(--gold); color: var(--white); border-color: var(--gold-dark); }
         .pagination-btn:disabled { opacity: .5; cursor: not-allowed; }
         .price-range { display: flex; align-items: center; gap: 8px; }
@@ -249,7 +253,7 @@
         .product-category-badge.baby-care { background: var(--baby-care); }
         .product-category-badge.supplements { background: var(--supplements); }
         .product-category-badge.medical { background: var(--medical); }
-        .product-fav { position: absolute; top: 10px; left: 10px; z-index: 11; background: var(--white); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); box-shadow: var(--shadow-sm); }
+        .product-fav { position: absolute; top: 10px; left: 10px; z-index: 11; background: var(--white); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); box-shadow: var(--shadow-sm); }
         .product-fav:hover { transform: scale(1.1); }
         .product-fav.active { background: var(--error); color: var(--white); }
         .product-image { width: 100%; height: 220px; overflow: hidden; position: relative; border-radius: 8px; background: #f5f5f5; }
@@ -257,7 +261,7 @@
         .product-card:hover .product-image img { transform: scale(1.08); }
         .product-actions { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; opacity: 0; transition: var(--transition); }
         .product-card:hover .product-actions { opacity: 1; }
-        .action-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--white); color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 14px; transition: var(--transition); box-shadow: var(--shadow-md); }
+        .action-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--white); color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 14px; transition: var(--transition); box-shadow: var(--shadow-md); }
         .action-btn:hover { background: var(--gold); color: var(--white); transform: scale(1.1); }
         .product-info { padding: 15px; }
         .product-name { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
@@ -278,7 +282,7 @@
         .cart-sidebar.active { left: 0; }
         .cart-header { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: var(--white); padding: 20px; display: flex; justify-content: space-between; align-items: center; }
         .cart-header h2 { font-family: var(--font-display); font-size: 20px; display: flex; align-items: center; gap: 8px; }
-        .close-cart { background: rgba(255,255,255,0.1); color: var(--white); width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
+        .close-cart { background: rgba(255,255,255,0.1); color: var(--white); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
         .close-cart:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }
         .cart-items { flex: 1; overflow-y: auto; padding: 15px; }
         .cart-empty { text-align: center; padding: 40px 20px; color: #999; }
@@ -290,10 +294,10 @@
         .cart-item-name { font-weight: 700; color: var(--navy); margin-bottom: 3px; font-size: 12px; }
         .cart-item-price { color: var(--gold-dark); font-weight: 800; font-size: 14px; margin-bottom: 6px; }
         .cart-item-controls { display: flex; align-items: center; gap: 6px; }
-        .qty-btn { width: 26px; height: 26px; border-radius: 6px; background: var(--white); color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; border: 1px solid #ddd; transition: var(--transition); }
+        .qty-btn { width: 44px; height: 44px; border-radius: 12px; background: var(--white); color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; border: 1px solid #ddd; transition: var(--transition); }
         .qty-btn:hover { background: var(--gold); color: var(--white); border-color: var(--gold); }
         .qty-value { font-weight: 700; min-width: 22px; text-align: center; font-size: 13px; }
-        .remove-item { background: var(--error); color: var(--white); width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-right: auto; transition: var(--transition); font-size: 11px; }
+        .remove-item { background: var(--error); color: var(--white); width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: auto; transition: var(--transition); font-size: 14px; }
         .remove-item:hover { background: #c82333; transform: scale(1.1); }
         .cart-footer { padding: 18px; background: var(--cream); border-top: 2px solid var(--gold-light); }
         .coupon-section { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -324,24 +328,24 @@
         .modal-header { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: var(--white); padding: 20px; text-align: center; position: relative; border-radius: 18px 18px 0 0; }
         .modal-header h2 { font-family: var(--font-display); font-size: 20px; margin-bottom: 4px; }
         .modal-header p { color: var(--gold-light); font-size: 12px; }
-        .close-modal { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.1); color: var(--white); width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
+        .close-modal { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.1); color: var(--white); width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
         .close-modal:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }
         .modal-body { padding: 22px; }
         .product-modal-dialog { max-width: 900px; }
-        .product-modal-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; padding: 32px; max-width: 900px; max-height: 90vh; overflow-y: auto; }
-        .product-modal-media { display: flex; flex-direction: column; gap: 14px; }
-        .product-modal-image { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: center; border-radius: 12px; background: #f5f5f5; box-shadow: var(--shadow-sm); }
+        .product-modal-content { display: grid; grid-template-columns: 1fr 1.2fr; direction: rtl; gap: 24px; padding: 24px; max-width: 900px; max-height: 90vh; overflow-y: auto; }
+        .product-modal-text { order: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+        .product-modal-image-col { order: 2; display: flex; flex-direction: column; gap: 14px; }
+        .product-modal-image { width: 100%; aspect-ratio: 1; min-height: 280px; object-fit: cover; object-position: center; border-radius: 16px; background: #f5f5f5; box-shadow: var(--shadow-sm); }
         .product-modal-thumbs { display: flex; flex-wrap: wrap; gap: 10px; }
         .product-modal-thumb { width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 2px solid transparent; background: #f5f5f5; cursor: pointer; transition: var(--transition); }
         .product-modal-thumb.active { border-color: var(--gold); box-shadow: var(--shadow-gold); }
         .product-modal-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .product-modal-info { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
         .product-modal-name { font-size: 1.5rem; font-weight: 700; color: #1a1a1a; margin: 0; line-height: 1.4; }
         .product-modal-rating { display: flex; align-items: center; gap: 8px; color: #666; font-size: 13px; }
         .product-modal-price-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
         .product-modal-price { font-size: 2rem; font-weight: 800; color: #e63946; line-height: 1; }
         .product-modal-old-price { font-size: 1rem; color: #999; text-decoration: line-through; }
-        .product-modal-description { font-size: 0.95rem; line-height: 1.7; color: #555; background: #faf7f0; border-radius: 12px; padding: 14px 16px; }
+        .product-modal-description { display: block !important; font-size: 0.95rem; line-height: 1.8; color: #555; background: #faf7f0; border-radius: 12px; padding: 14px 16px; margin: 12px 0; max-height: 100px; overflow-y: auto; }
         .product-modal-meta { display: flex; flex-wrap: wrap; gap: 10px; }
         .product-modal-badge { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: rgba(212,175,55,0.14); color: var(--navy); font-size: 12px; font-weight: 700; }
         .product-modal-qty { display: flex; align-items: center; gap: 12px; margin: 6px 0 0; }
@@ -364,7 +368,7 @@
         .submit-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
         .auth-modal { max-width: 420px; width: 95vw; border-radius: 20px; background: white; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
         .auth-tabs { display: flex; gap: 8px; margin-bottom: 24px; background: #f5f5f5; padding: 4px; border-radius: 12px; }
-        .auth-tab { flex: 1; padding: 10px; border: none; border-radius: 10px; background: transparent; cursor: pointer; font-size: 0.85rem; color: #666; transition: all 0.2s; font-weight: 600; }
+        .auth-tab { flex: 1; height: 52px; min-height: 52px; padding: 12px 10px; border: none; border-radius: 10px; background: transparent; cursor: pointer; font-size: 0.85rem; color: #666; transition: all 0.2s; font-weight: 600; display: flex; align-items: center; justify-content: center; }
         .auth-tab.active { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); color: var(--navy); font-weight: 700; }
         .auth-panel { display: block; }
         .auth-panel.hidden { display: none; }
@@ -381,6 +385,18 @@
         .password-auth-tab.active { background: var(--white); color: var(--gold-dark); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .auth-note-list { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
         .auth-note-list li { font-size: 13px; color: #666; display: flex; align-items: center; gap: 8px; justify-content: center; }
+        .empty-state { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #666; }
+        .empty-state .empty-icon { font-size: 3rem; margin-bottom: 16px; }
+        .empty-state h3 { font-size: 1.2rem; font-weight: 700; color: #333; }
+        .btn-reset { margin-top: 16px; padding: 12px 24px; min-height: 44px; background: #667eea; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 1rem; }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+        .skeleton-card { border-radius: 12px; overflow: hidden; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .skeleton-image { width: 100%; height: 220px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+        .skeleton-text { height: 16px; margin: 8px 12px; border-radius: 4px; }
+        .skeleton-text.short { width: 60%; }
+        .skeleton-text.long { width: 90%; }
+        .mobile-bottom-nav { display: none; }
 
         /* Order Tracking */
         .tracking-section { padding: 40px 20px; max-width: 800px; margin: 0 auto; }
@@ -503,6 +519,7 @@
             .nav-btn { padding: 10px 14px; font-size: 12px; }
             .logo { font-size: 32px; }
             .tagline { font-size: 11px; }
+            body { font-size: 14px; padding-bottom: 70px; }
             .navbar { padding: 10px 12px; }
             .search-box { order: 3; flex: 0 0 100%; max-width: 100%; }
             .nav-btn span { display: none; }
@@ -511,7 +528,8 @@
             .products-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
             .product-image { height: 180px; }
             .product-name { font-size: 13px; }
-            .section-title h2 { font-size: 24px; }
+            .section-title h2 { font-size: 1.2rem; }
+            h1 { font-size: 1.4rem; }
             .banner-title { font-size: 24px; }
             .banner-text { font-size: 14px; }
             .chat-box { width: calc(100vw - 40px); max-width: 320px; }
@@ -522,11 +540,16 @@
             .close-modal { top: 10px; left: 10px; }
             .connection-banner { width: calc(100% - 20px); margin-top: 8px; border-radius: 12px; padding: 10px 12px; font-size: 12px; }
             .product-modal-content { grid-template-columns: 1fr; padding: 16px; gap: 18px; }
+            .product-modal-image-col { order: 1; }
+            .product-modal-text { order: 2; }
             .product-modal-price { font-size: 1.6rem; }
             .product-modal-thumb { width: 60px; height: 60px; }
             .auth-modal { width: 100%; }
             .auth-tabs { gap: 6px; }
             .auth-tab { font-size: 0.8rem; padding: 10px 6px; }
+            .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: white; border-top: 1px solid #eee; display: flex; align-items: center; justify-content: space-around; z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
+            .mobile-bottom-nav .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.7rem; color: #666; min-width: 44px; min-height: 44px; justify-content: center; cursor: pointer; background: transparent; padding: 0 6px; }
+            .mobile-bottom-nav .nav-item.active { color: #667eea; }
         }
         @media (max-width: 480px) {
             .top-bar { font-size: 12px; gap: 8px; }
@@ -544,6 +567,7 @@
     </style>
 </head>
 <body>
+    <a href="#main-content" class="skip-nav">تخطي إلى المحتوى الرئيسي</a>
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
         <div class="loading-logo">🛍️</div>
@@ -580,7 +604,7 @@
     <nav class="navbar">
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="ابحث عن منتج..." autocomplete="off">
-            <button onclick="searchProducts()">🔍</button>
+            <button type="button" aria-label="بحث" onclick="searchProducts()">🔍</button>
         </div>
         <div class="nav-actions">
             <div class="loyalty-badge">
@@ -588,20 +612,20 @@
                 <span id="loyaltyPoints">0</span>
                 <span>نقطة</span>
             </div>
-            <button class="nav-btn" onclick="toggleFavorites()">
+            <button class="nav-btn" type="button" aria-label="فتح المفضلة" onclick="toggleFavorites()">
                 ❤️ <span>المفضلة</span>
                 <div class="fav-count" id="favCount">0</div>
             </button>
-            <button class="nav-btn cart-btn" onclick="toggleCart()">
+            <button class="nav-btn cart-btn" type="button" aria-label="فتح السلة" onclick="toggleCart()">
                 🛒 <span>السلة</span>
                 <div class="cart-count" id="cartCount">0</div>
             </button>
             <div class="user-menu">
-                <button class="user-btn" id="userBtn">👤</button>
+                <button class="user-btn" id="userBtn" type="button" aria-label="فتح قائمة الحساب" aria-expanded="false" onclick="openAuth()">👤</button>
                 <div class="user-dropdown">
                     <div id="guestMenu">
-                        <button onclick="showAuthModal('login')">🔐 تسجيل الدخول</button>
-                        <button onclick="showAuthModal('register')">📝 إنشاء حساب</button>
+                        <button type="button" onclick="showAuthModal('login')">🔐 تسجيل الدخول</button>
+                        <button type="button" onclick="showAuthModal('register')">📝 إنشاء حساب</button>
                     </div>
                     <div id="userMenu" class="hidden">
                         <a href="#" onclick="showProfile()">👤 حسابي</a>
@@ -615,6 +639,7 @@
         </div>
     </nav>
 
+    <main id="main-content" role="main">
     <!-- Banner Slider -->
     <section class="banner-section">
         <div class="banner-slider" id="bannerSlider">
@@ -793,7 +818,7 @@
     <div class="cart-sidebar" id="cartSidebar">
         <div class="cart-header">
             <h2>🛒 سلة التسوق</h2>
-            <button class="close-cart" onclick="toggleCart()">✕</button>
+            <button class="close-cart" type="button" aria-label="إغلاق السلة" onclick="toggleCart()">✕</button>
         </div>
         <div class="cart-items" id="cartItems">
             <div class="cart-empty">
@@ -813,7 +838,7 @@
                 </div>
                 <div class="points-input-group">
                     <input type="number" class="points-input" id="pointsToUse" placeholder="عدد النقاط" autocomplete="off">
-                    <button class="points-apply-btn" onclick="applyPoints()">استبدال</button>
+                    <button class="points-apply-btn" type="button" onclick="applyPoints()">استبدال</button>
                 </div>
                 <div class="points-info" id="pointsInfo">كل 10 نقاط = 1 ج.م</div>
             </div>
@@ -848,7 +873,7 @@
     <div class="fav-sidebar" id="favSidebar">
         <div class="fav-header">
             <h2>❤️ المفضلة</h2>
-            <button class="close-cart" onclick="toggleFavorites()">✕</button>
+            <button class="close-cart" type="button" aria-label="إغلاق المفضلة" onclick="toggleFavorites()">✕</button>
         </div>
         <div class="fav-items" id="favItems">
             <div class="fav-empty">
@@ -862,7 +887,7 @@
     <div class="modal-overlay" id="authModal">
         <div class="modal auth-modal">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('authModal')">✕</button>
+                <button class="close-modal" type="button" aria-label="إغلاق نافذة تسجيل الدخول" onclick="closeModal('authModal')">✕</button>
                 <h2 id="authModalTitle">تسجيل الدخول</h2>
                 <p id="authModalSubtitle">مرحباً بك</p>
             </div>
@@ -876,7 +901,7 @@
                 <div id="magicAuthPanel" class="auth-panel" data-auth-panel="magic">
                     <form id="magicLinkForm" onsubmit="handleMagicLinkLogin(event)">
                         <div class="form-group">
-                            <label>📧 البريد الإلكتروني <span class="required">*</span></label>
+                            <label for="magicLinkEmail">📧 البريد الإلكتروني <span class="required">*</span></label>
                             <input type="email" id="magicLinkEmail" required placeholder="user@email.com" autocomplete="email">
                         </div>
                         <button type="submit" class="btn-magic-link">إرسال رابط الدخول ✉️</button>
@@ -909,38 +934,38 @@
                     </div>
                     <form id="loginForm" class="auth-password-form" onsubmit="handleLogin(event)">
                         <div class="form-group">
-                            <label>📧 البريد الإلكتروني <span class="required">*</span></label>
+                            <label for="loginIdentifier">📧 البريد الإلكتروني <span class="required">*</span></label>
                             <input type="email" id="loginIdentifier" required placeholder="user@email.com" autocomplete="username">
                         </div>
                         <div class="form-group">
-                            <label>🔐 كلمة المرور <span class="required">*</span></label>
+                            <label for="loginPassword">🔐 كلمة المرور <span class="required">*</span></label>
                             <input type="password" id="loginPassword" required autocomplete="current-password">
                         </div>
                         <button type="submit" class="submit-btn">دخول 🔓</button>
                     </form>
                     <form id="registerForm" class="auth-password-form hidden" onsubmit="handleRegister(event)">
                         <div class="form-group">
-                            <label>👤 الاسم <span class="required">*</span></label>
+                            <label for="registerName">👤 الاسم <span class="required">*</span></label>
                             <input type="text" id="registerName" required autocomplete="name">
                         </div>
                         <div class="form-group">
-                            <label>📱 الهاتف <span class="required">*</span></label>
+                            <label for="registerPhone">📱 الهاتف <span class="required">*</span></label>
                             <input type="tel" id="registerPhone" required placeholder="01xxxxxxxxx" autocomplete="tel">
                         </div>
                         <div class="form-group">
-                            <label>📧 الإيميل <span class="required">*</span></label>
+                            <label for="registerEmail">📧 الإيميل <span class="required">*</span></label>
                             <input type="email" id="registerEmail" required autocomplete="email">
                         </div>
                         <div class="form-group">
-                            <label>📍 العنوان <span class="required">*</span></label>
+                            <label for="registerAddress">📍 العنوان <span class="required">*</span></label>
                             <textarea id="registerAddress" required></textarea>
                         </div>
                         <div class="form-group">
-                            <label>🔐 كلمة المرور <span class="required">*</span></label>
+                            <label for="registerPassword">🔐 كلمة المرور <span class="required">*</span></label>
                             <input type="password" id="registerPassword" required autocomplete="new-password">
                         </div>
                         <div class="form-group">
-                            <label>🔐 تأكيد كلمة المرور <span class="required">*</span></label>
+                            <label for="registerPasswordConfirm">🔐 تأكيد كلمة المرور <span class="required">*</span></label>
                             <input type="password" id="registerPasswordConfirm" required autocomplete="new-password">
                         </div>
                         <button type="submit" class="submit-btn">إنشاء حساب ✓</button>
@@ -954,26 +979,26 @@
     <div class="modal-overlay" id="checkoutModal">
         <div class="modal">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('checkoutModal')">✕</button>
+                <button class="close-modal" type="button" aria-label="إغلاق نافذة الطلب" onclick="closeModal('checkoutModal')">✕</button>
                 <h2>إتمام الطلب</h2>
                 <p>بيانات التوصيل</p>
             </div>
             <div class="modal-body">
                 <form id="checkoutForm" onsubmit="handleCheckout(event)">
                     <div class="form-group">
-                        <label>👤 الاسم <span class="required">*</span></label>
+                        <label for="checkoutName">👤 الاسم <span class="required">*</span></label>
                         <input type="text" id="checkoutName" required autocomplete="name">
                     </div>
                     <div class="form-group">
-                        <label>📱 الهاتف <span class="required">*</span></label>
+                        <label for="checkoutPhone">📱 الهاتف <span class="required">*</span></label>
                         <input type="tel" id="checkoutPhone" required autocomplete="tel">
                     </div>
                     <div class="form-group">
-                        <label>📍 العنوان <span class="required">*</span></label>
+                        <label for="checkoutAddress">📍 العنوان <span class="required">*</span></label>
                         <textarea id="checkoutAddress" required></textarea>
                     </div>
                     <div class="form-group">
-                        <label>📝 ملاحظات</label>
+                        <label for="checkoutNotes">📝 ملاحظات</label>
                         <textarea id="checkoutNotes"></textarea>
                     </div>
                     <button type="submit" class="submit-btn">تأكيد الطلب 📦</button>
@@ -986,12 +1011,12 @@
     <div class="modal-overlay" id="trackingModal">
         <div class="modal large">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('trackingModal')">✕</button>
+                <button class="close-modal" type="button" aria-label="إغلاق نافذة تتبع الطلب" onclick="closeModal('trackingModal')">✕</button>
                 <h2>🚚 تتبع الطلب</h2>
             </div>
             <div class="modal-body" id="trackingModalBody">
                 <div class="form-group">
-                    <label>أدخل رقم الطلب</label>
+                    <label for="trackOrderNumber">أدخل رقم الطلب</label>
                     <input type="text" id="trackOrderNumber" placeholder="SZ-XXXXXXXX" autocomplete="off">
                 </div>
                 <button class="submit-btn" onclick="trackOrder()">تتبع 🔍</button>
@@ -1004,7 +1029,7 @@
     <div class="modal-overlay" id="productModal">
         <div class="modal large product-modal-dialog">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('productModal')">✕</button>
+                <button class="close-modal" type="button" aria-label="إغلاق نافذة تفاصيل المنتج" onclick="closeModal('productModal')">✕</button>
                 <h2>تفاصيل المنتج</h2>
             </div>
             <div class="modal-body" id="productModalBody"></div>
@@ -1015,21 +1040,21 @@
     <div class="modal-overlay" id="passwordModal">
         <div class="modal">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('passwordModal')">✕</button>
+                <button class="close-modal" type="button" aria-label="إغلاق نافذة تغيير كلمة المرور" onclick="closeModal('passwordModal')">✕</button>
                 <h2>تغيير كلمة المرور</h2>
             </div>
             <div class="modal-body">
                 <form onsubmit="handleChangePassword(event)">
                     <div class="form-group">
-                        <label>🔐 الحالية <span class="required">*</span></label>
+                        <label for="currentPassword">🔐 الحالية <span class="required">*</span></label>
                         <input type="password" id="currentPassword" required autocomplete="current-password">
                     </div>
                     <div class="form-group">
-                        <label>🔐 الجديدة <span class="required">*</span></label>
+                        <label for="newPassword">🔐 الجديدة <span class="required">*</span></label>
                         <input type="password" id="newPassword" required autocomplete="new-password">
                     </div>
                     <div class="form-group">
-                        <label>🔐 تأكيد <span class="required">*</span></label>
+                        <label for="confirmNewPassword">🔐 تأكيد <span class="required">*</span></label>
                         <input type="password" id="confirmNewPassword" required autocomplete="new-password">
                     </div>
                     <button type="submit" class="submit-btn">تغيير 🔑</button>
@@ -1042,7 +1067,7 @@
     <div class="modal-overlay" id="ordersModal">
         <div class="modal large">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('ordersModal')">✕</button>
+                <button class="close-modal" type="button" aria-label="إغلاق نافذة الطلبات" onclick="closeModal('ordersModal')">✕</button>
                 <h2>📦 طلباتي</h2>
             </div>
             <div class="modal-body" id="ordersModalBody"></div>
@@ -1053,7 +1078,7 @@
     <div class="modal-overlay" id="ratingModal">
         <div class="modal">
             <div class="modal-header">
-                <button class="close-modal" onclick="closeModal('ratingModal')">✕</button>
+                <button class="close-modal" type="button" aria-label="إغلاق نافذة التقييم" onclick="closeModal('ratingModal')">✕</button>
                 <h2>⭐ تقييم المنتج</h2>
             </div>
             <div class="modal-body" id="ratingModalBody"></div>
@@ -1062,7 +1087,7 @@
 
     <!-- Chat Widget -->
     <div class="chat-widget">
-        <button class="chat-toggle" onclick="toggleChat()">🤖</button>
+        <button class="chat-toggle" type="button" aria-label="فتح المساعد" onclick="toggleChat()">🤖</button>
         <div class="chat-box" id="chatBox">
             <div class="chat-box-header">
                 <div class="chat-avatar">🤖</div>
@@ -1071,8 +1096,8 @@
                     <span id="chatStatusText"><span class="online-dot"></span> وضع FAQ</span>
                 </div>
                 <div class="chat-mode-toggle">
-                    <button type="button" class="chat-mode-btn active" id="chatModeBotBtn" onclick="switchChatMode('bot')">FAQ</button>
-                    <button type="button" class="chat-mode-btn" id="chatModeSupportBtn" onclick="switchChatMode('support')">دعم</button>
+                    <button type="button" class="chat-mode-btn active" id="chatModeBotBtn" aria-label="التبديل إلى وضع الأسئلة الشائعة" onclick="switchChatMode('bot')">FAQ</button>
+                    <button type="button" class="chat-mode-btn" id="chatModeSupportBtn" aria-label="التبديل إلى وضع الدعم" onclick="switchChatMode('support')">دعم</button>
                 </div>
             </div>
             <div class="chat-messages" id="chatMessages">
@@ -1080,15 +1105,38 @@
             </div>
             <div class="chat-input-container">
                 <input type="text" class="chat-input" id="chatInput" placeholder="اكتب..." onkeypress="if(event.key==='Enter')sendChatMessage()" autocomplete="off">
-                <button class="chat-send" onclick="sendChatMessage()">➤</button>
+                <button class="chat-send" type="button" aria-label="إرسال الرسالة" onclick="sendChatMessage()">➤</button>
             </div>
         </div>
     </div>
 
     <!-- Floating Buttons -->
     <div class="floating-buttons">
-        <a href="#" id="floatWhatsapp" target="_blank" class="float-btn whatsapp-btn">💬</a>
+        <a href="#" id="floatWhatsapp" target="_blank" class="float-btn whatsapp-btn" aria-label="التواصل عبر واتساب">💬</a>
     </div>
+    <nav class="mobile-bottom-nav" role="navigation" aria-label="التنقل الرئيسي">
+        <button type="button" class="nav-item active" data-mobile-nav="home" onclick="scrollToTop()">
+            <span>🏠</span>
+            <span>الرئيسية</span>
+        </button>
+        <button type="button" class="nav-item" data-mobile-nav="search" onclick="openSearch()">
+            <span>🔍</span>
+            <span>بحث</span>
+        </button>
+        <button type="button" class="nav-item" data-mobile-nav="cart" onclick="openCart()">
+            <span>🛒</span>
+            <span>السلة</span>
+        </button>
+        <button type="button" class="nav-item" data-mobile-nav="favorites" onclick="openFavorites()">
+            <span>❤️</span>
+            <span>المفضلة</span>
+        </button>
+        <button type="button" class="nav-item" data-mobile-nav="account" onclick="openAuth()">
+            <span>👤</span>
+            <span>حسابي</span>
+        </button>
+    </nav>
+    </main>
     <script data-cfasync="false">
         // Cloudflare email decode script removed - not available on GitHub Pages
     </script><script>
@@ -1415,8 +1463,8 @@
             safeRun('maybeLoadTawkWidget', maybeLoadTawkWidget);
             safeRun('renderBanners', renderBanners);
             safeRun('renderSupplierFilters', renderSupplierFilters);
+            safeRun('showSkeletonLoader', showSkeletonLoader);
             safeRun('buildSearchIndexAsync', buildSearchIndexAsync);
-            safeRun('runProductSearch', () => runProductSearch(1));
             safeRun('renderCoupons', renderCoupons);
             safeRun('updateCategoryCounts', updateCategoryCounts);
             safeRun('updateStats', updateStats);
@@ -2106,13 +2154,43 @@
             ].join('');
         }
 
+        function renderEmptyState(message = 'لا توجد منتجات مطابقة') {
+            return `
+                <div class="empty-state" role="status" aria-live="polite">
+                    <div class="empty-icon" aria-hidden="true">🔍</div>
+                    <h3>${escapeHtml(message)}</h3>
+                    <p>جرّب كلمات بحث مختلفة أو تصفح الأقسام</p>
+                    <button type="button" onclick="resetAllFilters()" class="btn-reset">عرض جميع المنتجات</button>
+                </div>
+            `;
+        }
+
+        function showSkeletonLoader() {
+            const grid = document.getElementById('productsGrid');
+            if (!grid) return;
+            grid.innerHTML = Array.from({ length: 8 }, () => `
+                <div class="skeleton-card" aria-hidden="true">
+                    <div class="skeleton-image skeleton"></div>
+                    <div style="padding: 12px">
+                        <div class="skeleton skeleton-text long"></div>
+                        <div class="skeleton skeleton-text short"></div>
+                        <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         function renderProductGrid(productsToRender = []) {
             const grid = document.getElementById('productsGrid');
             const displayProducts = productsToRender;
 
             if (displayProducts.length === 0) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><div style="font-size: 60px;">📦</div><h3 style="color: #666;">لا توجد منتجات</h3></div>';
+                const emptyMessage = currentSearchQuery
+                    ? `لا توجد نتائج مطابقة لـ "${escapeHtml(currentSearchQuery)}"`
+                    : 'لا توجد منتجات مطابقة';
+                grid.innerHTML = renderEmptyState(emptyMessage);
                 renderPaginationControls({ totalPages: 1, page: 1 });
+                applyAutoTooltips(grid);
                 return;
             }
 
@@ -2136,14 +2214,14 @@
                 return `
                 <div class="product-card" data-product-id="${safeProductId}" onclick="showProductDetails(this.dataset.productId)">
                     ${hasOldPrice ? `<div class="product-badge">-${escapeHtml(discountPercent)}%</div>` : ''}
-                    <div class="product-fav ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" onclick="event.stopPropagation(); toggleFav(this.dataset.productId)">
+                    <button type="button" class="product-fav ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? 'إزالة من المفضلة' : 'إضافة إلى المفضلة'}" onclick="event.stopPropagation(); toggleFav(this.dataset.productId)">
                         ${isFav ? '❤️' : '🤍'}
-                    </div>
+                    </button>
                     <div class="product-image">
                         <img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="lazy">
                         <div class="product-actions">
-                            <button class="action-btn" data-product-id="${safeProductId}" onclick="event.stopPropagation(); showProductDetails(this.dataset.productId)">👁️</button>
-                            <button class="action-btn" data-product-id="${safeProductId}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
+                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="فتح تفاصيل المنتج" onclick="event.stopPropagation(); showProductDetails(this.dataset.productId)">👁️</button>
+                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="إضافة المنتج إلى السلة" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
                         </div>
                     </div>
                     <div class="product-info">
@@ -2157,11 +2235,12 @@
                             <span class="current-price">${hasValidPrice ? `${currentPrice} ج.م` : currentPrice}</span>
                             ${hasOldPrice ? `<span class="old-price">${oldPrice} ج.م</span>` : ''}
                         </div>
-                        <button class="add-to-cart-btn" data-product-id="${safeProductId}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف للسلة' : '⚠️ غير متاح للبيع'}</button>
+                        <button type="button" class="add-to-cart-btn" data-product-id="${safeProductId}" aria-label="إضافة ${safeName} إلى السلة" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف للسلة' : '⚠️ غير متاح للبيع'}</button>
                     </div>
                 </div>
             `;
             }).join('');
+            applyAutoTooltips(grid);
         }
 
         function updateProductsTitle(result, state) {
@@ -2471,6 +2550,10 @@
             renderProducts({ ...DEFAULT_PRODUCT_VIEW_STATE }, 1, { scroll: false });
         }
 
+        function resetAllFilters() {
+            resetFilters();
+        }
+
         function searchProducts() {
             currentSearchQuery = document.getElementById('searchInput').value.trim();
             if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
@@ -2555,20 +2638,20 @@
             };
             document.getElementById('productModalBody').innerHTML = `
                 <div class="product-modal-content">
-                    <div class="product-modal-media">
+                    <div class="product-modal-image-col">
                         <img id="productModalMainImage" class="product-modal-image" src="${escapeHtml(primaryImage)}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'; this.onerror=null;">
                         <div class="product-modal-thumbs">
                             ${gallery.map((imageUrl, index) => `
-                                <button type="button" class="product-modal-thumb ${index === 0 ? 'active' : ''}" data-image="${escapeHtml(imageUrl)}" onclick="setProductModalImage(this.dataset.image)">
+                                <button type="button" class="product-modal-thumb ${index === 0 ? 'active' : ''}" data-image="${escapeHtml(imageUrl)}" aria-label="عرض صورة ${index + 1} للمنتج" onclick="setProductModalImage(this.dataset.image)">
                                     <img src="${escapeHtml(sanitizeImageUrl(imageUrl, 180))}" alt="معاينة ${safeName}" onerror="this.src='${safeFallbackImage}'; this.onerror=null;">
                                 </button>
                             `).join('')}
                         </div>
                     </div>
-                    <div class="product-modal-info">
+                    <div class="product-modal-text">
                         <div>
                             <h2 class="product-modal-name">${safeName}</h2>
-                            <div class="product-modal-rating" data-product-id="${safeProductId}" onclick="showRatingModal(this.dataset.productId)">
+                            <div class="product-modal-rating" data-product-id="${safeProductId}" role="button" tabindex="0" onclick="showRatingModal(this.dataset.productId)">
                                 <span>${getStars(p.rating)}</span>
                                 <span>(${safeRatingCount} تقييم)</span>
                             </div>
@@ -2588,12 +2671,13 @@
                             <button type="button" onclick="changeProductModalQuantity(1)" aria-label="زيادة الكمية">+</button>
                         </div>
                         <div class="product-modal-actions">
-                            <button class="btn-add-to-cart-modal" data-product-id="${safeProductId}" onclick="addProductModalToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف إلى السلة الآن' : '⚠️ غير متاح للبيع'}</button>
-                            <button class="btn-wish-modal ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" onclick="toggleProductModalFavorite(this.dataset.productId)">${isFav ? '❤️ إزالة من المفضلة' : '🤍 أضف إلى المفضلة'}</button>
+                            <button type="button" class="btn-add-to-cart-modal" data-product-id="${safeProductId}" aria-label="إضافة ${safeName} إلى السلة" onclick="addProductModalToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف إلى السلة الآن' : '⚠️ غير متاح للبيع'}</button>
+                            <button type="button" class="btn-wish-modal ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? 'إزالة المنتج من المفضلة' : 'إضافة المنتج إلى المفضلة'}" onclick="toggleProductModalFavorite(this.dataset.productId)">${isFav ? '❤️ إزالة من المفضلة' : '🤍 أضف إلى المفضلة'}</button>
                         </div>
                     </div>
                 </div>
             `;
+            applyAutoTooltips(document.getElementById('productModalBody'));
             openModal('productModal');
         }
 
@@ -2682,8 +2766,11 @@
         // ❤️ Favorites
         // ============================================
         function toggleFavorites() {
-            document.getElementById('favOverlay').classList.toggle('active');
-            document.getElementById('favSidebar').classList.toggle('active');
+            const overlay = document.getElementById('favOverlay');
+            const sidebar = document.getElementById('favSidebar');
+            overlay.classList.toggle('active');
+            sidebar.classList.toggle('active');
+            setMobileBottomNavActive(sidebar.classList.contains('active') ? 'favorites' : 'home');
         }
 
         function toggleFav(id) {
@@ -2744,8 +2831,11 @@
         // 🛒 Cart
         // ============================================
         function toggleCart() {
-            document.getElementById('cartOverlay').classList.toggle('active');
-            document.getElementById('cartSidebar').classList.toggle('active');
+            const overlay = document.getElementById('cartOverlay');
+            const sidebar = document.getElementById('cartSidebar');
+            overlay.classList.toggle('active');
+            sidebar.classList.toggle('active');
+            setMobileBottomNavActive(sidebar.classList.contains('active') ? 'cart' : 'home');
             updatePointsSection();
         }
 
@@ -4679,11 +4769,84 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             window.__STORE_TOOLTIP_OBSERVER__ = observer;
         }
 
+        function setMobileBottomNavActive(target = 'home') {
+            document.querySelectorAll('.mobile-bottom-nav .nav-item').forEach((item) => {
+                item.classList.toggle('active', String(item.dataset.mobileNav || '') === String(target || 'home'));
+            });
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setMobileBottomNavActive('home');
+        }
+
+        function openSearch() {
+            const input = document.getElementById('searchInput');
+            const navbar = document.querySelector('.navbar');
+            if (navbar && typeof navbar.scrollIntoView === 'function') {
+                navbar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            window.setTimeout(() => {
+                if (input && typeof input.focus === 'function') input.focus();
+            }, 150);
+            setMobileBottomNavActive('search');
+        }
+
+        function openCart() {
+            const overlay = document.getElementById('cartOverlay');
+            const sidebar = document.getElementById('cartSidebar');
+            if (!overlay || !sidebar) return;
+            if (!overlay.classList.contains('active') || !sidebar.classList.contains('active')) {
+                toggleCart();
+            }
+            setMobileBottomNavActive('cart');
+        }
+
+        function openFavorites() {
+            const overlay = document.getElementById('favOverlay');
+            const sidebar = document.getElementById('favSidebar');
+            if (!overlay || !sidebar) return;
+            if (!overlay.classList.contains('active') || !sidebar.classList.contains('active')) {
+                toggleFavorites();
+            }
+            setMobileBottomNavActive('favorites');
+        }
+
+        function openAuth() {
+            const dropdown = document.querySelector('.user-dropdown');
+            const trigger = document.getElementById('userBtn');
+            if (currentUser && dropdown && trigger) {
+                const isOpen = dropdown.classList.toggle('force-open');
+                trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                setMobileBottomNavActive(isOpen ? 'account' : 'home');
+                return;
+            }
+            if (dropdown) dropdown.classList.remove('force-open');
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+            showAuthModal('magic');
+            setMobileBottomNavActive('account');
+        }
+
         function openModal(id) { document.getElementById(id).classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+            if (id === 'authModal') {
+                setMobileBottomNavActive('home');
+            }
+        }
 
         document.querySelectorAll('.modal-overlay').forEach(o => {
             o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
+        });
+
+        document.addEventListener('click', (event) => {
+            const dropdown = document.querySelector('.user-dropdown');
+            const menu = document.querySelector('.user-menu');
+            const trigger = document.getElementById('userBtn');
+            if (!dropdown || !menu || !trigger) return;
+            if (menu.contains(event.target)) return;
+            dropdown.classList.remove('force-open');
+            trigger.setAttribute('aria-expanded', 'false');
         });
 
         document.addEventListener('keydown', e => {
