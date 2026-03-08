@@ -48,12 +48,12 @@
     <script src="UI_COMPONENTS.js"></script>
     
     <!-- Google Fonts -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" as="style">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" as="style">
     <link rel="dns-prefetch" href="https://res.cloudinary.com">
     <link rel="dns-prefetch" href="https://firestore.googleapis.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     
     <!-- Google Analytics -->
     <script>
@@ -97,6 +97,13 @@
             --info: #17A2B8;
             --font-display: 'Cairo', 'Playfair Display', sans-serif;
             --font-arabic: 'Cairo', 'Segoe UI', sans-serif;
+            --font-xs: 0.75rem;
+            --font-sm: 0.875rem;
+            --font-base: 1rem;
+            --font-lg: 1.125rem;
+            --font-xl: 1.25rem;
+            --font-2xl: 1.5rem;
+            --font-3xl: 1.875rem;
             --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
             --shadow-md: 0 4px 20px rgba(0,0,0,0.15);
             --shadow-lg: 0 10px 40px rgba(0,0,0,0.2);
@@ -110,7 +117,7 @@
             font-family: var(--font-arabic);
             background-color: var(--cream);
             color: var(--navy);
-            font-size: 15px;
+            font-size: var(--font-base);
             line-height: 1.7;
             overflow-x: hidden;
             text-rendering: optimizeLegibility;
@@ -124,6 +131,16 @@
         .hidden { display: none !important; }
         .skip-nav { position: absolute; top: -120%; right: 0; background: #000; color: #fff; padding: 8px 16px; z-index: 9999; border-radius: 0 0 8px 0; }
         .skip-nav:focus { top: 0; }
+        body.ltr-mode { text-align: left; }
+        body.ltr-mode .top-bar-contact,
+        body.ltr-mode .search-box,
+        body.ltr-mode .filter-bar,
+        body.ltr-mode .products-heading,
+        body.ltr-mode .product-price,
+        body.ltr-mode .cart-header,
+        body.ltr-mode .cart-footer,
+        body.ltr-mode .mobile-bottom-nav { direction: ltr; }
+        body.ltr-mode .user-dropdown { left: auto; right: 0; }
 
         /* Loading Screen */
         .loading-screen {
@@ -171,6 +188,27 @@
         .nav-actions { display: flex; align-items: center; gap: 10px; }
         .nav-btn { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white); padding: 8px 18px; border-radius: 25px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: var(--transition); font-size: 13px; position: relative; }
         .nav-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
+        .lang-toggle-btn {
+            min-width: 44px;
+            min-height: 44px;
+            border-radius: 22px;
+            border: 2px solid #ddd;
+            background: white;
+            color: var(--navy);
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 14px;
+        }
+        .lang-toggle-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+            box-shadow: 0 8px 18px rgba(102, 126, 234, 0.12);
+        }
         .cart-count, .fav-count { position: absolute; top: -6px; right: -6px; background: var(--burgundy); color: var(--white); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
         .loyalty-badge { background: linear-gradient(135deg, var(--burgundy), #a00030); color: var(--white); padding: 6px 14px; border-radius: 20px; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
         .user-btn { background: var(--navy); color: var(--gold); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
@@ -203,7 +241,7 @@
         /* Categories */
         .categories-section { padding: 40px 20px; background: var(--white); }
         .section-title { text-align: center; margin-bottom: 35px; }
-        .section-title h2 { font-family: var(--font-display); font-size: clamp(22px, 5vw, 32px); color: var(--navy); margin-bottom: 8px; }
+        .section-title h2 { font-family: var(--font-display); font-size: clamp(var(--font-xl), 5vw, var(--font-3xl)); color: var(--navy); margin-bottom: 8px; font-weight: 700; }
         .section-title .line { width: 70px; height: 3px; background: linear-gradient(90deg, var(--gold), var(--burgundy)); margin: 0 auto; border-radius: 2px; }
         .categories-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; max-width: 1000px; margin: 0 auto; }
         .category-card { background: var(--cream); border-radius: 14px; padding: 20px 12px; text-align: center; cursor: pointer; transition: var(--transition); border: 2px solid transparent; position: relative; overflow: hidden; }
@@ -276,13 +314,13 @@
         .action-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--white); color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 14px; transition: var(--transition); box-shadow: var(--shadow-md); }
         .action-btn:hover { background: var(--gold); color: var(--white); transform: scale(1.1); }
         .product-info { padding: 15px; }
-        .product-name { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
+        .product-name { font-family: var(--font-display); font-size: var(--font-base); font-weight: 600; color: var(--navy); margin-bottom: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
         .product-desc { font-size: 11px; color: #666; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .product-rating { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; }
         .stars { color: var(--gold); font-size: 12px; }
         .rating-count { font-size: 10px; color: #999; }
         .product-price { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-        .current-price { font-size: 18px; font-weight: 800; color: var(--gold-dark); }
+        .current-price { font-size: var(--font-lg); font-weight: 900; color: var(--gold-dark); }
         .old-price { font-size: 13px; color: #999; text-decoration: line-through; }
         .add-to-cart-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white); border-radius: 8px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; transition: var(--transition); }
         .add-to-cart-btn:hover { transform: scale(1.02); box-shadow: var(--shadow-gold); }
@@ -338,7 +376,7 @@
         .modal-overlay.active .modal { transform: scale(1); }
         .modal.large { max-width: 700px; }
         .modal-header { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: var(--white); padding: 20px; text-align: center; position: relative; border-radius: 18px 18px 0 0; }
-        .modal-header h2 { font-family: var(--font-display); font-size: 20px; margin-bottom: 4px; }
+        .modal-header h2 { font-family: var(--font-display); font-size: var(--font-xl); margin-bottom: 4px; font-weight: 700; }
         .modal-header p { color: var(--gold-light); font-size: 12px; }
         .close-modal { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.1); color: var(--white); width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition); }
         .close-modal:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }
@@ -579,7 +617,7 @@
     </style>
 </head>
 <body>
-    <a href="#main-content" class="skip-nav">تخطي إلى المحتوى الرئيسي</a>
+    <a href="#main-content" class="skip-nav" data-i18n="skipToContent">تخطي إلى المحتوى الرئيسي</a>
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
         <div class="loading-logo">🛍️</div>
@@ -605,46 +643,55 @@
     <header class="header">
         <div class="header-content">
             <h1 class="logo" id="storeLogo">Sale Zone Store</h1>
-            <p class="tagline" id="storeTagline">التسوق الفاخر الذكي</p>
+            <p class="tagline" id="storeTagline" data-i18n="tagline">التسوق الفاخر الذكي</p>
             <div class="header-divider"></div>
         </div>
     </header>
 
-    <div class="connection-banner" id="connectionBanner" aria-live="polite" role="status">جاري الاتصال بمصدر البيانات...</div>
+    <div class="connection-banner" id="connectionBanner" aria-live="polite" role="status" data-i18n="connecting">جاري الاتصال بمصدر البيانات...</div>
 
     <!-- Navbar -->
     <nav class="navbar">
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="ابحث عن منتج..." autocomplete="off">
+            <input type="text" id="searchInput" placeholder="ابحث عن منتج..." data-i18n-placeholder="searchPlaceholder" autocomplete="off">
             <button type="button" aria-label="بحث" onclick="searchProducts()">🔍</button>
         </div>
         <div class="nav-actions">
+            <button
+                id="langToggle"
+                class="lang-toggle-btn"
+                type="button"
+                onclick="setLanguage(currentLang === 'ar' ? 'en' : 'ar')"
+                aria-label="تغيير اللغة / Change Language"
+            >
+                <span id="langLabel">EN</span>
+            </button>
             <div class="loyalty-badge">
                 <span>⭐</span>
                 <span id="loyaltyPoints">0</span>
-                <span>نقطة</span>
+                <span data-i18n="pointsLabel">نقطة</span>
             </div>
             <button class="nav-btn" type="button" aria-label="فتح المفضلة" onclick="toggleFavorites()">
-                ❤️ <span>المفضلة</span>
+                ❤️ <span data-i18n="favorites">المفضلة</span>
                 <div class="fav-count" id="favCount">0</div>
             </button>
             <button class="nav-btn cart-btn" type="button" aria-label="فتح السلة" onclick="toggleCart()">
-                🛒 <span>السلة</span>
+                🛒 <span data-i18n="cart">السلة</span>
                 <div class="cart-count" id="cartCount">0</div>
             </button>
             <div class="user-menu">
                 <button class="user-btn" id="userBtn" type="button" aria-label="فتح قائمة الحساب" aria-expanded="false" onclick="openAuth()">👤</button>
                 <div class="user-dropdown">
                     <div id="guestMenu">
-                        <button type="button" onclick="showAuthModal('login')">🔐 تسجيل الدخول</button>
-                        <button type="button" onclick="showAuthModal('register')">📝 إنشاء حساب</button>
+                        <button type="button" onclick="showAuthModal('login')">🔐 <span data-i18n="login">تسجيل الدخول</span></button>
+                        <button type="button" onclick="showAuthModal('register')">📝 <span data-i18n="register">إنشاء حساب</span></button>
                     </div>
                     <div id="userMenu" class="hidden">
-                        <a href="#" onclick="showProfile()">👤 حسابي</a>
-                        <a href="#" onclick="showMyOrders()">📦 طلباتي</a>
-                        <a href="#" onclick="showOrderTracking()">🚚 تتبع طلبي</a>
-                        <a href="#" onclick="showChangePassword()">🔑 تغيير كلمة المرور</a>
-                        <button onclick="logout()">🚪 تسجيل الخروج</button>
+                        <a href="#" onclick="showProfile()">👤 <span data-i18n="account">حسابي</span></a>
+                        <a href="#" onclick="showMyOrders()">📦 <span data-i18n="myOrders">طلباتي</span></a>
+                        <a href="#" onclick="showOrderTracking()">🚚 <span data-i18n="orderTracking">تتبع الطلب</span></a>
+                        <a href="#" onclick="showChangePassword()">🔑 <span data-i18n="changePasswordLabel">تغيير كلمة المرور</span></a>
+                        <button onclick="logout()">🚪 <span data-i18n="logout">تسجيل الخروج</span></button>
                     </div>
                 </div>
             </div>
@@ -665,38 +712,38 @@
     <!-- Categories -->
     <section class="categories-section">
         <div class="section-title">
-            <h2>تسوق حسب القسم</h2>
+            <h2 data-i18n="shopByCategory">تسوق حسب القسم</h2>
             <div class="line"></div>
         </div>
         <div class="categories-grid" id="categoriesGrid">
             <div class="category-card active" data-category="all" onclick="filterByCategory('all')">
                 <div class="category-icon">🛍️</div>
-                <div class="category-name">الكل</div>
+                <div class="category-name" data-i18n="all">الكل</div>
                 <div class="category-count" id="countAll">0</div>
             </div>
             <div class="category-card" data-category="hair-care" onclick="filterByCategory('hair-care')">
                 <div class="category-icon">💇‍♀️</div>
-                <div class="category-name">الشعر</div>
+                <div class="category-name" data-i18n="hair">الشعر</div>
                 <div class="category-count" id="countHair">0</div>
             </div>
             <div class="category-card" data-category="skin-care" onclick="filterByCategory('skin-care')">
                 <div class="category-icon">🧴</div>
-                <div class="category-name">البشرة</div>
+                <div class="category-name" data-i18n="skin">البشرة</div>
                 <div class="category-count" id="countSkin">0</div>
             </div>
             <div class="category-card" data-category="baby-care" onclick="filterByCategory('baby-care')">
                 <div class="category-icon">👶</div>
-                <div class="category-name">الطفل</div>
+                <div class="category-name" data-i18n="baby">الطفل</div>
                 <div class="category-count" id="countBaby">0</div>
             </div>
             <div class="category-card" data-category="supplements" onclick="filterByCategory('supplements')">
                 <div class="category-icon">💊</div>
-                <div class="category-name">المكملات</div>
+                <div class="category-name" data-i18n="supplements">المكملات</div>
                 <div class="category-count" id="countSupplements">0</div>
             </div>
             <div class="category-card" data-category="medical" onclick="filterByCategory('medical')">
                 <div class="category-icon">🏥</div>
-                <div class="category-name">الطبي</div>
+                <div class="category-name" data-i18n="medical">الطبي</div>
                 <div class="category-count" id="countMedical">0</div>
             </div>
         </div>
@@ -706,7 +753,7 @@
     <section class="products-section">
         <div class="products-header">
             <div class="section-title products-heading" style="margin-bottom: 0;">
-                <h2 id="productsTitle">جميع المنتجات</h2>
+                <h2 id="productsTitle" data-i18n="allProducts">جميع المنتجات</h2>
                 <span id="totalCount" class="products-total-count" aria-live="polite">0</span>
             </div>
         </div>
@@ -714,35 +761,35 @@
         <!-- Filter Bar -->
         <div class="filter-bar">
             <div class="filter-group">
-                <label>ترتيب:</label>
+                <label data-i18n="sort">ترتيب:</label>
                 <select class="filter-select" id="sortSelect" onchange="sortProducts(this.value)">
-                    <option value="default">الافتراضي</option>
-                    <option value="price-low">السعر: الأقل</option>
-                    <option value="price-high">السعر: الأعلى</option>
-                    <option value="rating">التقييم</option>
-                    <option value="name">الاسم</option>
+                    <option value="default" data-i18n="defaultSort">الافتراضي</option>
+                    <option value="price-low" data-i18n="priceLow">السعر: الأقل</option>
+                    <option value="price-high" data-i18n="priceHigh">السعر: الأعلى</option>
+                    <option value="rating" data-i18n="ratingLabel">التقييم</option>
+                    <option value="name" data-i18n="nameLabel">الاسم</option>
                 </select>
             </div>
             <div class="filter-group">
-                <label>المورد:</label>
+                <label data-i18n="supplier">المورد:</label>
                 <select class="filter-select" id="supplierFilter" onchange="applyAdvancedFilters()">
-                    <option value="">الكل</option>
+                    <option value="" data-i18n="all">الكل</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label style="display:flex;align-items:center;gap:6px;">
                     <input type="checkbox" id="inStockOnly" onchange="applyAdvancedFilters()" autocomplete="off">
-                    متاح فقط
+                    <span data-i18n="inStockOnly">متاح فقط</span>
                 </label>
             </div>
             <div class="filter-group price-range">
-                <label>السعر:</label>
-                <input type="number" class="price-input" id="minPrice" placeholder="من" onchange="filterByPrice()" autocomplete="off">
+                <label data-i18n="price">السعر:</label>
+                <input type="number" class="price-input" id="minPrice" placeholder="من" data-i18n-placeholder="from" onchange="filterByPrice()" autocomplete="off">
                 <span>-</span>
-                <input type="number" class="price-input" id="maxPrice" placeholder="إلى" onchange="filterByPrice()" autocomplete="off">
+                <input type="number" class="price-input" id="maxPrice" placeholder="إلى" data-i18n-placeholder="to" onchange="filterByPrice()" autocomplete="off">
             </div>
             <div class="filter-group">
-                <button class="filter-btn" onclick="resetFilters()">🔄 إعادة تعيين</button>
+                <button class="filter-btn" onclick="resetFilters()">🔄 <span data-i18n="resetFilters">إعادة تعيين</span></button>
             </div>
         </div>
         
@@ -821,22 +868,22 @@
             <div class="stat-card">
                 <div class="stat-icon">📦</div>
                 <div class="stat-number" id="statsProducts">0</div>
-                <div class="stat-label">منتج</div>
+                <div class="stat-label" data-i18n="product">منتج</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">🛍️</div>
                 <div class="stat-number" id="statsOrders">0</div>
-                <div class="stat-label">طلب</div>
+                <div class="stat-label" data-i18n="order">طلب</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">⭐</div>
                 <div class="stat-number" id="statsRating">4.8</div>
-                <div class="stat-label">تقييم</div>
+                <div class="stat-label" data-i18n="ratingLabel">تقييم</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">👥</div>
                 <div class="stat-number" id="statsUsers">0</div>
-                <div class="stat-label">عميل</div>
+                <div class="stat-label" data-i18n="customer">عميل</div>
             </div>
         </div>
     </section>
@@ -844,7 +891,7 @@
     <!-- Coupons -->
     <section class="coupons-section">
         <div class="section-title">
-            <h2>كوبونات الخصم</h2>
+            <h2 data-i18n="discountCoupons">كوبونات الخصم</h2>
             <div class="line"></div>
         </div>
         <div class="coupons-grid" id="couponsGrid"></div>
@@ -854,21 +901,21 @@
     <footer class="footer">
         <div class="footer-grid">
             <div class="footer-section">
-                <h3>عن المتجر</h3>
+                <h3 data-i18n="aboutStore">عن المتجر</h3>
                 <p id="footerAbout">Sale Zone Store - وجهتك الأولى للتسوق الفاخر والذكي.</p>
             </div>
             <div class="footer-section">
-                <h3>روابط سريعة</h3>
+                <h3 data-i18n="quickLinks">روابط سريعة</h3>
                 <ul>
-                    <li><a href="#" onclick="filterByCategory('all')">جميع المنتجات</a></li>
-                    <li><a href="#" onclick="toggleCart()">سلة التسوق</a></li>
-                    <li><a href="#" onclick="showOrderTracking()">تتبع طلبي</a></li>
-                    <li><a href="#" onclick="showAuthModal('login')">تسجيل الدخول</a></li>
+                    <li><a href="#" onclick="filterByCategory('all')" data-i18n="allProducts">جميع المنتجات</a></li>
+                    <li><a href="#" onclick="toggleCart()" data-i18n="cartTitle">سلة التسوق</a></li>
+                    <li><a href="#" onclick="showOrderTracking()" data-i18n="orderTracking">تتبع الطلب</a></li>
+                    <li><a href="#" onclick="showAuthModal('login')" data-i18n="login">تسجيل الدخول</a></li>
                     <li><a href="ادمن_2.HTML" target="_blank">🔐 لوحة التحكم</a></li>
                 </ul>
             </div>
             <div class="footer-section">
-                <h3>تواصل معنا</h3>
+                <h3 data-i18n="contactUs">تواصل معنا</h3>
                 <ul>
                     <li>📞 <span id="footerPhone">01018108979</span></li>
                     <li>💬 <span id="footerWhatsapp">01018108979</span></li>
@@ -877,7 +924,7 @@
                 </ul>
             </div>
             <div class="footer-section">
-                <h3>ساعات العمل</h3>
+                <h3 data-i18n="workingHours">ساعات العمل</h3>
                 <ul>
                     <li id="hoursWeekdays">السبت - الخميس: 9 ص - 10 م</li>
                     <li id="hoursFriday">الجمعة: 2 م - 10 م</li>
@@ -894,7 +941,7 @@
     <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
     <div class="cart-sidebar" id="cartSidebar">
         <div class="cart-header">
-            <h2>🛒 سلة التسوق</h2>
+            <h2>🛒 <span data-i18n="cartTitle">سلة التسوق</span></h2>
             <button class="close-cart" type="button" aria-label="إغلاق السلة" onclick="toggleCart()">✕</button>
         </div>
         <div class="cart-items" id="cartItems">
@@ -905,43 +952,43 @@
         </div>
         <div class="cart-footer">
             <div class="coupon-section">
-                <input type="text" class="coupon-input" id="couponInput" placeholder="كود الخصم" autocomplete="off">
-                <button class="apply-coupon-btn" onclick="applyCoupon()">تطبيق</button>
+                <input type="text" class="coupon-input" id="couponInput" placeholder="كود الخصم" data-i18n-placeholder="coupon" autocomplete="off">
+                <button class="apply-coupon-btn" onclick="applyCoupon()" data-i18n="applyCoupon">تطبيق</button>
             </div>
             <div class="points-section hidden" id="pointsSection">
                 <div class="points-header">
-                    <span>💎 نقاطك:</span>
+                    <span>💎 <span data-i18n="yourPoints">نقاطك:</span></span>
                     <strong id="availablePoints">0</strong>
                 </div>
                 <div class="points-input-group">
-                    <input type="number" class="points-input" id="pointsToUse" placeholder="عدد النقاط" autocomplete="off">
-                    <button class="points-apply-btn" type="button" onclick="applyPoints()">استبدال</button>
+                    <input type="number" class="points-input" id="pointsToUse" placeholder="عدد النقاط" data-i18n-placeholder="pointsCount" autocomplete="off">
+                    <button class="points-apply-btn" type="button" onclick="applyPoints()" data-i18n="redeemPoints">استبدال</button>
                 </div>
                 <div class="points-info" id="pointsInfo">كل 10 نقاط = 1 ج.م</div>
             </div>
             <div class="cart-summary">
                 <div class="summary-row">
-                    <span>المجموع:</span>
+                    <span data-i18n="subtotal">المجموع:</span>
                     <span id="subtotal">0 ج.م</span>
                 </div>
                 <div class="summary-row discount hidden" id="discountRow">
-                    <span>خصم الكوبون:</span>
+                    <span data-i18n="couponDiscount">خصم الكوبون:</span>
                     <span id="discountAmount">- 0 ج.م</span>
                 </div>
                 <div class="summary-row points-discount hidden" id="pointsDiscountRow">
-                    <span>خصم النقاط:</span>
+                    <span data-i18n="pointsDiscount">خصم النقاط:</span>
                     <span id="pointsDiscountAmount">- 0 ج.م</span>
                 </div>
                 <div class="summary-row loyalty">
-                    <span>نقاط ستكتسب:</span>
+                    <span data-i18n="earnedPoints">نقاط ستكتسب:</span>
                     <span id="earnedPoints">0</span>
                 </div>
                 <div class="summary-row total">
-                    <span>الإجمالي:</span>
+                    <span data-i18n="total">الإجمالي:</span>
                     <span id="totalAmount">0 ج.م</span>
                 </div>
             </div>
-            <button class="checkout-btn" onclick="showCheckout()">إتمام الطلب ✓</button>
+            <button class="checkout-btn" onclick="showCheckout()"><span data-i18n="checkout">إتمام الطلب</span> ✓</button>
         </div>
     </div>
 
@@ -949,7 +996,7 @@
     <div class="cart-overlay" id="favOverlay" onclick="toggleFavorites()"></div>
     <div class="fav-sidebar" id="favSidebar">
         <div class="fav-header">
-            <h2>❤️ المفضلة</h2>
+            <h2>❤️ <span data-i18n="favorites">المفضلة</span></h2>
             <button class="close-cart" type="button" aria-label="إغلاق المفضلة" onclick="toggleFavorites()">✕</button>
         </div>
         <div class="fav-items" id="favItems">
@@ -966,13 +1013,13 @@
             <div class="modal-header">
                 <button class="close-modal" type="button" aria-label="إغلاق نافذة تسجيل الدخول" onclick="closeModal('authModal')">✕</button>
                 <h2 id="authModalTitle">تسجيل الدخول</h2>
-                <p id="authModalSubtitle">مرحباً بك</p>
+                <p id="authModalSubtitle" data-i18n="welcome">مرحباً بك</p>
             </div>
             <div class="modal-body">
                 <div class="auth-tabs" role="tablist" aria-label="خيارات تسجيل الدخول">
-                    <button type="button" class="auth-tab active" data-tab="magic" onclick="switchAuthTab('magic')">دخول برابط</button>
+                    <button type="button" class="auth-tab active" data-tab="magic" onclick="switchAuthTab('magic')" data-i18n="magicLink">دخول برابط</button>
                     <button type="button" class="auth-tab" data-tab="google" onclick="switchAuthTab('google')">Google</button>
-                    <button type="button" class="auth-tab" data-tab="password" onclick="switchAuthTab('password')">بالباسورد</button>
+                    <button type="button" class="auth-tab" data-tab="password" onclick="switchAuthTab('password')" data-i18n="passwordTab">بالباسورد</button>
                 </div>
 
                 <div id="magicAuthPanel" class="auth-panel" data-auth-panel="magic">
@@ -981,33 +1028,33 @@
                             <label for="magicLinkEmail">📧 البريد الإلكتروني <span class="required">*</span></label>
                             <input type="email" id="magicLinkEmail" required placeholder="user@email.com" autocomplete="email">
                         </div>
-                        <button type="submit" class="btn-magic-link">إرسال رابط الدخول ✉️</button>
+                        <button type="submit" class="btn-magic-link"><span data-i18n="sendLink">إرسال رابط الدخول</span> ✉️</button>
                     </form>
                     <div id="magicLinkSentState" class="magic-link-sent hidden">
                         <div class="email-icon">✉️</div>
-                        <h3>تم إرسال رابط الدخول</h3>
-                        <p>أرسلنا رابط تسجيل الدخول إلى:</p>
+                        <h3 data-i18n="magicLinkSent">تم إرسال رابط الدخول</h3>
+                        <p data-i18n="magicLinkSentTo">أرسلنا رابط تسجيل الدخول إلى:</p>
                         <p class="magic-link-email" id="magicLinkSentEmail">-</p>
                         <ul class="auth-note-list">
-                            <li>🔒 لا تحتاج باسورد أبداً</li>
-                            <li>⚡ افتح الرابط من بريدك ليتم تسجيل دخولك فوراً</li>
+                            <li data-i18n="magicLinkNoPwd">🔒 لا تحتاج باسورد أبداً</li>
+                            <li data-i18n="magicLinkInstant">⚡ افتح الرابط من بريدك ليتم تسجيل دخولك فوراً</li>
                         </ul>
                     </div>
-                    <p class="auth-helper-text">سيصلك رابط على بريدك الإلكتروني فوراً للدخول الآمن بدون كلمة مرور.</p>
+                    <p class="auth-helper-text" data-i18n="magicLinkHelper">سيصلك رابط على بريدك الإلكتروني فوراً للدخول الآمن بدون كلمة مرور.</p>
                 </div>
 
                 <div id="googleAuthPanel" class="auth-panel hidden" data-auth-panel="google">
                     <button type="button" class="btn-google" id="googleSignInBtn" onclick="handleGoogleSignIn()">
                         <span aria-hidden="true">🟢</span>
-                        <span>تسجيل الدخول بـ Google</span>
+                        <span data-i18n="loginWithGoogle">تسجيل الدخول بـ Google</span>
                     </button>
-                    <p class="auth-helper-text">Google Sign-In أسرع على الأجهزة الجديدة ويتطلب تفعيل المزود والدومين من Firebase Console.</p>
+                    <p class="auth-helper-text" data-i18n="googleHelper">Google Sign-In أسرع على الأجهزة الجديدة ويتطلب تفعيل المزود والدومين من Firebase Console.</p>
                 </div>
 
                 <div id="passwordAuthPanel" class="auth-panel hidden" data-auth-panel="password">
                     <div class="password-auth-switch">
-                        <button type="button" class="password-auth-tab active" data-auth-mode="login" onclick="switchPasswordMode('login')">دخول</button>
-                        <button type="button" class="password-auth-tab" data-auth-mode="register" onclick="switchPasswordMode('register')">تسجيل</button>
+                        <button type="button" class="password-auth-tab active" data-auth-mode="login" onclick="switchPasswordMode('login')" data-i18n="login">دخول</button>
+                        <button type="button" class="password-auth-tab" data-auth-mode="register" onclick="switchPasswordMode('register')" data-i18n="register">تسجيل</button>
                     </div>
                     <form id="loginForm" class="auth-password-form" onsubmit="handleLogin(event)">
                         <div class="form-group">
@@ -1057,8 +1104,8 @@
         <div class="modal">
             <div class="modal-header">
                 <button class="close-modal" type="button" aria-label="إغلاق نافذة الطلب" onclick="closeModal('checkoutModal')">✕</button>
-                <h2>إتمام الطلب</h2>
-                <p>بيانات التوصيل</p>
+                <h2 data-i18n="checkout">إتمام الطلب</h2>
+                <p data-i18n="deliveryInfo">بيانات التوصيل</p>
             </div>
             <div class="modal-body">
                 <form id="checkoutForm" onsubmit="handleCheckout(event)">
@@ -1089,14 +1136,14 @@
         <div class="modal large">
             <div class="modal-header">
                 <button class="close-modal" type="button" aria-label="إغلاق نافذة تتبع الطلب" onclick="closeModal('trackingModal')">✕</button>
-                <h2>🚚 تتبع الطلب</h2>
+                <h2>🚚 <span data-i18n="orderTracking">تتبع الطلب</span></h2>
             </div>
             <div class="modal-body" id="trackingModalBody">
                 <div class="form-group">
-                    <label for="trackOrderNumber">أدخل رقم الطلب</label>
+                    <label for="trackOrderNumber" data-i18n="enterOrderNumber">أدخل رقم الطلب</label>
                     <input type="text" id="trackOrderNumber" placeholder="SZ-XXXXXXXX" autocomplete="off">
                 </div>
-                <button class="submit-btn" onclick="trackOrder()">تتبع 🔍</button>
+                <button class="submit-btn" onclick="trackOrder()"><span data-i18n="track">تتبع</span> 🔍</button>
                 <div id="trackingResult" style="margin-top: 20px;"></div>
             </div>
         </div>
@@ -1107,7 +1154,7 @@
         <div class="modal large product-modal-dialog">
             <div class="modal-header">
                 <button class="close-modal" type="button" aria-label="إغلاق نافذة تفاصيل المنتج" onclick="closeModal('productModal')">✕</button>
-                <h2>تفاصيل المنتج</h2>
+                <h2 data-i18n="productDetails">تفاصيل المنتج</h2>
             </div>
             <div class="modal-body" id="productModalBody"></div>
         </div>
@@ -1118,7 +1165,7 @@
         <div class="modal">
             <div class="modal-header">
                 <button class="close-modal" type="button" aria-label="إغلاق نافذة تغيير كلمة المرور" onclick="closeModal('passwordModal')">✕</button>
-                <h2>تغيير كلمة المرور</h2>
+                <h2 data-i18n="changePasswordLabel">تغيير كلمة المرور</h2>
             </div>
             <div class="modal-body">
                 <form onsubmit="handleChangePassword(event)">
@@ -1145,7 +1192,7 @@
         <div class="modal large">
             <div class="modal-header">
                 <button class="close-modal" type="button" aria-label="إغلاق نافذة الطلبات" onclick="closeModal('ordersModal')">✕</button>
-                <h2>📦 طلباتي</h2>
+                <h2>📦 <span data-i18n="myOrders">طلباتي</span></h2>
             </div>
             <div class="modal-body" id="ordersModalBody"></div>
         </div>
@@ -1156,7 +1203,7 @@
         <div class="modal">
             <div class="modal-header">
                 <button class="close-modal" type="button" aria-label="إغلاق نافذة التقييم" onclick="closeModal('ratingModal')">✕</button>
-                <h2>⭐ تقييم المنتج</h2>
+                <h2>⭐ <span data-i18n="rateProduct">تقييم المنتج</span></h2>
             </div>
             <div class="modal-body" id="ratingModalBody"></div>
         </div>
@@ -1169,8 +1216,8 @@
             <div class="chat-box-header">
                 <div class="chat-avatar">🤖</div>
                 <div class="chat-bot-info">
-                    <h4>مساعد Sale Zone</h4>
-                    <span id="chatStatusText"><span class="online-dot"></span> وضع FAQ</span>
+                    <h4 data-i18n="assistantTitle">مساعد Sale Zone</h4>
+                    <span id="chatStatusText"><span class="online-dot"></span> <span data-i18n="faqMode">وضع FAQ</span></span>
                 </div>
                 <div class="chat-mode-toggle">
                     <button type="button" class="chat-mode-btn active" id="chatModeBotBtn" aria-label="التبديل إلى وضع الأسئلة الشائعة" onclick="switchChatMode('bot')">FAQ</button>
@@ -1178,10 +1225,10 @@
                 </div>
             </div>
             <div class="chat-messages" id="chatMessages">
-                <div class="chat-message bot">مرحباً! كيف أساعدك؟ 😊</div>
+                <div class="chat-message bot" data-i18n="chatWelcome">مرحباً! كيف أساعدك؟ 😊</div>
             </div>
             <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب..." onkeypress="if(event.key==='Enter')sendChatMessage()" autocomplete="off">
+                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب..." data-i18n-placeholder="typeMessage" onkeypress="if(event.key==='Enter')sendChatMessage()" autocomplete="off">
                 <button class="chat-send" type="button" aria-label="إرسال الرسالة" onclick="sendChatMessage()">➤</button>
             </div>
         </div>
@@ -1194,23 +1241,23 @@
     <nav class="mobile-bottom-nav" role="navigation" aria-label="التنقل الرئيسي">
         <button type="button" class="nav-item active" data-mobile-nav="home" onclick="scrollToTop()">
             <span>🏠</span>
-            <span>الرئيسية</span>
+            <span data-i18n="home">الرئيسية</span>
         </button>
         <button type="button" class="nav-item" data-mobile-nav="search" onclick="openSearch()">
             <span>🔍</span>
-            <span>بحث</span>
+            <span data-i18n="search">بحث</span>
         </button>
         <button type="button" class="nav-item" data-mobile-nav="cart" onclick="openCart()">
             <span>🛒</span>
-            <span>السلة</span>
+            <span data-i18n="cart">السلة</span>
         </button>
         <button type="button" class="nav-item" data-mobile-nav="favorites" onclick="openFavorites()">
             <span>❤️</span>
-            <span>المفضلة</span>
+            <span data-i18n="favorites">المفضلة</span>
         </button>
         <button type="button" class="nav-item" data-mobile-nav="account" onclick="openAuth()">
             <span>👤</span>
-            <span>حسابي</span>
+            <span data-i18n="account">حسابي</span>
         </button>
     </nav>
     </main>
@@ -1262,6 +1309,8 @@
         const PASSWORD_AUTH_DEFAULT = 'login';
         const MAGIC_LINK_STORAGE_KEY = 'sale_zone_email_for_signin';
         const MAGIC_LINK_REDIRECT_URL = 'https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML';
+        const LANGUAGE_STORAGE_KEY = 'lang';
+        let currentLang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'ar';
         let currentAuthTab = AUTH_TAB_DEFAULT;
         let currentPasswordMode = PASSWORD_AUTH_DEFAULT;
         const VERIFICATION_EMAIL_COOLDOWN_MS = 120000;
@@ -1336,7 +1385,307 @@
             { id: 2, icon: '🚚', title: 'توصيل مجاني', text: 'للطلبات أكثر من 500 جنيه', btn: 'اطلب الآن', category: 'all' },
             { id: 3, icon: '💎', title: 'نقاط الولاء', text: 'اجمع نقاط واستبدلها بخصومات', btn: 'سجل الآن', category: 'all' }
         ];
+        const TRANSLATIONS = {
+            ar: {
+                skipToContent: 'تخطي إلى المحتوى الرئيسي',
+                tagline: 'التسوق الفاخر الذكي',
+                connecting: 'جاري الاتصال بمصدر البيانات...',
+                home: 'الرئيسية',
+                search: 'بحث',
+                cart: 'السلة',
+                cartTitle: 'سلة التسوق',
+                favorites: 'المفضلة',
+                account: 'حسابي',
+                yourPoints: 'نقاطك:',
+                pointsCount: 'عدد النقاط',
+                redeemPoints: 'استبدال',
+                earnedPoints: 'نقاط ستكتسب:',
+                searchPlaceholder: 'ابحث عن منتج...',
+                allProducts: 'جميع المنتجات',
+                noResults: 'لا توجد نتائج',
+                showAll: 'عرض جميع المنتجات',
+                shopByCategory: 'تسوق حسب القسم',
+                all: 'الكل',
+                hair: 'الشعر',
+                skin: 'البشرة',
+                baby: 'الطفل',
+                supplements: 'المكملات',
+                medical: 'الطبي',
+                sort: 'ترتيب:',
+                defaultSort: 'الافتراضي',
+                priceLow: 'السعر: الأقل',
+                priceHigh: 'السعر: الأعلى',
+                ratingLabel: 'تقييم',
+                nameLabel: 'الاسم',
+                supplier: 'المورد:',
+                inStockOnly: 'متاح فقط',
+                from: 'من',
+                to: 'إلى',
+                resetFilters: 'إعادة تعيين',
+                addToCart: 'أضف إلى السلة',
+                addToFavorites: 'أضف إلى المفضلة',
+                removeFromFavorites: 'إزالة من المفضلة',
+                inStock: 'متوفر',
+                outOfStock: 'غير متوفر',
+                reviews: 'تقييم',
+                quantity: 'الكمية',
+                description: 'الوصف',
+                price: 'السعر',
+                subtotal: 'المجموع',
+                couponDiscount: 'خصم الكوبون:',
+                pointsDiscount: 'خصم النقاط:',
+                product: 'منتج',
+                order: 'طلب',
+                customer: 'عميل',
+                discountCoupons: 'كوبونات الخصم',
+                aboutStore: 'عن المتجر',
+                quickLinks: 'روابط سريعة',
+                contactUs: 'تواصل معنا',
+                workingHours: 'ساعات العمل',
+                login: 'تسجيل الدخول',
+                register: 'إنشاء حساب',
+                logout: 'تسجيل الخروج',
+                myOrders: 'طلباتي',
+                changePasswordLabel: 'تغيير كلمة المرور',
+                magicLink: 'دخول برابط',
+                passwordTab: 'بالباسورد',
+                sendLink: 'إرسال رابط الدخول',
+                magicLinkSent: 'تم إرسال رابط الدخول',
+                magicLinkSentTo: 'أرسلنا رابط تسجيل الدخول إلى:',
+                magicLinkNoPwd: '🔒 لا تحتاج باسورد أبداً',
+                magicLinkInstant: '⚡ افتح الرابط من بريدك ليتم تسجيل دخولك فوراً',
+                magicLinkHelper: 'سيصلك رابط على بريدك الإلكتروني فوراً للدخول الآمن بدون كلمة مرور.',
+                loginWithGoogle: 'تسجيل الدخول بـ Google',
+                googleHelper: 'Google Sign-In أسرع على الأجهزة الجديدة ويتطلب تفعيل المزود والدومين من Firebase Console.',
+                welcome: 'مرحباً بك',
+                checkout: 'إتمام الطلب',
+                deliveryInfo: 'بيانات التوصيل',
+                enterOrderNumber: 'أدخل رقم الطلب',
+                track: 'تتبع',
+                orderTracking: 'تتبع الطلب',
+                productDetails: 'تفاصيل المنتج',
+                rateProduct: 'تقييم المنتج',
+                assistantTitle: 'مساعد Sale Zone',
+                faqMode: 'وضع FAQ',
+                chatWelcome: 'مرحباً! كيف أساعدك؟ 😊',
+                typeMessage: 'اكتب...',
+                pointsLabel: 'نقطة',
+                unavailableForSale: 'غير متاح للبيع',
+                addToCartNow: 'أضف إلى السلة الآن',
+                noDescription: 'لا يوجد وصف متاح لهذا المنتج حالياً.',
+                category: 'القسم',
+                code: 'الكود',
+                emptySuggestion: 'جرّب كلمات بحث مختلفة أو تصفح الأقسام'
+            },
+            en: {
+                skipToContent: 'Skip to main content',
+                tagline: 'Smart Luxury Shopping',
+                connecting: 'Connecting to the data source...',
+                home: 'Home',
+                search: 'Search',
+                cart: 'Cart',
+                cartTitle: 'Shopping Cart',
+                favorites: 'Favorites',
+                account: 'Account',
+                yourPoints: 'Your points:',
+                pointsCount: 'Points amount',
+                redeemPoints: 'Redeem',
+                earnedPoints: 'Points to earn:',
+                searchPlaceholder: 'Search for a product...',
+                allProducts: 'All Products',
+                noResults: 'No results found',
+                showAll: 'Show All Products',
+                shopByCategory: 'Shop by Category',
+                all: 'All',
+                hair: 'Hair',
+                skin: 'Skin',
+                baby: 'Baby',
+                supplements: 'Supplements',
+                medical: 'Medical',
+                sort: 'Sort:',
+                defaultSort: 'Default',
+                priceLow: 'Price: Low to High',
+                priceHigh: 'Price: High to Low',
+                ratingLabel: 'Rating',
+                nameLabel: 'Name',
+                supplier: 'Supplier:',
+                inStockOnly: 'In stock only',
+                from: 'Min',
+                to: 'Max',
+                resetFilters: 'Reset',
+                addToCart: 'Add to Cart',
+                addToFavorites: 'Add to Favorites',
+                removeFromFavorites: 'Remove from Favorites',
+                inStock: 'In Stock',
+                outOfStock: 'Out of Stock',
+                reviews: 'reviews',
+                quantity: 'Quantity',
+                description: 'Description',
+                price: 'Price',
+                subtotal: 'Subtotal',
+                couponDiscount: 'Coupon Discount:',
+                pointsDiscount: 'Points Discount:',
+                product: 'Products',
+                order: 'Orders',
+                customer: 'Customers',
+                discountCoupons: 'Discount Coupons',
+                aboutStore: 'About the Store',
+                quickLinks: 'Quick Links',
+                contactUs: 'Contact Us',
+                workingHours: 'Working Hours',
+                login: 'Sign In',
+                register: 'Create Account',
+                logout: 'Sign Out',
+                myOrders: 'My Orders',
+                changePasswordLabel: 'Change Password',
+                magicLink: 'Magic Link',
+                passwordTab: 'Password',
+                sendLink: 'Send Sign-In Link',
+                magicLinkSent: 'Magic Link Sent',
+                magicLinkSentTo: 'We sent a sign-in link to:',
+                magicLinkNoPwd: 'No password needed at all',
+                magicLinkInstant: 'Open the email link to sign in instantly',
+                magicLinkHelper: 'A secure sign-in link will arrive in your inbox within seconds.',
+                loginWithGoogle: 'Continue with Google',
+                googleHelper: 'Google Sign-In is faster on modern devices and requires Firebase Console setup.',
+                welcome: 'Welcome',
+                checkout: 'Checkout',
+                deliveryInfo: 'Delivery Information',
+                enterOrderNumber: 'Enter order number',
+                track: 'Track',
+                orderTracking: 'Track Order',
+                productDetails: 'Product Details',
+                rateProduct: 'Rate Product',
+                assistantTitle: 'Sale Zone Assistant',
+                faqMode: 'FAQ mode',
+                chatWelcome: 'Hello! How can I help you? 😊',
+                typeMessage: 'Type a message...',
+                pointsLabel: 'points',
+                unavailableForSale: 'Unavailable for sale',
+                addToCartNow: 'Add to Cart Now',
+                noDescription: 'No description is currently available for this product.',
+                category: 'Category',
+                code: 'Code',
+                emptySuggestion: 'Try a different keyword or browse the categories'
+            }
+        };
+        const CATEGORY_TRANSLATIONS = {
+            all: { ar: 'الكل', en: 'All' },
+            'hair-care': { ar: 'الشعر', en: 'Hair' },
+            'skin-care': { ar: 'البشرة', en: 'Skin' },
+            'baby-care': { ar: 'الطفل', en: 'Baby' },
+            supplements: { ar: 'المكملات', en: 'Supplements' },
+            medical: { ar: 'الطبي', en: 'Medical' }
+        };
         const PRODUCT_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='18' fill='%23999' text-anchor='middle' dy='.3em'%3E%D8%B5%D9%88%D8%B1%D8%A9 %D8%BA%D9%8A%D8%B1 %D9%85%D8%AA%D8%A7%D8%AD%D8%A9%3C/text%3E%3C/svg%3E";
+
+        function t(key) {
+            return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.ar[key] || key;
+        }
+
+        function getCurrentLocale() {
+            return currentLang === 'en' ? 'en-US' : 'ar-EG';
+        }
+
+        function formatPrice(price) {
+            const parsed = Number(price);
+            if (!Number.isFinite(parsed)) return t('unavailableForSale');
+            const formatted = parsed.toFixed(2);
+            return currentLang === 'ar' ? `${formatted} ج.م` : `EGP ${formatted}`;
+        }
+
+        function formatDate(date) {
+            const value = new Date(date);
+            if (Number.isNaN(value.getTime())) return '';
+            return value.toLocaleDateString(getCurrentLocale(), { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function formatDateTime(date) {
+            const value = new Date(date);
+            if (Number.isNaN(value.getTime())) return '';
+            return value.toLocaleString(getCurrentLocale(), {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+        }
+
+        function getCategoryTranslation(categoryId, fallback = '') {
+            const normalizedId = sanitizeCategoryId(categoryId);
+            const found = CATEGORY_TRANSLATIONS[normalizedId];
+            if (found && found[currentLang]) return found[currentLang];
+            return fallback || categoryId;
+        }
+
+        function resolveLocalizedSettingValue(value, key, fallbackAr, fallbackEn) {
+            const normalized = String(value || '').trim();
+            const fallbackCurrent = currentLang === 'en' ? fallbackEn : fallbackAr;
+            if (!normalized) return fallbackCurrent;
+            if (normalized === fallbackAr || normalized === fallbackEn) return fallbackCurrent;
+            if (key && (normalized === t(key) || normalized === TRANSLATIONS.ar[key] || normalized === TRANSLATIONS.en[key])) {
+                return t(key);
+            }
+            return normalized;
+        }
+
+        function applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach((el) => {
+                const key = el.getAttribute('data-i18n');
+                if (!key) return;
+                el.textContent = t(key);
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (!key) return;
+                el.setAttribute('placeholder', t(key));
+            });
+            document.querySelectorAll('option[data-i18n]').forEach((el) => {
+                const key = el.getAttribute('data-i18n');
+                if (!key) return;
+                el.textContent = t(key);
+            });
+            const langLabel = document.getElementById('langLabel');
+            if (langLabel) langLabel.textContent = currentLang === 'ar' ? 'EN' : 'ع';
+            document.title = currentLang === 'ar'
+                ? 'Sale Zone Store | التسوق الفاخر الذكي'
+                : 'Sale Zone Store | Smart Luxury Shopping';
+        }
+
+        function refreshLocalizedStoreUI() {
+            applyTranslations();
+            setAuthModalCopy(currentAuthTab, currentPasswordMode);
+            if (chatMode === 'bot') {
+                setChatStatus(t('faqMode'), true);
+            }
+            applyStoreSettings();
+            renderDynamicCategoryCards();
+            renderBanners();
+            renderCoupons();
+            renderSupplierFilters();
+            updateCategoryCounts();
+            updateStats();
+            updateCartUI();
+            updateFavUI();
+            runProductSearch(currentSearchPage || 1);
+            if (document.getElementById('productModal')?.classList.contains('active') && productModalState.productId) {
+                showProductDetails(productModalState.productId);
+            }
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang === 'en' ? 'en' : 'ar';
+            localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLang);
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+            document.body.classList.toggle('ltr-mode', currentLang === 'en');
+            if (document.body.dataset.storeBooted === 'true') {
+                refreshLocalizedStoreUI();
+            } else {
+                applyTranslations();
+            }
+        }
 
         // For emergency/dev only: add ?seed=1 to allow local demo defaults.
         const allowLocalSeedDefaults = new URLSearchParams(window.location.search).get('seed') === '1';
@@ -1444,7 +1793,9 @@
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
             setupAutoTooltips();
-            setChatStatus('وضع FAQ', true);
+            setLanguage(currentLang);
+            document.body.dataset.storeBooted = 'true';
+            setChatStatus(t('faqMode'), true);
             // Minimal client-side error capture buffer for local inspection.
             window.__errors = window.__errors || [];
             window.addEventListener('error', function(event) {
@@ -1950,7 +2301,12 @@
         function applyStoreSettings() {
             document.getElementById('loadingStoreName').textContent = storeSettings.name || 'Sale Zone Store';
             document.getElementById('storeLogo').textContent = storeSettings.name || 'Sale Zone Store';
-            document.getElementById('storeTagline').textContent = storeSettings.tagline || 'التسوق الفاخر الذكي';
+            document.getElementById('storeTagline').textContent = resolveLocalizedSettingValue(
+                storeSettings.tagline,
+                'tagline',
+                'التسوق الفاخر الذكي',
+                'Smart Luxury Shopping'
+            );
             document.title = storeSettings.name || 'Sale Zone Store';
 
             const topBar = document.getElementById('topBar');
@@ -1959,7 +2315,12 @@
             } else {
                 topBar.style.background = `linear-gradient(90deg, ${storeSettings.topBar?.bgColor || '#0A1128'}, ${storeSettings.topBar?.bgColor || '#0A1128'}dd)`;
                 topBar.style.color = storeSettings.topBar?.textColor || '#F4E4BC';
-                document.getElementById('topBarText').textContent = storeSettings.topBar?.text || '';
+                document.getElementById('topBarText').textContent = resolveLocalizedSettingValue(
+                    storeSettings.topBar?.text,
+                    '',
+                    '🎉 خصومات حصرية تصل إلى 50%! | 🚚 توصيل مجاني للطلبات أكثر من 500 ج.م',
+                    '🎉 Exclusive discounts up to 50%! | 🚚 Free delivery on orders above EGP 500'
+                );
             }
 
             const phone = storeSettings.contact?.phone || '01018108979';
@@ -1967,14 +2328,34 @@
             document.getElementById('topBarPhone').textContent = `📞 ${phone}`;
             document.getElementById('topBarPhone').href = `tel:${phone}`;
             document.getElementById('topBarWhatsapp').href = `https://wa.me/2${whatsapp}`;
-            document.getElementById('footerAbout').textContent = storeSettings.footer?.about || storeSettings.description || '';
+            document.getElementById('footerAbout').textContent = resolveLocalizedSettingValue(
+                storeSettings.footer?.about || storeSettings.description,
+                '',
+                'Sale Zone Store - وجهتك الأولى للتسوق الفاخر والذكي.',
+                'Sale Zone Store - your destination for smart luxury shopping.'
+            );
             document.getElementById('footerPhone').textContent = phone;
             document.getElementById('footerWhatsapp').textContent = whatsapp;
             document.getElementById('footerEmail').textContent = storeSettings.contact?.email || '';
             document.getElementById('footerAddress').textContent = storeSettings.contact?.address || '';
-            document.getElementById('hoursWeekdays').textContent = storeSettings.footer?.workingHoursWeekdays || '';
-            document.getElementById('hoursFriday').textContent = storeSettings.footer?.workingHoursFriday || '';
-            document.getElementById('hoursNote').textContent = storeSettings.footer?.workingHoursNote || '';
+            document.getElementById('hoursWeekdays').textContent = resolveLocalizedSettingValue(
+                storeSettings.footer?.workingHoursWeekdays,
+                '',
+                'السبت - الخميس: 9 ص - 10 م',
+                'Saturday - Thursday: 9 AM - 10 PM'
+            );
+            document.getElementById('hoursFriday').textContent = resolveLocalizedSettingValue(
+                storeSettings.footer?.workingHoursFriday,
+                '',
+                'الجمعة: 2 م - 10 م',
+                'Friday: 2 PM - 10 PM'
+            );
+            document.getElementById('hoursNote').textContent = resolveLocalizedSettingValue(
+                storeSettings.footer?.workingHoursNote,
+                '',
+                '🔔 خدمة 24/7',
+                '🔔 24/7 service'
+            );
             document.getElementById('footerCopyright').textContent = storeSettings.footer?.copyright || '';
             document.getElementById('floatWhatsapp').href = `https://wa.me/2${whatsapp}`;
             if (!Array.isArray(storeSettings.customCategories)) {
@@ -2054,7 +2435,7 @@
             }
             
             if (banners.length === 0) {
-                slider.innerHTML = '<div class="banner-slide"><div class="banner-content"><div class="banner-icon">🛍️</div><div class="banner-title">مرحباً بك</div></div></div>';
+                slider.innerHTML = `<div class="banner-slide"><div class="banner-content"><div class="banner-icon">🛍️</div><div class="banner-title">${escapeHtml(currentLang === 'ar' ? 'مرحباً بك' : 'Welcome')}</div></div></div>`;
                 return;
             }
 
@@ -2062,7 +2443,7 @@
                 const safeIcon = escapeHtml(b && b.icon || '🎉');
                 const safeTitle = escapeHtml(b && b.title || '');
                 const safeText = escapeHtml(b && b.text || '');
-                const safeButton = escapeHtml(b && b.btn || 'تسوق الآن');
+                const safeButton = escapeHtml(b && b.btn || (currentLang === 'ar' ? 'تسوق الآن' : 'Shop Now'));
                 const safeCategory = escapeHtml(b && b.category || 'all');
                 return `
                 <div class="banner-slide">
@@ -2196,8 +2577,8 @@
                     map.set(id, String(item.supplierName || item.supplierCode || id));
                 }
             }
-            const options = Array.from(map.entries()).sort((a, b) => String(a[1]).localeCompare(String(b[1]), 'ar'));
-            select.innerHTML = '<option value="">الكل</option>' + options.map(([id, name]) => (
+            const options = Array.from(map.entries()).sort((a, b) => String(a[1]).localeCompare(String(b[1]), currentLang === 'en' ? 'en' : 'ar'));
+            select.innerHTML = `<option value="">${escapeHtml(t('all'))}</option>` + options.map(([id, name]) => (
                 `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`
             )).join('');
             if (current) select.value = current;
@@ -2234,13 +2615,13 @@
             ].join('');
         }
 
-        function renderEmptyState(message = 'لا توجد منتجات مطابقة') {
+        function renderEmptyState(message = t('noResults')) {
             return `
                 <div class="empty-state" role="status" aria-live="polite">
                     <div class="empty-icon" aria-hidden="true">🔍</div>
                     <h3>${escapeHtml(message)}</h3>
-                    <p>جرّب كلمات بحث مختلفة أو تصفح الأقسام</p>
-                    <button type="button" onclick="resetAllFilters()" class="btn-reset">عرض جميع المنتجات</button>
+                    <p>${escapeHtml(t('emptySuggestion'))}</p>
+                    <button type="button" onclick="resetAllFilters()" class="btn-reset">${escapeHtml(t('showAll'))}</button>
                 </div>
             `;
         }
@@ -2266,8 +2647,8 @@
 
             if (displayProducts.length === 0) {
                 const emptyMessage = currentSearchQuery
-                    ? `لا توجد نتائج مطابقة لـ "${escapeHtml(currentSearchQuery)}"`
-                    : 'لا توجد منتجات مطابقة';
+                    ? `${t('noResults')}: "${escapeHtml(currentSearchQuery)}"`
+                    : t('noResults');
                 grid.innerHTML = renderEmptyState(emptyMessage);
                 renderPaginationControls({ totalPages: 1, page: 1 });
                 applyAutoTooltips(grid);
@@ -2284,10 +2665,10 @@
                 const isFav = favorites.includes(String(p && p.id));
                 const resolvedPrice = resolveDisplayPrice(p);
                 const hasValidPrice = Number.isFinite(resolvedPrice);
-                const currentPrice = hasValidPrice ? escapeHtml(Number(resolvedPrice || 0).toFixed(2)) : 'السعر غير متاح';
+                const currentPrice = hasValidPrice ? escapeHtml(formatPrice(resolvedPrice)) : escapeHtml(t('unavailableForSale'));
                 const oldPriceValue = Number(p && p.oldPrice);
                 const hasOldPrice = hasValidPrice && Number.isFinite(oldPriceValue) && oldPriceValue > Number(resolvedPrice || 0);
-                const oldPrice = escapeHtml(hasOldPrice ? oldPriceValue.toFixed(2) : '');
+                const oldPrice = escapeHtml(hasOldPrice ? formatPrice(oldPriceValue) : '');
                 const ratingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
                 const discountPercent = hasOldPrice
                     ? Math.round((1 - (Number(resolvedPrice || 0) / oldPriceValue)) * 100)
@@ -2295,14 +2676,14 @@
                 return `
                 <div class="product-card" data-product-id="${safeProductId}" onclick="showProductDetails(this.dataset.productId)">
                     ${hasOldPrice ? `<div class="product-badge">-${escapeHtml(discountPercent)}%</div>` : ''}
-                    <button type="button" class="product-fav ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? 'إزالة من المفضلة' : 'إضافة إلى المفضلة'}" onclick="event.stopPropagation(); toggleFav(this.dataset.productId)">
+                    <button type="button" class="product-fav ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? t('removeFromFavorites') : t('addToFavorites')}" onclick="event.stopPropagation(); toggleFav(this.dataset.productId)">
                         ${isFav ? '❤️' : '🤍'}
                     </button>
                     <div class="product-image">
                         <img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="${imageLoading}">
                         <div class="product-actions">
-                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="فتح تفاصيل المنتج" onclick="event.stopPropagation(); showProductDetails(this.dataset.productId)">👁️</button>
-                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="إضافة المنتج إلى السلة" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
+                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('productDetails')}" onclick="event.stopPropagation(); showProductDetails(this.dataset.productId)">👁️</button>
+                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
                         </div>
                     </div>
                     <div class="product-info">
@@ -2310,13 +2691,13 @@
                         <p class="product-desc">${safeDesc}</p>
                         <div class="product-rating" data-product-id="${safeProductId}" onclick="event.stopPropagation(); showRatingModal(this.dataset.productId)">
                             <div class="stars">${getStars(p && p.rating)}</div>
-                            <span class="rating-count">(${ratingCount})</span>
+                            <span class="rating-count">(${ratingCount} ${escapeHtml(t('reviews'))})</span>
                         </div>
                         <div class="product-price">
-                            <span class="current-price">${hasValidPrice ? `${currentPrice} ج.م` : currentPrice}</span>
-                            ${hasOldPrice ? `<span class="old-price">${oldPrice} ج.م</span>` : ''}
+                            <span class="current-price">${currentPrice}</span>
+                            ${hasOldPrice ? `<span class="old-price">${oldPrice}</span>` : ''}
                         </div>
-                        <button type="button" class="add-to-cart-btn" data-product-id="${safeProductId}" aria-label="إضافة ${safeName} إلى السلة" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف للسلة' : '⚠️ غير متاح للبيع'}</button>
+                        <button type="button" class="add-to-cart-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? `🛒 ${escapeHtml(t('addToCart'))}` : `⚠️ ${escapeHtml(t('unavailableForSale'))}`}</button>
                     </div>
                 </div>
             `;
@@ -2326,8 +2707,8 @@
 
         function updateProductsTitle(result, state) {
             const titlePrefix = state.search
-                ? `بحث: "${state.search}"`
-                : (state.category === 'all' ? 'جميع المنتجات' : getCategoryName(state.category));
+                ? `${currentLang === 'ar' ? 'بحث' : 'Search'}: "${state.search}"`
+                : (state.category === 'all' ? t('allProducts') : getCategoryName(state.category));
             const total = Number(result && result.total || 0);
             const title = document.getElementById('productsTitle');
             const totalCount = document.getElementById('totalCount');
@@ -2362,7 +2743,7 @@
                 case 'price-low': list.sort((a, b) => compareProductsByPrice(a, b, 'asc')); break;
                 case 'price-high': list.sort((a, b) => compareProductsByPrice(a, b, 'desc')); break;
                 case 'rating': list.sort((a, b) => (b.rating || 0) - (a.rating || 0)); break;
-                case 'name': list.sort((a, b) => a.name.localeCompare(b.name, 'ar')); break;
+                case 'name': list.sort((a, b) => a.name.localeCompare(b.name, currentLang === 'en' ? 'en' : 'ar')); break;
                 default: list.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))); break;
             }
             return list;
@@ -2581,7 +2962,7 @@
                 card.onclick = () => filterByCategory(item.id);
                 card.innerHTML = '<div class="category-icon"></div><div class="category-name"></div><div class="category-count">0</div>';
                 const iconText = String(item && item.icon || '🏷️');
-                const nameText = String(item && item.name || '');
+                const nameText = String(getCategoryTranslation(item && item.id, item && item.name || '') || '');
                 const iconNode = card.querySelector('.category-icon');
                 const nameNode = card.querySelector('.category-name');
                 if (iconNode) iconNode.textContent = iconText;
@@ -2597,7 +2978,7 @@
         function getCategoryName(cat) {
             const id = sanitizeCategoryId(cat);
             const found = getAllCategoryDefinitions().find((item) => item.id === id);
-            return found ? found.name : cat;
+            return found ? getCategoryTranslation(found.id, found.name) : getCategoryTranslation(id, cat);
         }
 
         function getStars(rating) {
@@ -2702,15 +3083,15 @@
             const primaryImage = gallery[0] || PRODUCT_IMAGE_PLACEHOLDER;
             const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
             const safeName = escapeHtml(p && p.name || '');
-            const safeDesc = escapeHtml(p && p.desc || 'لا يوجد وصف متاح لهذا المنتج حالياً.');
+            const safeDesc = escapeHtml(p && p.desc || t('noDescription'));
             const safeRatingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
-            const safeCategory = escapeHtml(getCategoryName(String(p && p.category || 'all')) || 'منتج');
-            const safeCode = escapeHtml(String(p && p.code || '').trim() || 'بدون كود');
+            const safeCategory = escapeHtml(getCategoryName(String(p && p.category || 'all')) || t('product'));
+            const safeCode = escapeHtml(String(p && p.code || '').trim() || '-');
             const displayPrice = resolveDisplayPrice(p);
             const hasValidPrice = Number.isFinite(displayPrice);
-            const safePrice = hasValidPrice ? escapeHtml(Number(displayPrice || 0).toFixed(2)) : 'السعر غير متاح';
+            const safePrice = hasValidPrice ? escapeHtml(formatPrice(displayPrice)) : escapeHtml(t('unavailableForSale'));
             const hasOldPrice = hasValidPrice && Number.isFinite(Number(p && p.oldPrice)) && Number(p && p.oldPrice) > Number(displayPrice || 0);
-            const safeOldPrice = escapeHtml(hasOldPrice ? Number(p.oldPrice).toFixed(2) : '');
+            const safeOldPrice = escapeHtml(hasOldPrice ? formatPrice(Number(p.oldPrice)) : '');
             const isFav = favorites.includes(String(p && p.id));
             productModalState = {
                 productId: String(p && p.id || ''),
@@ -2734,26 +3115,26 @@
                             <h2 class="product-modal-name">${safeName}</h2>
                             <div class="product-modal-rating" data-product-id="${safeProductId}" role="button" tabindex="0" onclick="showRatingModal(this.dataset.productId)">
                                 <span>${getStars(p.rating)}</span>
-                                <span>(${safeRatingCount} تقييم)</span>
+                                <span>(${safeRatingCount} ${escapeHtml(t('reviews'))})</span>
                             </div>
                         </div>
                         <div class="product-modal-price-row">
-                            <span class="product-modal-price">${hasValidPrice ? `${safePrice} ج.م` : safePrice}</span>
-                            ${hasOldPrice ? `<span class="product-modal-old-price">${safeOldPrice} ج.م</span>` : ''}
+                            <span class="product-modal-price">${safePrice}</span>
+                            ${hasOldPrice ? `<span class="product-modal-old-price">${safeOldPrice}</span>` : ''}
                         </div>
                         <div class="product-modal-meta">
-                            <span class="product-modal-badge">📂 ${safeCategory}</span>
-                            <span class="product-modal-badge">🏷️ ${safeCode}</span>
+                            <span class="product-modal-badge">📂 ${escapeHtml(t('category'))}: ${safeCategory}</span>
+                            <span class="product-modal-badge">🏷️ ${escapeHtml(t('code'))}: ${safeCode}</span>
                         </div>
                         <div class="product-modal-description">${safeDesc}</div>
                         <div class="product-modal-qty">
-                            <button type="button" onclick="changeProductModalQuantity(-1)" aria-label="تقليل الكمية">−</button>
+                            <button type="button" onclick="changeProductModalQuantity(-1)" aria-label="${currentLang === 'ar' ? 'تقليل الكمية' : 'Decrease quantity'}">−</button>
                             <span class="product-modal-qty-value" id="productModalQtyValue">1</span>
-                            <button type="button" onclick="changeProductModalQuantity(1)" aria-label="زيادة الكمية">+</button>
+                            <button type="button" onclick="changeProductModalQuantity(1)" aria-label="${currentLang === 'ar' ? 'زيادة الكمية' : 'Increase quantity'}">+</button>
                         </div>
                         <div class="product-modal-actions">
-                            <button type="button" class="btn-add-to-cart-modal" data-product-id="${safeProductId}" aria-label="إضافة ${safeName} إلى السلة" onclick="addProductModalToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? '🛒 أضف إلى السلة الآن' : '⚠️ غير متاح للبيع'}</button>
-                            <button type="button" class="btn-wish-modal ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? 'إزالة المنتج من المفضلة' : 'إضافة المنتج إلى المفضلة'}" onclick="toggleProductModalFavorite(this.dataset.productId)">${isFav ? '❤️ إزالة من المفضلة' : '🤍 أضف إلى المفضلة'}</button>
+                            <button type="button" class="btn-add-to-cart-modal" data-product-id="${safeProductId}" aria-label="${escapeHtml(t('addToCart'))}" onclick="addProductModalToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? `🛒 ${escapeHtml(t('addToCartNow'))}` : `⚠️ ${escapeHtml(t('unavailableForSale'))}`}</button>
+                            <button type="button" class="btn-wish-modal ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? escapeHtml(t('removeFromFavorites')) : escapeHtml(t('addToFavorites'))}" onclick="toggleProductModalFavorite(this.dataset.productId)">${isFav ? `❤️ ${escapeHtml(t('removeFromFavorites'))}` : `🤍 ${escapeHtml(t('addToFavorites'))}`}</button>
                         </div>
                     </div>
                 </div>
@@ -2878,7 +3259,7 @@
             const container = document.getElementById('favItems');
             
             if (visibleFavoriteIds.length === 0) {
-                container.innerHTML = '<div class="fav-empty"><div class="cart-empty-icon">❤️</div><p>لا توجد منتجات مفضلة</p></div>';
+                container.innerHTML = `<div class="fav-empty"><div class="cart-empty-icon">❤️</div><p>${escapeHtml(currentLang === 'ar' ? 'لا توجد منتجات مفضلة' : 'No favorite products yet')}</p></div>`;
                 return;
             }
 
@@ -2891,13 +3272,13 @@
                 const safeName = escapeHtml(p && p.name || '');
                 const displayPrice = resolveDisplayPrice(p);
                 const hasValidPrice = Number.isFinite(displayPrice);
-                const safePrice = hasValidPrice ? escapeHtml(Number(displayPrice || 0).toFixed(2)) : 'السعر غير متاح';
+                const safePrice = hasValidPrice ? escapeHtml(formatPrice(displayPrice)) : escapeHtml(t('unavailableForSale'));
                 return `
                     <div class="fav-item">
                         <div class="fav-item-image"><img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="lazy"></div>
                         <div class="fav-item-details">
                             <div class="fav-item-name">${safeName}</div>
-                            <div class="fav-item-price">${hasValidPrice ? `${safePrice} ج.م` : safePrice}</div>
+                            <div class="fav-item-price">${safePrice}</div>
                         </div>
                         <div class="fav-item-actions">
                             <button class="fav-add-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
@@ -2957,7 +3338,7 @@
             document.getElementById('cartCount').textContent = totalItems;
 
             if (cart.length === 0) {
-                cartItems.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div><p>السلة فارغة</p></div>';
+                cartItems.innerHTML = `<div class="cart-empty"><div class="cart-empty-icon">🛒</div><p>${escapeHtml(currentLang === 'ar' ? 'السلة فارغة' : 'Your cart is empty')}</p></div>`;
                 updateCartSummary(0, 0);
                 return;
             }
@@ -2967,14 +3348,14 @@
             const safeImageSrc = escapeHtml(sanitizeImageUrl((item && (item.imageUrl || item.image)) || '', 240));
             const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const safeItemName = escapeHtml(item && item.name || '');
-                const safeItemPrice = escapeHtml(Number(item && item.price || 0).toFixed(2));
+                const safeItemPrice = escapeHtml(formatPrice(Number(item && item.price || 0)));
                 const safeQuantity = escapeHtml(Number(item && item.quantity || 0).toFixed(0));
                 return `
                 <div class="cart-item">
                     <div class="cart-item-image"><img src="${safeImageSrc}" alt="${safeItemName}" onerror="this.src='${safeFallbackImage}'" loading="lazy"></div>
                     <div class="cart-item-details">
                         <div class="cart-item-name">${safeItemName}</div>
-                        <div class="cart-item-price">${safeItemPrice} ج.م</div>
+                        <div class="cart-item-price">${safeItemPrice}</div>
                         <div class="cart-item-controls">
                             <button class="qty-btn" data-item-id="${safeItemId}" onclick="updateQuantity(this.dataset.itemId, -1)">-</button>
                             <span class="qty-value">${safeQuantity}</span>
@@ -3000,14 +3381,14 @@
             const loyaltyRate = storeSettings.loyalty?.rate || 5;
             const earnedPoints = Math.floor(total * (loyaltyRate / 100));
 
-            document.getElementById('subtotal').textContent = `${subtotal} ج.م`;
-            document.getElementById('totalAmount').textContent = `${total.toFixed(0)} ج.م`;
-            document.getElementById('earnedPoints').textContent = `${earnedPoints} نقطة`;
+            document.getElementById('subtotal').textContent = formatPrice(subtotal);
+            document.getElementById('totalAmount').textContent = formatPrice(total);
+            document.getElementById('earnedPoints').textContent = currentLang === 'ar' ? `${earnedPoints} نقطة` : `${earnedPoints} points`;
 
             const discountRow = document.getElementById('discountRow');
             if (discount > 0) {
                 discountRow.classList.remove('hidden');
-                document.getElementById('discountAmount').textContent = `- ${discount} ج.م`;
+                document.getElementById('discountAmount').textContent = `- ${formatPrice(discount)}`;
             } else {
                 discountRow.classList.add('hidden');
             }
@@ -3015,7 +3396,7 @@
             const pointsRow = document.getElementById('pointsDiscountRow');
             if (pointsDiscount > 0) {
                 pointsRow.classList.remove('hidden');
-                document.getElementById('pointsDiscountAmount').textContent = `- ${pointsDiscount.toFixed(0)} ج.م`;
+                document.getElementById('pointsDiscountAmount').textContent = `- ${formatPrice(pointsDiscount)}`;
             } else {
                 pointsRow.classList.add('hidden');
             }
@@ -3045,7 +3426,9 @@
             section.classList.remove('hidden');
             document.getElementById('availablePoints').textContent = currentUser.loyaltyPoints;
             const pointValue = storeSettings.loyalty?.pointValue || 0.1;
-            document.getElementById('pointsInfo').textContent = `كل 10 نقاط = ${(10 * pointValue).toFixed(0)} ج.م`;
+            document.getElementById('pointsInfo').textContent = currentLang === 'ar'
+                ? `كل 10 نقاط = ${formatPrice(10 * pointValue)}`
+                : `Every 10 points = ${formatPrice(10 * pointValue)}`;
         }
 
         function applyPoints() {
@@ -3076,7 +3459,7 @@
         function renderCoupons() {
             const grid = document.getElementById('couponsGrid');
             if (coupons.length === 0) {
-                grid.innerHTML = '<p style="text-align: center; color: #666; grid-column: 1/-1;">لا توجد كوبونات</p>';
+                grid.innerHTML = `<p style="text-align: center; color: #666; grid-column: 1/-1;">${escapeHtml(currentLang === 'ar' ? 'لا توجد كوبونات' : 'No coupons available')}</p>`;
                 return;
             }
             grid.innerHTML = coupons.map((c) => {
@@ -3087,7 +3470,7 @@
                     <div class="coupon-content">
                         <div class="coupon-code">${safeCode}</div>
                         <p class="coupon-desc">${safeDesc}</p>
-                        <button class="copy-coupon-btn" data-code="${safeCode}" onclick="copyCoupon(this.dataset.code)">📋 نسخ</button>
+                        <button class="copy-coupon-btn" data-code="${safeCode}" onclick="copyCoupon(this.dataset.code)">📋 ${escapeHtml(currentLang === 'ar' ? 'نسخ' : 'Copy')}</button>
                     </div>
                 </div>
             `;
@@ -3288,22 +3671,22 @@
             if (!titleNode || !subtitleNode) return;
 
             if (tab === 'magic') {
-                titleNode.textContent = 'دخول بدون كلمة مرور';
-                subtitleNode.textContent = 'رابط آمن يصلك على بريدك خلال ثوانٍ';
+                titleNode.textContent = currentLang === 'ar' ? 'دخول بدون كلمة مرور' : 'Passwordless Sign In';
+                subtitleNode.textContent = currentLang === 'ar' ? 'رابط آمن يصلك على بريدك خلال ثوانٍ' : 'A secure link will arrive in your inbox within seconds';
                 return;
             }
 
             if (tab === 'google') {
-                titleNode.textContent = 'تابع عبر Google';
-                subtitleNode.textContent = 'دخول سريع بحساب موثق وبدون كتابة باسورد';
+                titleNode.textContent = currentLang === 'ar' ? 'تابع عبر Google' : 'Continue with Google';
+                subtitleNode.textContent = currentLang === 'ar' ? 'دخول سريع بحساب موثق وبدون كتابة باسورد' : 'Fast sign-in with a trusted account and no password typing';
                 return;
             }
 
             const isRegisterMode = passwordMode === 'register';
-            titleNode.textContent = isRegisterMode ? 'إنشاء حساب' : 'تسجيل الدخول';
+            titleNode.textContent = isRegisterMode ? t('register') : t('login');
             subtitleNode.textContent = isRegisterMode
-                ? 'أنشئ حساباً جديداً لمتابعة الطلبات ونقاط الولاء'
-                : 'سجل دخولك بالبريد الإلكتروني وكلمة المرور';
+                ? (currentLang === 'ar' ? 'أنشئ حساباً جديداً لمتابعة الطلبات ونقاط الولاء' : 'Create a new account to track orders and loyalty points')
+                : (currentLang === 'ar' ? 'سجل دخولك بالبريد الإلكتروني وكلمة المرور' : 'Sign in with your email address and password');
         }
 
         function resetMagicLinkSentState(clearEmailField = false) {
@@ -4074,7 +4457,7 @@
             const message = `🛍️ *طلب جديد!*
 
 📋 *رقم الطلب:* ${order.orderNumber}
-📅 *التاريخ:* ${new Date().toLocaleDateString('ar-EG')}
+📅 *التاريخ:* ${formatDate(new Date())}
 
 👤 *العميل:* ${order.customer.name}
 📱 *الهاتف:* ${order.customer.phone}
@@ -4083,10 +4466,10 @@
 📦 *المنتجات:*
 ${items}
 
-💰 *المجموع:* ${order.subtotal} ج.م
-${order.couponCode ? `🎫 *كوبون:* ${order.couponCode} (-${order.discount} ج.م)` : ''}
-${order.pointsDiscount > 0 ? `💎 *نقاط:* -${order.pointsDiscount} ج.م` : ''}
-✅ *الإجمالي:* ${order.total} ج.م
+💰 *المجموع:* ${formatPrice(order.subtotal)}
+${order.couponCode ? `🎫 *كوبون:* ${order.couponCode} (-${formatPrice(order.discount)})` : ''}
+${order.pointsDiscount > 0 ? `💎 *نقاط:* -${formatPrice(order.pointsDiscount)}` : ''}
+✅ *الإجمالي:* ${formatPrice(order.total)}
 
 ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`;
 
@@ -4130,12 +4513,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 }
                 
                 document.getElementById('ordersModalBody').innerHTML = myOrders.length === 0 
-                    ? '<div style="text-align: center; padding: 30px; color: #666;"><div style="font-size: 50px;">📦</div><p>لا توجد طلبات</p></div>'
+                    ? `<div style="text-align: center; padding: 30px; color: #666;"><div style="font-size: 50px;">📦</div><p>${escapeHtml(currentLang === 'ar' ? 'لا توجد طلبات' : 'No orders yet')}</p></div>`
                     : myOrders.reverse().map((o) => {
                     const safeOrderNumber = escapeHtml(o && o.orderNumber || o && o.id || '');
                     const safeStatus = escapeHtml(getStatusName(o && o.status));
-                    const safeDate = escapeHtml(new Date(o && o.createdAt || '').toLocaleDateString('ar-EG'));
-                    const safeTotal = escapeHtml(Number(o && o.total || 0).toFixed(2));
+                    const safeDate = escapeHtml(formatDate(o && o.createdAt || ''));
+                    const safeTotal = escapeHtml(formatPrice(Number(o && o.total || 0)));
                     const statusColor = o && o.status === 'completed'
                         ? 'var(--success)'
                         : o && o.status === 'shipped'
@@ -4150,8 +4533,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                             </span>
                         </div>
                         <p style="font-size: 12px; color: #666;">${safeDate}</p>
-                        <p style="font-size: 14px; font-weight: 700; color: var(--gold-dark);">${safeTotal} ج.م</p>
-                        <button data-order-id="${safeOrderNumber}" onclick="trackOrderById(this.dataset.orderId)" style="margin-top: 8px; padding: 6px 15px; background: var(--navy); color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer;">تتبع 🚚</button>
+                        <p style="font-size: 14px; font-weight: 700; color: var(--gold-dark);">${safeTotal}</p>
+                        <button data-order-id="${safeOrderNumber}" onclick="trackOrderById(this.dataset.orderId)" style="margin-top: 8px; padding: 6px 15px; background: var(--navy); color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer;">${escapeHtml(t('track'))} 🚚</button>
                     </div>
                 `;
                     }).join('');
@@ -4184,7 +4567,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 const order = orders.find((o) => String(o && o.orderNumber || '') === normalizedOrderNumber || String(o && o.id || '') === normalizedOrderNumber);
                 
                 if (!order) {
-                    document.getElementById('trackingResult').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--error);"><div style="font-size: 40px;">❌</div><p>لم يتم العثور على الطلب</p></div>';
+                    document.getElementById('trackingResult').innerHTML = `<div style="text-align: center; padding: 20px; color: var(--error);"><div style="font-size: 40px;">❌</div><p>${escapeHtml(currentLang === 'ar' ? 'لم يتم العثور على الطلب' : 'Order not found')}</p></div>`;
                     return;
                 }
 
@@ -4199,7 +4582,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
                 const currentIdx = statuses.findIndex(s => s.key === order.status);
                 const safeOrderNumber = escapeHtml(order && order.orderNumber || order && order.id || '');
-                const safeCreatedAt = escapeHtml(new Date(order && order.createdAt || '').toLocaleDateString('ar-EG'));
+                const safeCreatedAt = escapeHtml(formatDate(order && order.createdAt || ''));
 
                 document.getElementById('trackingResult').innerHTML = `
                 <div class="tracking-card" style="background: var(--cream); border-radius: 14px; padding: 20px;">
@@ -4214,7 +4597,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                                 <div style="flex: 1;">
                                     <div style="font-weight: 700; color: ${i <= currentIdx ? 'var(--navy)' : '#999'}; font-size: 13px;">${s.title}</div>
                                     <div style="font-size: 11px; color: #666;">${s.desc}</div>
-                                    ${order.statusHistory?.find(h => h.status === s.key) ? `<div style="font-size: 10px; color: var(--gold-dark); margin-top: 3px;">${escapeHtml(new Date(order.statusHistory.find(h => h.status === s.key).date).toLocaleString('ar-EG'))}</div>` : ''}
+                                    ${order.statusHistory?.find(h => h.status === s.key) ? `<div style="font-size: 10px; color: var(--gold-dark); margin-top: 3px;">${escapeHtml(formatDateTime(order.statusHistory.find(h => h.status === s.key).date))}</div>` : ''}
                                 </div>
                             </div>
                         `).join('')}
