@@ -1,4 +1,7 @@
-﻿// Firebase Data Initializer
+function silentProductionLog() {}
+function silentProductionInfo() {}
+
+// Firebase Data Initializer
 // ==========================
 
 // Initialize Firebase (sample data seeding disabled in production)
@@ -28,12 +31,12 @@ function shouldEnableRealtimeListeners() {
     }
 
     if (isLocalDev && !forceRealtime) {
-        console.log('Local/network dev detected - skipping Firestore real-time listeners (add ?realtime=1 to enable)');
+        silentProductionLog('Local/network dev detected - skipping Firestore real-time listeners (add ?realtime=1 to enable)');
         return false;
     }
 
     if (isInsecureRemoteHttp && !forceRealtime) {
-        console.log('Non-HTTPS host detected - skipping Firestore real-time listeners (add ?realtime=1 to enable)');
+        silentProductionLog('Non-HTTPS host detected - skipping Firestore real-time listeners (add ?realtime=1 to enable)');
         return false;
     }
 
@@ -383,7 +386,7 @@ async function runPollingSync({ force = false, reason = 'interval' } = {}) {
     try {
         const details = await pullStoreCollectionsFromFirebase(`poll:${reason}`);
         if (force || (Number(FIREBASE_SYNC_STATUS.consecutiveErrors) || 0) > 0) {
-            console.log('[OK] Firebase polling sync completed:', details);
+            silentProductionLog('[OK] Firebase polling sync completed:', details);
         }
     } catch (error) {
         markFirebaseSyncError(`poll:${reason}`, error);
@@ -422,14 +425,14 @@ function startPollingSyncFallback() {
         }
     });
 
-    console.log(`[OK] Firebase polling fallback enabled (${FIREBASE_SYNC_POLL_INTERVAL_MS / 1000}s interval)`);
+    silentProductionLog(`[OK] Firebase polling fallback enabled (${FIREBASE_SYNC_POLL_INTERVAL_MS / 1000}s interval)`);
 }
 
 async function initializeFirebaseData() {
     try {
         if (!ENABLE_SAMPLE_DATA) {
-            console.log('[INFO] Sample data seeding disabled (all collections).');
-            console.log('[OK] Firebase initialization completed!');
+            silentProductionLog('[INFO] Sample data seeding disabled (all collections).');
+            silentProductionLog('[OK] Firebase initialization completed!');
 
             if (REALTIME_LISTENERS_ENABLED) {
                 setupRealtimeListeners();
@@ -443,9 +446,9 @@ async function initializeFirebaseData() {
         
         if (productsSnapshot.empty) {
             if (!ENABLE_SAMPLE_DATA) {
-                console.log('[INFO] Sample data seeding disabled (products).');
+                silentProductionLog('[INFO] Sample data seeding disabled (products).');
             } else {
-                console.log('[INFO] Initializing Firebase with sample products...');
+                silentProductionLog('[INFO] Initializing Firebase with sample products...');
 
                 const sampleProducts = [
                     {
@@ -493,7 +496,7 @@ async function initializeFirebaseData() {
                     await db.collection('products').add(product);
                 }
 
-                console.log('[OK] Sample products added to Firebase');
+                silentProductionLog('[OK] Sample products added to Firebase');
             }
         }
         
@@ -502,7 +505,7 @@ async function initializeFirebaseData() {
         
         if (bannersSnapshot.empty) {
             if (!ENABLE_SAMPLE_DATA) {
-                console.log('[INFO] Sample data seeding disabled (banners).');
+                silentProductionLog('[INFO] Sample data seeding disabled (banners).');
             } else {
                 const sampleBanners = [
                 {
@@ -529,7 +532,7 @@ async function initializeFirebaseData() {
                     await db.collection('banners').add(banner);
                 }
                 
-                console.log('[OK] Sample banners added to Firebase');
+                silentProductionLog('[OK] Sample banners added to Firebase');
             }
         }
         
@@ -538,7 +541,7 @@ async function initializeFirebaseData() {
         
         if (couponsSnapshot.empty) {
             if (!ENABLE_SAMPLE_DATA) {
-                console.log('[INFO] Sample data seeding disabled (coupons).');
+                silentProductionLog('[INFO] Sample data seeding disabled (coupons).');
             } else {
                 const sampleCoupons = [
                 {
@@ -570,11 +573,11 @@ async function initializeFirebaseData() {
                     await db.collection('coupons').add(coupon);
                 }
                 
-                console.log('[OK] Sample coupons added to Firebase');
+                silentProductionLog('[OK] Sample coupons added to Firebase');
             }
         }
         
-        console.log('[OK] Firebase initialization completed!');
+        silentProductionLog('[OK] Firebase initialization completed!');
         
         // Setup real-time listeners for live updates
         // GitHub Pages can block Firestore listen channel (CORS). Skip to avoid spam.
@@ -598,7 +601,7 @@ function setupRealtimeListeners() {
 
     const unsubBanners = createResubscribingSnapshot('realtime:banners', () => db.collection('banners'), (snapshot) => {
         banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('🟦 Banners updated in real-time:', banners.length);
+        silentProductionLog('🟦 Banners updated in real-time:', banners.length);
         persistSyncedCollection('BANNERS', banners, () => {
             if (typeof renderBanners === 'function') {
                 try { renderBanners(); } catch (_) {}
@@ -611,7 +614,7 @@ function setupRealtimeListeners() {
 
     const unsubCoupons = createResubscribingSnapshot('realtime:coupons', () => db.collection('coupons'), (snapshot) => {
         coupons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('🟨 Coupons updated in real-time:', coupons.length);
+        silentProductionLog('🟨 Coupons updated in real-time:', coupons.length);
         persistSyncedCollection('COUPONS', coupons, () => {
             if (typeof renderCoupons === 'function') {
                 try { renderCoupons(); } catch (_) {}
@@ -628,7 +631,7 @@ function setupRealtimeListeners() {
             : db.collection('products')
     ), (snapshot) => {
         products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('🛍️ Products updated in real-time:', products.length);
+        silentProductionLog('🛍️ Products updated in real-time:', products.length);
         persistSyncedCollection('PRODUCTS', products, () => {
             if (typeof renderProducts === 'function') {
                 try {
@@ -643,7 +646,7 @@ function setupRealtimeListeners() {
     });
 
     realtimeUnsubscribers = [unsubBanners, unsubCoupons, unsubProducts];
-    console.log('🔄 Real-time listeners setup complete');
+    silentProductionLog('🔄 Real-time listeners setup complete');
 }
 
 // Update functions for UI
@@ -651,13 +654,13 @@ function updateBannersDisplay() {
     const bannerContainer = document.querySelector('.hero-slider');
     if (bannerContainer && banners.length > 0) {
         // Update banner display
-        console.log('[INFO] Updating banner display with', banners.length, 'banners');
+        silentProductionLog('[INFO] Updating banner display with', banners.length, 'banners');
     }
 }
 
 function updateCouponsDisplay() {
     // Update coupon display in store
-    console.log('[INFO] Updating coupon display with', coupons.length, 'coupons');
+    silentProductionLog('[INFO] Updating coupon display with', coupons.length, 'coupons');
 }
 
 // Auto-initialize only on store page to avoid unnecessary admin listeners/network calls

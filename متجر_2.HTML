@@ -1,10 +1,19 @@
-﻿<!DOCTYPE html>
+﻿<!--
+  Sale Zone Store
+  Version: 2026.02.27.0021
+  Build: 2026-03-08
+  Author: Sale Zone Team
+-->
+<!DOCTYPE html>
 <html lang="ar" dir="rtl" data-page="store">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="index, follow">
     <meta name="firebase-app-check-site-key" content="">
     <meta name="backend-api-base-url" content="https://us-central1-sale-zone-601f0.cloudfunctions.net/api">
     <link rel="manifest" href="manifest.json">
@@ -39,6 +48,9 @@
     <script src="UI_COMPONENTS.js"></script>
     
     <!-- Google Fonts -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" as="style">
+    <link rel="dns-prefetch" href="https://res.cloudinary.com">
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Playfair+Display:wght@400;500;600;700;800&family=Almarai:wght@300;400;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
@@ -59,7 +71,7 @@
             const gaScript = document.createElement('script');
             gaScript.async = true;
             gaScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-V3JC43VQBC';
-            gaScript.onerror = () => console.info('[INFO] Google Analytics unavailable (blocked/offline).');
+            gaScript.onerror = () => undefined;
             document.head.appendChild(gaScript);
         })();
     </script>
@@ -734,7 +746,72 @@
             </div>
         </div>
         
-        <div class="products-grid" id="productsGrid"></div>
+        <div class="products-grid" id="productsGrid">
+            <div class="skeleton-card" aria-hidden="true">
+                <div class="skeleton-image skeleton"></div>
+                <div style="padding: 12px">
+                    <div class="skeleton skeleton-text long"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                    <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                </div>
+            </div>
+            <div class="skeleton-card" aria-hidden="true">
+                <div class="skeleton-image skeleton"></div>
+                <div style="padding: 12px">
+                    <div class="skeleton skeleton-text long"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                    <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                </div>
+            </div>
+            <div class="skeleton-card" aria-hidden="true">
+                <div class="skeleton-image skeleton"></div>
+                <div style="padding: 12px">
+                    <div class="skeleton skeleton-text long"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                    <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                </div>
+            </div>
+            <div class="skeleton-card" aria-hidden="true">
+                <div class="skeleton-image skeleton"></div>
+                <div style="padding: 12px">
+                    <div class="skeleton skeleton-text long"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                    <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                </div>
+            </div>
+            <div class="skeleton-card" aria-hidden="true">
+                <div class="skeleton-image skeleton"></div>
+                <div style="padding: 12px">
+                    <div class="skeleton skeleton-text long"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                    <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                </div>
+            </div>
+            <div class="skeleton-card" aria-hidden="true">
+                <div class="skeleton-image skeleton"></div>
+                <div style="padding: 12px">
+                    <div class="skeleton skeleton-text long"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                    <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                </div>
+            </div>
+            <div class="skeleton-card" aria-hidden="true">
+                <div class="skeleton-image skeleton"></div>
+                <div style="padding: 12px">
+                    <div class="skeleton skeleton-text long"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                    <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                </div>
+            </div>
+            <div class="skeleton-card" aria-hidden="true">
+                <div class="skeleton-image skeleton"></div>
+                <div style="padding: 12px">
+                    <div class="skeleton skeleton-text long"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                    <div class="skeleton skeleton-text" style="width:40%;height:20px;margin-top:8px"></div>
+                </div>
+            </div>
+        </div>
         <div id="productsPagination" style="display:flex;justify-content:center;gap:8px;margin-top:20px;flex-wrap:wrap;"></div>
     </section>
 
@@ -1494,19 +1571,24 @@
 
             // ?? Load data with timeout, then re-render safely
             safeRun('loadDataWithTimeout', () => {
-                loadDataWithTimeout(25000).then(() => {
-                    safeRun('applyStoreSettings', applyStoreSettings);
-                    safeRun('maybeLoadTawkWidget', maybeLoadTawkWidget);
-                    safeRun('renderBanners', renderBanners);
-                    safeRun('renderSupplierFilters', renderSupplierFilters);
-                    safeRun('buildSearchIndexAsync', buildSearchIndexAsync);
-                    safeRun('runProductSearch', () => runProductSearch(1));
-                    safeRun('renderCoupons', renderCoupons);
-                    safeRun('updateCategoryCounts', updateCategoryCounts);
-                    safeRun('updateStats', updateStats);
-                    safeRun('updateCartUI', updateCartUI);
-                    safeRun('updateFavUI', updateFavUI);
-                });
+                loadDataWithTimeout(25000)
+                    .then(() => {
+                        safeRun('applyStoreSettings', applyStoreSettings);
+                        safeRun('maybeLoadTawkWidget', maybeLoadTawkWidget);
+                        safeRun('renderBanners', renderBanners);
+                        safeRun('renderSupplierFilters', renderSupplierFilters);
+                        safeRun('buildSearchIndexAsync', buildSearchIndexAsync);
+                        safeRun('runProductSearch', () => runProductSearch(1));
+                        safeRun('renderCoupons', renderCoupons);
+                        safeRun('updateCategoryCounts', updateCategoryCounts);
+                        safeRun('updateStats', updateStats);
+                        safeRun('updateCartUI', updateCartUI);
+                        safeRun('updateFavUI', updateFavUI);
+                    })
+                    .catch((error) => {
+                        console.error('loadDataWithTimeout bootstrap error:', error);
+                        showToast('تعذر تحميل بيانات المتجر حالياً.', 'error');
+                    });
             });
 
             // 📱 Register Professional ServiceWorker for PWA (Auto Update)
@@ -1518,9 +1600,7 @@
                 if (disableServiceWorker) {
                     navigator.serviceWorker.getRegistrations()
                         .then(registrations => Promise.all(registrations.map(reg => reg.unregister())))
-                        .then(() => {
-                            console.log('Local dev mode - ServiceWorker disabled to prevent stale cache');
-                        })
+                        .then(() => undefined)
                         .catch(() => undefined);
                 } else {
                     let swRefreshing = false;
@@ -1542,9 +1622,6 @@
 
                     navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
                         .then(registration => {
-                            console.log('✅ Professional ServiceWorker registered:', registration.scope);
-                            console.log('🚀 PWA Features Enabled');
-
                             const updateNow = () => registration.update().catch(() => undefined);
                             updateNow();
                             setInterval(updateNow, 60 * 60 * 1000);
@@ -1565,7 +1642,6 @@
                                             registration.waiting.postMessage({ type: 'SKIP_WAITING' });
                                         }
                                         if (navigator.serviceWorker.controller) {
-                                            console.log('🔄 New version available! Refreshing...');
                                             requestRefresh();
                                         }
                                     }
@@ -1579,12 +1655,10 @@
                         })
                         .catch(err => {
                             console.error('❌ ServiceWorker registration failed:', err);
-                            // Fallback to basic functionality
-                            console.log('🔄 Fallback: Running without ServiceWorker');
                         });
                 }
             } else {
-                console.log('📱 ServiceWorker not supported - PWA features disabled');
+                trackStoreEvent('PWA_UNSUPPORTED', 'ServiceWorker not supported in this browser', 'warning');
             }
 
             // 🧪 Debug overlay (enable with ?debug=1)
@@ -1654,12 +1728,19 @@
             let lastRows = [];
 
             for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-                const rows = await reader();
-                const normalizedRows = Array.isArray(rows) ? rows : [];
-                if (normalizedRows.length > 0 || attempt === maxAttempts) {
-                    return normalizedRows;
+                try {
+                    const rows = await reader();
+                    const normalizedRows = Array.isArray(rows) ? rows : [];
+                    if (normalizedRows.length > 0 || attempt === maxAttempts) {
+                        return normalizedRows;
+                    }
+                    lastRows = normalizedRows;
+                } catch (error) {
+                    if (attempt === maxAttempts) {
+                        console.error('readPublishedProductsWithRetry failed:', error);
+                        return lastRows;
+                    }
                 }
-                lastRows = normalizedRows;
                 setConnectionBanner('جاري الاتصال بمصدر البيانات...', true);
                 await waitForStoreDelay(delayMs);
             }
@@ -1682,7 +1763,9 @@
                     return;
                 }
             } catch (_) {}
-            const writer = (console && typeof console[level] === 'function') ? console[level].bind(console) : console.log.bind(console);
+            const writer = (console && typeof console[level] === 'function' && (level === 'warn' || level === 'error'))
+                ? console[level].bind(console)
+                : (() => {});
             if (typeof meta === 'undefined') writer(`[${code}] ${message}`);
             else writer(`[${code}] ${message}`, meta);
         }
@@ -1700,9 +1783,7 @@
 
             const resolveList = (result, storageKey, localFallback, label) => {
                 if (result.status === 'fulfilled' && Array.isArray(result.value)) {
-                    const list = result.value;
-                    console.log(`✅ ${label} loaded from Firebase:`, list.length);
-                    return list;
+                    return result.value;
                 }
                 if (result.status === 'fulfilled' && !Array.isArray(result.value)) {
                     console.warn(`${label} firebase returned non-array payload, using empty list (Server Truth Only).`);
@@ -1710,7 +1791,6 @@
                 if (result.status === 'rejected') {
                     console.warn(`${label} firebase read failed, using empty list (Server Truth Only):`, result.reason);
                 }
-                console.log(`📦 ${label} using empty list (Server Truth Only):`, 0);
                 return [];
             };
 
@@ -1724,7 +1804,6 @@
                     await window.waitForAppCheck(3000);
                 }
 
-                console.log('🔥 Loading from Firebase...');
                 const productsReader = (typeof getPublishedProducts === 'function')
                     ? getPublishedProducts
                     : (typeof getAllProducts === 'function' ? getAllProducts : null);
@@ -1785,7 +1864,6 @@
             ).values());
 
             // Firebase remains source of truth for products/coupons/banners.
-            console.log('📡 Data bound to Firebase realtime source');
             updateLiveSessionState({
                 customerId: currentUser && currentUser.id ? String(currentUser.id) : ''
             });
@@ -1815,7 +1893,9 @@
             }
 
             if (timedOut) {
-                console.log('✅ loadData completed after slow start');
+                trackStoreEvent('DATA_SYNC_RECOVERED', 'loadData completed after slow start', 'info', {
+                    thresholdMs: ms
+                });
             }
             setConnectionBanner('', false);
         }
@@ -2194,12 +2274,13 @@
                 return;
             }
 
-            grid.innerHTML = displayProducts.map((p) => {
+            grid.innerHTML = displayProducts.map((p, index) => {
                 const safeProductId = escapeHtml(String(p && p.id || ''));
                 const safeName = escapeHtml(p && p.name || '');
                 const safeDesc = escapeHtml(p && p.desc || '');
                 const safeImageSrc = escapeHtml(sanitizeImageUrl((p && (p.imageUrl || p.image)) || '', 400));
                 const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
+                const imageLoading = index < 4 ? 'eager' : 'lazy';
                 const isFav = favorites.includes(String(p && p.id));
                 const resolvedPrice = resolveDisplayPrice(p);
                 const hasValidPrice = Number.isFinite(resolvedPrice);
@@ -2218,7 +2299,7 @@
                         ${isFav ? '❤️' : '🤍'}
                     </button>
                     <div class="product-image">
-                        <img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="lazy">
+                        <img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="${imageLoading}">
                         <div class="product-actions">
                             <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="فتح تفاصيل المنتج" onclick="event.stopPropagation(); showProductDetails(this.dataset.productId)">👁️</button>
                             <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="إضافة المنتج إلى السلة" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
@@ -2639,11 +2720,11 @@
             document.getElementById('productModalBody').innerHTML = `
                 <div class="product-modal-content">
                     <div class="product-modal-image-col">
-                        <img id="productModalMainImage" class="product-modal-image" src="${escapeHtml(primaryImage)}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'; this.onerror=null;">
+                        <img id="productModalMainImage" class="product-modal-image" src="${escapeHtml(primaryImage)}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'; this.onerror=null;" loading="eager">
                         <div class="product-modal-thumbs">
                             ${gallery.map((imageUrl, index) => `
                                 <button type="button" class="product-modal-thumb ${index === 0 ? 'active' : ''}" data-image="${escapeHtml(imageUrl)}" aria-label="عرض صورة ${index + 1} للمنتج" onclick="setProductModalImage(this.dataset.image)">
-                                    <img src="${escapeHtml(sanitizeImageUrl(imageUrl, 180))}" alt="معاينة ${safeName}" onerror="this.src='${safeFallbackImage}'; this.onerror=null;">
+                                    <img src="${escapeHtml(sanitizeImageUrl(imageUrl, 180))}" alt="معاينة ${safeName}" onerror="this.src='${safeFallbackImage}'; this.onerror=null;" loading="lazy">
                                 </button>
                             `).join('')}
                         </div>
@@ -2813,7 +2894,7 @@
                 const safePrice = hasValidPrice ? escapeHtml(Number(displayPrice || 0).toFixed(2)) : 'السعر غير متاح';
                 return `
                     <div class="fav-item">
-                        <div class="fav-item-image"><img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'"></div>
+                        <div class="fav-item-image"><img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="lazy"></div>
                         <div class="fav-item-details">
                             <div class="fav-item-name">${safeName}</div>
                             <div class="fav-item-price">${hasValidPrice ? `${safePrice} ج.م` : safePrice}</div>
@@ -2890,7 +2971,7 @@
                 const safeQuantity = escapeHtml(Number(item && item.quantity || 0).toFixed(0));
                 return `
                 <div class="cart-item">
-                    <div class="cart-item-image"><img src="${safeImageSrc}" alt="${safeItemName}" onerror="this.src='${safeFallbackImage}'"></div>
+                    <div class="cart-item-image"><img src="${safeImageSrc}" alt="${safeItemName}" onerror="this.src='${safeFallbackImage}'" loading="lazy"></div>
                     <div class="cart-item-details">
                         <div class="cart-item-name">${safeItemName}</div>
                         <div class="cart-item-price">${safeItemPrice} ج.م</div>
@@ -3288,78 +3369,83 @@
         }
 
         async function finalizeAuthenticatedCustomer(authUser, options = {}) {
-            const config = options && typeof options === 'object' ? options : {};
-            if (!authUser || !authUser.uid) {
-                throw new Error('تعذر إنشاء جلسة دخول');
-            }
-
-            if (typeof authUser.reload === 'function') {
-                await authUser.reload().catch(() => null);
-            }
-            if (typeof authUser.getIdToken === 'function') {
-                await authUser.getIdToken(true).catch(() => null);
-            }
-
-            const uid = String(authUser.uid || '').trim();
-            let profile = config.profile && typeof config.profile === 'object' ? config.profile : null;
-
-            if (!profile && typeof getMyCustomerProfile === 'function') {
-                profile = await getMyCustomerProfile(uid).catch(() => null);
-            }
-
-            if (!profile && typeof upsertMyCustomerProfile === 'function') {
-                profile = await upsertMyCustomerProfile(uid, {
-                    phone: String(config.phone || '').trim(),
-                    address: String(config.address || '').trim(),
-                    displayName: String(
-                        config.displayName
-                        || authUser.displayName
-                        || (authUser.email ? String(authUser.email).split('@')[0] : '')
-                        || 'عميل'
-                    ).trim()
-                }).catch(() => null);
-            }
-
-            currentUser = sanitizeCustomerRecord({
-                id: String(profile && profile.id || uid),
-                uid,
-                name: String(profile && (profile.displayName || profile.name) || authUser.displayName || (authUser.email ? String(authUser.email).split('@')[0] : 'عميل')),
-                phone: String(profile && profile.phone || config.phone || ''),
-                email: String(profile && profile.email || authUser.email || config.email || '').trim().toLowerCase(),
-                address: String(profile && profile.address || config.address || ''),
-                loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
-                createdAt: String(profile && profile.createdAt || new Date().toISOString()),
-                updatedAt: String(profile && profile.updatedAt || new Date().toISOString()),
-                role: String(profile && profile.role || 'customer'),
-                emailVerified: authUser.emailVerified === true
-            });
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            updateUserUI();
-            if (chatMode === 'support') {
-                ensureSupportChatReady().catch(() => null);
-            }
-            closeModal('authModal');
-            updateLiveSessionState({
-                customerId: String(currentUser.id || currentUser.uid || ''),
-                customerPhone: String(currentUser.phone || '')
-            });
-            trackStoreEvent(config.eventCode || 'LOGIN_SUCCESS', config.eventDescription || 'Customer auth success', 'info', {
-                customerId: String(currentUser.id || currentUser.uid || ''),
-                email: String(currentUser.email || '').toLowerCase(),
-                provider: String(config.provider || 'password')
-            });
-            users = [];
-            saveUsers();
-
-            if (config.showNotification !== false) {
-                if (config.warnUnverified !== false && authUser.emailVerified !== true) {
-                    showNotification('warning', config.successTitle || 'تم تسجيل الدخول', config.unverifiedMessage || 'يرجى تفعيل البريد الإلكتروني قبل الشراء أو الدردشة الداخلية.');
-                } else {
-                    showNotification('success', config.successTitle || 'مرحباً', config.successMessage || `أهلاً ${currentUser.name}!`);
+            try {
+                const config = options && typeof options === 'object' ? options : {};
+                if (!authUser || !authUser.uid) {
+                    throw new Error('تعذر إنشاء جلسة دخول');
                 }
-            }
 
-            return currentUser;
+                if (typeof authUser.reload === 'function') {
+                    await authUser.reload().catch(() => null);
+                }
+                if (typeof authUser.getIdToken === 'function') {
+                    await authUser.getIdToken(true).catch(() => null);
+                }
+
+                const uid = String(authUser.uid || '').trim();
+                let profile = config.profile && typeof config.profile === 'object' ? config.profile : null;
+
+                if (!profile && typeof getMyCustomerProfile === 'function') {
+                    profile = await getMyCustomerProfile(uid).catch(() => null);
+                }
+
+                if (!profile && typeof upsertMyCustomerProfile === 'function') {
+                    profile = await upsertMyCustomerProfile(uid, {
+                        phone: String(config.phone || '').trim(),
+                        address: String(config.address || '').trim(),
+                        displayName: String(
+                            config.displayName
+                            || authUser.displayName
+                            || (authUser.email ? String(authUser.email).split('@')[0] : '')
+                            || 'عميل'
+                        ).trim()
+                    }).catch(() => null);
+                }
+
+                currentUser = sanitizeCustomerRecord({
+                    id: String(profile && profile.id || uid),
+                    uid,
+                    name: String(profile && (profile.displayName || profile.name) || authUser.displayName || (authUser.email ? String(authUser.email).split('@')[0] : 'عميل')),
+                    phone: String(profile && profile.phone || config.phone || ''),
+                    email: String(profile && profile.email || authUser.email || config.email || '').trim().toLowerCase(),
+                    address: String(profile && profile.address || config.address || ''),
+                    loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
+                    createdAt: String(profile && profile.createdAt || new Date().toISOString()),
+                    updatedAt: String(profile && profile.updatedAt || new Date().toISOString()),
+                    role: String(profile && profile.role || 'customer'),
+                    emailVerified: authUser.emailVerified === true
+                });
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                updateUserUI();
+                if (chatMode === 'support') {
+                    ensureSupportChatReady().catch(() => null);
+                }
+                closeModal('authModal');
+                updateLiveSessionState({
+                    customerId: String(currentUser.id || currentUser.uid || ''),
+                    customerPhone: String(currentUser.phone || '')
+                });
+                trackStoreEvent(config.eventCode || 'LOGIN_SUCCESS', config.eventDescription || 'Customer auth success', 'info', {
+                    customerId: String(currentUser.id || currentUser.uid || ''),
+                    email: String(currentUser.email || '').toLowerCase(),
+                    provider: String(config.provider || 'password')
+                });
+                users = [];
+                saveUsers();
+
+                if (config.showNotification !== false) {
+                    if (config.warnUnverified !== false && authUser.emailVerified !== true) {
+                        showNotification('warning', config.successTitle || 'تم تسجيل الدخول', config.unverifiedMessage || 'يرجى تفعيل البريد الإلكتروني قبل الشراء أو الدردشة الداخلية.');
+                    } else {
+                        showNotification('success', config.successTitle || 'مرحباً', config.successMessage || `أهلاً ${currentUser.name}!`);
+                    }
+                }
+
+                return currentUser;
+            } catch (error) {
+                console.error('finalizeAuthenticatedCustomer failed:', error);
+                throw error;
+            }
         }
 
         async function signInCustomerAuth(email, password) {
@@ -3373,24 +3459,29 @@
         }
 
         async function registerCustomerAuth(payload = {}) {
-            const profile = payload && typeof payload === 'object' ? payload : {};
-            const normalizedEmail = String(profile.email || '').trim().toLowerCase();
-            const normalizedPassword = String(profile.password || '');
-            if (typeof registerCustomerByEmail === 'function') {
-                return registerCustomerByEmail({
-                    email: normalizedEmail,
-                    password: normalizedPassword,
-                    phone: String(profile.phone || '').trim(),
-                    address: String(profile.address || '').trim(),
-                    displayName: String(profile.displayName || profile.name || '').trim()
-                });
+            try {
+                const profile = payload && typeof payload === 'object' ? payload : {};
+                const normalizedEmail = String(profile.email || '').trim().toLowerCase();
+                const normalizedPassword = String(profile.password || '');
+                if (typeof registerCustomerByEmail === 'function') {
+                    return registerCustomerByEmail({
+                        email: normalizedEmail,
+                        password: normalizedPassword,
+                        phone: String(profile.phone || '').trim(),
+                        address: String(profile.address || '').trim(),
+                        displayName: String(profile.displayName || profile.name || '').trim()
+                    });
+                }
+                if (!(firebase && firebase.auth)) return null;
+                const credential = await firebase.auth().createUserWithEmailAndPassword(normalizedEmail, normalizedPassword);
+                if (credential && credential.user && typeof credential.user.sendEmailVerification === 'function') {
+                    await credential.user.sendEmailVerification();
+                }
+                return credential;
+            } catch (error) {
+                console.error('registerCustomerAuth failed:', error);
+                throw error;
             }
-            if (!(firebase && firebase.auth)) return null;
-            const credential = await firebase.auth().createUserWithEmailAndPassword(normalizedEmail, normalizedPassword);
-            if (credential && credential.user && typeof credential.user.sendEmailVerification === 'function') {
-                await credential.user.sendEmailVerification();
-            }
-            return credential;
         }
 
         function isOnlineMode() {
@@ -3808,21 +3899,25 @@
         }
 
         async function showCheckout() {
-            if (cart.length === 0) { 
-                showNotification('error', 'خطأ', 'السلة فارغة'); 
-                return; 
+            try {
+                if (cart.length === 0) { 
+                    showNotification('error', 'خطأ', 'السلة فارغة'); 
+                    return; 
+                }
+                
+                const verified = await ensureVerifiedForSensitiveAction('checkout-open');
+                if (!verified) {
+                    return;
+                }
+                
+                document.getElementById('checkoutName').value = currentUser.name || '';
+                document.getElementById('checkoutPhone').value = currentUser.phone || '';
+                document.getElementById('checkoutAddress').value = currentUser.address || '';
+                openModal('checkoutModal');
+            } catch (error) {
+                console.error('showCheckout failed:', error);
+                showNotification('error', 'تعذر فتح الطلب', 'حدث خطأ أثناء تجهيز نموذج الشراء.');
             }
-            
-            const verified = await ensureVerifiedForSensitiveAction('checkout-open');
-            if (!verified) {
-                return;
-            }
-            
-            // Fill form with user data
-            document.getElementById('checkoutName').value = currentUser.name || '';
-            document.getElementById('checkoutPhone').value = currentUser.phone || '';
-            document.getElementById('checkoutAddress').value = currentUser.address || '';
-            openModal('checkoutModal');
         }
         
         function showLoginModal() {
@@ -3880,14 +3975,12 @@
                 addOrderResult = await addOrder(order, { allowQueue: true });
                 const isQueued = addOrderResult && addOrderResult.queued === true;
                 if (isQueued) {
-                    console.log('🟠 Order queued locally for sync:', addOrderResult.queueId || '');
                     trackStoreEvent('ORDER_QUEUED', 'Order queued locally and will sync when online', 'warning', {
                         orderNumber: order.orderNumber,
                         idempotencyKey: order.idempotencyKey,
                         queueId: addOrderResult.queueId || ''
                     });
                 } else {
-                    console.log('✅ Order saved to Firebase');
                     trackStoreEvent('ORDER_CREATED', 'Order saved to Firebase', 'info', {
                         orderNumber: order.orderNumber,
                         total: order.total,
@@ -4010,29 +4103,35 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         async function loadMyOrdersFromFirebase() {
-            if (!currentUser) return [];
-            const uid = String(currentUser.uid || currentUser.id || '').trim();
-            if (!uid) return [];
-            if (typeof getOrdersByCustomerUid !== 'function') return [];
+            try {
+                if (!currentUser) return [];
+                const uid = String(currentUser.uid || currentUser.id || '').trim();
+                if (!uid) return [];
+                if (typeof getOrdersByCustomerUid !== 'function') return [];
 
-            const remoteOrders = await getOrdersByCustomerUid(uid, 100);
-            if (Array.isArray(remoteOrders) && remoteOrders.length >= 0) {
-                orders = remoteOrders;
-                return remoteOrders;
+                const remoteOrders = await getOrdersByCustomerUid(uid, 100);
+                if (Array.isArray(remoteOrders) && remoteOrders.length >= 0) {
+                    orders = remoteOrders;
+                    return remoteOrders;
+                }
+                return [];
+            } catch (error) {
+                console.error('loadMyOrdersFromFirebase failed:', error);
+                return [];
             }
-            return [];
         }
 
         async function showMyOrders() {
-            if (!currentUser) { showAuthModal('login'); return; }
-            let myOrders = await loadMyOrdersFromFirebase();
-            if (!Array.isArray(myOrders) || myOrders.length === 0) {
-                myOrders = orders.filter(o => String(o.uid || '') === String(currentUser.uid || currentUser.id || ''));
-            }
-            
-            document.getElementById('ordersModalBody').innerHTML = myOrders.length === 0 
-                ? '<div style="text-align: center; padding: 30px; color: #666;"><div style="font-size: 50px;">📦</div><p>لا توجد طلبات</p></div>'
-                : myOrders.reverse().map((o) => {
+            try {
+                if (!currentUser) { showAuthModal('login'); return; }
+                let myOrders = await loadMyOrdersFromFirebase();
+                if (!Array.isArray(myOrders) || myOrders.length === 0) {
+                    myOrders = orders.filter(o => String(o.uid || '') === String(currentUser.uid || currentUser.id || ''));
+                }
+                
+                document.getElementById('ordersModalBody').innerHTML = myOrders.length === 0 
+                    ? '<div style="text-align: center; padding: 30px; color: #666;"><div style="font-size: 50px;">📦</div><p>لا توجد طلبات</p></div>'
+                    : myOrders.reverse().map((o) => {
                     const safeOrderNumber = escapeHtml(o && o.orderNumber || o && o.id || '');
                     const safeStatus = escapeHtml(getStatusName(o && o.status));
                     const safeDate = escapeHtml(new Date(o && o.createdAt || '').toLocaleDateString('ar-EG'));
@@ -4055,31 +4154,41 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                         <button data-order-id="${safeOrderNumber}" onclick="trackOrderById(this.dataset.orderId)" style="margin-top: 8px; padding: 6px 15px; background: var(--navy); color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer;">تتبع 🚚</button>
                     </div>
                 `;
-                }).join('');
-            
-            openModal('ordersModal');
+                    }).join('');
+                
+                openModal('ordersModal');
+            } catch (error) {
+                console.error('showMyOrders failed:', error);
+                showNotification('error', 'تعذر عرض الطلبات', 'حدث خطأ أثناء تحميل طلباتك.');
+            }
         }
 
         async function trackOrder() {
-            const orderNumber = document.getElementById('trackOrderNumber').value.trim();
-            await trackOrderById(orderNumber, { refreshRemote: true });
+            try {
+                const orderNumber = document.getElementById('trackOrderNumber').value.trim();
+                await trackOrderById(orderNumber, { refreshRemote: true });
+            } catch (error) {
+                console.error('trackOrder failed:', error);
+                showNotification('error', 'تعذر تتبع الطلب', 'حدث خطأ أثناء البحث عن حالة الطلب.');
+            }
         }
 
         async function trackOrderById(orderNumber, options = {}) {
-            const refreshRemote = options && options.refreshRemote === true;
-            if (refreshRemote && currentUser) {
-                await loadMyOrdersFromFirebase();
-            }
+            try {
+                const refreshRemote = options && options.refreshRemote === true;
+                if (refreshRemote && currentUser) {
+                    await loadMyOrdersFromFirebase();
+                }
 
-            const normalizedOrderNumber = String(orderNumber || '').trim();
-            const order = orders.find((o) => String(o && o.orderNumber || '') === normalizedOrderNumber || String(o && o.id || '') === normalizedOrderNumber);
-            
-            if (!order) {
-                document.getElementById('trackingResult').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--error);"><div style="font-size: 40px;">❌</div><p>لم يتم العثور على الطلب</p></div>';
-                return;
-            }
+                const normalizedOrderNumber = String(orderNumber || '').trim();
+                const order = orders.find((o) => String(o && o.orderNumber || '') === normalizedOrderNumber || String(o && o.id || '') === normalizedOrderNumber);
+                
+                if (!order) {
+                    document.getElementById('trackingResult').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--error);"><div style="font-size: 40px;">❌</div><p>لم يتم العثور على الطلب</p></div>';
+                    return;
+                }
 
-            const statuses = [
+                const statuses = [
                 { key: 'pending', icon: '📋', title: 'تم استلام الطلب', desc: 'جاري مراجعة الطلب' },
                 { key: 'confirmed', icon: '✅', title: 'تم تأكيد الطلب', desc: 'جاري تجهيز المنتجات' },
                 { key: 'processing', icon: '📦', title: 'جاري التجهيز', desc: 'يتم تجهيز طلبك' },
@@ -4088,11 +4197,11 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 { key: 'completed', icon: '⭐', title: 'مكتمل', desc: 'شكراً لتسوقك معنا' }
             ];
 
-            const currentIdx = statuses.findIndex(s => s.key === order.status);
-            const safeOrderNumber = escapeHtml(order && order.orderNumber || order && order.id || '');
-            const safeCreatedAt = escapeHtml(new Date(order && order.createdAt || '').toLocaleDateString('ar-EG'));
+                const currentIdx = statuses.findIndex(s => s.key === order.status);
+                const safeOrderNumber = escapeHtml(order && order.orderNumber || order && order.id || '');
+                const safeCreatedAt = escapeHtml(new Date(order && order.createdAt || '').toLocaleDateString('ar-EG'));
 
-            document.getElementById('trackingResult').innerHTML = `
+                document.getElementById('trackingResult').innerHTML = `
                 <div class="tracking-card" style="background: var(--cream); border-radius: 14px; padding: 20px;">
                     <div class="tracking-header" style="text-align: center; margin-bottom: 20px;">
                         <div style="font-size: 22px; color: var(--gold-dark); font-weight: 700;">${safeOrderNumber}</div>
@@ -4113,8 +4222,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 </div>
             `;
             
-            if (document.getElementById('trackingModal').classList.contains('active') === false) {
-                openModal('trackingModal');
+                if (document.getElementById('trackingModal').classList.contains('active') === false) {
+                    openModal('trackingModal');
+                }
+            } catch (error) {
+                console.error('trackOrderById failed:', error);
+                showNotification('error', 'تعذر تتبع الطلب', 'حدث خطأ أثناء عرض حالة الطلب.');
             }
         }
 
@@ -4265,7 +4378,6 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 supportAccess.notifiedReason = reasonKey;
                 showNotification('warning', 'الدردشة الداخلية', 'يلزم تسجيل دخول Firebase بحسابك المفعّل لاستخدام الدعم الداخلي.');
             }
-            console.info(`support auth session required (${source}):`, reason);
             promptSupportReLogin();
             fallbackSupportChatToFaq('الدعم الداخلي يتطلب جلسة Firebase صالحة وبريدًا مفعلًا. سجّل الدخول ثم جرّب مرة أخرى.');
             trackStoreEvent('SUPPORT_AUTH_SESSION_REQUIRED', 'Support chat requires Firebase Auth session', 'warning', {
@@ -4277,42 +4389,47 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         async function ensureSupportAuthSession() {
-            if (!(firebase && firebase.auth)) {
-                const unavailableError = new Error('Firebase Auth غير متاح للدردشة الداخلية.');
-                unavailableError.code = 'auth/unavailable';
-                throw unavailableError;
-            }
-
-            const auth = firebase.auth();
-            const restoredUser = await waitForFirebaseAuthState(2500);
-            const activeUid = String(
-                (restoredUser && restoredUser.uid)
-                || (auth && auth.currentUser && auth.currentUser.uid)
-                || ''
-            ).trim();
-            if (!activeUid) {
-                const sessionError = new Error('الدردشة الداخلية تتطلب تسجيل الدخول.');
-                sessionError.code = 'auth/session-required';
-                throw sessionError;
-            }
-
-            if (typeof ensureEmailVerifiedOrThrow === 'function') {
-                await ensureEmailVerifiedOrThrow({ reloadUser: true });
-            } else if (restoredUser && typeof restoredUser.reload === 'function') {
-                await restoredUser.reload();
-                if (!restoredUser.emailVerified) {
-                    const verifyError = new Error('يجب تفعيل البريد الإلكتروني أولاً.');
-                    verifyError.code = 'auth/email-not-verified';
-                    throw verifyError;
+            try {
+                if (!(firebase && firebase.auth)) {
+                    const unavailableError = new Error('Firebase Auth غير متاح للدردشة الداخلية.');
+                    unavailableError.code = 'auth/unavailable';
+                    throw unavailableError;
                 }
-            }
 
-            syncCurrentUserSupportUid(activeUid);
-            if (currentUser) {
-                currentUser.emailVerified = true;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                const auth = firebase.auth();
+                const restoredUser = await waitForFirebaseAuthState(2500);
+                const activeUid = String(
+                    (restoredUser && restoredUser.uid)
+                    || (auth && auth.currentUser && auth.currentUser.uid)
+                    || ''
+                ).trim();
+                if (!activeUid) {
+                    const sessionError = new Error('الدردشة الداخلية تتطلب تسجيل الدخول.');
+                    sessionError.code = 'auth/session-required';
+                    throw sessionError;
+                }
+
+                if (typeof ensureEmailVerifiedOrThrow === 'function') {
+                    await ensureEmailVerifiedOrThrow({ reloadUser: true });
+                } else if (restoredUser && typeof restoredUser.reload === 'function') {
+                    await restoredUser.reload();
+                    if (!restoredUser.emailVerified) {
+                        const verifyError = new Error('يجب تفعيل البريد الإلكتروني أولاً.');
+                        verifyError.code = 'auth/email-not-verified';
+                        throw verifyError;
+                    }
+                }
+
+                syncCurrentUserSupportUid(activeUid);
+                if (currentUser) {
+                    currentUser.emailVerified = true;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                }
+                return activeUid;
+            } catch (error) {
+                console.error('ensureSupportAuthSession failed:', error);
+                throw error;
             }
-            return activeUid;
         }
 
         function toggleChat() {
@@ -4329,24 +4446,29 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         async function sendChatMessage() {
-            const input = document.getElementById('chatInput');
-            const msg = input.value.trim();
-            if (!msg) return;
+            try {
+                const input = document.getElementById('chatInput');
+                const msg = input.value.trim();
+                if (!msg) return;
 
-            if (chatMode === 'support') {
-                if (!currentUser) {
-                    showNotification('warning', 'تنبيه', 'سجل دخول أولًا لاستخدام الدردشة الداخلية');
-                    showAuthModal('login');
+                if (chatMode === 'support') {
+                    if (!currentUser) {
+                        showNotification('warning', 'تنبيه', 'سجل دخول أولًا لاستخدام الدردشة الداخلية');
+                        showAuthModal('login');
+                        return;
+                    }
+                    await sendSupportMessageFromCustomer(msg);
+                    input.value = '';
                     return;
                 }
-                await sendSupportMessageFromCustomer(msg);
-                input.value = '';
-                return;
-            }
 
-            addChatMessage(msg, 'user');
-            input.value = '';
-            setTimeout(() => addChatMessage(getBotResponse(msg), 'bot'), 600);
+                addChatMessage(msg, 'user');
+                input.value = '';
+                setTimeout(() => addChatMessage(getBotResponse(msg), 'bot'), 600);
+            } catch (error) {
+                console.error('sendChatMessage failed:', error);
+                showNotification('error', 'تعذر إرسال الرسالة', 'حدث خطأ أثناء إرسال رسالتك.');
+            }
         }
 
         function addChatMessage(text, sender = 'bot') {

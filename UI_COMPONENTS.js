@@ -1,3 +1,6 @@
+function silentProductionLog() {}
+function silentProductionInfo() {}
+
 // UI_COMPONENTS.js - Advanced UI Components for Sale Zone Store
 // ==========================================================
 // 🎨 مكونات واجهة متقدمة مع الحفاظ على الوظائف الحالية
@@ -861,7 +864,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 2000);
     
-    console.log('✅ UI Components initialized successfully');
+    silentProductionLog('✅ UI Components initialized successfully');
 });
 
 // Make available globally

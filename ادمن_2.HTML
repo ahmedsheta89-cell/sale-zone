@@ -2783,7 +2783,7 @@
                 navigator.serviceWorker.getRegistrations()
                     .then(registrations => Promise.all(registrations.map(reg => reg.unregister())))
                     .then(() => {
-                        console.log('Local dev mode - ServiceWorker disabled in admin to prevent stale cache');
+                        adminDebugLog('Local dev mode - ServiceWorker disabled in admin to prevent stale cache');
                     })
                     .catch(() => undefined);
                 return;
@@ -3231,7 +3231,7 @@
                 return;
             }
 
-            console.log('🔥 Admin: Loading from Firebase...');
+            adminDebugLog('🔥 Admin: Loading from Firebase...');
 
             const collectionTasks = await Promise.allSettled([
                 getAllProducts(),
@@ -3336,10 +3336,10 @@
             saveBanners();
             saveOrders();
 
-            console.log('✅ Admin data loaded with server-truth collection reads');
-            console.log('📦 Products:', products.length);
-            console.log('📦 Banners:', banners.length);
-            console.log('🛍️ Orders:', orders.length);
+            adminDebugLog('✅ Admin data loaded with server-truth collection reads');
+            adminDebugLog('📦 Products:', products.length);
+            adminDebugLog('📦 Banners:', banners.length);
+            adminDebugLog('🛍️ Orders:', orders.length);
 
             if (!Array.isArray(liveSessions)) {
                 liveSessions = [];
@@ -3359,7 +3359,7 @@
                     image: item.image || './assets/placeholder.svg'
                 }));
                 setStorageData('PRODUCTS_ADMIN', compact);
-                console.log(`[INFO] Admin products cache compacted: ${compact.length}/${source.length}`);
+                adminDebugLog(`[INFO] Admin products cache compacted: ${compact.length}/${source.length}`);
                 return;
             }
             setStorageData('PRODUCTS_ADMIN', source);
@@ -3381,7 +3381,7 @@
                     return;
                 }
             } catch (_) {}
-            const writer = (console && typeof console[level] === 'function') ? console[level].bind(console) : console.log.bind(console);
+            const writer = (console && typeof console[level] === 'function' && (level === 'warn' || level === 'error')) ? console[level].bind(console) : (() => {});
             if (typeof meta === 'undefined') writer(`[${code}] ${message}`);
             else writer(`[${code}] ${message}`, meta);
         }
@@ -9043,7 +9043,7 @@ function collectRequiredImageMap(productsList) {
         });
     });
     // WHY: expose map/skip counters for uploader diagnostics in production console.
-    console.log('[IMAGE_MAP] Required:', requiredMap.size, '| Skipped invalid:', skippedInvalidCount);
+    adminDebugLog('[IMAGE_MAP] Required:', requiredMap.size, '| Skipped invalid:', skippedInvalidCount);
     return { requiredMap, duplicateRequiredNames };
 }
 
@@ -9054,12 +9054,12 @@ function collectRequiredImageNames(productsList) {
 async function fetchAllProductsForImageUpload() {
     try {
         // WHY: image uploader is an admin tool, so it must inspect all admin products, not only published storefront rows.
-        console.info('[IMAGE_UPLOADER] source=firestore_admin_products');
+        adminDebugInfo('[IMAGE_UPLOADER] source=firestore_admin_products');
         if (typeof getAllProducts === 'function') {
             const results = await getAllProducts();
             const validated = ensureProductsSchema(results)
                 .filter((item) => shouldProductReceiveExcelImage(item));
-            console.log('[IMAGE_UPLOADER] Admin products for upload:', validated.length);
+            adminDebugLog('[IMAGE_UPLOADER] Admin products for upload:', validated.length);
             console.table(validated.slice(0, 20).map((item) => ({
                 id: String(item && item.id || ''),
                 name: String(item && (item.name || item.nameEn) || ''),
@@ -9078,8 +9078,8 @@ async function fetchAllProductsForImageUpload() {
             const snap = await firestore.collection('products').get();
             const rows = ensureProductsSchema(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))
                 .filter((item) => shouldProductReceiveExcelImage(item));
-            console.log('[IMAGE_UPLOADER] Firestore admin fallback count:', rows.length);
-            console.info('[IMAGE_UPLOADER] source=firestore_admin_products_fallback');
+            adminDebugLog('[IMAGE_UPLOADER] Firestore admin fallback count:', rows.length);
+            adminDebugInfo('[IMAGE_UPLOADER] source=firestore_admin_products_fallback');
             console.table(rows.slice(0, 20).map((item) => ({
                 id: String(item && item.id || ''),
                 name: String(item && (item.name || item.nameEn) || ''),
@@ -9274,7 +9274,7 @@ async function uploadMatchedFilesToCloudinary(matchedFiles) {
     runtime.controller = null;
     runtime.uploadSessionId = uploadSessionId;
     runtime.lastFailedItems = [];
-    console.info('[EXCEL_IMAGE_UPLOAD] queue started:', {
+    adminDebugInfo('[EXCEL_IMAGE_UPLOAD] queue started:', {
         totalFiles: files.length,
         delayMs: EXCEL_UPLOAD_DELAY_MS,
         maxAttempts: EXCEL_UPLOAD_MAX_ATTEMPTS,
@@ -9310,8 +9310,8 @@ async function uploadMatchedFilesToCloudinary(matchedFiles) {
             let attempt = 0;
             let uploadDone = false;
             let lastMessage = '';
-            console.groupCollapsed('[EXCEL_IMAGE_UPLOAD] file start');
-            console.info('[EXCEL_IMAGE_UPLOAD] file meta:', {
+            adminDebugGroup('[EXCEL_IMAGE_UPLOAD] file start');
+            adminDebugInfo('[EXCEL_IMAGE_UPLOAD] file meta:', {
                 name: String(file.name || ''),
                 size: Number(file.size || 0),
                 type: String(file.type || ''),
@@ -9320,7 +9320,7 @@ async function uploadMatchedFilesToCloudinary(matchedFiles) {
 
             while (!uploadDone && attempt < EXCEL_UPLOAD_MAX_ATTEMPTS) {
                 attempt += 1;
-                console.info('[EXCEL_IMAGE_UPLOAD] attempt:', {
+                adminDebugInfo('[EXCEL_IMAGE_UPLOAD] attempt:', {
                     file: file.name,
                     attempt,
                     maxAttempts: EXCEL_UPLOAD_MAX_ATTEMPTS
@@ -9350,7 +9350,7 @@ async function uploadMatchedFilesToCloudinary(matchedFiles) {
                         publicId: String(result && (result.publicId || result.public_id || publicId) || publicId),
                         secureUrl: String(result && (result.url || result.secure_url) || '')
                     });
-                    console.info('[EXCEL_IMAGE_UPLOAD] upload success:', {
+                    adminDebugInfo('[EXCEL_IMAGE_UPLOAD] upload success:', {
                         file: file.name,
                         publicId: String(result && (result.publicId || result.public_id || publicId) || publicId),
                         secureUrl: String(result && (result.url || result.secure_url) || '')
@@ -9402,7 +9402,7 @@ async function uploadMatchedFilesToCloudinary(matchedFiles) {
             });
             console.error('[EXCEL_IMAGE_UPLOAD] upload failed:', file.name, error);
         } finally {
-            console.groupEnd();
+            adminDebugGroupEnd();
             runtime.controller = null;
         }
 
@@ -9456,7 +9456,7 @@ async function persistUploadedImagesToProducts(uploadedItems) {
                 });
                 linkedProducts.push(productId);
                 const matchedName = productNames[0] || productId;
-                console.info(`✅ منتج ${matchedName} ← ${String(item && item.file || '')}`);
+                adminDebugInfo(`✅ منتج ${matchedName} ← ${String(item && item.file || '')}`);
 
                 if (Array.isArray(products)) {
                     const localProduct = products.find((product) => String(product && product.id || '') === productId);
@@ -9730,8 +9730,8 @@ async function openExcelImagesOnlyUploader() {
         return;
     }
 
-    console.groupCollapsed('[EXCEL_IMAGE_UPLOAD] بدء تدفق رفع صور الإكسل');
-    console.info('[EXCEL_IMAGE_UPLOAD] runtime state:', {
+    adminDebugGroup('[EXCEL_IMAGE_UPLOAD] بدء تدفق رفع صور الإكسل');
+    adminDebugInfo('[EXCEL_IMAGE_UPLOAD] runtime state:', {
         inFlight: runtime.inFlight,
         cancelRequested: runtime.cancelRequested
     });
@@ -9780,7 +9780,7 @@ async function openExcelImagesOnlyUploader() {
 
         const requiredResult = collectRequiredImageMap(productsList);
         const requiredMap = requiredResult.requiredMap;
-        console.info('[EXCEL_IMAGE_UPLOAD] required basenames:', requiredMap.size);
+        adminDebugInfo('[EXCEL_IMAGE_UPLOAD] required basenames:', requiredMap.size);
         if (requiredMap.size === 0) {
             finalizeExcelImageUploadModal({
                 uploaded: [],
@@ -9841,7 +9841,7 @@ async function openExcelImagesOnlyUploader() {
         }
 
         const { matchedFiles, missingRequired, duplicates, skippedCount, unmatchedSelected } = filterMatchingFiles(selectedFiles, requiredMap);
-        console.info('[EXCEL_IMAGE_UPLOAD] matching summary:', {
+        adminDebugInfo('[EXCEL_IMAGE_UPLOAD] matching summary:', {
             selected: selectedFiles.length,
             matched: matchedFiles.length,
             missing: missingRequired.length,
@@ -9907,9 +9907,9 @@ async function openExcelImagesOnlyUploader() {
         }
 
         showNotification('info', `بدء رفع ${matchedFiles.length} صورة مطابقة من أصل ${requiredMap.size} صورة مطلوبة.`);
-        console.info('[EXCEL_IMAGE_UPLOAD] required:', requiredMap.size, 'selected:', selectedFiles.length, 'matched:', matchedFiles.length);
+        adminDebugInfo('[EXCEL_IMAGE_UPLOAD] required:', requiredMap.size, 'selected:', selectedFiles.length, 'matched:', matchedFiles.length);
         const uploadResult = await runCloudinaryUploadQueue(matchedFiles, { mode: 'main' });
-        console.info('[EXCEL_IMAGE_UPLOAD] upload result:', {
+        adminDebugInfo('[EXCEL_IMAGE_UPLOAD] upload result:', {
             uploaded: uploadResult.uploaded.length,
             failed: uploadResult.failed.length,
             canceled: uploadResult.canceled === true
@@ -9949,7 +9949,7 @@ async function openExcelImagesOnlyUploader() {
         showNotification('error', `فشل تنفيذ رفع صور الإكسل: ${String(error && error.message || 'خطأ غير معروف')}`);
     } finally {
         toggleExcelUploaderButtonLoading(false);
-        console.groupEnd();
+        adminDebugGroupEnd();
     }
 }
 

@@ -1,4 +1,7 @@
-﻿// cloudinary-service.js - Production Cloudinary uploader
+function cloudinaryDebugInfo() {}
+function cloudinaryDebugGroup() {}
+function cloudinaryDebugGroupEnd() {}
+// cloudinary-service.js - Production Cloudinary uploader
 // ======================================================
 
 // Configure Cloudinary for production-safe unsigned uploads.
@@ -141,14 +144,14 @@ async function uploadToCloudinary(file, options = {}) {
     }
 
     return new Promise((resolve, reject) => {
-        console.groupCollapsed('[CLOUDINARY_UPLOAD] بدء رفع الصورة');
-        console.info('[CLOUDINARY_UPLOAD] file:', {
+        cloudinaryDebugGroup('[CLOUDINARY_UPLOAD] بدء رفع الصورة');
+        cloudinaryDebugInfo('[CLOUDINARY_UPLOAD] file:', {
             name: uploadFile && uploadFile.name ? String(uploadFile.name) : '',
             size: Number(uploadFile && uploadFile.size || 0),
             type: String(uploadFile && uploadFile.type || ''),
             originalSize: Number(file && file.size || 0)
         });
-        console.info('[CLOUDINARY_UPLOAD] config:', {
+        cloudinaryDebugInfo('[CLOUDINARY_UPLOAD] config:', {
             cloudName: CLOUDINARY_CONFIG.cloudName,
             uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
             folder,
@@ -157,7 +160,7 @@ async function uploadToCloudinary(file, options = {}) {
 
         if (signal && signal.aborted) {
             console.warn('[CLOUDINARY_UPLOAD] aborted before request start');
-            console.groupEnd();
+            cloudinaryDebugGroupEnd();
             reject(buildCloudinaryUploadError('تم إلغاء الرفع', {
                 code: 'UPLOAD_ABORTED'
             }));
@@ -189,11 +192,11 @@ async function uploadToCloudinary(file, options = {}) {
             if (settled) return;
             settled = true;
             cleanup();
-            console.info('[CLOUDINARY_UPLOAD] success:', {
+            cloudinaryDebugInfo('[CLOUDINARY_UPLOAD] success:', {
                 public_id: payload && payload.public_id ? String(payload.public_id) : '',
                 secure_url: payload && payload.secure_url ? String(payload.secure_url) : ''
             });
-            console.groupEnd();
+            cloudinaryDebugGroupEnd();
             resolve(payload);
         };
 
@@ -212,7 +215,7 @@ async function uploadToCloudinary(file, options = {}) {
                 statusCode: normalized.statusCode || null,
                 transient: normalized.transient === true
             });
-            console.groupEnd();
+            cloudinaryDebugGroupEnd();
             reject(normalized);
         };
 

@@ -1,3 +1,6 @@
+function silentProductionLog() {}
+function silentProductionInfo() {}
+
 // firebase-config.js - Firebase Configuration
 // ==========================================
 
@@ -152,7 +155,9 @@ async function waitForAppCheck(maxWaitMs = 3000) {
 window.waitForAppCheck = waitForAppCheck;
 
 function enableAppCheckDebugTokenForLocalhost() {
-    if (!isLocalDev || typeof self === 'undefined') return;
+    const shouldUseDebugToken = parseOptionalBooleanFlag(urlParams.get('appcheckdebug')) === true
+        || window.FORCE_FIREBASE_APPCHECK_DEBUG_TOKEN === true;
+    if (!shouldUseDebugToken || typeof self === 'undefined') return;
     if (typeof self.FIREBASE_APPCHECK_DEBUG_TOKEN === 'undefined') {
         self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     }
@@ -169,7 +174,7 @@ function scheduleAppCheckRetry(reason) {
         initAppCheck();
     }, APP_CHECK_RETRY_DELAY_MS);
 
-    console.info(`[App Check] retry scheduled (${currentAttempts + 1}/${APP_CHECK_MAX_RETRIES}) reason=${String(reason || 'unknown')}`);
+    silentProductionInfo(`[App Check] retry scheduled (${currentAttempts + 1}/${APP_CHECK_MAX_RETRIES}) reason=${String(reason || 'unknown')}`);
 }
 
 function initAppCheck() {
@@ -192,7 +197,7 @@ function initAppCheck() {
         if (!appCheckKey) {
             window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
             window.__FIREBASE_APP_CHECK_REASON__ = 'site-key-missing';
-            console.info('[INFO] Firebase App Check not activated (missing site key).');
+            silentProductionInfo('[INFO] Firebase App Check not activated (missing site key).');
             return;
         }
 
@@ -364,17 +369,17 @@ function setupFirestoreAutoReconnect() {
         && isGithubPages !== true
         && forcePollingTransport !== true;
     if (intervalReconnectRequested === true && allowIntervalReconnect !== true) {
-        console.info('[INFO] Firestore interval reconnect override ignored for GitHub Pages/long-polling mode.');
+        silentProductionInfo('[INFO] Firestore interval reconnect override ignored for GitHub Pages/long-polling mode.');
     }
     if (allowIntervalReconnect) {
         setInterval(() => {
             if (navigator.onLine === false) return;
             safeEnableNetwork('interval').catch(() => null);
         }, 120000);
-        console.log('[INFO] Firestore interval reconnect watchdog enabled (override mode).');
+        silentProductionLog('[INFO] Firestore interval reconnect watchdog enabled (override mode).');
     }
     if (!shouldUseAutoNetworkToggle) {
-        console.info('[INFO] Firestore auto network toggles disabled for stability (GitHub Pages/long-polling policy).');
+        silentProductionInfo('[INFO] Firestore auto network toggles disabled for stability (GitHub Pages/long-polling policy).');
     }
 
     window.__FIRESTORE_SAFE_ENABLE_NETWORK__ = safeEnableNetwork;
@@ -394,7 +399,7 @@ if (shouldApplyStableTransport) {
             window.__FIRESTORE_SETTINGS_APPLIED__ = true;
             window.__FIRESTORE_STABLE_TRANSPORT_MODE__ = "force";
         }
-        console.log("Firestore stable transport enabled (force long-polling)");
+        silentProductionLog("Firestore stable transport enabled (force long-polling)");
     } catch (e) {
         // Non-fatal:
         // - settings already applied in this page lifecycle
@@ -419,15 +424,15 @@ if (shouldApplyStableTransport) {
 if (isGithubPages) {
     // Keep Firebase online mode on production; realtime listeners are gated in firebase-data.js.
     if (forcePollingTransport) {
-        console.log(`GitHub Pages detected - Firebase online mode enabled (forced long-polling via ${transportPolicy.source})`);
+        silentProductionLog(`GitHub Pages detected - Firebase online mode enabled (forced long-polling via ${transportPolicy.source})`);
     } else {
-        console.log("GitHub Pages detected - Firebase online mode enabled");
+        silentProductionLog("GitHub Pages detected - Firebase online mode enabled");
     }
 } else {
     if (forcePollingTransport) {
-        console.log(`Firebase initialized (forced long-polling via ${transportPolicy.source})`);
+        silentProductionLog(`Firebase initialized (forced long-polling via ${transportPolicy.source})`);
     } else {
-        console.log("Firebase initialized");
+        silentProductionLog("Firebase initialized");
     }
 }
 

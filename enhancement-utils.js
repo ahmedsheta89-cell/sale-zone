@@ -1,3 +1,6 @@
+function silentProductionLog() {}
+function silentProductionInfo() {}
+
 // enhancement-utils.js - Enhanced Utilities for Sale Zone Store
 // =======================================================
 // 🚀 أدوات محسّنة لتطوير المتجر دون هدم الوظائف الحالية
@@ -349,10 +352,10 @@ class EnhancedMobile {
         // Handle swipe gestures for navigation
         if (diff > 0) {
             // Swipe left - could open cart or next product
-            console.log('Swipe left detected');
+            silentProductionLog('Swipe left detected');
         } else {
             // Swipe right - could go back or previous product
-            console.log('Swipe right detected');
+            silentProductionLog('Swipe right detected');
         }
     }
     
@@ -470,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.showNotification = (type, title, message) => EnhancedUI.showNotification(type, title, message);
     }
     
-    console.log('✅ Enhanced utilities loaded successfully');
+    silentProductionLog('✅ Enhanced utilities loaded successfully');
 });
 
 // Make utilities available globally
@@ -480,4 +483,4 @@ window.EnhancedSearch = EnhancedSearch;
 window.EnhancedMobile = EnhancedMobile;
 window.EnhancedPerformance = EnhancedPerformance;
 
-console.log('✅ Enhanced utilities loaded successfully');
+silentProductionLog('✅ Enhanced utilities loaded successfully');

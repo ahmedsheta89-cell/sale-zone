@@ -1,4 +1,4 @@
-﻿// firebase-api.js - Firebase Firestore API
+// firebase-api.js - Firebase Firestore API
 // ==========================================
 // Note: db is already declared in firebase-config.js
 
@@ -307,7 +307,6 @@ async function addCoupon(coupon) {
             createdAt: payload.createdAt || nowIso,
             updatedAt: nowIso
         });
-        console.log('[OK] Coupon added via Firestore:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addCoupon error:', e);
@@ -326,7 +325,6 @@ async function updateCoupon(id, data) {
             ...payload,
             updatedAt: new Date().toISOString()
         }, { merge: true });
-        console.log('[OK] Coupon updated via Firestore:', docId);
     } catch (e) {
         console.error('updateCoupon error:', e);
         throw e;
@@ -340,7 +338,6 @@ async function deleteCoupon(id) {
         const docId = String(id || '').trim();
         if (!docId) throw new Error('coupon id is required');
         await db.collection('coupons').doc(docId).delete();
-        console.log('[OK] Coupon deleted via Firestore:', docId);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -384,7 +381,6 @@ async function addBanner(banner) {
             createdAt: payload.createdAt || nowIso,
             updatedAt: nowIso
         });
-        console.log('[OK] Banner added via Firestore:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addBanner error:', e);
@@ -403,7 +399,6 @@ async function updateBanner(id, data) {
             ...payload,
             updatedAt: new Date().toISOString()
         }, { merge: true });
-        console.log('[OK] Banner updated via Firestore:', docId);
     } catch (e) {
         console.error('updateBanner error:', e);
         throw e;
@@ -417,7 +412,6 @@ async function deleteBanner(id) {
         const docId = String(id || '').trim();
         if (!docId) throw new Error('banner id is required');
         await db.collection('banners').doc(docId).delete();
-        console.log('[OK] Banner deleted via Firestore:', docId);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
@@ -623,7 +617,6 @@ async function addProduct(product) {
         // WHY: create products directly in Firestore to remove backend dependency.
         const db = getFirebaseDB();
         const docRef = await db.collection('products').add(payload);
-        console.log('[OK] Product added via Firestore:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addProduct error:', e);
@@ -642,7 +635,6 @@ async function updateProduct(id, data) {
         const docId = String(id || '').trim();
         if (!docId) throw new Error('product id is required');
         await db.collection('products').doc(docId).set(normalizedPayload, { merge: true });
-        console.log('[OK] Product updated via Firestore:', docId);
     } catch (e) {
         console.error('updateProduct error:', e);
         throw e;
@@ -672,7 +664,6 @@ async function addProductsBatch(productsArray, options = {}) {
             }
         }
 
-        console.log('[OK] Products batch added via backend:', createdIds.length);
         return createdIds;
     } catch (e) {
         console.error('addProductsBatch error:', e);
@@ -687,7 +678,6 @@ async function updateProductVisibility(id, isPublished) {
             isPublished: published,
             visibilityState: published ? 'published' : 'hidden'
         });
-        console.log('[OK] Product visibility updated via backend:', id, published);
     } catch (e) {
         console.error('updateProductVisibility error:', e);
         throw e;
@@ -714,7 +704,6 @@ async function updateProductsVisibilityBatch(ids, isPublished, options = {}) {
             }
         }
 
-        console.log('[OK] Products visibility batch updated via backend:', updatedCount);
         return updatedCount;
     } catch (e) {
         console.error('updateProductsVisibilityBatch error:', e);
@@ -738,7 +727,6 @@ async function deleteProductsBatch(ids, options = {}) {
             }
         }
 
-        console.log('[OK] Products batch deleted via backend:', deletedCount);
         return deletedCount;
     } catch (e) {
         console.error('deleteProductsBatch error:', e);
@@ -753,7 +741,6 @@ async function deleteProductFromFirebase(id) {
         const docId = String(id || '').trim();
         if (!docId) throw new Error('product id is required');
         await db.collection('products').doc(docId).delete();
-        console.log('[OK] Product deleted via Firestore:', docId);
     } catch (e) {
         console.error('deleteProduct error:', e);
         throw e;
@@ -775,7 +762,6 @@ async function deleteProductImage(productId) {
             images: [],
             updatedAt: new Date().toISOString()
         }, { merge: true });
-        console.log('[OK] Product image references cleared via Firestore:', docId);
         return { success: true };
     } catch (e) {
         console.error('deleteProductImage error:', e);
@@ -1316,7 +1302,6 @@ async function updateOrderStatus(id, status) {
             details: { from: String(current.status || ''), to: nextStatus }
         });
 
-        console.log('[OK] Order status updated via Firestore:', orderId);
     } catch (e) {
         console.error('updateOrderStatus error:', e);
         throw e;
@@ -1632,7 +1617,6 @@ async function addSupplier(payload) {
         const db = getFirebaseDB();
         const normalized = normalizeSupplierPayload(payload);
         const docRef = await db.collection('suppliers').add(normalized);
-        console.log('[OK] Supplier added to Firebase:', docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('addSupplier error:', e);
@@ -1648,7 +1632,6 @@ async function updateSupplier(id, payload) {
         const current = snapshot.exists ? (snapshot.data() || {}) : {};
         const normalized = normalizeSupplierPayload(payload, current);
         await ref.set(normalized, { merge: true });
-        console.log('[OK] Supplier updated in Firebase:', id);
     } catch (e) {
         console.error('updateSupplier error:', e);
         throw e;
@@ -1662,7 +1645,6 @@ async function archiveSupplier(id) {
             active: false,
             updatedAt: new Date().toISOString()
         }, { merge: true });
-        console.log('[OK] Supplier archived in Firebase:', id);
     } catch (e) {
         console.error('archiveSupplier error:', e);
         throw e;
@@ -1792,7 +1774,6 @@ async function updateCustomer(id, data) {
             email: String(existing.email || data && data.email || '')
         });
         await db.collection('customers').doc(docId).set(normalized, { merge: true });
-        console.log('✅ Customer updated in Firebase:', id);
     } catch (e) {
         console.error('updateCustomer error:', e);
         throw e;
@@ -1803,7 +1784,6 @@ async function deleteCustomerFromFirebase(id) {
     try {
         const db = getFirebaseDB();
         await db.collection('customers').doc(String(id)).delete();
-        console.log('✅ Customer deleted from Firebase:', id);
     } catch (e) {
         console.error('deleteCustomerFromFirebase error:', e);
         throw e;
@@ -1828,7 +1808,6 @@ async function getAllCoupons() {
 async function deleteCouponFromFirebase(id) {
     try {
         await deleteCoupon(id);
-        console.log('[OK] Coupon deleted via Firestore:', id);
     } catch (e) {
         console.error('deleteCoupon error:', e);
         throw e;
@@ -1853,7 +1832,6 @@ async function getAllBanners() {
 async function deleteBannerFromFirebase(id) {
     try {
         await deleteBanner(id);
-        console.log('[OK] Banner deleted via Firestore:', id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;
