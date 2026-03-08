@@ -11,5 +11,10 @@
     "smoke": "node tools/smoke-check.js",
     "contracts": "node tools/contracts-check.js",
     "monitor": "node tools/admin-function-monitor.js"
+  },
+  "devDependencies": {
+    "acorn": "^8.16.0",
+    "astring": "^1.9.0",
+    "parse5": "^8.0.0"
   }
 }
