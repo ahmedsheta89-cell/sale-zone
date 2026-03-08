@@ -323,7 +323,7 @@ jobs:
           # NOTE: GATE_STATE_BACKEND_OPTIONAL_DISABLED and admin24hLastSource
           # are part of release/lockdown-stabilization (ON HOLD)
           # Remove assertions until that branch is merged
-          node -e "const fs=require('fs'); const api=fs.readFileSync('firebase-api.js','utf8'); const checks=[{ok:/isBackendApiUnavailableError/.test(api),msg:'missing backend unavailable classifier in firebase-api.js'},{ok:/backendUnavailableNoticePrinted/.test(api),msg:'missing one-time backend notice guard in firebase-api.js'}]; const fails=checks.filter(c=>!c.ok); if(fails.length){console.error(fails.map(f=>'- '+f.msg).join('\n')); process.exit(1);} console.log('Risk 3 proof: backend-warning noise guard assertions passed in firebase-api.js');"
+          node -e "const fs=require('fs'); const api=fs.readFileSync('assets/js/firebase-api.js','utf8'); const checks=[{ok:/isBackendApiUnavailableError/.test(api),msg:'missing backend unavailable classifier in firebase-api.js'},{ok:/backendUnavailableNoticePrinted/.test(api),msg:'missing one-time backend notice guard in firebase-api.js'}]; const fails=checks.filter(c=>!c.ok); if(fails.length){console.error(fails.map(f=>'- '+f.msg).join('\n')); process.exit(1);} console.log('Risk 3 proof: backend-warning noise guard assertions passed in firebase-api.js');"
           echo "Risk 3 passed - backend-warning noise guard assertions passed." > console-proof.txt
       - name: Upload console proof
         if: always()

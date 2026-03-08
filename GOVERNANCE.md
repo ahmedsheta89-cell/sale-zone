@@ -7,7 +7,7 @@
 - CI/CD: GitHub Actions
 - Admin: ادمن_2.HTML
 - Store: متجر_2.HTML
-- API Layer: firebase-api.js (126 functions, all Firestore direct)
+- API Layer: assets/js/firebase-api.js (126 functions, all Firestore direct)
 
 ## Architecture Decisions
 ### Firebase Spark Plan
@@ -41,7 +41,7 @@ Required checks (exact names):
   3. Copy the site key
   4. Open Firebase App Check for `sale-zone-601f0`
   5. Register the web app and paste the site key
-  6. Set the key in `<meta name="firebase-app-check-site-key">`, `window.FIREBASE_APP_CHECK_SITE_KEY`, or `DEFAULT_FIREBASE_APP_CHECK_SITE_KEY` in `firebase-config.js`
+  6. Set the key in `<meta name="firebase-app-check-site-key">`, `window.FIREBASE_APP_CHECK_SITE_KEY`, or `DEFAULT_FIREBASE_APP_CHECK_SITE_KEY` in `assets/js/firebase-config.js`
   7. Reload the app and verify App Check is active
 
 ## Release Gate Jobs
@@ -103,10 +103,10 @@ If main Release Gate is failing:
 
 ## Sensitive Files
 These files require `version.json` bump when changed:
-- `firebase-api.js`
+- `assets/js/firebase-api.js`
 - `ادمن_2.HTML`
 - `متجر_2.HTML`
-- `firebase-config.js`
+- `assets/js/firebase-config.js`
 
 ## Feature Protection System
 - `monitoring/feature-registry.json` is the source of truth for critical admin/store features that must never be removed accidentally.
@@ -134,7 +134,7 @@ These files require `version.json` bump when changed:
 |----|-------------|--------|
 | #19 | Firestore rules | Merged |
 | #20 | deploy-backend workflow | Merged |
-| #21 | firebase-api.js markers | Merged |
+| #21 | assets/js/firebase-api.js markers | Merged |
 | #22 | ادمن_2.HTML CRUD | Merged |
 | #23 | متجر_2.HTML improvements | Merged |
 | #24 | Release Gate fix | Merged |

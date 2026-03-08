@@ -27,9 +27,9 @@ const CRITICAL_ASSETS = [
   '/icon-512.png',
   '/assets/placeholder.svg',
   '/assets/banner-placeholder.svg',
-  '/cloudinary-service.js',
-  '/product-search-worker.js',
-  '/ADMIN_ERROR_DASHBOARD.js',
+  '/assets/js/cloudinary-service.js',
+  '/assets/js/product-search-worker.js',
+  '/assets/js/ADMIN_ERROR_DASHBOARD.js',
   '/offline.html'
 ];
 

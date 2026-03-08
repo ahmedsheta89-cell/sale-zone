@@ -5,8 +5,8 @@
 .env.production
 
 # API Keys and Secrets
-firebase-config.js
-cloudinary-service.js
+/firebase-config.js
+/cloudinary-service.js
 serviceAccount*.json
 service-account*.json
 firebase-service-account*.json

@@ -7,7 +7,7 @@ const path = require('path');
 const root = process.cwd();
 const storeHtmlPath = path.join(root, '\u0645\u062a\u062c\u0631_2.HTML');
 const adminHtmlPath = path.join(root, '\u0627\u062f\u0645\u0646_2.HTML');
-const firebaseApiPath = path.join(root, 'firebase-api.js');
+const firebaseApiPath = path.join(root, 'assets/js/firebase-api.js');
 
 const storeHtml = fs.readFileSync(storeHtmlPath, 'utf8');
 const adminHtml = fs.readFileSync(adminHtmlPath, 'utf8');
