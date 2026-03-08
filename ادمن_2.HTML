@@ -2560,10 +2560,12 @@
                 supplierCode: String(source.supplierCode || defaults.supplierCode || ''),
                 ...pricing,
                 oldPrice: Number.isFinite(parseMoney(source.oldPrice)) ? parseMoney(source.oldPrice) : null,
-                image: sanitizeImageUrl(source.image || DEFAULT_PRODUCT_IMAGE),
+                image: sanitizeImageUrl(source.image || source.imageUrl || DEFAULT_PRODUCT_IMAGE),
+                imageUrl: sanitizeImageUrl(source.imageUrl || source.image || DEFAULT_PRODUCT_IMAGE),
                 rating: Number.isFinite(Number(source.rating)) ? Number(source.rating) : 4.5,
                 ratingCount: Number.isFinite(Number(source.ratingCount)) ? Number(source.ratingCount) : 0,
                 code: String(source.code || ''),
+                sku: String(source.sku || source.code || ''),
                 stock: Number.isFinite(Number(source.stock)) ? Number(source.stock) : -1,
                 searchTokens: Array.isArray(source.searchTokens) && source.searchTokens.length
                     ? source.searchTokens
@@ -4153,7 +4155,7 @@ function adminLogout(){
             renderProductsTable();
             updateStats();
             if (online) {
-                showNotification('success', publishValue ? 'تم نشر المنتج' : 'تم إخفاء المنتج');
+                showNotification('success', publishValue ? 'تم النشر ✅' : 'تم الإخفاء 🔒');
             }
         }
 
@@ -8978,6 +8980,35 @@ function normalizeImageKey(value) {
     return normalizeFilenameForMatch(value);
 }
 
+function getProductImageMatchAliases(product) {
+    const source = product && typeof product === 'object' ? product : {};
+    const aliasSet = new Set();
+    const pushAlias = (value) => {
+        const key = normalizeImageKey(value);
+        if (!key) return;
+        aliasSet.add(key);
+    };
+
+    pushAlias(source.image);
+    pushAlias(source.imageUrl);
+    pushAlias(source.name);
+    pushAlias(source.code);
+    pushAlias(source.sku);
+
+    return Array.from(aliasSet);
+}
+
+function isCloudinaryProductImage(value) {
+    return /^https:\/\/res\.cloudinary\.com\//i.test(String(value || '').trim());
+}
+
+function shouldProductReceiveExcelImage(product) {
+    const source = product && typeof product === 'object' ? product : {};
+    const currentImage = String(source.imageUrl || source.image || '').trim();
+    if (isCloudinaryProductImage(currentImage)) return false;
+    return getProductImageMatchAliases(source).length > 0;
+}
+
 function collectRequiredImageMap(productsList) {
     const requiredMap = new Map();
     const duplicateRequiredNames = [];
@@ -8985,51 +9016,31 @@ function collectRequiredImageMap(productsList) {
     let skippedInvalidCount = 0;
     const rows = Array.isArray(productsList) ? productsList : [];
     rows.forEach((product) => {
-        // WHY: read image source from each product row before matching.
-        const rawImage = product && product.image;
-        // WHY: skip missing or base64 sources to prevent impossible upload requirements.
-        if (!rawImage || String(rawImage).trim().startsWith('data:')) {
+        const aliases = getProductImageMatchAliases(product);
+        if (!shouldProductReceiveExcelImage(product) || !aliases.length) {
             skippedInvalidCount += 1;
             return;
         }
-        // WHY: skip empty normalized keys to avoid fake required entries.
-        const normalizedKey = normalizeImageKey(rawImage);
-        // WHY: enforce non-empty normalized key before adding to map.
-        if (!normalizedKey || !String(normalizedKey).trim()) {
-            skippedInvalidCount += 1;
-            return;
-        }
-        // WHY: keep display filename for reporting while using normalized key for matching.
-        const fileName = extractFilenameFromImageValue(rawImage);
-        // WHY: allow only http(s) URLs or image-like filename sources and skip unsupported keys.
-        const rawImageValue = String(rawImage).trim();
-        // WHY: detect direct http/https image sources safely.
-        const isHttpSource = /^https?:\/\//i.test(rawImageValue);
-        // WHY: detect image-like filename sources to support filename-based Cloudinary flows.
-        const isImageLikeFileName = /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)(?:[?#].*)?$/i.test(fileName || rawImageValue);
-        // WHY: exclude unsupported non-http/non-image entries to avoid ghost image requests.
-        if (!isHttpSource && !isImageLikeFileName) {
-            skippedInvalidCount += 1;
-            return;
-        }
-        // WHY: keep stable key regardless of file extension or URL form.
-        const key = normalizedKey;
-
-        if (!requiredMap.has(key)) {
-            requiredMap.set(key, {
-                key,
-                displayNames: new Set(),
-                rawValues: new Set(),
-                productIds: new Set()
-            });
-        } else {
-            duplicateRequiredNames.push(fileName || String(rawImage || key));
-        }
-
-        const entry = requiredMap.get(key);
-        if (fileName) entry.displayNames.add(fileName);
-        if (rawImage != null && String(rawImage).trim()) entry.rawValues.add(String(rawImage).trim());
-        if (product && product.id != null) entry.productIds.add(String(product.id));
+        const rawImage = product && (product.imageUrl || product.image);
+        const productName = String(product && (product.name || product.nameEn) || '').trim();
+        aliases.forEach((key) => {
+            if (!requiredMap.has(key)) {
+                requiredMap.set(key, {
+                    key,
+                    displayNames: new Set(),
+                    rawValues: new Set(),
+                    productIds: new Set(),
+                    productNames: new Set()
+                });
+            } else {
+                duplicateRequiredNames.push(productName || String(rawImage || key));
+            }
+            const entry = requiredMap.get(key);
+            if (productName) entry.displayNames.add(productName);
+            if (rawImage != null && String(rawImage).trim()) entry.rawValues.add(String(rawImage).trim());
+            if (product && product.id != null) entry.productIds.add(String(product.id));
+            if (productName) entry.productNames.add(productName);
+        });
     });
     // WHY: expose map/skip counters for uploader diagnostics in production console.
     console.log('[IMAGE_MAP] Required:', requiredMap.size, '| Skipped invalid:', skippedInvalidCount);
@@ -9047,8 +9058,7 @@ async function fetchAllProductsForImageUpload() {
         if (typeof getAllProducts === 'function') {
             const results = await getAllProducts();
             const validated = ensureProductsSchema(results)
-                // WHY: exclude empty/base64 image values from uploader requirements.
-                .filter((item) => item && item.image && !String(item.image).startsWith('data:'));
+                .filter((item) => shouldProductReceiveExcelImage(item));
             console.log('[IMAGE_UPLOADER] Admin products for upload:', validated.length);
             console.table(validated.slice(0, 20).map((item) => ({
                 id: String(item && item.id || ''),
@@ -9067,7 +9077,7 @@ async function fetchAllProductsForImageUpload() {
         if (firestore && typeof firestore.collection === 'function') {
             const snap = await firestore.collection('products').get();
             const rows = ensureProductsSchema(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))
-                .filter((item) => item && item.image && !String(item.image).startsWith('data:'));
+                .filter((item) => shouldProductReceiveExcelImage(item));
             console.log('[IMAGE_UPLOADER] Firestore admin fallback count:', rows.length);
             console.info('[IMAGE_UPLOADER] source=firestore_admin_products_fallback');
             console.table(rows.slice(0, 20).map((item) => ({
@@ -9204,6 +9214,7 @@ function matchFilesByBasename(requiredMap, selectedIndex) {
     const matchedFiles = [];
     const missingRequired = [];
     const duplicatesSkipped = [];
+    const unmatchedSelected = [];
     const usedKeys = new Set();
 
     required.forEach((entry, key) => {
@@ -9219,7 +9230,8 @@ function matchFilesByBasename(requiredMap, selectedIndex) {
             key,
             requiredDisplay: Array.from((entry && entry.displayNames) || []),
             rawValues: Array.from((entry && entry.rawValues) || []),
-            productIds: Array.from((entry && entry.productIds) || [])
+            productIds: Array.from((entry && entry.productIds) || []),
+            productNames: Array.from((entry && entry.productNames) || [])
         });
         if (Array.isArray(selected.duplicates) && selected.duplicates.length) {
             selected.duplicates.forEach((dup) => {
@@ -9231,11 +9243,14 @@ function matchFilesByBasename(requiredMap, selectedIndex) {
 
     let skippedCount = 0;
     selectedIndex.forEach((item, key) => {
-        if (!usedKeys.has(key)) skippedCount += 1;
+        if (!usedKeys.has(key)) {
+            skippedCount += 1;
+            if (item && item.primary && item.primary.name) unmatchedSelected.push(String(item.primary.name));
+        }
         skippedCount += Array.isArray(item.duplicates) ? item.duplicates.length : 0;
     });
 
-    return { matchedFiles, missingRequired, duplicatesSkipped, nonMatchedSelectedCount: skippedCount };
+    return { matchedFiles, missingRequired, duplicatesSkipped, nonMatchedSelectedCount: skippedCount, unmatchedSelected };
 }
 
 function filterMatchingFiles(selectedFiles, requiredMap) {
@@ -9245,7 +9260,8 @@ function filterMatchingFiles(selectedFiles, requiredMap) {
         matchedFiles: result.matchedFiles,
         missingRequired: result.missingRequired,
         duplicates: result.duplicatesSkipped,
-        skippedCount: result.nonMatchedSelectedCount
+        skippedCount: result.nonMatchedSelectedCount,
+        unmatchedSelected: result.unmatchedSelected
     };
 }
 
@@ -9329,6 +9345,7 @@ async function uploadMatchedFilesToCloudinary(matchedFiles) {
                         file: file.name,
                         key: String(fileItem && fileItem.key || publicId),
                         productIds: Array.isArray(fileItem && fileItem.productIds) ? fileItem.productIds.map((id) => String(id || '').trim()).filter(Boolean) : [],
+                        productNames: Array.isArray(fileItem && fileItem.productNames) ? fileItem.productNames.map((value) => String(value || '').trim()).filter(Boolean) : [],
                         rawValues: Array.isArray(fileItem && fileItem.rawValues) ? fileItem.rawValues.map((value) => String(value || '').trim()).filter(Boolean) : [],
                         publicId: String(result && (result.publicId || result.public_id || publicId) || publicId),
                         secureUrl: String(result && (result.url || result.secure_url) || '')
@@ -9423,6 +9440,9 @@ async function persistUploadedImagesToProducts(uploadedItems) {
         const productIds = Array.isArray(item && item.productIds)
             ? item.productIds.map((id) => String(id || '').trim()).filter(Boolean)
             : [];
+        const productNames = Array.isArray(item && item.productNames)
+            ? item.productNames.map((value) => String(value || '').trim()).filter(Boolean)
+            : [];
 
         if (!secureUrl || !productIds.length) continue;
 
@@ -9435,6 +9455,8 @@ async function persistUploadedImagesToProducts(uploadedItems) {
                     public_id: publicId
                 });
                 linkedProducts.push(productId);
+                const matchedName = productNames[0] || productId;
+                console.info(`✅ منتج ${matchedName} ← ${String(item && item.file || '')}`);
 
                 if (Array.isArray(products)) {
                     const localProduct = products.find((product) => String(product && product.id || '') === productId);
@@ -9456,6 +9478,13 @@ async function persistUploadedImagesToProducts(uploadedItems) {
         }
     }
 
+    if (typeof loadAllData === 'function') {
+        try {
+            await loadAllData();
+        } catch (reloadError) {
+            console.warn('[EXCEL_IMAGE_UPLOAD] admin refresh after image persist failed:', reloadError);
+        }
+    }
     if (typeof renderProductsTable === 'function') renderProductsTable();
     if (typeof updateStats === 'function') updateStats();
     return { linkedProducts, failed };
@@ -9811,13 +9840,16 @@ async function openExcelImagesOnlyUploader() {
             }
         }
 
-        const { matchedFiles, missingRequired, duplicates, skippedCount } = filterMatchingFiles(selectedFiles, requiredMap);
+        const { matchedFiles, missingRequired, duplicates, skippedCount, unmatchedSelected } = filterMatchingFiles(selectedFiles, requiredMap);
         console.info('[EXCEL_IMAGE_UPLOAD] matching summary:', {
             selected: selectedFiles.length,
             matched: matchedFiles.length,
             missing: missingRequired.length,
             duplicates: duplicates.length,
             nonMatchedSelectedCount: skippedCount
+        });
+        (Array.isArray(unmatchedSelected) ? unmatchedSelected : []).forEach((fileName) => {
+            console.warn(`⚠️ لم يتم العثور على منتج لـ ${fileName}`);
         });
         if (duplicates.length > 0) {
             console.warn('[EXCEL_IMAGE_UPLOAD] duplicate files skipped:', duplicates);

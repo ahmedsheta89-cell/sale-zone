@@ -31,6 +31,9 @@ class ErrorDetectionSystem {
             'appCheck/throttled',
             'AppCheck: Requests throttled',
             'exchangeRecaptchaV3Token',
+            'appCheck/fetch-status-error',
+            'AppCheck: Fetch server returned an HTTP error status',
+            'App Check token request failed',
             'ResizeObserver loop limit exceeded',
             'ResizeObserver loop completed with undelivered notifications',
             'Non-Error promise rejection'
