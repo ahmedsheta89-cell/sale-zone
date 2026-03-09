@@ -1,0 +1,94 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Sale Zone ? Google Shopping Feed Preview</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="assets/js/firebase-config.js"></script>
+    <script src="assets/js/firebase-api.js"></script>
+    <script src="assets/js/feed-generator.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+            background: #101418;
+            color: #e8eef5;
+            font-family: Consolas, 'Courier New', monospace;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+<pre id="feedOutput">Loading feed...</pre>
+<script>
+window.__FEED_READY__ = false;
+window.__FEED_ERROR__ = null;
+window.__FEED_PRODUCTS__ = [];
+window.__FEED_XML__ = '';
+
+const FEED_CACHE_KEY = 'cachedFeed';
+const FEED_UPDATED_KEY = 'feedLastUpdated';
+
+function renderFeed(xml) {
+    const output = document.getElementById('feedOutput');
+    if (output) {
+        output.textContent = xml;
+    }
+}
+
+async function loadPublishedProductsForFeed() {
+    if (typeof getPublishedProducts === 'function') {
+        return await getPublishedProducts();
+    }
+    if (typeof getAllProducts === 'function') {
+        const products = await getAllProducts();
+        return (Array.isArray(products) ? products : []).filter((item) => item && item.isPublished === true);
+    }
+    return [];
+}
+
+(async () => {
+    try {
+        const params = new URLSearchParams(window.location.search || '');
+        const useCache = params.get('nocache') !== '1';
+        let xml = '';
+        if (useCache) {
+            const cached = localStorage.getItem(FEED_CACHE_KEY);
+            if (cached && cached.includes('<rss') && cached.includes('<g:id>')) {
+                xml = cached;
+            }
+        }
+
+        let products = [];
+        if (!xml) {
+            products = await loadPublishedProductsForFeed();
+            xml = window.FeedGenerator.generateFeedXML(products);
+            try {
+                localStorage.setItem(FEED_CACHE_KEY, xml);
+                localStorage.setItem(FEED_UPDATED_KEY, new Date().toISOString());
+            } catch (_) {}
+        }
+
+        window.__FEED_PRODUCTS__ = products;
+        window.__FEED_XML__ = xml;
+        window.__FEED_READY__ = true;
+        renderFeed(xml);
+    } catch (error) {
+        window.__FEED_ERROR__ = error && error.message ? String(error.message) : String(error);
+        const output = document.getElementById('feedOutput');
+        if (output) {
+            output.textContent = 'Feed generation failed: ' + window.__FEED_ERROR__;
+        }
+        console.error('Feed generation failed:', error);
+    }
+})();
+</script>
+</body>
+</html>

@@ -37,6 +37,7 @@
     <script src="assets/js/firebase-config.js"></script>
     <script src="assets/js/firebase-api.js"></script>
     <script src="assets/js/firebase-data.js"></script>
+    <script src="assets/js/feed-generator.js"></script>
     <script src="assets/js/auth-utils.js"></script>
     <script src="assets/js/security-utils.js"></script>
     <script src="assets/js/core/logger.js"></script>
@@ -1788,6 +1789,34 @@
             ));
         }
 
+
+        const FEED_CACHE_KEY = 'cachedFeed';
+        const FEED_UPDATED_KEY = 'feedLastUpdated';
+
+        function triggerFeedRegeneration(sourceProducts = null) {
+            try {
+                if (!window.FeedGenerator || typeof window.FeedGenerator.generateFeedXML !== 'function') {
+                    return false;
+                }
+                const feedSource = Array.isArray(sourceProducts)
+                    ? normalizeStoreProducts(sourceProducts)
+                    : getVisibleProductsList();
+                const xml = window.FeedGenerator.generateFeedXML(feedSource);
+                if (!xml || !xml.includes('<rss')) {
+                    return false;
+                }
+                localStorage.setItem(FEED_CACHE_KEY, xml);
+                localStorage.setItem(FEED_UPDATED_KEY, new Date().toISOString());
+                window.__LAST_FEED_XML__ = xml;
+                return true;
+            } catch (error) {
+                console.warn('[Feed] Failed to regenerate cached feed:', error && error.message ? error.message : error);
+                return false;
+            }
+        }
+
+        window.triggerFeedRegeneration = triggerFeedRegeneration;
+
         // ============================================
         // 🚀 Initialize
         // ============================================
@@ -2213,6 +2242,8 @@
                         code: String(item.supplierCode || '')
                     }])
             ).values());
+
+            triggerFeedRegeneration(products);
 
             // Firebase remains source of truth for products/coupons/banners.
             updateLiveSessionState({
