@@ -84,6 +84,8 @@ jobs:
   contracts-check:
     name: contracts-check
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -105,6 +107,18 @@ jobs:
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Contracts Check (definitions + calls)
         run: node tools/contracts-check.js
+      - name: Snapshot Check
+        run: node tools/snapshot-check.js --check
+      - name: Update Function Snapshot
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          git checkout "${GITHUB_REF_NAME}"
+          node tools/snapshot-check.js --update
+          git config user.email "governance@sale-zone.com"
+          git config user.name "Sale Zone Governance Bot"
+          git add monitoring/function-snapshot.json
+          git diff --staged --quiet || git commit -m "chore(governance): update function snapshot [skip ci]"
+          git diff --staged --quiet || git push origin "HEAD:${GITHUB_REF_NAME}"
 
   security-regression-check:
     name: security-regression-check

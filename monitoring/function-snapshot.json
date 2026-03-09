@@ -1,0 +1,586 @@
+{
+  "متجر_2.HTML": {
+    "addToCart": {
+      "found": true,
+      "hash": "06caf355e51138c4d963faabd64bb661"
+    },
+    "addChatMessage": {
+      "found": true,
+      "hash": "817565b71bbe4728997fc10626f15c65"
+    },
+    "applyAdvancedFilters": {
+      "found": true,
+      "hash": "0f0bf4ff0ed1035eb9da069422996c5b"
+    },
+    "applyCoupon": {
+      "found": true,
+      "hash": "5e620c0be60b0e6a5826c4ca873d94fb"
+    },
+    "buildSearchIndexAsync": {
+      "found": true,
+      "hash": "7e41944d42aae8af0201f98308e02394"
+    },
+    "copyCoupon": {
+      "found": true,
+      "hash": "3e40fde3d568b83f9d74f5cd84f9f205"
+    },
+    "ensureSearchWorker": {
+      "found": true,
+      "hash": "29c09085853527f2177dfc1c58871d5f"
+    },
+    "ensureSupportAuthSession": {
+      "found": true,
+      "hash": "e03e370e32cbe5e3f895403d4036997d"
+    },
+    "ensureSupportChatReady": {
+      "found": true,
+      "hash": "84cb5ffd60ae876022596800e8c67134"
+    },
+    "filterByCategory": {
+      "found": true,
+      "hash": "7d69887fa145e9ac1ce101aa4af60269"
+    },
+    "filterByPrice": {
+      "found": true,
+      "hash": "0ef31dee15fcae26d012665340b15ba0"
+    },
+    "handleCheckout": {
+      "found": true,
+      "hash": "08781e3b31983fd97a4cc1659e69b9f3"
+    },
+    "loadMyOrdersFromFirebase": {
+      "found": true,
+      "hash": "121703b8d6d711eba604bf389e0a505b"
+    },
+    "normalizeStoreProduct": {
+      "found": true,
+      "hash": "cf8e0910f0abaf33af72b7fd9430cb69"
+    },
+    "normalizeStoreProducts": {
+      "found": true,
+      "hash": "37a475a7b292f7270ddf7ce93ce6a63f"
+    },
+    "rateProduct": {
+      "found": true,
+      "hash": "69b944d75048270d1b001d9ea36b86c2"
+    },
+    "removeFromCart": {
+      "found": true,
+      "hash": "66d6563f7181b9532d8c45153ea8d017"
+    },
+    "renderCoupons": {
+      "found": true,
+      "hash": "7a1fc50bd57d85b4539d9082cf73d3c2"
+    },
+    "renderProducts": {
+      "found": true,
+      "hash": "1474e72a04945188c8dbfeeb0b0c801f"
+    },
+    "renderSupplierFilters": {
+      "found": true,
+      "hash": "9ebd7aaa5a8ed1bd70060acb508b39b4"
+    },
+    "resetFilters": {
+      "found": true,
+      "hash": "7cbd59f0ceb6b28fb3a2e58064bd04b6"
+    },
+    "runProductSearch": {
+      "found": true,
+      "hash": "79a96f8f39d2e798c16b9000376b6a5d"
+    },
+    "saveCart": {
+      "found": true,
+      "hash": "26dc3502c5ff57e340f168aaa56568d5"
+    },
+    "saveFavorites": {
+      "found": true,
+      "hash": "c973197ea1419bd98eb212aa3876abfa"
+    },
+    "saveOrders": {
+      "found": true,
+      "hash": "b258aabe62bf136245b2260cb8e61a01"
+    },
+    "searchProducts": {
+      "found": true,
+      "hash": "f0635dd51ec94e3e86773a9eb3763d33"
+    },
+    "searchProductsViaWorker": {
+      "found": true,
+      "hash": "f0635dd51ec94e3e86773a9eb3763d33"
+    },
+    "sendChatMessage": {
+      "found": true,
+      "hash": "fb96b5168ce07618fc4b7014340f35fb"
+    },
+    "showAuthModal": {
+      "found": true,
+      "hash": "bcfb62f83ac5d6fa71e9f0a3d62a65e7"
+    },
+    "showCheckout": {
+      "found": true,
+      "hash": "266bdc4f160fc39bdc908661ab7875c3"
+    },
+    "showMyOrders": {
+      "found": true,
+      "hash": "7619d19739f1ed1112c5916855a26c43"
+    },
+    "showOrderTracking": {
+      "found": true,
+      "hash": "a57a9203599405794fdf3a0305de6c0b"
+    },
+    "showProductDetails": {
+      "found": true,
+      "hash": "5132b1cf5db794d8263447436af14532"
+    },
+    "showProfile": {
+      "found": true,
+      "hash": "4238d8cfee70dd1a1f8f05a2d9f9334f"
+    },
+    "showRatingModal": {
+      "found": true,
+      "hash": "91c18c2f54ead12fafc97f8ad69471f7"
+    },
+    "switchAuthTab": {
+      "found": true,
+      "hash": "e0b68cbad4f8161b523d6ff1d9741ebe"
+    },
+    "switchChatMode": {
+      "found": true,
+      "hash": "01ef453971a863df941233837ca00d63"
+    },
+    "toggleCart": {
+      "found": true,
+      "hash": "14914f6dc090b394ec3f181aabab11a1"
+    },
+    "toggleChat": {
+      "found": true,
+      "hash": "eeee86963c48613ef80616a7cdf58c2b"
+    },
+    "toggleFavorites": {
+      "found": true,
+      "hash": "bd6bb7c7f2ec637f1505491c5df20d75"
+    },
+    "trackOrder": {
+      "found": true,
+      "hash": "7f40dfe4945b3c8b23f9d14b6a22509f"
+    },
+    "trackOrderById": {
+      "found": true,
+      "hash": "c5d996a6b4a36e8afef3081397cd2af4"
+    },
+    "updateCartSummary": {
+      "found": true,
+      "hash": "297fc3152f7e4abcd508fe17059fc91f"
+    },
+    "updateCartUI": {
+      "found": true,
+      "hash": "ccb55bf85c0225ea2b2c0ff93aee0945"
+    },
+    "setLanguage": {
+      "found": true,
+      "hash": "ac74f03063b498dbaea910d9f1836592"
+    },
+    "showSkeletonLoader": {
+      "found": true,
+      "hash": "4275695c5083974c98680760878b230e"
+    },
+    "formatPrice": {
+      "found": true,
+      "hash": "48d31fa82939265c593d6f5c5a44d316"
+    },
+    "formatDate": {
+      "found": true,
+      "hash": "d50756ac635a4316fc18dd5fbbb11dc0"
+    },
+    "toggleFav": {
+      "found": true,
+      "hash": "bd6bb7c7f2ec637f1505491c5df20d75"
+    }
+  },
+  "ادمن_2.HTML": {
+    "analyzeSheetForImportCompatibility": {
+      "found": true,
+      "hash": "942f9c6824098626a6cf239a46f0767c"
+    },
+    "buildExcelUploadSessionId": {
+      "found": true,
+      "hash": "7d33efece5baf644033dda4bb7af9815"
+    },
+    "closeExcelImageUploadModal": {
+      "found": true,
+      "hash": "c1440d36264fe18f3e8665cc9c541435"
+    },
+    "commitImportBatch": {
+      "found": true,
+      "hash": "fb485fc6664e40e771763e9bc664ad2b"
+    },
+    "createEmptyImportWizardState": {
+      "found": true,
+      "hash": "bc7fd69ec87ea31664991ab1d1ba1b85"
+    },
+    "deleteAllProducts": {
+      "found": true,
+      "hash": "aa7e1b916536c151785b59961a3a1ddb"
+    },
+    "deleteBanner": {
+      "found": true,
+      "hash": "e39865bf7489452b50ab6c4a643dd294"
+    },
+    "deleteCoupon": {
+      "found": true,
+      "hash": "d3efb81861c0195cab9754d487e046a3"
+    },
+    "deleteCustomer": {
+      "found": true,
+      "hash": "147dbc462da5526f71e46d74064940f7"
+    },
+    "deleteOrder": {
+      "found": true,
+      "hash": "295ace652ab33a97ff5710bed66e9c88"
+    },
+    "deleteProduct": {
+      "found": true,
+      "hash": "be18a89139641d5b5cac4f907cc10dff"
+    },
+    "editProduct": {
+      "found": true,
+      "hash": "5a19152fcdff775ba24d3ee5be8bcbc9"
+    },
+    "ensureExcelImageUploadModal": {
+      "found": true,
+      "hash": "a846897bf810e63fb1dc82f9ece1b7be"
+    },
+    "escapeUploadHtml": {
+      "found": true,
+      "hash": "4dd82d5fe8acf16352026606966ee90a"
+    },
+    "exportAllDataJSON": {
+      "found": true,
+      "hash": "97e1f59901130bd759fccdcc0b18cb94"
+    },
+    "exportClientErrorsExcel": {
+      "found": true,
+      "hash": "34c686305003df54099f379b8d5e44bb"
+    },
+    "exportCouponsExcel": {
+      "found": true,
+      "hash": "3d3d46995f5d5ec97cd6348d62dcd068"
+    },
+    "exportFullReport": {
+      "found": true,
+      "hash": "53331f4719943db976fb457f952a2fc3"
+    },
+    "exportOrdersExcel": {
+      "found": true,
+      "hash": "9b873527bde400ea4700d548feef295d"
+    },
+    "exportProductsExcel": {
+      "found": true,
+      "hash": "0b4f27d73804ba276f320ae21968040a"
+    },
+    "exportToExcel": {
+      "found": true,
+      "hash": "0e1bbf134a7bbd1e2f4aff75bcd2ca72"
+    },
+    "exportUsersExcel": {
+      "found": true,
+      "hash": "4aeff3c0d81ae16c6cbf35a97cd57f1c"
+    },
+    "fetchAllProductsForImageUpload": {
+      "found": true,
+      "hash": "412033b6f409bbaafd84fa0bfd23bfca"
+    },
+    "finalizeExcelImageUploadModal": {
+      "found": true,
+      "hash": "10bf18de74d96a96b7607529c8e3d55a"
+    },
+    "getBestSheetForImport": {
+      "found": true,
+      "hash": "2fb6cc811a1f7f502647f6194bb35fcf"
+    },
+    "getExcelImageUploadElements": {
+      "found": true,
+      "hash": "d8faf7009a5ff5d1c7b43daa943e443a"
+    },
+    "getExcelImageUploaderRuntime": {
+      "found": true,
+      "hash": "8f326366c589a85bdefa2a356a15074a"
+    },
+    "importAllDataJSON": {
+      "found": true,
+      "hash": "f0aa651acdd5a2b1ec11e2cc28bc4f71"
+    },
+    "importProductsExcel": {
+      "found": true,
+      "hash": "9488bcd006a3dba631aa1610edc70e3a"
+    },
+    "isCloudinaryReadyForExcelUpload": {
+      "found": true,
+      "hash": "c91392628fb4defb2890d2660dd58a3a"
+    },
+    "isTransientUploadFailure": {
+      "found": true,
+      "hash": "6b136076abb9e83772db0bd0dfb79dd0"
+    },
+    "loadCustomersPage": {
+      "found": true,
+      "hash": "2527a5e0cdbf84c71ba6c23ef521b62f"
+    },
+    "loadOrdersPage": {
+      "found": true,
+      "hash": "110a94ddaadccc189bd870fe8644c8af"
+    },
+    "makeImportBatchId": {
+      "found": true,
+      "hash": "2e12cab978b99ec122fc48501b2a029d"
+    },
+    "nextImportWizardStep": {
+      "found": true,
+      "hash": "51ce7d9578c74f4aedfaa90f4092b840"
+    },
+    "openAddCategoryPrompt": {
+      "found": true,
+      "hash": "1c11015a0c994abfbac0626faefb2a3c"
+    },
+    "openBannerModalForCreate": {
+      "found": true,
+      "hash": "6a54bd43b4808b3c15aaf92ffb12a344"
+    },
+    "openCouponModalForCreate": {
+      "found": true,
+      "hash": "07f9431ebb8fb4a9eb06a8962fea64e0"
+    },
+    "openExcelImagesOnlyUploader": {
+      "found": true,
+      "hash": "9999029b2028e8689faa032c4838f368"
+    },
+    "openImportWizard": {
+      "found": true,
+      "hash": "98aeb6a483a501a3c2d8ca13caba3939"
+    },
+    "openProductModal": {
+      "found": true,
+      "hash": "33d7b784fb500e4851a3df43a5c98235"
+    },
+    "openSupplierModal": {
+      "found": true,
+      "hash": "affc4acca3312bd772d7cd40bdc367d6"
+    },
+    "patchPendingAddByTempId": {
+      "found": true,
+      "hash": "d4a7b4edec0b4ce9f7c24f0ee0d9606a"
+    },
+    "prevImportWizardStep": {
+      "found": true,
+      "hash": "9427079677f5d1dba0404ab25cfbd367"
+    },
+    "printOrder": {
+      "found": true,
+      "hash": "1c673dfb5b05e78a06abd286db6270a5"
+    },
+    "publishBatchPrompt": {
+      "found": true,
+      "hash": "cd4ee020c01d5e24e57268cf79f0fc34"
+    },
+    "quickAddPoints": {
+      "found": true,
+      "hash": "142a1467c96020da88f8bf0648b446a7"
+    },
+    "readDirectoryHandleFiles": {
+      "found": true,
+      "hash": "3395c8fc685f05cc6fe577cc350cfc62"
+    },
+    "refreshSupportThreads": {
+      "found": true,
+      "hash": "406bf4ec1e7163b67d0f5a1b5f92b042"
+    },
+    "renderFinalUploadReport": {
+      "found": true,
+      "hash": "31071190d2465852c304c08c56fbbc81"
+    },
+    "renderPreUploadPreview": {
+      "found": true,
+      "hash": "7d5e133deaa749e16ac03b3aacefe450"
+    },
+    "requestExcelImagesUploadCancel": {
+      "found": true,
+      "hash": "a4dff688bdc8b674cb7e549bbc374c75"
+    },
+    "resetExcelImageUploadModalState": {
+      "found": true,
+      "hash": "41de6109667398bf605d9d93b6eb796a"
+    },
+    "resetImportWizardState": {
+      "found": true,
+      "hash": "4552658a92ad63e245695f070065d82a"
+    },
+    "retryFailedUploadsOnly": {
+      "found": true,
+      "hash": "e926fff934980629d99f115b02ff06b2"
+    },
+    "runCloudinaryUploadQueue": {
+      "found": true,
+      "hash": "9a7612a82bbac29cd71302cc38e9ccf3"
+    },
+    "saveAdminPassword": {
+      "found": true,
+      "hash": "7818e72810a332965ac5661173b7282c"
+    },
+    "saveBanner": {
+      "found": true,
+      "hash": "6b3a65b54b35802491aaa4f65921d08c"
+    },
+    "saveBanners": {
+      "found": true,
+      "hash": "6b3a65b54b35802491aaa4f65921d08c"
+    },
+    "saveContactSettings": {
+      "found": true,
+      "hash": "3f57a8d2361f62c9b65b588e4c8aeb14"
+    },
+    "saveCoupon": {
+      "found": true,
+      "hash": "38ee8ffd0cfebaab7af476119d453242"
+    },
+    "saveCoupons": {
+      "found": true,
+      "hash": "38ee8ffd0cfebaab7af476119d453242"
+    },
+    "saveFooterSettings": {
+      "found": true,
+      "hash": "4d22dba9ef2f4bc8228febf66ebd9f0c"
+    },
+    "saveGeneralSettings": {
+      "found": true,
+      "hash": "6099b2f83a86ec869d8a04bb879b388d"
+    },
+    "saveLoyaltySettings": {
+      "found": true,
+      "hash": "262d6ddaa7372e2fe03f68f751937eff"
+    },
+    "saveOrders": {
+      "found": true,
+      "hash": "b258aabe62bf136245b2260cb8e61a01"
+    },
+    "saveProduct": {
+      "found": true,
+      "hash": "afc5645fc7aa5e292d087948eaf80b0c"
+    },
+    "saveProductFilterView": {
+      "found": true,
+      "hash": "37ee4b247e4da2c74ba18869bac889b7"
+    },
+    "saveProducts": {
+      "found": true,
+      "hash": "afc5645fc7aa5e292d087948eaf80b0c"
+    },
+    "saveStoreSettings": {
+      "found": true,
+      "hash": "edf567cfbcc3fd5c0dd4eb2dd1d054ec"
+    },
+    "saveSupplier": {
+      "found": true,
+      "hash": "517ff158a4c10cfcd17d3cab7f98c5dc"
+    },
+    "saveSuppliers": {
+      "found": true,
+      "hash": "517ff158a4c10cfcd17d3cab7f98c5dc"
+    },
+    "saveTopBarSettings": {
+      "found": true,
+      "hash": "a66db672d281aa32d4e445c94fcfdf6c"
+    },
+    "saveUsers": {
+      "found": true,
+      "hash": "778a60beebc7a7b672faf1d04706d6a4"
+    },
+    "sanitizeAllImages": {
+      "found": true,
+      "hash": "e8ef5f81cbf9eb55f800f394443ee0b9"
+    },
+    "selectImportSheet": {
+      "found": true,
+      "hash": "b8a3cfab075117080c303b573e0cab8a"
+    },
+    "sendSupportReply": {
+      "found": true,
+      "hash": "d3938c33cea658dbb472727f1ae2deda"
+    },
+    "setAllProductsVisibility": {
+      "found": true,
+      "hash": "e727f65a6c1f30c043a8a3b3ad782db4"
+    },
+    "setExcelImageUploadProgress": {
+      "found": true,
+      "hash": "3f15204c73726f45c198e22acc2b84b3"
+    },
+    "showImportWizardStep": {
+      "found": true,
+      "hash": "30b75f2c94cc3e03c849e04fc160b0d7"
+    },
+    "showSection": {
+      "found": true,
+      "hash": "31508a14feec086eb8410e8b252a7b78"
+    },
+    "toggleExcelUploaderButtonLoading": {
+      "found": true,
+      "hash": "0398ddfd988b26fe14293cb4d30af6ec"
+    },
+    "toggleProductPublish": {
+      "found": true,
+      "hash": "97d3687b8022507daeb47683989159db"
+    },
+    "uploadAndPreview": {
+      "found": true,
+      "hash": "0c417b7706ee117ed934250479de0327"
+    },
+    "uploadMatchedFilesToCloudinary": {
+      "found": true,
+      "hash": "63558c062d08d26dd1c4b4e48d807206"
+    },
+    "validateImportRows": {
+      "found": true,
+      "hash": "4aa5afabb52921ae7e6e205b280af263"
+    },
+    "viewOrder": {
+      "found": true,
+      "hash": "8f759e030af9104f2a611cb66e72155c"
+    },
+    "waitExcelUploadTick": {
+      "found": true,
+      "hash": "d0eb2284945d8ffaa3dddbbecd83b201"
+    },
+    "waitForUploadPreviewDecision": {
+      "found": true,
+      "hash": "db8cf1a5fa15d146048105bbd66b70b8"
+    },
+    "loadAllData": {
+      "found": true,
+      "hash": "24bdf6fa710eb9900e870d0ec2610740"
+    },
+    "pickImageFolderFiles": {
+      "found": true,
+      "hash": "bf256a895f2789d9b1d31fe234dac584"
+    },
+    "pickFolderFilesWithFallback": {
+      "found": true,
+      "hash": "fef8d39a44d443bb6fcba0c4b38d9c77"
+    },
+    "collectRequiredImageMap": {
+      "found": true,
+      "hash": "0194f0bf629c88f9e7dd3d11d3d37036"
+    },
+    "filterMatchingFiles": {
+      "found": true,
+      "hash": "d8f92d09464868c476fd5aa8c74039e1"
+    },
+    "normalizeProductForStorage": {
+      "found": true,
+      "hash": "b0069f0a30731233ba2a5356377d192b"
+    },
+    "renderCloudinaryConfigError": {
+      "found": true,
+      "hash": "6f954f185de735656f5a948f693a95c1"
+    }
+  }
+}
