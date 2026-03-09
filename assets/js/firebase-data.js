@@ -334,6 +334,9 @@ async function pullStoreCollectionsFromFirebase(source = 'poll') {
             if (typeof renderProducts === 'function') renderProducts();
             if (typeof updateCategoryCounts === 'function') updateCategoryCounts();
             if (typeof updateProductsDisplay === 'function') updateProductsDisplay();
+            if (typeof window !== 'undefined' && typeof window.triggerFeedRegeneration === 'function') {
+                try { window.triggerFeedRegeneration(products); } catch (_) {}
+            }
         });
     }
 
@@ -640,6 +643,9 @@ function setupRealtimeListeners() {
                 } catch (_) {}
             } else if (typeof updateProductsDisplay === 'function') {
                 updateProductsDisplay();
+            }
+            if (typeof window !== 'undefined' && typeof window.triggerFeedRegeneration === 'function') {
+                try { window.triggerFeedRegeneration(products); } catch (_) {}
             }
         });
         markFirebaseSyncSuccess('realtime:products', { products: products.length });

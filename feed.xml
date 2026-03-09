@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+  <channel>
+    <title>Sale Zone</title>
+    <link>https://ahmedsheta89-cell.github.io/sale-zone</link>
+    <description>???? ???????? ??????? ??????? ????????? ????????</description>
+    <language>ar</language>
+    <lastBuildDate>Mon, 09 Mar 2026 13:13:17 GMT</lastBuildDate>
+    
+    <item>
+      <g:id>01JBHu8sALLksLIZ6Vt5</g:id>
+      <g:title>Lascar Gel - Promopack 1+1</g:title>
+      <g:description>ارنىرا</g:description>
+      <g:link>https://ahmedsheta89-cell.github.io/sale-zone/%D9%85%D8%AA%D8%AC%D8%B1_2.HTML?product=01JBHu8sALLksLIZ6Vt5</g:link>
+      <g:image_link>https://res.cloudinary.com/dwrfrfxnc/image/upload/f_auto,q_auto,w_800,c_fill/v1772942628/salezone_products/avjr9zahy4ndmnt0yhc8.jpg</g:image_link>
+      <g:availability>in stock</g:availability>
+      <g:price>172.50 EGP</g:price>
+      
+      <g:condition>new</g:condition>
+      <g:brand>Sale Zone</g:brand>
+      <g:google_product_category>Health &amp; Beauty</g:google_product_category>
+      <g:product_type>supplements</g:product_type>
+      <g:identifier_exists>no</g:identifier_exists>
+      <g:shipping>
+        <g:country>EG</g:country>
+        <g:service>Standard</g:service>
+        <g:price>0 EGP</g:price>
+      </g:shipping>
+    </item>
+  </channel>
+</rss>
