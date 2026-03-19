@@ -515,7 +515,6 @@ service cloud.firestore {
           isSignedIn()
           && isValidLiveSessionWrite()
           && request.resource.data.sessionId == sessionId
-          && (!("createdAt" in request.resource.data) || resource == null || request.resource.data.createdAt == resource.data.createdAt)
         );
     }
 
