@@ -114,7 +114,7 @@ try {
 //    - DEFAULT_FIREBASE_APP_CHECK_SITE_KEY below
 // 8. Reload the app and verify __FIREBASE_APP_CHECK_ACTIVE__ === true
 // ════════════════════════════════════════
-const DEFAULT_FIREBASE_APP_CHECK_SITE_KEY = '6LfACYIsAAAAACMUe3sMPY8UB8dv8y-BIlSiulNK';
+const DEFAULT_FIREBASE_APP_CHECK_SITE_KEY = '6Lf0koQsAAAAAOx8NJIJXxMaAmL97DLwQwDMDUzN';
 const APP_CHECK_MAX_RETRIES = 3;
 const APP_CHECK_RETRY_DELAY_MS = 3000;
 
