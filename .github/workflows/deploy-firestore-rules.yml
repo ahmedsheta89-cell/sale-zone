@@ -1,6 +1,11 @@
 name: Deploy Firestore Rules
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - firestore.rules
   workflow_dispatch:
     inputs:
       target_sha:
@@ -32,6 +37,18 @@ jobs:
     environment: production
 
     steps:
+      - name: Resolve target metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "target_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "reason=Auto deploy on push to main for firestore.rules" >> "$GITHUB_OUTPUT"
+          else
+            echo "target_sha=${{ github.event.inputs.target_sha }}" >> "$GITHUB_OUTPUT"
+            echo "reason=${{ github.event.inputs.reason }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve auth mode
         id: auth_choice
         run: |
@@ -119,7 +136,7 @@ jobs:
       - name: Checkout target SHA
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.target_sha }}
+          ref: ${{ steps.meta.outputs.target_sha }}
           fetch-depth: 1
 
       - name: Verify checkout SHA matches target
@@ -127,7 +144,7 @@ jobs:
         run: |
           set -euo pipefail
           actual_sha="$(git rev-parse HEAD)"
-          target_sha="${{ github.event.inputs.target_sha }}"
+          target_sha="${{ steps.meta.outputs.target_sha }}"
           if [[ "$actual_sha" != "$target_sha" ]]; then
             echo "::error::Checkout SHA mismatch (actual=$actual_sha, target=$target_sha)"
             exit 1
@@ -226,8 +243,8 @@ jobs:
         run: |
           set -euo pipefail
           project_id="${{ steps.project.outputs.project_id }}"
-          target_sha="${{ github.event.inputs.target_sha }}"
-          reason="${{ github.event.inputs.reason }}"
+          target_sha="${{ steps.meta.outputs.target_sha }}"
+          reason="${{ steps.meta.outputs.reason }}"
 
           echo "Project: $project_id"
           echo "SHA: $target_sha"
@@ -260,8 +277,8 @@ jobs:
         run: |
           set -euo pipefail
           project_id="${{ steps.project.outputs.project_id }}"
-          target_sha="${{ github.event.inputs.target_sha }}"
-          reason="${{ github.event.inputs.reason }}"
+          target_sha="${{ steps.meta.outputs.target_sha }}"
+          reason="${{ steps.meta.outputs.reason }}"
 
           echo "Project: $project_id"
           echo "SHA: $target_sha"
@@ -280,10 +297,10 @@ jobs:
             echo "- auth_mode: ${{ steps.auth_choice.outputs.mode }}"
             echo "- auth_strategy: \`${{ steps.auth_mode.outputs.mode }}\`"
             echo "- project_id: ${{ steps.project.outputs.project_id }}"
-            echo "- target_sha: \`${{ github.event.inputs.target_sha }}\`"
+            echo "- target_sha: \`${{ steps.meta.outputs.target_sha }}\`"
             echo "- actual_sha: \`${{ steps.verify_sha.outputs.actual_sha }}\`"
             echo "- ruleset_name: \`${{ steps.deploy_gcloud.outputs.ruleset_name || steps.deploy_token.outputs.ruleset_name }}\`"
             echo "- release_name: \`${{ steps.deploy_gcloud.outputs.release_name || steps.deploy_token.outputs.release_name }}\`"
-            echo "- reason: ${{ github.event.inputs.reason }}"
+            echo "- reason: ${{ steps.meta.outputs.reason }}"
             echo "- timestamp_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } >> "$GITHUB_STEP_SUMMARY"
