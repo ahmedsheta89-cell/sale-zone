@@ -1310,8 +1310,9 @@
         const PASSWORD_AUTH_DEFAULT = 'login';
         const MAGIC_LINK_STORAGE_KEY = 'sale_zone_email_for_signin';
         const MAGIC_LINK_REDIRECT_URL = 'https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML';
-        const LANGUAGE_STORAGE_KEY = 'lang';
-        let currentLang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'ar';
+        const LANGUAGE_STORAGE_KEY = 'salezone_lang';
+        const LEGACY_LANGUAGE_STORAGE_KEY = 'lang';
+        let currentLang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || localStorage.getItem(LEGACY_LANGUAGE_STORAGE_KEY) || 'ar';
         let currentAuthTab = AUTH_TAB_DEFAULT;
         let currentPasswordMode = PASSWORD_AUTH_DEFAULT;
         const VERIFICATION_EMAIL_COOLDOWN_MS = 120000;
@@ -1428,10 +1429,13 @@
                 removeFromFavorites: 'إزالة من المفضلة',
                 inStock: 'متوفر',
                 outOfStock: 'غير متوفر',
+                outOfStockNow: 'نفد من المخزون',
+                onlyLeft: 'باقى {count} قطع فقط!',
                 reviews: 'تقييم',
                 quantity: 'الكمية',
                 description: 'الوصف',
                 price: 'السعر',
+                discountLabel: 'خصم {discount}%',
                 subtotal: 'المجموع',
                 couponDiscount: 'خصم الكوبون:',
                 pointsDiscount: 'خصم النقاط:',
@@ -1476,7 +1480,10 @@
                 noDescription: 'لا يوجد وصف متاح لهذا المنتج حالياً.',
                 category: 'القسم',
                 code: 'الكود',
-                emptySuggestion: 'جرّب كلمات بحث مختلفة أو تصفح الأقسام'
+                emptySuggestion: 'جرّب كلمات بحث مختلفة أو تصفح الأقسام',
+                unavailableNow: 'المنتج غير متوفر حالياً',
+                shareOnWhatsApp: 'مشاركة واتساب',
+                sharePriceLabel: 'السعر'
             },
             en: {
                 skipToContent: 'Skip to main content',
@@ -1519,10 +1526,13 @@
                 removeFromFavorites: 'Remove from Favorites',
                 inStock: 'In Stock',
                 outOfStock: 'Out of Stock',
+                outOfStockNow: 'Out of stock',
+                onlyLeft: 'Only {count} left!',
                 reviews: 'reviews',
                 quantity: 'Quantity',
                 description: 'Description',
                 price: 'Price',
+                discountLabel: '{discount}% off',
                 subtotal: 'Subtotal',
                 couponDiscount: 'Coupon Discount:',
                 pointsDiscount: 'Points Discount:',
@@ -1567,7 +1577,10 @@
                 noDescription: 'No description is currently available for this product.',
                 category: 'Category',
                 code: 'Code',
-                emptySuggestion: 'Try a different keyword or browse the categories'
+                emptySuggestion: 'Try a different keyword or browse the categories',
+                unavailableNow: 'This product is currently unavailable',
+                shareOnWhatsApp: 'Share on WhatsApp',
+                sharePriceLabel: 'Price'
             }
         };
         const CATEGORY_TRANSLATIONS = {
@@ -1681,13 +1694,15 @@
         function setLanguage(lang) {
             currentLang = lang === 'en' ? 'en' : 'ar';
             localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLang);
+            localStorage.setItem(LEGACY_LANGUAGE_STORAGE_KEY, currentLang);
             document.documentElement.lang = currentLang;
             document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
             document.body.classList.toggle('ltr-mode', currentLang === 'en');
+            applyTranslations();
             if (document.body.dataset.storeBooted === 'true') {
                 refreshLocalizedStoreUI();
             } else {
-                applyTranslations();
+                if (typeof renderProducts === 'function') renderProducts();
             }
         }
 
@@ -2776,12 +2791,17 @@
                 const hasOldPrice = hasValidPrice && Number.isFinite(oldPriceValue) && oldPriceValue > Number(resolvedPrice || 0);
                 const oldPrice = escapeHtml(hasOldPrice ? formatPrice(oldPriceValue) : '');
                 const ratingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
-                const discountPercent = hasOldPrice
-                    ? Math.round((1 - (Number(resolvedPrice || 0) / oldPriceValue)) * 100)
-                    : 0;
+                const discountPercent = getProductDiscountPercent(p);
+                const stockMessage = getProductStockMessage(p);
+                const canAddToCart = hasValidPrice && isProductInStock(p);
                 return `
                 <div class="product-card" data-product-id="${safeProductId}" onclick="showProductDetails(this.dataset.productId)">
-                    ${hasOldPrice ? `<div class="product-badge">-${escapeHtml(discountPercent)}%</div>` : ''}
+                    ${discountPercent > 0 ? `
+                        <span class="discount-badge"
+                            style="position:absolute;top:8px;right:8px;background:#e53e3e;color:#fff;border-radius:6px;padding:3px 8px;font-size:0.75rem;font-weight:600;z-index:2">
+                            ${escapeHtml(t('discountLabel').replace('{discount}', String(discountPercent)))}
+                        </span>
+                    ` : ''}
                     <button type="button" class="product-fav ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? t('removeFromFavorites') : t('addToFavorites')}" onclick="event.stopPropagation(); toggleFav(this.dataset.productId)">
                         ${isFav ? '❤️' : '🤍'}
                     </button>
@@ -2789,7 +2809,7 @@
                         <img src="${safeImageSrc}" alt="${safeName}" onerror="handleStoreImageError(this)" loading="${imageLoading}">
                         <div class="product-actions">
                             <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('productDetails')}" onclick="event.stopPropagation(); showProductDetails(this.dataset.productId)">👁️</button>
-                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
+                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>🛒</button>
                         </div>
                     </div>
                     <div class="product-info">
@@ -2801,9 +2821,10 @@
                         </div>
                         <div class="product-price">
                             <span class="current-price">${currentPrice}</span>
-                            ${hasOldPrice ? `<span class="old-price">${oldPrice}</span>` : ''}
+                            ${hasOldPrice ? `<span class="old-price" style="text-decoration:line-through;color:var(--color-text-tertiary);font-size:0.8rem">${oldPrice}</span>` : ''}
                         </div>
-                        <button type="button" class="add-to-cart-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? `🛒 ${escapeHtml(t('addToCart'))}` : `⚠️ ${escapeHtml(t('unavailableForSale'))}`}</button>
+                        ${stockMessage ? `<div class="product-stock-note" style="font-size:0.8rem;color:${getProductStockValue(p) === 0 ? '#e53e3e' : '#dd6b20'}">${escapeHtml(stockMessage)}</div>` : ''}
+                        <button type="button" class="add-to-cart-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>${canAddToCart ? `🛒 ${escapeHtml(t('addToCart'))}` : `⚠️ ${escapeHtml(getProductStockValue(p) === 0 ? t('outOfStockNow') : t('unavailableForSale'))}`}</button>
                     </div>
                 </div>
             `;
@@ -2904,6 +2925,31 @@
             // WHY: imported catalog rows use -1 as "available / unmanaged stock", not "out of stock".
             if (!Number.isFinite(stockValue)) return true;
             return stockValue !== 0;
+        }
+
+        function getProductStockValue(item) {
+            const stockValue = Number(item && item.stock);
+            if (!Number.isFinite(stockValue)) return null;
+            return stockValue;
+        }
+
+        function getProductDiscountPercent(item) {
+            const displayPrice = resolveDisplayPrice(item);
+            const oldPriceValue = Number(item && item.oldPrice);
+            const hasDiscount = Number.isFinite(displayPrice)
+                && Number.isFinite(oldPriceValue)
+                && oldPriceValue > Number(displayPrice || 0);
+            if (!hasDiscount) return 0;
+            return Math.max(0, Math.round((1 - (Number(displayPrice || 0) / oldPriceValue)) * 100));
+        }
+
+        function getProductStockMessage(item) {
+            const stockValue = getProductStockValue(item);
+            if (stockValue === 0) return t('outOfStockNow');
+            if (stockValue > 0 && stockValue <= 5) {
+                return t('onlyLeft').replace('{count}', String(stockValue));
+            }
+            return '';
         }
 
         function computeProductSearchResult(state) {
@@ -3198,7 +3244,11 @@
             const safePrice = hasValidPrice ? escapeHtml(formatPrice(displayPrice)) : escapeHtml(t('unavailableForSale'));
             const hasOldPrice = hasValidPrice && Number.isFinite(Number(p && p.oldPrice)) && Number(p && p.oldPrice) > Number(displayPrice || 0);
             const safeOldPrice = escapeHtml(hasOldPrice ? formatPrice(Number(p.oldPrice)) : '');
+            const discountPercent = getProductDiscountPercent(p);
+            const stockMessage = getProductStockMessage(p);
+            const canAddToCart = hasValidPrice && isProductInStock(p);
             const isFav = favorites.includes(String(p && p.id));
+            window.currentProduct = p;
             productModalState = {
                 productId: String(p && p.id || ''),
                 quantity: 1,
@@ -3228,10 +3278,12 @@
                             <span class="product-modal-price">${safePrice}</span>
                             ${hasOldPrice ? `<span class="product-modal-old-price">${safeOldPrice}</span>` : ''}
                         </div>
+                        ${discountPercent > 0 ? `<div class="product-modal-badge" style="display:inline-flex;background:#e53e3e;color:#fff;border-radius:999px;padding:4px 10px;font-size:0.8rem;font-weight:700">${escapeHtml(t('discountLabel').replace('{discount}', String(discountPercent)))}</div>` : ''}
                         <div class="product-modal-meta">
                             <span class="product-modal-badge">📂 ${escapeHtml(t('category'))}: ${safeCategory}</span>
                             <span class="product-modal-badge">🏷️ ${escapeHtml(t('code'))}: ${safeCode}</span>
                         </div>
+                        ${stockMessage ? `<div class="product-modal-stock" style="font-size:0.9rem;color:${getProductStockValue(p) === 0 ? '#e53e3e' : '#dd6b20'}">${escapeHtml(stockMessage)}</div>` : ''}
                         <div class="product-modal-description">${safeDesc}</div>
                         <div class="product-modal-qty">
                             <button type="button" onclick="changeProductModalQuantity(-1)" aria-label="${currentLang === 'ar' ? 'تقليل الكمية' : 'Decrease quantity'}">−</button>
@@ -3239,8 +3291,11 @@
                             <button type="button" onclick="changeProductModalQuantity(1)" aria-label="${currentLang === 'ar' ? 'زيادة الكمية' : 'Increase quantity'}">+</button>
                         </div>
                         <div class="product-modal-actions">
-                            <button type="button" class="btn-add-to-cart-modal" data-product-id="${safeProductId}" aria-label="${escapeHtml(t('addToCart'))}" onclick="addProductModalToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>${hasValidPrice ? `🛒 ${escapeHtml(t('addToCartNow'))}` : `⚠️ ${escapeHtml(t('unavailableForSale'))}`}</button>
+                            <button type="button" class="btn-add-to-cart-modal" data-product-id="${safeProductId}" aria-label="${escapeHtml(t('addToCart'))}" onclick="addProductModalToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>${canAddToCart ? `🛒 ${escapeHtml(t('addToCartNow'))}` : `⚠️ ${escapeHtml(getProductStockValue(p) === 0 ? t('outOfStockNow') : t('unavailableForSale'))}`}</button>
                             <button type="button" class="btn-wish-modal ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? escapeHtml(t('removeFromFavorites')) : escapeHtml(t('addToFavorites'))}" onclick="toggleProductModalFavorite(this.dataset.productId)">${isFav ? `❤️ ${escapeHtml(t('removeFromFavorites'))}` : `🤍 ${escapeHtml(t('addToFavorites'))}`}</button>
+                            <button type="button" class="btn-wish-modal" data-product-id="${safeProductId}" aria-label="${escapeHtml(t('shareOnWhatsApp'))}" onclick="shareProductOnWhatsApp(this.dataset.productId)" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:6px">
+                                <span>${escapeHtml(t('shareOnWhatsApp'))}</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -3410,6 +3465,10 @@
         function addToCart(id, quantity = 1) {
             const p = getVisibleProductsList().find((x) => x.id == id || String(x.id) === String(id));
             if (!p) return;
+            if (!isProductInStock(p)) {
+                showToast(t('unavailableNow'), 'warning');
+                return;
+            }
             const displayPrice = resolveDisplayPrice(p);
             if (!Number.isFinite(displayPrice)) {
                 showNotification('error', 'خطأ', 'هذا المنتج غير متاح للبيع حالياً بسبب بيانات السعر.');
@@ -3422,6 +3481,20 @@
             saveCart();
             updateCartUI();
             showNotification('success', 'تمت الإضافة', `"${p.name}" في السلة × ${safeQuantity}`);
+        }
+
+        function shareProductOnWhatsApp(productOrId) {
+            const product = (productOrId && typeof productOrId === 'object')
+                ? productOrId
+                : getVisibleProductsList().find((item) => String(item && item.id) === String(productOrId || productModalState.productId));
+            if (!product) return;
+
+            const rawPrice = resolveDisplayPrice(product);
+            const price = Number.isFinite(rawPrice) ? formatPrice(rawPrice) : t('unavailableForSale');
+            const name = String(product.nameAr || product.name || '').trim();
+            const url = `https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML#${encodeURIComponent(String(product.id || ''))}`;
+            const text = `🛍️ ${name}\n💰 ${t('sharePriceLabel')}: ${price}\n🔗 ${url}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         }
 
         function removeFromCart(id) {
@@ -3829,9 +3902,11 @@
 
         function switchAuthTab(tab = AUTH_TAB_DEFAULT) {
             const requestedTab = String(tab || AUTH_TAB_DEFAULT).trim().toLowerCase();
-            const normalizedTab = (requestedTab === 'login' || requestedTab === 'register')
+            const normalizedTab = requestedTab === 'register'
                 ? 'password'
-                : (['magic', 'google', 'password'].includes(requestedTab) ? requestedTab : AUTH_TAB_DEFAULT);
+                : requestedTab === 'login'
+                    ? 'magic'
+                    : (['magic', 'google', 'password'].includes(requestedTab) ? requestedTab : AUTH_TAB_DEFAULT);
 
             currentAuthTab = normalizedTab;
             document.querySelectorAll('.auth-tab').forEach((authTab) => {
