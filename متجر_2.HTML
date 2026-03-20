@@ -1815,6 +1815,18 @@
             return PRODUCT_IMAGE_FALLBACK_PATH;
         }
 
+        function handleStoreImageError(imageElement) {
+            const target = imageElement && imageElement.target ? imageElement.target : imageElement;
+            if (!target || typeof target !== 'object') return;
+            if (target.dataset && target.dataset.fallbackApplied === 'true') {
+                target.onerror = null;
+                return;
+            }
+            if (target.dataset) target.dataset.fallbackApplied = 'true';
+            target.onerror = null;
+            target.src = PRODUCT_IMAGE_FALLBACK_PATH;
+        }
+
         function normalizeStoreProduct(product) {
             const source = product && typeof product === 'object' ? product : {};
             const price = Number(source.price);
@@ -2774,7 +2786,7 @@
                         ${isFav ? '❤️' : '🤍'}
                     </button>
                     <div class="product-image">
-                        <img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="${imageLoading}">
+                        <img src="${safeImageSrc}" alt="${safeName}" onerror="handleStoreImageError(this)" loading="${imageLoading}">
                         <div class="product-actions">
                             <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('productDetails')}" onclick="event.stopPropagation(); showProductDetails(this.dataset.productId)">👁️</button>
                             <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
@@ -3195,11 +3207,11 @@
             document.getElementById('productModalBody').innerHTML = `
                 <div class="product-modal-content">
                     <div class="product-modal-image-col">
-                        <img id="productModalMainImage" class="product-modal-image" src="${escapeHtml(primaryImage)}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'; this.onerror=null;" loading="eager">
+                        <img id="productModalMainImage" class="product-modal-image" src="${escapeHtml(primaryImage)}" alt="${safeName}" onerror="handleStoreImageError(this)" loading="eager">
                         <div class="product-modal-thumbs">
                             ${gallery.map((imageUrl, index) => `
                                 <button type="button" class="product-modal-thumb ${index === 0 ? 'active' : ''}" data-image="${escapeHtml(imageUrl)}" aria-label="عرض صورة ${index + 1} للمنتج" onclick="setProductModalImage(this.dataset.image)">
-                                    <img src="${escapeHtml(sanitizeImageUrl(imageUrl, 180))}" alt="معاينة ${safeName}" onerror="this.src='${safeFallbackImage}'; this.onerror=null;" loading="lazy">
+                                    <img src="${escapeHtml(sanitizeImageUrl(imageUrl, 180))}" alt="معاينة ${safeName}" onerror="handleStoreImageError(this)" loading="lazy">
                                 </button>
                             `).join('')}
                         </div>
@@ -3369,7 +3381,7 @@
                 const safePrice = hasValidPrice ? escapeHtml(formatPrice(displayPrice)) : escapeHtml(t('unavailableForSale'));
                 return `
                     <div class="fav-item">
-                        <div class="fav-item-image"><img src="${safeImageSrc}" alt="${safeName}" onerror="this.src='${safeFallbackImage}'" loading="lazy"></div>
+                        <div class="fav-item-image"><img src="${safeImageSrc}" alt="${safeName}" onerror="handleStoreImageError(this)" loading="lazy"></div>
                         <div class="fav-item-details">
                             <div class="fav-item-name">${safeName}</div>
                             <div class="fav-item-price">${safePrice}</div>
@@ -3446,7 +3458,7 @@
                 const safeQuantity = escapeHtml(Number(item && item.quantity || 0).toFixed(0));
                 return `
                 <div class="cart-item">
-                    <div class="cart-item-image"><img src="${safeImageSrc}" alt="${safeItemName}" onerror="this.src='${safeFallbackImage}'" loading="lazy"></div>
+                    <div class="cart-item-image"><img src="${safeImageSrc}" alt="${safeItemName}" onerror="handleStoreImageError(this)" loading="lazy"></div>
                     <div class="cart-item-details">
                         <div class="cart-item-name">${safeItemName}</div>
                         <div class="cart-item-price">${safeItemPrice}</div>
