@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * generate-feed.js
- * Builds feed.xml from Firebase products using the same browser/Firebase SDK path
- * available to the storefront, then emits a Google Shopping RSS 2.0 feed.
+ * generate-sitemap.js
+ * Builds sitemap.xml from Firebase products using the same browser/Firebase SDK path
+ * available to the storefront.
  */
 
 const fs = require('fs');
@@ -12,10 +12,10 @@ const vm = require('vm');
 const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
-const PORT = Number(process.env.FEED_PORT || 4173);
+const PORT = Number(process.env.SITEMAP_PORT || 4174);
 const HOST = '127.0.0.1';
 const BASE_URL = `http://${HOST}:${PORT}`;
-const OUTPUT_FILE = path.join(ROOT, 'feed.xml');
+const OUTPUT_FILE = path.join(ROOT, 'sitemap.xml');
 const CLOUDINARY_FILE = path.join(ROOT, 'assets', 'js', 'cloudinary-service.js');
 const BASE_STORE_URL = 'https://ahmedsheta89-cell.github.io/sale-zone';
 
@@ -90,16 +90,8 @@ function loadCloudinaryEnhancer() {
 async function fetchAllProductsForTools() {
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
-    const consoleErrors = [];
-
-    page.on('console', (msg) => {
-        if (msg.type() === 'error') {
-            consoleErrors.push(msg.text());
-        }
-    });
-
     try {
-        await page.goto(`${BASE_URL}/feed.html?nocache=1&tool=feed`, {
+        await page.goto(`${BASE_URL}/feed.html?nocache=1&tool=sitemap`, {
             waitUntil: 'domcontentloaded',
             timeout: 45000
         });
@@ -142,11 +134,6 @@ async function fetchAllProductsForTools() {
 
             return await queryPublishedCollection();
         });
-
-        if (consoleErrors.length > 0) {
-            console.warn('[feed] browser console errors observed:', consoleErrors.join(' | '));
-        }
-
         return Array.isArray(products) ? products : [];
     } finally {
         await browser.close();
@@ -163,104 +150,62 @@ function escapeXml(value) {
         .replace(/'/g, '&apos;');
 }
 
-function mapCategory(category) {
-    const normalized = String(category || '').trim().toLowerCase();
-    const mapping = {
-        skincare: '2975',
-        'skin-care': '2975',
-        haircare: '1848',
-        'hair-care': '1848',
-        supplements: '5909',
-        bodycare: '567',
-        'body-care': '567',
-        babycare: '537',
-        'baby-care': '537',
-        dental: '526',
-        makeup: '2975'
-    };
-    return mapping[normalized] || '1841';
-}
+function buildSitemapXml(products, enhanceProductImageUrl) {
+    const today = new Date().toISOString().slice(0, 10);
+    const eligibleProducts = (Array.isArray(products) ? products : []).filter((product) => (
+        product && product.isPublished !== false && String(product.nameAr || product.name || '').trim()
+    ));
 
-function normalizePrice(value) {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : 0;
-}
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 
-function resolveAvailability(stockValue) {
-    const numeric = Number(stockValue);
-    if (!Number.isFinite(numeric)) return 'in stock';
-    if (numeric === -1) return 'in stock';
-    return numeric > 0 ? 'in stock' : 'out of stock';
-}
+  <url>
+    <loc>${BASE_STORE_URL}/متجر_2.HTML</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <lastmod>${today}</lastmod>
+  </url>`;
 
-function buildFeedXml(products, enhanceProductImageUrl) {
-    const eligibleProducts = (Array.isArray(products) ? products : []).filter((product) => {
-        const price = normalizePrice(product && product.price);
-        return Boolean(product && product.isPublished !== false && String(product.nameAr || product.name || '').trim() && price > 0);
+    eligibleProducts.forEach((product) => {
+        const imageUrl = enhanceProductImageUrl(product.imageUrl || product.image || '', 'feed');
+        const hasImage = Boolean(imageUrl && !/placeholder\.svg$/i.test(imageUrl));
+        xml += `
+  <url>
+    <loc>${escapeXml(`${BASE_STORE_URL}/متجر_2.HTML#product/${encodeURIComponent(String(product.id || ''))}`)}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <lastmod>${today}</lastmod>
+    ${hasImage ? `<image:image>
+      <image:loc>${escapeXml(imageUrl)}</image:loc>
+      <image:title>${escapeXml(product.nameAr || product.name || '')}</image:title>
+    </image:image>` : ''}
+  </url>`;
     });
 
-    const items = eligibleProducts.map((product) => {
-        const imageUrl = enhanceProductImageUrl(product.imageUrl || product.image || '', 'feed');
-        const price = normalizePrice(product.price).toFixed(2);
-        const title = product.nameAr || product.name || '';
-        const description = product.descriptionAr || product.description || product.desc || '';
-        return `
-  <item>
-    <title>${escapeXml(title)}</title>
-    <link>${escapeXml(`${BASE_STORE_URL}/متجر_2.HTML#product/${encodeURIComponent(String(product.id || ''))}`)}</link>
-    <description>${escapeXml(description)}</description>
-    <g:id>${escapeXml(product.id)}</g:id>
-    <g:price>${price} EGP</g:price>
-    <g:availability>${escapeXml(resolveAvailability(product.stock))}</g:availability>
-    <g:image_link>${escapeXml(imageUrl)}</g:image_link>
-    <g:brand>${escapeXml(product.brand || 'Sale Zone')}</g:brand>
-    <g:condition>new</g:condition>
-    <g:google_product_category>${escapeXml(mapCategory(product.category))}</g:google_product_category>
-  </item>`;
-    }).join('\n');
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
-  <channel>
-    <title>Sale Zone</title>
-    <link>${BASE_STORE_URL}</link>
-    <description>Sale Zone - متجر التجميل والعناية الأول في مصر</description>
-    <language>ar</language>
-    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-${items}
-  </channel>
-</rss>`;
-}
-
-function validateFeed(xml, itemCount) {
-    if (!xml.includes('<?xml version="1.0"')) throw new Error('Invalid feed: missing XML declaration');
-    if (!xml.includes('xmlns:g="http://base.google.com/ns/1.0"')) throw new Error('Invalid feed: missing Google namespace');
-    if (!xml.includes('<g:id>')) throw new Error('Invalid feed: no <g:id> entries');
-    if (!xml.includes('<g:price>')) throw new Error('Invalid feed: no <g:price> entries');
-    if (!xml.includes('<g:availability>')) throw new Error('Invalid feed: no <g:availability> entries');
-    if (!xml.includes('</rss>')) throw new Error('Invalid feed: missing </rss>');
-    if (itemCount <= 0) throw new Error('Invalid feed: zero products');
+    xml += `
+</urlset>
+`;
+    return { xml, urlCount: eligibleProducts.length + 1 };
 }
 
 async function main() {
-    console.log('Starting Google Shopping feed build...');
+    console.log('Starting sitemap build...');
     const server = await startStaticServer(ROOT);
 
     try {
         const enhanceProductImageUrl = loadCloudinaryEnhancer();
         const products = await fetchAllProductsForTools();
-        const xml = buildFeedXml(products, enhanceProductImageUrl);
-        const itemCount = (xml.match(/<item>/g) || []).length;
-        validateFeed(xml, itemCount);
+        const { xml, urlCount } = buildSitemapXml(products, enhanceProductImageUrl);
         fs.writeFileSync(OUTPUT_FILE, xml, 'utf8');
-        console.log(`Products in feed: ${itemCount}`);
-        console.log('feed.xml generated successfully');
+        console.log(`Sitemap URLs: ${urlCount}`);
+        console.log('sitemap.xml generated successfully');
     } finally {
         await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     }
 }
 
 main().catch((error) => {
-    console.error('Feed generation failed:', error && error.stack ? error.stack : error);
+    console.error('Sitemap generation failed:', error && error.stack ? error.stack : error);
     process.exit(1);
 });
