@@ -517,9 +517,32 @@ function cleanImageField(value) {
     if (rawValue.startsWith('data:')) return rawValue;
     if (rawValue.startsWith('./') || rawValue.startsWith('assets/')) return rawValue;
     if (/^https?:\/\//i.test(rawValue)) return rawValue;
-    return rawValue
+    let cleaned = rawValue
         .replace(/^\/+/, '')
         .replace(/\.(jpg|jpeg|png|webp|gif)$/i, '');
+    cleaned = cleaned
+        .replace(/%/g, '_pct_')
+        .replace(/\+/g, '_plus_')
+        .replace(/\s+/g, '_')
+        .replace(/[^\w\-_.]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
+    return cleaned;
+}
+
+async function triggerFeedRegenerationAfterProductChange() {
+    if (typeof window === 'undefined') return;
+    try {
+        if (typeof window.regenerateFeed === 'function') {
+            await window.regenerateFeed();
+            return;
+        }
+        if (typeof window.triggerFeedRegeneration === 'function') {
+            await window.triggerFeedRegeneration();
+        }
+    } catch (_) {
+        // WHY: product persistence must not fail because feed caching failed.
+    }
 }
 
 function normalizeProductPayloadForWrite(product, options = {}) {
@@ -633,6 +656,7 @@ async function addProduct(product) {
         // WHY: create products directly in Firestore to remove backend dependency.
         const db = getFirebaseDB();
         const docRef = await db.collection('products').add(payload);
+        await triggerFeedRegenerationAfterProductChange();
         return docRef.id;
     } catch (e) {
         console.error('addProduct error:', e);
@@ -651,6 +675,7 @@ async function updateProduct(id, data) {
         const docId = String(id || '').trim();
         if (!docId) throw new Error('product id is required');
         await db.collection('products').doc(docId).set(normalizedPayload, { merge: true });
+        await triggerFeedRegenerationAfterProductChange();
     } catch (e) {
         console.error('updateProduct error:', e);
         throw e;

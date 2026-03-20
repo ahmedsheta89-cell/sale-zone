@@ -5,6 +5,7 @@
     }
     if (root && typeof root === 'object') {
         root.FeedGenerator = api;
+        root.regenerateFeed = api.regenerateFeed;
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     const FEED_CONFIG = {
@@ -134,6 +135,9 @@
     function generateFeedXML(products) {
         const list = Array.isArray(products) ? products : [];
         const publishedProducts = list.filter(isEligibleProduct);
+        if (publishedProducts.length <= 1 && typeof console !== 'undefined' && typeof console.warn === 'function') {
+            console.warn('[Feed] Products in feed:', publishedProducts.length);
+        }
         const itemsXML = publishedProducts.map(generateProductXML).join('\n');
         const now = new Date().toUTCString();
 
@@ -150,6 +154,28 @@
 </rss>`;
     }
 
+    async function regenerateFeed(products = null) {
+        const explicitProducts = Array.isArray(products) ? products : null;
+        let sourceProducts = explicitProducts;
+
+        if (!sourceProducts && typeof globalThis !== 'undefined') {
+            if (typeof globalThis.getPublishedProducts === 'function') {
+                sourceProducts = await globalThis.getPublishedProducts();
+            } else if (typeof globalThis.getProducts === 'function') {
+                sourceProducts = await globalThis.getProducts();
+            } else if (Array.isArray(globalThis.products)) {
+                sourceProducts = globalThis.products;
+            }
+        }
+
+        const xml = generateFeedXML(Array.isArray(sourceProducts) ? sourceProducts : []);
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('cachedFeed', xml);
+            localStorage.setItem('feedLastUpdated', new Date().toISOString());
+        }
+        return xml;
+    }
+
     return {
         FEED_CONFIG,
         escapeXML,
@@ -160,6 +186,7 @@
         getCategoryPath,
         generateProductXML,
         generateFeedXML,
-        isEligibleProduct
+        isEligibleProduct,
+        regenerateFeed
     };
 });
