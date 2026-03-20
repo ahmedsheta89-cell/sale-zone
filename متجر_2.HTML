@@ -2780,7 +2780,9 @@
                 const safeProductId = escapeHtml(String(p && p.id || ''));
                 const safeName = escapeHtml(p && p.name || '');
                 const safeDesc = escapeHtml(p && p.desc || '');
-                const safeImageSrc = escapeHtml(getSafeImageUrl(p, 400));
+                const safeImageSrc = escapeHtml(typeof window.enhanceProductImageUrl === 'function'
+                    ? window.enhanceProductImageUrl(p && (p.imageUrl || p.image), 'card')
+                    : getSafeImageUrl(p, 400));
                 const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const imageLoading = index < 4 ? 'eager' : 'lazy';
                 const isFav = favorites.includes(String(p && p.id));
