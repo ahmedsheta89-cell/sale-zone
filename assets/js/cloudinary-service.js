@@ -9,6 +9,14 @@ const CLOUDINARY_CONFIG = {
     cloudName: 'dwrfrfxnc',
     uploadPreset: 'salezone_basic'
 };
+const PRODUCT_IMAGE_FOLDER = 'salezone_products';
+const PRODUCT_IMAGE_FALLBACK_PATH = 'assets/placeholder.svg';
+const PRODUCT_IMAGE_TRANSFORMS = {
+    card: 'f_auto,q_auto:best,w_800,h_800,c_pad,b_white,e_sharpen:50',
+    thumbnail: 'f_auto,q_auto,w_400,h_400,c_pad,b_white',
+    full: 'f_auto,q_auto:best,w_1200,h_1200,c_pad,b_white,e_sharpen:80',
+    admin: 'f_auto,q_auto,w_120,h_120,c_pad,b_white'
+};
 
 // Ensure required Cloudinary settings are provided before upload.
 function isCloudinaryConfigured() {
@@ -47,6 +55,25 @@ function isLikelyImageUploadFile(file) {
     const type = String(file.type || '').toLowerCase();
     if (type.startsWith('image/')) return true;
     return /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)$/i.test(String(file.name || ''));
+}
+
+function cleanImageField(value) {
+    const rawValue = String(value || '').trim();
+    if (!rawValue) return '';
+    if (rawValue.startsWith('data:')) return rawValue;
+    if (rawValue.startsWith('./') || rawValue.startsWith('assets/')) return rawValue;
+    if (/^https?:\/\//i.test(rawValue)) return rawValue;
+    let cleaned = rawValue
+        .replace(/^\/+/, '')
+        .replace(/\.(jpg|jpeg|png|webp|gif)$/i, '');
+    cleaned = cleaned
+        .replace(/%/g, '_pct_')
+        .replace(/\+/g, '_plus_')
+        .replace(/\s+/g, '_')
+        .replace(/[^\w\-_.]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
+    return cleaned;
 }
 
 function isCloudinaryTransformSegment(segment) {
@@ -88,13 +115,68 @@ function extractCloudinaryAssetPath(url) {
     }
 }
 
+function getImageTransformPreset(size = 'card') {
+    return PRODUCT_IMAGE_TRANSFORMS[String(size || 'card')] || PRODUCT_IMAGE_TRANSFORMS.card;
+}
+
+function encodePublicIdSegments(publicId) {
+    return String(publicId || '')
+        .split('/')
+        .filter(Boolean)
+        .map((segment) => encodeURIComponent(segment))
+        .join('/');
+}
+
+function buildCloudinaryEnhancedUrl(assetPath, size = 'card') {
+    const normalizedPath = String(assetPath || '').replace(/^\/+/, '');
+    if (!normalizedPath) return PRODUCT_IMAGE_FALLBACK_PATH;
+    const transforms = getImageTransformPreset(size);
+    return `https://res.cloudinary.com/${CLOUDINARY_CONFIG.cloudName}/image/upload/${transforms}/${normalizedPath}`;
+}
+
+function getTransformSizeFromWidth(width = 800) {
+    const numericWidth = Math.max(120, Math.min(2000, Number(width) || 800));
+    if (numericWidth <= 140) return 'admin';
+    if (numericWidth <= 420) return 'thumbnail';
+    if (numericWidth >= 1100) return 'full';
+    return 'card';
+}
+
 function getOptimizedImageUrl(cloudinaryUrl, width = 800) {
     const rawUrl = String(cloudinaryUrl || '').trim();
     if (!isValidCloudinarySecureUrl(rawUrl)) return rawUrl;
-    const safeWidth = Math.max(120, Math.min(2000, Number(width) || 800));
     const assetPath = extractCloudinaryAssetPath(rawUrl);
     if (!assetPath) return rawUrl;
-    return `https://res.cloudinary.com/${CLOUDINARY_CONFIG.cloudName}/image/upload/f_auto,q_auto,w_${safeWidth},c_fill/${assetPath}`;
+    return buildCloudinaryEnhancedUrl(assetPath, getTransformSizeFromWidth(width));
+}
+
+/**
+ * Returns Cloudinary URL with product-optimized transforms
+ * Unified white background, consistent dimensions, sharp
+ */
+function enhanceProductImageUrl(imageName, size = 'card') {
+    const rawValue = String(imageName || '').trim();
+    if (!rawValue) return PRODUCT_IMAGE_FALLBACK_PATH;
+    if (rawValue.startsWith('data:')) return rawValue;
+    if (rawValue.startsWith('./') || rawValue.startsWith('assets/')) return rawValue;
+    if (rawValue.startsWith('/')) return PRODUCT_IMAGE_FALLBACK_PATH;
+
+    if (isValidCloudinarySecureUrl(rawValue)) {
+        const assetPath = extractCloudinaryAssetPath(rawValue);
+        return assetPath ? buildCloudinaryEnhancedUrl(assetPath, size) : PRODUCT_IMAGE_FALLBACK_PATH;
+    }
+
+    if (/^https?:\/\//i.test(rawValue)) {
+        return rawValue;
+    }
+
+    const cleanName = cleanImageField(rawValue);
+    if (!cleanName || /^https?:\/\//i.test(cleanName)) return PRODUCT_IMAGE_FALLBACK_PATH;
+    const encodedPublicId = encodePublicIdSegments(cleanName);
+    const assetPath = cleanName.includes('/')
+        ? encodedPublicId
+        : `${PRODUCT_IMAGE_FOLDER}/${encodedPublicId}`;
+    return buildCloudinaryEnhancedUrl(assetPath, size);
 }
 
 async function compressImageBeforeUpload(file, maxSizeKB = 500) {
@@ -392,5 +474,6 @@ async function uploadToCloudinary(file, options = {}) {
 
 if (typeof window !== 'undefined') {
     window.getOptimizedImageUrl = getOptimizedImageUrl;
+    window.enhanceProductImageUrl = enhanceProductImageUrl;
     window.compressImageBeforeUpload = compressImageBeforeUpload;
 }
