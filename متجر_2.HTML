@@ -8,7 +8,7 @@
 <html lang="ar" dir="rtl" data-page="store">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone - متجر التجميل والعناية الأول في مصر. أكثر من 635 منتج أصلي بأفضل الأسعار">
     <meta name="keywords" content="متجر تجميل, عناية بالبشرة, شامبو, كريم, مصر, Sale Zone">
@@ -1046,6 +1046,13 @@
                 </div>
             </div>
             <button class="checkout-btn" onclick="showCheckout()"><span data-i18n="checkout">إتمام الطلب</span> ✓</button>
+            <button type="button" onclick="sendCartToWhatsApp()"
+                style="width:100%;background:#25D366;color:#fff;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                </svg>
+                اطلب عبر واتساب
+            </button>
         </div>
     </div>
 
@@ -1293,8 +1300,42 @@
 
     <!-- Floating Buttons -->
     <div class="floating-buttons">
-        <a href="#" id="floatWhatsapp" target="_blank" class="float-btn whatsapp-btn" aria-label="التواصل عبر واتساب">💬</a>
+        <a id="floatingWhatsApp"
+           href="https://wa.me/201018108979?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D9%81%D8%B3%D8%A7%D8%B1%20%D8%B9%D9%86%20%D9%85%D9%86%D8%AA%D8%AC"
+           target="_blank"
+           rel="noopener noreferrer"
+           aria-label="تواصل عبر واتساب"
+           style="position:fixed;bottom:80px;left:16px;width:56px;height:56px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(37,211,102,0.4);z-index:9990;transition:transform 0.2s, box-shadow 0.2s;text-decoration:none;overflow:hidden;"
+           onmouseenter="this.style.transform='scale(1.1)'"
+           onmouseleave="this.style.transform='scale(1)'"
+           ontouchstart="this.style.transform='scale(0.95)'"
+           ontouchend="this.style.transform='scale(1)'">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white" style="position:relative;z-index:1">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.522 5.849L0 24l6.335-1.501A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.01-1.371l-.36-.213-3.732.884.944-3.617-.235-.372A9.818 9.818 0 012.182 12C2.182 6.58 6.58 2.182 12 2.182S21.818 6.58 21.818 12c0 5.42-4.398 9.818-9.818 9.818z"/>
+            </svg>
+            <span style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(37,211,102,0.4);animation:whatsapp-pulse 2s infinite;"></span>
+        </a>
     </div>
+    <style>
+        @keyframes whatsapp-pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            70% { transform: scale(1.4); opacity: 0; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+
+        body.panel-open #floatingWhatsApp {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        @media (max-width: 768px) {
+            #productsPagination[data-infinite-active="true"] {
+                display: none !important;
+            }
+        }
+    </style>
     <nav class="mobile-bottom-nav" role="navigation" aria-label="التنقل الرئيسي">
         <button type="button" class="nav-item active" data-mobile-nav="home" onclick="scrollToTop()">
             <span>🏠</span>
@@ -1321,6 +1362,48 @@
     <script data-cfasync="false">
         // Cloudflare email decode script removed - not available on GitHub Pages
     </script><script>
+        ;(function initSmartEntry() {
+            'use strict';
+
+            var hash = window.location.hash;
+            var panels = ['#cart', '#wishlist', '#search', '#menu'];
+            var isPanel = panels.some(function(panelHash) { return hash === panelHash; });
+
+            if (isPanel) {
+                window.history.replaceState(
+                    { view: 'store', depth: 0 },
+                    '',
+                    window.location.pathname + window.location.search
+                );
+            } else if (!window.history.state) {
+                window.history.replaceState(
+                    { view: 'store', depth: 0 },
+                    '',
+                    window.location.pathname + window.location.search + (hash || '')
+                );
+            }
+        })();
+
+        ;(function initPassiveEventDefaults() {
+            'use strict';
+            if (window.__STORE_PASSIVE_PATCHED__) return;
+            const originalAddEventListener = EventTarget.prototype.addEventListener;
+            EventTarget.prototype.addEventListener = function(type, fn, opts) {
+                let normalizedOptions = opts;
+                if (['touchstart', 'touchmove', 'wheel', 'mousewheel'].includes(type)) {
+                    if (opts == null) {
+                        normalizedOptions = { passive: true };
+                    } else if (typeof opts === 'boolean') {
+                        normalizedOptions = { capture: opts, passive: true };
+                    } else if (typeof opts === 'object' && opts.passive == null) {
+                        normalizedOptions = { ...opts, passive: true };
+                    }
+                }
+                return originalAddEventListener.call(this, type, fn, normalizedOptions);
+            };
+            window.__STORE_PASSIVE_PATCHED__ = true;
+        })();
+
         // ============================================
         // 🗄️ Data Store
         // ============================================
@@ -2092,6 +2175,8 @@
             safeRun('updateStats', updateStats);
             safeRun('updateCartUI', updateCartUI);
             safeRun('updateFavUI', updateFavUI);
+            safeRun('initPullToRefresh', initPullToRefresh);
+            safeRun('initInfiniteScroll', initInfiniteScroll);
             safeRun('checkLoggedInUser', checkLoggedInUser);
             completeMagicLinkSignInIfNeeded().catch((error) => {
                 console.error('completeMagicLinkSignInIfNeeded bootstrap error:', error);
@@ -2109,7 +2194,11 @@
                 setTimeout(() => {
                     if (!loadingScreen.classList.contains('hidden')) {
                         loadingScreen.classList.add('hidden');
-                        showToast('تم تجاوز شاشة التحميل تلقائيًا. إذا استمر الخطأ أخبرنا.', 'warning');
+                        if (window.Toast && typeof window.Toast.warning === 'function') {
+                            window.Toast.warning('تم تجاوز شاشة التحميل تلقائيًا. إذا استمر الخطأ أخبرنا.');
+                        } else {
+                            showNotification('warning', 'تنبيه', 'تم تجاوز شاشة التحميل تلقائيًا. إذا استمر الخطأ أخبرنا.');
+                        }
                     }
                 }, 6000);
             }
@@ -2124,6 +2213,7 @@
                         safeRun('renderSupplierFilters', renderSupplierFilters);
                         safeRun('buildSearchIndexAsync', buildSearchIndexAsync);
                         safeRun('runProductSearch', () => runProductSearch(1));
+                        safeRun('initInfiniteScroll', initInfiniteScroll);
                         safeRun('renderCoupons', renderCoupons);
                         safeRun('updateCategoryCounts', updateCategoryCounts);
                         safeRun('updateStats', updateStats);
@@ -2132,7 +2222,11 @@
                     })
                     .catch((error) => {
                         console.error('loadDataWithTimeout bootstrap error:', error);
-                        showToast('تعذر تحميل بيانات المتجر حالياً.', 'error');
+                        if (window.Toast && typeof window.Toast.error === 'function') {
+                            window.Toast.error('تعذر تحميل بيانات المتجر حالياً.');
+                        } else {
+                            showNotification('error', 'خطأ', 'تعذر تحميل بيانات المتجر حالياً.');
+                        }
                     });
             });
 
@@ -2456,6 +2550,10 @@
         function saveProducts() { /* no-op: products are Firebase-managed */ }
 
         function showToast(message, type = 'info') {
+            if (window.Toast && typeof window.Toast.show === 'function') {
+                window.Toast.show(message, type);
+                return;
+            }
             const toast = document.createElement('div');
             const colors = {
                 info: { bg: '#0A1128', border: '#D4AF37' },
@@ -2521,9 +2619,11 @@
 
             const phone = storeSettings.contact?.phone || '01018108979';
             const whatsapp = storeSettings.contact?.whatsapp || '01018108979';
+            const whatsappDigits = normalizeWhatsAppNumber(whatsapp);
+            const whatsappLink = `https://wa.me/${whatsappDigits}`;
             document.getElementById('topBarPhone').textContent = `📞 ${phone}`;
             document.getElementById('topBarPhone').href = `tel:${phone}`;
-            document.getElementById('topBarWhatsapp').href = `https://wa.me/2${whatsapp}`;
+            document.getElementById('topBarWhatsapp').href = whatsappLink;
             document.getElementById('footerAbout').textContent = resolveLocalizedSettingValue(
                 storeSettings.footer?.about || storeSettings.description,
                 '',
@@ -2553,7 +2653,10 @@
                 '🔔 24/7 service'
             );
             document.getElementById('footerCopyright').textContent = storeSettings.footer?.copyright || '';
-            document.getElementById('floatWhatsapp').href = `https://wa.me/2${whatsapp}`;
+            const floatingWhatsApp = document.getElementById('floatingWhatsApp') || document.getElementById('floatWhatsapp');
+            if (floatingWhatsApp) {
+                floatingWhatsApp.href = `${whatsappLink}?text=${encodeURIComponent('مرحباً، أريد الاستفسار عن منتج')}`;
+            }
             if (!Array.isArray(storeSettings.customCategories)) {
                 storeSettings.customCategories = [];
             }
@@ -2761,9 +2864,146 @@
             if (current) select.value = current;
         }
 
+        const _infiniteScroll = {
+            loading: false,
+            hasMore: true,
+            observer: null,
+            sentinel: null,
+            enabled: false
+        };
+
+        function shouldUseInfiniteScroll() {
+            return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function ensureInfiniteScrollElements() {
+            const grid = document.getElementById('productsGrid');
+            const pagination = document.getElementById('productsPagination');
+            if (!grid) return null;
+
+            let sentinel = document.getElementById('scrollSentinel');
+            if (!sentinel) {
+                sentinel = document.createElement('div');
+                sentinel.id = 'scrollSentinel';
+                sentinel.style.height = '1px';
+                sentinel.style.width = '100%';
+                if (pagination) pagination.after(sentinel);
+                else grid.after(sentinel);
+            }
+
+            let loader = document.getElementById('infiniteLoader');
+            if (!loader) {
+                loader = document.createElement('div');
+                loader.id = 'infiniteLoader';
+                loader.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-secondary)">⟳ جاري تحميل المزيد...</div>';
+                sentinel.after(loader);
+            }
+
+            _infiniteScroll.sentinel = sentinel;
+            return { grid, pagination, sentinel, loader };
+        }
+
+        function showLoadingSpinner() {
+            const ui = ensureInfiniteScrollElements();
+            const loader = ui && ui.loader;
+            if (loader) loader.style.display = 'block';
+        }
+
+        function hideLoadingSpinner() {
+            const loader = document.getElementById('infiniteLoader');
+            if (loader) loader.style.display = 'none';
+        }
+
+        function syncInfiniteScrollState(result) {
+            const ui = ensureInfiniteScrollElements();
+            if (!ui) return;
+
+            _infiniteScroll.enabled = shouldUseInfiniteScroll();
+            _infiniteScroll.hasMore = _infiniteScroll.enabled
+                && Number(result && result.totalPages || 1) > Number(result && result.page || 1);
+
+            if (ui.pagination) {
+                ui.pagination.dataset.infiniteActive = _infiniteScroll.enabled ? 'true' : 'false';
+            }
+
+            if (ui.sentinel) {
+                ui.sentinel.style.display = _infiniteScroll.hasMore ? 'block' : 'none';
+            }
+
+            if (!_infiniteScroll.enabled) {
+                hideLoadingSpinner();
+            }
+        }
+
+        function loadNextPage() {
+            if (_infiniteScroll.loading || !_infiniteScroll.enabled || !_infiniteScroll.hasMore) {
+                return Promise.resolve([]);
+            }
+
+            _infiniteScroll.loading = true;
+            showLoadingSpinner();
+
+            const nextPage = Number(productViewState.page || 1) + 1;
+            const result = computeProductSearchResult({
+                ...productViewState,
+                page: nextPage
+            });
+
+            if (!result.items || result.items.length === 0 || Number(result.page || 1) === Number(productViewState.page || 1)) {
+                _infiniteScroll.hasMore = false;
+                _infiniteScroll.loading = false;
+                hideLoadingSpinner();
+                syncInfiniteScrollState(result);
+                return Promise.resolve([]);
+            }
+
+            productViewState = {
+                ...productViewState,
+                page: result.page
+            };
+            currentSearchPage = result.page;
+            lastSearchResult = result;
+
+            renderProductGrid(result.items || [], {
+                append: true,
+                startIndex: (result.page - 1) * PAGE_SIZE
+            });
+            updateProductsTitle(result, productViewState);
+            _infiniteScroll.loading = false;
+            hideLoadingSpinner();
+            syncInfiniteScrollState(result);
+            return Promise.resolve(result.items);
+        }
+
+        function initInfiniteScroll() {
+            if (window.__STORE_INFINITE_READY__) {
+                syncInfiniteScrollState(lastSearchResult);
+                return;
+            }
+
+            const ui = ensureInfiniteScrollElements();
+            if (!ui || !('IntersectionObserver' in window)) return;
+
+            _infiniteScroll.observer = new IntersectionObserver(function(entries) {
+                if (!entries[0] || !entries[0].isIntersecting) return;
+                loadNextPage().catch(function() {
+                    _infiniteScroll.loading = false;
+                    hideLoadingSpinner();
+                });
+            }, { rootMargin: '200px' });
+
+            _infiniteScroll.observer.observe(ui.sentinel);
+            window.addEventListener('resize', function() {
+                syncInfiniteScrollState(lastSearchResult);
+            }, { passive: true });
+            window.__STORE_INFINITE_READY__ = true;
+            syncInfiniteScrollState(lastSearchResult);
+        }
+
         function renderPaginationControls(meta) {
             const pagination = document.getElementById('productsPagination');
             if (!pagination) return;
+            pagination.dataset.infiniteActive = shouldUseInfiniteScroll() ? 'true' : 'false';
             if (!meta || Number(meta.totalPages || 1) <= 1) {
                 pagination.innerHTML = '';
                 return;
@@ -2818,41 +3058,27 @@
             `).join('');
         }
 
-        function renderProductGrid(productsToRender = []) {
-            const grid = document.getElementById('productsGrid');
-            const displayProducts = productsToRender;
+        function buildProductCardMarkup(p, index = 0) {
+            const safeProductId = escapeHtml(String(p && p.id || ''));
+            const safeName = escapeHtml(p && p.name || '');
+            const safeDesc = escapeHtml(p && p.desc || '');
+            const safeImageSrc = escapeHtml(typeof window.enhanceProductImageUrl === 'function'
+                ? window.enhanceProductImageUrl(p && (p.imageUrl || p.image), 'card')
+                : getSafeImageUrl(p, 400));
+            const imageLoading = index < 4 ? 'eager' : 'lazy';
+            const isFav = favorites.includes(String(p && p.id));
+            const resolvedPrice = resolveDisplayPrice(p);
+            const hasValidPrice = Number.isFinite(resolvedPrice);
+            const currentPrice = hasValidPrice ? escapeHtml(formatPrice(resolvedPrice)) : escapeHtml(t('unavailableForSale'));
+            const oldPriceValue = Number(p && p.oldPrice);
+            const hasOldPrice = hasValidPrice && Number.isFinite(oldPriceValue) && oldPriceValue > Number(resolvedPrice || 0);
+            const oldPrice = escapeHtml(hasOldPrice ? formatPrice(oldPriceValue) : '');
+            const ratingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
+            const discountPercent = getProductDiscountPercent(p);
+            const stockMessage = getProductStockMessage(p);
+            const canAddToCart = hasValidPrice && isProductInStock(p);
 
-            if (displayProducts.length === 0) {
-                const emptyMessage = currentSearchQuery
-                    ? `${t('noResults')}: "${escapeHtml(currentSearchQuery)}"`
-                    : t('noResults');
-                grid.innerHTML = renderEmptyState(emptyMessage);
-                renderPaginationControls({ totalPages: 1, page: 1 });
-                applyAutoTooltips(grid);
-                return;
-            }
-
-            grid.innerHTML = displayProducts.map((p, index) => {
-                const safeProductId = escapeHtml(String(p && p.id || ''));
-                const safeName = escapeHtml(p && p.name || '');
-                const safeDesc = escapeHtml(p && p.desc || '');
-                const safeImageSrc = escapeHtml(typeof window.enhanceProductImageUrl === 'function'
-                    ? window.enhanceProductImageUrl(p && (p.imageUrl || p.image), 'card')
-                    : getSafeImageUrl(p, 400));
-                const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
-                const imageLoading = index < 4 ? 'eager' : 'lazy';
-                const isFav = favorites.includes(String(p && p.id));
-                const resolvedPrice = resolveDisplayPrice(p);
-                const hasValidPrice = Number.isFinite(resolvedPrice);
-                const currentPrice = hasValidPrice ? escapeHtml(formatPrice(resolvedPrice)) : escapeHtml(t('unavailableForSale'));
-                const oldPriceValue = Number(p && p.oldPrice);
-                const hasOldPrice = hasValidPrice && Number.isFinite(oldPriceValue) && oldPriceValue > Number(resolvedPrice || 0);
-                const oldPrice = escapeHtml(hasOldPrice ? formatPrice(oldPriceValue) : '');
-                const ratingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
-                const discountPercent = getProductDiscountPercent(p);
-                const stockMessage = getProductStockMessage(p);
-                const canAddToCart = hasValidPrice && isProductInStock(p);
-                return `
+            return `
                 <div class="product-card" data-product-id="${safeProductId}" onclick="showProductDetails(this.dataset.productId)">
                     ${discountPercent > 0 ? `
                         <span class="discount-badge"
@@ -2886,7 +3112,33 @@
                     </div>
                 </div>
             `;
-            }).join('');
+        }
+
+        function renderProductGrid(productsToRender = [], options = {}) {
+            const grid = document.getElementById('productsGrid');
+            const displayProducts = productsToRender;
+            const append = options.append === true;
+            const startIndex = Number(options.startIndex || 0);
+
+            if (!append && displayProducts.length === 0) {
+                const emptyMessage = currentSearchQuery
+                    ? `${t('noResults')}: "${escapeHtml(currentSearchQuery)}"`
+                    : t('noResults');
+                grid.innerHTML = renderEmptyState(emptyMessage);
+                renderPaginationControls({ totalPages: 1, page: 1 });
+                applyAutoTooltips(grid);
+                return;
+            }
+
+            const markup = displayProducts.map((p, index) => buildProductCardMarkup(p, startIndex + index)).join('');
+            if (append) {
+                if (grid.querySelector('.empty-state')) {
+                    grid.innerHTML = '';
+                }
+                grid.insertAdjacentHTML('beforeend', markup);
+            } else {
+                grid.innerHTML = markup;
+            }
             applyAutoTooltips(grid);
         }
 
@@ -3071,10 +3323,14 @@
             currentSearchPage = productViewState.page;
             lastSearchResult = result;
 
-            renderProductGrid(result.items || []);
+            renderProductGrid(result.items || [], {
+                append: false,
+                startIndex: (result.page - 1) * PAGE_SIZE
+            });
             renderPaginationControls(result);
             updateProductsTitle(result, productViewState);
             syncCategoryCards(productViewState.category);
+            syncInfiniteScrollState(result);
 
             if (options.scroll !== false && previousPage !== result.page) {
                 document.getElementById('productsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3263,6 +3519,76 @@
             });
         }
 
+        function initImageZoom(imgEl) {
+            if (!imgEl || imgEl.dataset.zoomReady === '1') return;
+
+            let scale = 1;
+            let lastDistance = 0;
+            let posX = 0;
+            let posY = 0;
+            let startX = 0;
+            let startY = 0;
+            let lastTap = 0;
+
+            imgEl.dataset.zoomReady = '1';
+            imgEl.style.transition = 'transform 0.1s ease';
+            imgEl.style.transformOrigin = 'center';
+            imgEl.style.cursor = 'grab';
+
+            const applyTransform = () => {
+                imgEl.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+            };
+
+            imgEl.addEventListener('touchstart', function(event) {
+                if (event.touches.length === 2) {
+                    lastDistance = Math.hypot(
+                        event.touches[0].clientX - event.touches[1].clientX,
+                        event.touches[0].clientY - event.touches[1].clientY
+                    );
+                } else if (event.touches.length === 1 && scale > 1) {
+                    startX = event.touches[0].clientX - posX;
+                    startY = event.touches[0].clientY - posY;
+                }
+            }, { passive: true });
+
+            imgEl.addEventListener('touchmove', function(event) {
+                if (event.touches.length === 2) {
+                    if (event.cancelable) event.preventDefault();
+                    const distance = Math.hypot(
+                        event.touches[0].clientX - event.touches[1].clientX,
+                        event.touches[0].clientY - event.touches[1].clientY
+                    );
+                    if (lastDistance > 0) {
+                        scale = Math.min(Math.max(scale * (distance / lastDistance), 1), 4);
+                    }
+                    lastDistance = distance;
+                    applyTransform();
+                } else if (event.touches.length === 1 && scale > 1) {
+                    posX = event.touches[0].clientX - startX;
+                    posY = event.touches[0].clientY - startY;
+                    applyTransform();
+                }
+            }, { passive: false });
+
+            imgEl.addEventListener('touchend', function() {
+                if (scale < 1.1) {
+                    scale = 1;
+                    posX = 0;
+                    posY = 0;
+                    applyTransform();
+                }
+
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    scale = scale > 1 ? 1 : 2.5;
+                    posX = 0;
+                    posY = 0;
+                    applyTransform();
+                }
+                lastTap = now;
+            }, { passive: true });
+        }
+
         function changeProductModalQuantity(delta) {
             const nextValue = Math.max(1, Math.min(99, Number(productModalState.quantity || 1) + Number(delta || 0)));
             productModalState.quantity = nextValue;
@@ -3360,6 +3686,7 @@
             `;
             applyAutoTooltips(document.getElementById('productModalBody'));
             openModal('productModal');
+            initImageZoom(document.getElementById('productModalMainImage'));
         }
 
         function updateCategoryCounts() {
@@ -3446,13 +3773,49 @@
         // ============================================
         // ❤️ Favorites
         // ============================================
-        function toggleFavorites() {
+        function setWishlistPanelState(isOpen) {
             const overlay = document.getElementById('favOverlay');
             const sidebar = document.getElementById('favSidebar');
-            overlay.classList.toggle('active');
-            sidebar.classList.toggle('active');
-            setMobileBottomNavActive(sidebar.classList.contains('active') ? 'favorites' : 'home');
+            if (!overlay || !sidebar) return false;
+            overlay.classList.toggle('active', Boolean(isOpen));
+            sidebar.classList.toggle('active', Boolean(isOpen));
+            setMobileBottomNavActive(Boolean(isOpen) ? 'favorites' : 'home');
             syncSidePanelScrollLock();
+            return Boolean(isOpen);
+        }
+
+        function openWishlist(options = {}) {
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
+                window.NavHistory.open('wishlist');
+                return true;
+            }
+            return setWishlistPanelState(true);
+        }
+
+        function closeWishlist(options = {}) {
+            const overlay = document.getElementById('favOverlay');
+            const sidebar = document.getElementById('favSidebar');
+            const isOpen = overlay?.classList.contains('active') || sidebar?.classList.contains('active');
+            if (!isOpen) {
+                setWishlistPanelState(false);
+                return false;
+            }
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
+                window.NavHistory.close('wishlist');
+                return false;
+            }
+            return setWishlistPanelState(false);
+        }
+
+        function toggleWishlist(options = {}) {
+            const overlay = document.getElementById('favOverlay');
+            const sidebar = document.getElementById('favSidebar');
+            const isOpen = overlay?.classList.contains('active') || sidebar?.classList.contains('active');
+            return isOpen ? closeWishlist(options) : openWishlist(options);
+        }
+
+        function toggleFavorites(options = {}) {
+            return toggleWishlist(options);
         }
 
         function toggleFav(id) {
@@ -3460,10 +3823,18 @@
             const idx = favorites.indexOf(pid);
             if (idx > -1) {
                 favorites.splice(idx, 1);
-                showNotification('info', 'تمت الإزالة', 'تم إزالة المنتج من المفضلة');
+                if (window.Toast && typeof window.Toast.info === 'function') {
+                    window.Toast.info('تم إزالة المنتج من المفضلة');
+                } else {
+                    showNotification('info', 'تمت الإزالة', 'تم إزالة المنتج من المفضلة');
+                }
             } else {
                 favorites.push(pid);
-                showNotification('success', 'تمت الإضافة', 'تم إضافة المنتج للمفضلة');
+                if (window.Toast && typeof window.Toast.wish === 'function') {
+                    window.Toast.wish('تم الإضافة للمفضلة ❤️');
+                } else {
+                    showNotification('success', 'تمت الإضافة', 'تم إضافة المنتج للمفضلة');
+                }
             }
             saveFavorites();
             updateFavUI();
@@ -3511,25 +3882,65 @@
         // ============================================
         // 🛒 Cart
         // ============================================
-        function toggleCart() {
+        function setCartPanelState(isOpen) {
             const overlay = document.getElementById('cartOverlay');
             const sidebar = document.getElementById('cartSidebar');
-            overlay.classList.toggle('active');
-            sidebar.classList.toggle('active');
-            setMobileBottomNavActive(sidebar.classList.contains('active') ? 'cart' : 'home');
+            if (!overlay || !sidebar) return false;
+            overlay.classList.toggle('active', Boolean(isOpen));
+            sidebar.classList.toggle('active', Boolean(isOpen));
+            setMobileBottomNavActive(Boolean(isOpen) ? 'cart' : 'home');
             updatePointsSection();
             syncSidePanelScrollLock();
+            return Boolean(isOpen);
+        }
+
+        function openCart(options = {}) {
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
+                window.NavHistory.open('cart');
+                return true;
+            }
+            return setCartPanelState(true);
+        }
+
+        function closeCart(options = {}) {
+            const overlay = document.getElementById('cartOverlay');
+            const sidebar = document.getElementById('cartSidebar');
+            const isOpen = overlay?.classList.contains('active') || sidebar?.classList.contains('active');
+            if (!isOpen) {
+                setCartPanelState(false);
+                return false;
+            }
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
+                window.NavHistory.close('cart');
+                return false;
+            }
+            return setCartPanelState(false);
+        }
+
+        function toggleCart(options = {}) {
+            const overlay = document.getElementById('cartOverlay');
+            const sidebar = document.getElementById('cartSidebar');
+            const isOpen = overlay?.classList.contains('active') || sidebar?.classList.contains('active');
+            return isOpen ? closeCart(options) : openCart(options);
         }
 
         function addToCart(id, quantity = 1) {
             const p = getVisibleProductsList().find((x) => x.id == id || String(x.id) === String(id));
             if (!p) return;
             if (getProductStockValue(p) === 0) {
-                showToast('المنتج غير متوفر حالياً', 'warning');
+                if (window.Toast && typeof window.Toast.warning === 'function') {
+                    window.Toast.warning('المنتج غير متوفر حالياً');
+                } else {
+                    showNotification('warning', 'تنبيه', 'المنتج غير متوفر حالياً');
+                }
                 return;
             }
             if (!isProductInStock(p)) {
-                showToast(t('unavailableNow'), 'warning');
+                if (window.Toast && typeof window.Toast.warning === 'function') {
+                    window.Toast.warning(t('unavailableNow'));
+                } else {
+                    showNotification('warning', 'تنبيه', t('unavailableNow'));
+                }
                 return;
             }
             const displayPrice = resolveDisplayPrice(p);
@@ -3543,7 +3954,11 @@
             else cart.push({ id: p.id, name: p.name, price: Number(displayPrice), image: getSafeImageUrl(p, 240), quantity: safeQuantity });
             saveCart();
             updateCartUI();
-            showNotification('success', 'تمت الإضافة', `"${p.name}" في السلة × ${safeQuantity}`);
+            if (window.Toast && typeof window.Toast.cart === 'function') {
+                window.Toast.cart(`تم الإضافة للسلة 🛒 × ${safeQuantity}`);
+            } else {
+                showNotification('success', 'تمت الإضافة', `"${p.name}" في السلة × ${safeQuantity}`);
+            }
         }
 
         function shareProductOnWhatsApp(productOrId) {
@@ -3555,9 +3970,51 @@
             const rawPrice = resolveDisplayPrice(product);
             const price = Number.isFinite(rawPrice) ? formatPrice(rawPrice) : t('unavailableForSale');
             const name = String(product.nameAr || product.name || '').trim();
-            const url = `https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML#${encodeURIComponent(String(product.id || ''))}`;
+            const url = `https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML#product/${encodeURIComponent(String(product.id || ''))}`;
             const text = `🛍️ ${name}\n💰 ${t('sharePriceLabel')}: ${price}\n🔗 ${url}`;
             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        function sendCartToWhatsApp() {
+            const activeCart = getCart();
+            if (!activeCart || activeCart.length === 0) {
+                if (window.Toast && typeof window.Toast.warning === 'function') {
+                    window.Toast.warning('السلة فارغة');
+                }
+                return;
+            }
+
+            const lines = ['🛒 *طلب جديد من Sale Zone*', ''];
+            let total = 0;
+
+            activeCart.forEach(function(item, index) {
+                const qty = Math.max(1, Number(item && item.quantity || 1));
+                const price = Math.max(0, Number(item && item.price || 0));
+                const subtotal = price * qty;
+                const name = String(item && (item.nameAr || item.name) || '').trim() || `منتج ${index + 1}`;
+                total += subtotal;
+
+                lines.push(
+                    (index + 1) + '. *' + name + '*\n'
+                    + '   الكمية: ' + qty + '\n'
+                    + '   السعر: ' + price + ' جنيه\n'
+                    + '   الإجمالي: ' + subtotal + ' جنيه'
+                );
+            });
+
+            lines.push('');
+            lines.push('💰 *الإجمالي الكلي: ' + total + ' جنيه*');
+            lines.push('');
+            lines.push('📦 يرجى تأكيد الطلب وإرسال عنوان التوصيل');
+
+            window.open(
+                'https://wa.me/' + getStoreWhatsappNumber() + '?text=' + encodeURIComponent(lines.join('\n')),
+                '_blank'
+            );
+
+            if (window.Toast && typeof window.Toast.success === 'function') {
+                window.Toast.success('جاري فتح واتساب...');
+            }
         }
 
         function removeFromCart(id) {
@@ -5522,6 +5979,23 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             });
         }
 
+        function getCart() {
+            return Array.isArray(cart) ? cart : [];
+        }
+
+        function normalizeWhatsAppNumber(raw) {
+            const digits = String(raw || '').replace(/\D/g, '');
+            if (!digits) return '201018108979';
+            if (digits.startsWith('20')) return digits;
+            if (digits.startsWith('2') && digits.length > 11) return digits;
+            if (digits.startsWith('0')) return `2${digits}`;
+            return digits;
+        }
+
+        function getStoreWhatsappNumber() {
+            return normalizeWhatsAppNumber(storeSettings.contact?.whatsapp || storeSettings.contact?.phone || '01018108979');
+        }
+
         function getCartCount() {
             return cart.reduce((sum, item) => sum + Math.max(0, Number(item && item.quantity || 0)), 0);
         }
@@ -5572,7 +6046,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function syncSidePanelScrollLock() {
             const cartOpen = document.getElementById('cartSidebar')?.classList.contains('active') === true;
             const favOpen = document.getElementById('favSidebar')?.classList.contains('active') === true;
-            if (cartOpen || favOpen) lockBodyScroll();
+            const anyPanelOpen = cartOpen || favOpen;
+            document.body.classList.toggle('panel-open', anyPanelOpen);
+            if (anyPanelOpen) lockBodyScroll();
             else unlockBodyScroll();
         }
 
@@ -5599,6 +6075,107 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             window.__STORE_TOUCH_HANDLERS_BOUND__ = true;
         }
 
+        const _ptr = {
+            startY: 0,
+            threshold: 80,
+            loading: false,
+            element: null
+        };
+
+        function ensurePullToRefreshIndicator() {
+            if (_ptr.element) return _ptr.element;
+            const indicator = document.createElement('div');
+            indicator.id = 'pullToRefresh';
+            indicator.innerHTML = '↓ اسحب للتحديث';
+            indicator.setAttribute('style', [
+                'position:fixed',
+                'top:-60px',
+                'left:50%',
+                'transform:translateX(-50%)',
+                'background:var(--color-text-info)',
+                'color:#fff',
+                'padding:8px 20px',
+                'border-radius:0 0 20px 20px',
+                'font-size:0.85rem',
+                'z-index:9000',
+                'transition:top 0.2s',
+                'pointer-events:none'
+            ].join(';'));
+            document.body.appendChild(indicator);
+            _ptr.element = indicator;
+            return indicator;
+        }
+
+        function refreshStoreProducts() {
+            return Promise.resolve(loadDataWithTimeout(12000)).then(() => {
+                applyStoreSettings();
+                renderBanners();
+                renderSupplierFilters();
+                buildSearchIndexAsync();
+                renderCoupons();
+                updateCategoryCounts();
+                updateStats();
+                updateCartUI();
+                updateFavUI();
+                runProductSearch(1);
+            });
+        }
+
+        function initPullToRefresh() {
+            if (window.__STORE_PTR_READY__) return;
+            const indicator = ensurePullToRefreshIndicator();
+
+            document.addEventListener('touchstart', function(event) {
+                if (document.body.classList.contains('panel-open')) return;
+                if (document.querySelector('.modal-overlay.active')) return;
+                if (window.scrollY === 0) {
+                    _ptr.startY = event.touches[0].clientY;
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchmove', function(event) {
+                if (_ptr.loading || window.scrollY > 0 || !_ptr.startY) return;
+                if (document.body.classList.contains('panel-open')) return;
+                const diff = event.touches[0].clientY - _ptr.startY;
+                if (diff > 0 && diff < _ptr.threshold + 20) {
+                    const progress = Math.min(diff / _ptr.threshold, 1);
+                    indicator.style.top = (-60 + progress * 70) + 'px';
+                    indicator.innerHTML = diff > _ptr.threshold ? '↑ ارفع للتحديث' : '↓ اسحب للتحديث';
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchend', function(event) {
+                if (_ptr.loading || !_ptr.startY) return;
+                const diff = event.changedTouches[0].clientY - _ptr.startY;
+                _ptr.startY = 0;
+                indicator.style.top = '-60px';
+
+                if (diff >= _ptr.threshold) {
+                    _ptr.loading = true;
+                    indicator.innerHTML = '⟳ جاري التحديث...';
+                    indicator.style.top = '0px';
+
+                    refreshStoreProducts()
+                        .then(function() {
+                            if (window.Toast && typeof window.Toast.success === 'function') {
+                                window.Toast.success('تم التحديث ✓');
+                            }
+                        })
+                        .catch(function(error) {
+                            if (window.Toast && typeof window.Toast.error === 'function') {
+                                window.Toast.error(error && error.message ? error.message : 'تعذر تحديث المنتجات');
+                            }
+                        })
+                        .finally(function() {
+                            _ptr.loading = false;
+                            indicator.style.top = '-60px';
+                        });
+                }
+            }, { passive: true });
+
+            window.__STORE_PTR_READY__ = true;
+        }
+
         function scrollToTop() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             setMobileBottomNavActive('home');
@@ -5616,26 +6193,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             setMobileBottomNavActive('search');
         }
 
-        function openCart() {
-            const overlay = document.getElementById('cartOverlay');
-            const sidebar = document.getElementById('cartSidebar');
-            if (!overlay || !sidebar) return;
-            if (!overlay.classList.contains('active') || !sidebar.classList.contains('active')) {
-                toggleCart();
-            }
-            setMobileBottomNavActive('cart');
-            syncSidePanelScrollLock();
+        function openFavorites(options = {}) {
+            return openWishlist(options);
         }
 
-        function openFavorites() {
-            const overlay = document.getElementById('favOverlay');
-            const sidebar = document.getElementById('favSidebar');
-            if (!overlay || !sidebar) return;
-            if (!overlay.classList.contains('active') || !sidebar.classList.contains('active')) {
-                toggleFavorites();
-            }
-            setMobileBottomNavActive('favorites');
-            syncSidePanelScrollLock();
+        function closeFavorites(options = {}) {
+            return closeWishlist(options);
         }
 
         function openAuth() {
@@ -5678,10 +6241,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
                 document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
-                document.getElementById('cartOverlay').classList.remove('active');
-                document.getElementById('cartSidebar').classList.remove('active');
-                document.getElementById('favOverlay').classList.remove('active');
-                document.getElementById('favSidebar').classList.remove('active');
+                closeCart();
+                closeWishlist();
                 document.getElementById('chatBox').classList.remove('active');
                 syncSidePanelScrollLock();
             }
@@ -5695,6 +6256,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             initCartTouchHandlers();
         }
     </script>
+    <script src="assets/js/nav-history.js"></script>
+    <script src="assets/js/toast.js"></script>
     <script src="assets/js/product-router.js"></script>
 </body>
 </html>
