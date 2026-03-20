@@ -2425,6 +2425,8 @@
         const PRODUCT_SAVED_FILTERS_KEY = 'sale_zone_admin_saved_product_filters';
         const MAX_ADMIN_PRODUCTS_LOCAL_CACHE = 800;
         const DEFAULT_PRODUCT_IMAGE = './assets/placeholder.svg';
+        const PRODUCT_IMAGE_CLOUD_NAME = 'dwrfrfxnc';
+        const PRODUCT_IMAGE_FOLDER = 'salezone_products';
         let pendingProductOps = [];
         let pendingOpsInFlight = false;
         let importWizardState = null;
@@ -2540,6 +2542,30 @@
             return [];
         }
 
+        function cleanImageField(value) {
+            const rawValue = String(value || '').trim();
+            if (!rawValue) return '';
+            if (rawValue.startsWith('data:')) return rawValue;
+            if (rawValue.startsWith('./') || rawValue.startsWith('assets/')) return rawValue;
+            if (/^https?:\/\//i.test(rawValue)) return rawValue;
+            return rawValue
+                .replace(/^\/+/, '')
+                .replace(/\.(jpg|jpeg|png|webp|gif)$/i, '');
+        }
+
+        function buildCloudinaryProductImageUrl(value, width = 400) {
+            const publicId = cleanImageField(value);
+            if (!publicId || /^https?:\/\//i.test(publicId) || publicId.startsWith('./') || publicId.startsWith('assets/')) {
+                return '';
+            }
+            const safeWidth = Math.max(120, Math.min(2000, Number(width) || 400));
+            const encodedPublicId = publicId
+                .split('/')
+                .map((segment) => encodeURIComponent(segment))
+                .join('/');
+            return `https://res.cloudinary.com/${PRODUCT_IMAGE_CLOUD_NAME}/image/upload/f_auto,q_auto,w_${safeWidth},c_fill/${PRODUCT_IMAGE_FOLDER}/${encodedPublicId}`;
+        }
+
         function normalizeProductForStorage(product, defaults = {}) {
             const source = product && typeof product === 'object' ? product : {};
             const nowIso = new Date().toISOString();
@@ -2549,6 +2575,10 @@
             const pricing = resolveProductPricingFields(source, defaults);
             const hasValidPublishPrice = Number.isFinite(Number(pricing.sellPrice)) && Number(pricing.sellPrice) > 0;
             const isPublished = requestedPublished && hasValidPublishPrice;
+            const cleanedImage = cleanImageField(source.image || defaults.image || '');
+            const cleanedImageUrl = cleanImageField(source.imageUrl || source.image || defaults.imageUrl || cleanedImage || '');
+            const storedImage = cleanedImage || DEFAULT_PRODUCT_IMAGE;
+            const storedImageUrl = cleanedImageUrl || storedImage;
 
             return {
                 id: String(source.id || ''),
@@ -2560,8 +2590,8 @@
                 supplierCode: String(source.supplierCode || defaults.supplierCode || ''),
                 ...pricing,
                 oldPrice: Number.isFinite(parseMoney(source.oldPrice)) ? parseMoney(source.oldPrice) : null,
-                image: sanitizeImageUrl(source.image || source.imageUrl || DEFAULT_PRODUCT_IMAGE),
-                imageUrl: sanitizeImageUrl(source.imageUrl || source.image || DEFAULT_PRODUCT_IMAGE),
+                image: storedImage,
+                imageUrl: storedImageUrl,
                 rating: Number.isFinite(Number(source.rating)) ? Number(source.rating) : 4.5,
                 ratingCount: Number.isFinite(Number(source.ratingCount)) ? Number(source.ratingCount) : 0,
                 code: String(source.code || ''),
@@ -3669,6 +3699,10 @@ function adminLogout(){
             if (trimmed.startsWith('data:')) return trimmed;
             if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
             if (/^https:\/\/res\.cloudinary\.com\//i.test(trimmed)) return trimmed;
+            if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+            const cloudinaryUrl = buildCloudinaryProductImageUrl(trimmed, 400);
+            if (cloudinaryUrl) return cloudinaryUrl;
 
             try {
                 const parsed = new URL(trimmed, window.location.origin);

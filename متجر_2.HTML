@@ -1579,6 +1579,9 @@
             medical: { ar: 'الطبي', en: 'Medical' }
         };
         const PRODUCT_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='18' fill='%23999' text-anchor='middle' dy='.3em'%3E%D8%B5%D9%88%D8%B1%D8%A9 %D8%BA%D9%8A%D8%B1 %D9%85%D8%AA%D8%A7%D8%AD%D8%A9%3C/text%3E%3C/svg%3E";
+        const PRODUCT_IMAGE_FALLBACK_PATH = 'assets/placeholder.svg';
+        const PRODUCT_IMAGE_CLOUD_NAME = 'dwrfrfxnc';
+        const PRODUCT_IMAGE_FOLDER = 'salezone_products';
 
         function t(key) {
             return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.ar[key] || key;
@@ -1733,6 +1736,45 @@
             return rawUrl.replace('/upload/', `/upload/f_auto,q_auto,w_${safeWidth},c_fill/`);
         }
 
+        function normalizeCloudinaryPublicId(value) {
+            const trimmed = String(value || '').trim();
+            if (!trimmed) return '';
+            if (trimmed.startsWith('data:') || trimmed.startsWith('./') || trimmed.startsWith('assets/')) return '';
+            if (/^https?:\/\//i.test(trimmed)) return '';
+            if (trimmed.startsWith('/')) return '';
+            return trimmed.replace(/\.(jpg|jpeg|png|webp|gif)$/i, '');
+        }
+
+        function buildCloudinaryProductImageUrl(value, width = 800) {
+            const publicId = normalizeCloudinaryPublicId(value);
+            if (!publicId) return '';
+            const safeWidth = Math.max(120, Math.min(2000, Number(width) || 800));
+            const encodedPublicId = publicId
+                .split('/')
+                .map((segment) => encodeURIComponent(segment))
+                .join('/');
+            return `https://res.cloudinary.com/${PRODUCT_IMAGE_CLOUD_NAME}/image/upload/f_auto,q_auto,w_${safeWidth},c_fill/${PRODUCT_IMAGE_FOLDER}/${encodedPublicId}`;
+        }
+
+        function getSafeImageUrl(product, width = 800) {
+            const source = product && typeof product === 'object' ? product : { imageUrl: product };
+            const candidates = [source.imageUrl, source.image];
+
+            for (const candidateRaw of candidates) {
+                const candidate = String(candidateRaw || '').trim();
+                if (!candidate) continue;
+                if (candidate.startsWith('data:')) return candidate;
+                if (candidate.startsWith('./') || candidate.startsWith('assets/')) return candidate;
+                if (/^https:\/\/res\.cloudinary\.com\//i.test(candidate)) return getOptimizedProductImageUrl(candidate, width);
+                if (/^https?:\/\//i.test(candidate)) return candidate;
+                const builtUrl = buildCloudinaryProductImageUrl(candidate, width);
+                if (builtUrl) return builtUrl;
+                if (candidate.startsWith('/')) return PRODUCT_IMAGE_FALLBACK_PATH;
+            }
+
+            return PRODUCT_IMAGE_FALLBACK_PATH;
+        }
+
         function normalizeStoreProduct(product) {
             const source = product && typeof product === 'object' ? product : {};
             const price = Number(source.price);
@@ -1756,8 +1798,8 @@
                 category: String(source.category || 'supplements'),
                 price: Number.isFinite(price) ? price : 0,
                 oldPrice: Number.isFinite(oldPrice) ? oldPrice : null,
-                image: String(source.imageUrl || source.image || PRODUCT_IMAGE_PLACEHOLDER),
-                imageUrl: String(source.imageUrl || source.image || PRODUCT_IMAGE_PLACEHOLDER),
+                image: String(getSafeImageUrl(source, 800)),
+                imageUrl: String(getSafeImageUrl(source, 800)),
                 rating: Number.isFinite(rating) ? rating : 4.5,
                 ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
                 supplierId: String(source.supplierId || ''),
@@ -2505,27 +2547,8 @@
         // Image Sanitizer (avoid external ORB/CORS issues)
         // ============================================
         function sanitizeImageUrl(url, width = 400) {
-            const placeholder = PRODUCT_IMAGE_PLACEHOLDER;
-            if (!url || typeof url !== 'string') return placeholder;
-
-            const trimmed = url.trim();
-            if (trimmed.startsWith('data:')) return trimmed;
-            if (trimmed.startsWith('./') || trimmed.startsWith('assets/')) return trimmed;
-            if (/^https:\/\/res\.cloudinary\.com\//i.test(trimmed)) return getOptimizedProductImageUrl(trimmed, width);
-
-            try {
-                const parsed = new URL(trimmed, window.location.origin);
-                if (parsed.origin === window.location.origin) {
-                    if (/^\/(?:sale-zone\/)?images\//i.test(parsed.pathname)) {
-                        return placeholder;
-                    }
-                    return parsed.pathname + parsed.search + parsed.hash;
-                }
-            } catch (e) {
-                return placeholder;
-            }
-
-            return placeholder;
+            if (url && typeof url === 'object') return getSafeImageUrl(url, width);
+            return getSafeImageUrl({ imageUrl: url }, width);
         }
 
         // ============================================
@@ -2690,7 +2713,7 @@
                 const safeProductId = escapeHtml(String(p && p.id || ''));
                 const safeName = escapeHtml(p && p.name || '');
                 const safeDesc = escapeHtml(p && p.desc || '');
-                const safeImageSrc = escapeHtml(sanitizeImageUrl((p && (p.imageUrl || p.image)) || '', 400));
+                const safeImageSrc = escapeHtml(getSafeImageUrl(p, 400));
                 const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const imageLoading = index < 4 ? 'eager' : 'lazy';
                 const isFav = favorites.includes(String(p && p.id));
@@ -3066,7 +3089,7 @@
                 if (!normalized || uniqueImages.includes(normalized)) return;
                 uniqueImages.push(normalized);
             };
-            pushImage(product && (product.imageUrl || product.image));
+            pushImage(getSafeImageUrl(product, 800));
             if (!uniqueImages.length) {
                 uniqueImages.push(PRODUCT_IMAGE_PLACEHOLDER);
             }
@@ -3298,8 +3321,8 @@
                 const p = visibleProducts.find((x) => String(x.id) === String(id));
                 if (!p) return '';
                 const safeProductId = escapeHtml(String(p && p.id || ''));
-            const safeImageSrc = escapeHtml(sanitizeImageUrl((p && (p.imageUrl || p.image)) || '', 240));
-            const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
+                const safeImageSrc = escapeHtml(getSafeImageUrl(p, 240));
+                const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const safeName = escapeHtml(p && p.name || '');
                 const displayPrice = resolveDisplayPrice(p);
                 const hasValidPrice = Number.isFinite(displayPrice);
@@ -3343,7 +3366,7 @@
             const safeQuantity = Math.max(1, Math.min(99, Number(quantity || 1)));
             const existing = cart.find(item => item.id == id || String(item.id) === String(id));
             if (existing) existing.quantity += safeQuantity;
-            else cart.push({ id: p.id, name: p.name, price: Number(displayPrice), image: p.imageUrl || p.image, quantity: safeQuantity });
+            else cart.push({ id: p.id, name: p.name, price: Number(displayPrice), image: getSafeImageUrl(p, 240), quantity: safeQuantity });
             saveCart();
             updateCartUI();
             showNotification('success', 'تمت الإضافة', `"${p.name}" في السلة × ${safeQuantity}`);
@@ -3376,8 +3399,8 @@
 
             cartItems.innerHTML = cart.map((item) => {
                 const safeItemId = escapeHtml(String(item && item.id || ''));
-            const safeImageSrc = escapeHtml(sanitizeImageUrl((item && (item.imageUrl || item.image)) || '', 240));
-            const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
+                const safeImageSrc = escapeHtml(getSafeImageUrl(item, 240));
+                const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const safeItemName = escapeHtml(item && item.name || '');
                 const safeItemPrice = escapeHtml(formatPrice(Number(item && item.price || 0)));
                 const safeQuantity = escapeHtml(Number(item && item.quantity || 0).toFixed(0));
