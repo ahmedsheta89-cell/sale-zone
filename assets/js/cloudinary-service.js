@@ -1,479 +1,559 @@
-function cloudinaryDebugInfo() {}
-function cloudinaryDebugGroup() {}
-function cloudinaryDebugGroupEnd() {}
-// cloudinary-service.js - Production Cloudinary uploader
-// ======================================================
+/**
+ * Cloudinary Service - Sale Zone
+ * IIFE Module Pattern: zero top-level lexical collisions
+ * Exports only the public API needed by the storefront/admin via window.
+ */
+;(function (global) {
+  'use strict';
 
-// Configure Cloudinary for production-safe unsigned uploads.
-const CLOUDINARY_CONFIG = {
-    cloudName: 'dwrfrfxnc',
-    uploadPreset: 'salezone_basic'
-};
-const PRODUCT_IMAGE_FOLDER = 'salezone_products';
-const PRODUCT_IMAGE_FALLBACK_PATH = 'assets/placeholder.svg';
-const PRODUCT_IMAGE_TRANSFORMS = {
+  function cloudinaryDebugInfo() {}
+  function cloudinaryDebugGroup() {}
+  function cloudinaryDebugGroupEnd() {}
+
+  var CLOUD_NAME = 'dwrfrfxnc';
+  var UPLOAD_PRESET = 'salezone_basic';
+  var FOLDER = 'salezone_products';
+  var FALLBACK_IMG = 'assets/placeholder.svg';
+
+  var CLOUDINARY_CONFIG = {
+    cloudName: CLOUD_NAME,
+    uploadPreset: UPLOAD_PRESET
+  };
+
+  var TRANSFORMS = {
     card: 'f_auto,q_auto:best,w_800,h_800,c_pad,b_white,e_sharpen:50',
     thumbnail: 'f_auto,q_auto,w_400,h_400,c_pad,b_white',
     full: 'f_auto,q_auto:best,w_1200,h_1200,c_pad,b_white,e_sharpen:80',
-    admin: 'f_auto,q_auto,w_120,h_120,c_pad,b_white'
-};
+    admin: 'f_auto,q_auto,w_120,h_120,c_pad,b_white',
+    feed: 'f_auto,q_auto:best,w_800,h_800,c_pad,b_white'
+  };
 
-// Ensure required Cloudinary settings are provided before upload.
-function isCloudinaryConfigured() {
-    return Boolean(CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset);
-}
-
-// Build structured upload errors so retry logic can classify transient failures.
-function buildCloudinaryUploadError(message, options = {}) {
-    const error = new Error(String(message || 'فشل رفع الصورة إلى Cloudinary.'));
-    error.code = String(options.code || 'CLOUDINARY_UPLOAD_ERROR');
-    if (Number.isFinite(Number(options.statusCode))) {
-        error.statusCode = Number(options.statusCode);
+  function _cleanName(imageName) {
+    if (typeof cleanImageField === 'function') {
+      return cleanImageField(imageName);
     }
-    error.transient = options.transient === true;
-    return error;
-}
+    return String(imageName || '')
+      .trim()
+      .replace(/^\/+/, '')
+      .replace(/\.(jpg|jpeg|png|webp|gif)$/i, '')
+      .replace(/%/g, '_pct_')
+      .replace(/\+/g, '_plus_')
+      .replace(/\s+/g, '_')
+      .replace(/[^\w\-_.]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+  }
 
-// Accept only secure Cloudinary URLs from the expected account.
-function isValidCloudinarySecureUrl(url) {
+  function _fallback() {
+    return (typeof PRODUCT_IMAGE_FALLBACK_PATH !== 'undefined')
+      ? PRODUCT_IMAGE_FALLBACK_PATH
+      : FALLBACK_IMG;
+  }
+
+  function _folder() {
+    return (typeof PRODUCT_IMAGE_FOLDER !== 'undefined')
+      ? PRODUCT_IMAGE_FOLDER
+      : FOLDER;
+  }
+
+  function isCloudinaryConfigured() {
+    return Boolean(CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset);
+  }
+
+  function buildCloudinaryUploadError(message, options) {
+    var settings = options && typeof options === 'object' ? options : {};
+    var error = new Error(String(message || 'فشل رفع الصورة إلى Cloudinary.'));
+    error.code = String(settings.code || 'CLOUDINARY_UPLOAD_ERROR');
+    if (Number.isFinite(Number(settings.statusCode))) {
+      error.statusCode = Number(settings.statusCode);
+    }
+    error.transient = settings.transient === true;
+    return error;
+  }
+
+  function isValidCloudinarySecureUrl(url) {
     if (!url || typeof url !== 'string') return false;
     if (!url.startsWith('https://')) return false;
 
     try {
-        const parsed = new URL(url);
-        return (
-            parsed.hostname === 'res.cloudinary.com' &&
-            parsed.pathname.startsWith(`/${CLOUDINARY_CONFIG.cloudName}/`)
-        );
+      var parsed = new URL(url);
+      return parsed.hostname === 'res.cloudinary.com'
+        && parsed.pathname.indexOf('/' + CLOUDINARY_CONFIG.cloudName + '/') === 0;
     } catch (_) {
-        return false;
+      return false;
     }
-}
+  }
 
-function isLikelyImageUploadFile(file) {
+  function isLikelyImageUploadFile(file) {
     if (!file || typeof file !== 'object') return false;
-    const type = String(file.type || '').toLowerCase();
-    if (type.startsWith('image/')) return true;
+    var type = String(file.type || '').toLowerCase();
+    if (type.indexOf('image/') === 0) return true;
     return /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)$/i.test(String(file.name || ''));
-}
+  }
 
-function cleanImageField(value) {
-    const rawValue = String(value || '').trim();
-    if (!rawValue) return '';
-    if (rawValue.startsWith('data:')) return rawValue;
-    if (rawValue.startsWith('./') || rawValue.startsWith('assets/')) return rawValue;
-    if (/^https?:\/\//i.test(rawValue)) return rawValue;
-    let cleaned = rawValue
-        .replace(/^\/+/, '')
-        .replace(/\.(jpg|jpeg|png|webp|gif)$/i, '');
-    cleaned = cleaned
-        .replace(/%/g, '_pct_')
-        .replace(/\+/g, '_plus_')
-        .replace(/\s+/g, '_')
-        .replace(/[^\w\-_.]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '');
-    return cleaned;
-}
-
-function isCloudinaryTransformSegment(segment) {
-    const value = String(segment || '').trim();
+  function isCloudinaryTransformSegment(segment) {
+    var value = String(segment || '').trim();
+    var supportedKeys;
     if (!value || /^v\d+$/i.test(value)) return false;
-    const supportedKeys = new Set([
-        'a', 'ac', 'af', 'ar', 'b', 'bo', 'c', 'co', 'd', 'dl', 'dn', 'dpi',
-        'dr', 'du', 'e', 'eo', 'f', 'fl', 'fn', 'fps', 'g', 'h', 'ki', 'l',
-        'o', 'p', 'pg', 'q', 'r', 'so', 'sp', 't', 'u', 'vc', 'w', 'x', 'y', 'z'
-    ]);
-    return value.split(',').every((part) => {
-        const chunk = String(part || '').trim();
-        const separatorIndex = chunk.indexOf('_');
-        if (separatorIndex <= 0) return false;
-        return supportedKeys.has(chunk.slice(0, separatorIndex));
+    supportedKeys = {
+      a: true, ac: true, af: true, ar: true, b: true, bo: true, c: true, co: true,
+      d: true, dl: true, dn: true, dpi: true, dr: true, du: true, e: true, eo: true,
+      f: true, fl: true, fn: true, fps: true, g: true, h: true, ki: true, l: true,
+      o: true, p: true, pg: true, q: true, r: true, so: true, sp: true, t: true,
+      u: true, vc: true, w: true, x: true, y: true, z: true
+    };
+    return value.split(',').every(function (part) {
+      var chunk = String(part || '').trim();
+      var separatorIndex = chunk.indexOf('_');
+      if (separatorIndex <= 0) return false;
+      return supportedKeys[chunk.slice(0, separatorIndex)] === true;
     });
-}
+  }
 
-function extractCloudinaryAssetPath(url) {
-    const rawUrl = String(url || '').trim();
+  function extractCloudinaryAssetPath(url) {
+    var rawUrl = String(url || '').trim();
+    var parsed;
+    var marker;
+    var markerIndex;
+    var afterUpload;
+    var segments;
     if (!isValidCloudinarySecureUrl(rawUrl)) return '';
 
     try {
-        const parsed = new URL(rawUrl);
-        const marker = `/${CLOUDINARY_CONFIG.cloudName}/image/upload/`;
-        const markerIndex = parsed.pathname.indexOf(marker);
-        if (markerIndex === -1) return '';
-        const afterUpload = parsed.pathname.slice(markerIndex + marker.length);
-        const segments = afterUpload.split('/').filter(Boolean);
-        while (segments.length > 1 && isCloudinaryTransformSegment(segments[0])) {
-            segments.shift();
-        }
-        if (segments.length > 1 && /^v\d+$/i.test(segments[0])) {
-            segments.shift();
-        }
-        return segments.join('/');
+      parsed = new URL(rawUrl);
+      marker = '/' + CLOUDINARY_CONFIG.cloudName + '/image/upload/';
+      markerIndex = parsed.pathname.indexOf(marker);
+      if (markerIndex === -1) return '';
+      afterUpload = parsed.pathname.slice(markerIndex + marker.length);
+      segments = afterUpload.split('/').filter(Boolean);
+      while (segments.length > 1 && isCloudinaryTransformSegment(segments[0])) {
+        segments.shift();
+      }
+      if (segments.length > 1 && /^v\d+$/i.test(segments[0])) {
+        segments.shift();
+      }
+      return segments.join('/');
     } catch (_) {
-        return '';
+      return '';
     }
-}
+  }
 
-function getImageTransformPreset(size = 'card') {
-    return PRODUCT_IMAGE_TRANSFORMS[String(size || 'card')] || PRODUCT_IMAGE_TRANSFORMS.card;
-}
+  function getImageTransformPreset(size) {
+    return TRANSFORMS[String(size || 'card')] || TRANSFORMS.card;
+  }
 
-function encodePublicIdSegments(publicId) {
+  function encodePublicIdSegments(publicId) {
     return String(publicId || '')
-        .split('/')
-        .filter(Boolean)
-        .map((segment) => encodeURIComponent(segment))
-        .join('/');
-}
+      .split('/')
+      .filter(Boolean)
+      .map(function (segment) { return encodeURIComponent(segment); })
+      .join('/');
+  }
 
-function buildCloudinaryEnhancedUrl(assetPath, size = 'card') {
-    const normalizedPath = String(assetPath || '').replace(/^\/+/, '');
-    if (!normalizedPath) return PRODUCT_IMAGE_FALLBACK_PATH;
-    const transforms = getImageTransformPreset(size);
-    return `https://res.cloudinary.com/${CLOUDINARY_CONFIG.cloudName}/image/upload/${transforms}/${normalizedPath}`;
-}
+  function buildCloudinaryEnhancedUrl(assetPath, size) {
+    var normalizedPath = String(assetPath || '').replace(/^\/+/, '');
+    var transforms = getImageTransformPreset(size);
+    if (!normalizedPath) return _fallback();
+    return 'https://res.cloudinary.com/' + CLOUDINARY_CONFIG.cloudName
+      + '/image/upload/' + transforms
+      + '/' + normalizedPath;
+  }
 
-function getTransformSizeFromWidth(width = 800) {
-    const numericWidth = Math.max(120, Math.min(2000, Number(width) || 800));
+  function getTransformSizeFromWidth(width) {
+    var numericWidth = Math.max(120, Math.min(2000, Number(width) || 800));
     if (numericWidth <= 140) return 'admin';
     if (numericWidth <= 420) return 'thumbnail';
     if (numericWidth >= 1100) return 'full';
     return 'card';
-}
+  }
 
-function getOptimizedImageUrl(cloudinaryUrl, width = 800) {
-    const rawUrl = String(cloudinaryUrl || '').trim();
-    if (!isValidCloudinarySecureUrl(rawUrl)) return rawUrl;
-    const assetPath = extractCloudinaryAssetPath(rawUrl);
-    if (!assetPath) return rawUrl;
-    return buildCloudinaryEnhancedUrl(assetPath, getTransformSizeFromWidth(width));
-}
+  /**
+   * Build optimized Cloudinary URL from a raw image name or existing Cloudinary URL.
+   * @param {string|object} imageName
+   * @param {string} size - card | thumbnail | full | admin | feed
+   * @returns {string}
+   */
+  function enhanceProductImageUrl(imageName, size) {
+    var rawValue;
+    var clean;
+    var encodedPublicId;
+    var assetPath;
 
-/**
- * Returns Cloudinary URL with product-optimized transforms
- * Unified white background, consistent dimensions, sharp
- */
-function enhanceProductImageUrl(imageName, size = 'card') {
-    const rawValue = String(imageName || '').trim();
-    if (!rawValue) return PRODUCT_IMAGE_FALLBACK_PATH;
-    if (rawValue.startsWith('data:')) return rawValue;
-    if (rawValue.startsWith('./') || rawValue.startsWith('assets/')) return rawValue;
-    if (rawValue.startsWith('/')) return PRODUCT_IMAGE_FALLBACK_PATH;
+    size = size || 'card';
+    rawValue = '';
+
+    if (imageName && typeof imageName === 'object') {
+      rawValue = String(imageName.imageUrl || imageName.image || '').trim();
+    } else {
+      rawValue = String(imageName || '').trim();
+    }
+
+    if (!rawValue) return _fallback();
+    if (rawValue.indexOf('data:') === 0) return rawValue;
+    if (rawValue.indexOf('./') === 0 || rawValue.indexOf('assets/') === 0) return rawValue;
+    if (rawValue.indexOf('/') === 0 && !/^https?:\/\//i.test(rawValue)) return _fallback();
 
     if (isValidCloudinarySecureUrl(rawValue)) {
-        const assetPath = extractCloudinaryAssetPath(rawValue);
-        return assetPath ? buildCloudinaryEnhancedUrl(assetPath, size) : PRODUCT_IMAGE_FALLBACK_PATH;
+      assetPath = extractCloudinaryAssetPath(rawValue);
+      return assetPath ? buildCloudinaryEnhancedUrl(assetPath, size) : _fallback();
     }
 
     if (/^https?:\/\//i.test(rawValue)) {
-        return rawValue;
+      return rawValue;
     }
 
-    const cleanName = cleanImageField(rawValue);
-    if (!cleanName || /^https?:\/\//i.test(cleanName)) return PRODUCT_IMAGE_FALLBACK_PATH;
-    const encodedPublicId = encodePublicIdSegments(cleanName);
-    const assetPath = cleanName.includes('/')
-        ? encodedPublicId
-        : `${PRODUCT_IMAGE_FOLDER}/${encodedPublicId}`;
+    clean = _cleanName(rawValue);
+    if (!clean || /^https?:\/\//i.test(clean)) return _fallback();
+
+    encodedPublicId = encodePublicIdSegments(clean);
+    assetPath = clean.indexOf('/') !== -1
+      ? encodedPublicId
+      : _folder() + '/' + encodedPublicId;
+
     return buildCloudinaryEnhancedUrl(assetPath, size);
-}
+  }
 
-async function compressImageBeforeUpload(file, maxSizeKB = 500) {
-    if (!file || typeof document === 'undefined') return file;
-    if (Number(file.size || 0) <= maxSizeKB * 1024) return file;
+  /**
+   * Legacy-compatible API.
+   * Supports both width numbers and { size, width } option objects.
+   */
+  function getOptimizedImageUrl(imageName, options) {
+    var size = 'card';
+    if (typeof options === 'number') {
+      size = getTransformSizeFromWidth(options);
+    } else if (options && typeof options === 'object') {
+      size = options.size || getTransformSizeFromWidth(options.width);
+    }
+    return enhanceProductImageUrl(imageName, size);
+  }
 
-    return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
+  /**
+   * Safe image getter with fallback.
+   * Supports product objects and width-based calls used elsewhere in the app.
+   */
+  function getSafeImageUrl(imageInput, width) {
+    var source = imageInput;
+    var size = getTransformSizeFromWidth(width);
+
+    if (source && typeof source === 'object') {
+      return enhanceProductImageUrl(source.imageUrl || source.image || '', size);
+    }
+
+    if (!source) return _fallback();
+    return enhanceProductImageUrl(source, size);
+  }
+
+  function compressImageBeforeUpload(file, maxSizeKB) {
+    var limit = Number(maxSizeKB || 500);
+    if (!file || typeof document === 'undefined') return Promise.resolve(file);
+    if (Number(file.size || 0) <= limit * 1024) return Promise.resolve(file);
+
+    return new Promise(function (resolve) {
+      var canvas = document.createElement('canvas');
+      var ctx = canvas.getContext('2d');
+      var img;
+      var objectUrl;
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+
+      img = new Image();
+      objectUrl = URL.createObjectURL(file);
+
+      function cleanup() {
+        try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+      }
+
+      img.onerror = function () {
+        cleanup();
+        resolve(file);
+      };
+
+      img.onload = function () {
+        var maxWidth = 1200;
+        var scale = img.width > maxWidth ? (maxWidth / img.width) : 1;
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(function (blob) {
+          var normalizedName;
+          cleanup();
+          if (!blob || Number(blob.size || 0) <= 0 || Number(blob.size || 0) >= Number(file.size || 0)) {
             resolve(file);
             return;
-        }
+          }
+          normalizedName = String(file.name || 'image.jpg').replace(/\.[^.]+$/u, '.jpg');
+          resolve(new File([blob], normalizedName, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          }));
+        }, 'image/jpeg', 0.85);
+      };
 
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
-        const cleanup = () => {
-            try { URL.revokeObjectURL(objectUrl); } catch (_) {}
-        };
-
-        img.onerror = () => {
-            cleanup();
-            resolve(file);
-        };
-
-        img.onload = () => {
-            const maxWidth = 1200;
-            const scale = img.width > maxWidth ? (maxWidth / img.width) : 1;
-            canvas.width = Math.max(1, Math.round(img.width * scale));
-            canvas.height = Math.max(1, Math.round(img.height * scale));
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob((blob) => {
-                cleanup();
-                if (!blob || Number(blob.size || 0) <= 0 || Number(blob.size || 0) >= Number(file.size || 0)) {
-                    resolve(file);
-                    return;
-                }
-                const normalizedName = String(file.name || 'image.jpg').replace(/\.[^.]+$/u, '.jpg');
-                resolve(new File([blob], normalizedName, {
-                    type: 'image/jpeg',
-                    lastModified: Date.now()
-                }));
-            }, 'image/jpeg', 0.85);
-        };
-
-        img.src = objectUrl;
+      img.src = objectUrl;
     });
-}
+  }
 
-// Upload image with progress and fail-closed behavior (never fallback to base64).
-async function uploadToCloudinary(file, options = {}) {
+  function uploadToCloudinary(file, options) {
+    var settings = options && typeof options === 'object' ? options : {};
     if (!file) {
-        return Promise.reject(buildCloudinaryUploadError('لم يتم اختيار صورة للرفع.', {
-            code: 'CLOUDINARY_NO_FILE'
-        }));
+      return Promise.reject(buildCloudinaryUploadError('لم يتم اختيار صورة للرفع.', {
+        code: 'CLOUDINARY_NO_FILE'
+      }));
     }
     if (!isLikelyImageUploadFile(file)) {
-        return Promise.reject(buildCloudinaryUploadError('الملف المحدد ليس صورة مدعومة.', {
-            code: 'CLOUDINARY_INVALID_FILE',
-            transient: false
-        }));
+      return Promise.reject(buildCloudinaryUploadError('الملف المحدد ليس صورة مدعومة.', {
+        code: 'CLOUDINARY_INVALID_FILE',
+        transient: false
+      }));
     }
     if (!isCloudinaryConfigured()) {
-        return Promise.reject(buildCloudinaryUploadError('إعدادات Cloudinary غير مكتملة.', {
-            code: 'CLOUDINARY_CONFIG_MISSING'
-        }));
+      return Promise.reject(buildCloudinaryUploadError('إعدادات Cloudinary غير مكتملة.', {
+        code: 'CLOUDINARY_CONFIG_MISSING'
+      }));
     }
 
-    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
-    const folder = String(options.folder || 'salezone_products').trim();
-    const publicId = String(options.publicId || '')
+    return compressImageBeforeUpload(file).catch(function () {
+      return file;
+    }).then(function (uploadFile) {
+      var onProgress = typeof settings.onProgress === 'function' ? settings.onProgress : null;
+      var folder = String(settings.folder || _folder()).trim();
+      var publicId = String(settings.publicId || '')
         .trim()
         .replace(/\.[^./]+$/g, '')
         .replace(/\s+/g, '-')
         .replace(/[^\p{L}\p{N}_-]/gu, '-')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '');
-    const signal = options && typeof options === 'object' ? options.signal : null;
-    const onAbort = typeof options.onAbort === 'function' ? options.onAbort : null;
-    const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`;
-    let uploadFile = file;
+      var signal = settings.signal || null;
+      var onAbort = typeof settings.onAbort === 'function' ? settings.onAbort : null;
+      var endpoint = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CONFIG.cloudName + '/image/upload';
 
-    try {
-        uploadFile = await compressImageBeforeUpload(file);
-    } catch (compressionError) {
-        console.warn('[CLOUDINARY_UPLOAD] compression skipped:', compressionError);
-        uploadFile = file;
-    }
+      return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        var settled = false;
+        var abortHandler = null;
+        var abortNotified = false;
 
-    return new Promise((resolve, reject) => {
+        function notifyAbort() {
+          if (abortNotified) return;
+          abortNotified = true;
+          if (onAbort) {
+            try { onAbort(); } catch (_) {}
+          }
+        }
+
+        function cleanup() {
+          if (signal && abortHandler) {
+            signal.removeEventListener('abort', abortHandler);
+          }
+          abortHandler = null;
+        }
+
+        function safeResolve(payload) {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          cloudinaryDebugInfo('[CLOUDINARY_UPLOAD] success:', {
+            public_id: payload && payload.public_id ? String(payload.public_id) : '',
+            secure_url: payload && payload.secure_url ? String(payload.secure_url) : ''
+          });
+          cloudinaryDebugGroupEnd();
+          resolve(payload);
+        }
+
+        function safeReject(error) {
+          var normalized;
+          if (settled) return;
+          settled = true;
+          cleanup();
+          normalized = error instanceof Error
+            ? error
+            : buildCloudinaryUploadError(String(error || 'Upload failed'), {
+              code: 'CLOUDINARY_UPLOAD_ERROR'
+            });
+          console.error('[CLOUDINARY_UPLOAD] failed:', {
+            message: normalized.message,
+            code: normalized.code || 'UNKNOWN',
+            statusCode: normalized.statusCode || null,
+            transient: normalized.transient === true
+          });
+          cloudinaryDebugGroupEnd();
+          reject(normalized);
+        }
+
         cloudinaryDebugGroup('[CLOUDINARY_UPLOAD] بدء رفع الصورة');
         cloudinaryDebugInfo('[CLOUDINARY_UPLOAD] file:', {
-            name: uploadFile && uploadFile.name ? String(uploadFile.name) : '',
-            size: Number(uploadFile && uploadFile.size || 0),
-            type: String(uploadFile && uploadFile.type || ''),
-            originalSize: Number(file && file.size || 0)
+          name: uploadFile && uploadFile.name ? String(uploadFile.name) : '',
+          size: Number(uploadFile && uploadFile.size || 0),
+          type: String(uploadFile && uploadFile.type || ''),
+          originalSize: Number(file && file.size || 0)
         });
         cloudinaryDebugInfo('[CLOUDINARY_UPLOAD] config:', {
-            cloudName: CLOUDINARY_CONFIG.cloudName,
-            uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
-            folder,
-            publicId: publicId || '(auto)'
+          cloudName: CLOUDINARY_CONFIG.cloudName,
+          uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
+          folder: folder,
+          publicId: publicId || '(auto)'
         });
 
         if (signal && signal.aborted) {
-            console.warn('[CLOUDINARY_UPLOAD] aborted before request start');
-            cloudinaryDebugGroupEnd();
-            reject(buildCloudinaryUploadError('تم إلغاء الرفع', {
-                code: 'UPLOAD_ABORTED'
-            }));
-            return;
+          cloudinaryDebugGroupEnd();
+          reject(buildCloudinaryUploadError('تم إلغاء الرفع', {
+            code: 'UPLOAD_ABORTED'
+          }));
+          return;
         }
 
-        const xhr = new XMLHttpRequest();
         xhr.open('POST', endpoint, true);
-        let settled = false;
-        let abortHandler = null;
-        let abortNotified = false;
-
-        const notifyAbort = () => {
-            if (abortNotified) return;
-            abortNotified = true;
-            if (onAbort) {
-                try { onAbort(); } catch (_) {}
-            }
-        };
-
-        const cleanup = () => {
-            if (signal && abortHandler) {
-                signal.removeEventListener('abort', abortHandler);
-            }
-            abortHandler = null;
-        };
-
-        const safeResolve = (payload) => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            cloudinaryDebugInfo('[CLOUDINARY_UPLOAD] success:', {
-                public_id: payload && payload.public_id ? String(payload.public_id) : '',
-                secure_url: payload && payload.secure_url ? String(payload.secure_url) : ''
-            });
-            cloudinaryDebugGroupEnd();
-            resolve(payload);
-        };
-
-        const safeReject = (error) => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            const normalized = error instanceof Error
-                ? error
-                : buildCloudinaryUploadError(String(error || 'Upload failed'), {
-                    code: 'CLOUDINARY_UPLOAD_ERROR'
-                });
-            console.error('[CLOUDINARY_UPLOAD] failed:', {
-                message: normalized.message,
-                code: normalized.code || 'UNKNOWN',
-                statusCode: normalized.statusCode || null,
-                transient: normalized.transient === true
-            });
-            cloudinaryDebugGroupEnd();
-            reject(normalized);
-        };
 
         if (xhr.upload && onProgress) {
-            xhr.upload.onprogress = (event) => {
-                if (!event || !event.lengthComputable) return;
-                const percent = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
-                onProgress(percent);
-            };
+          xhr.upload.onprogress = function (event) {
+            var percent;
+            if (!event || !event.lengthComputable) return;
+            percent = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
+            onProgress(percent);
+          };
         }
 
-        xhr.onerror = () => {
-            safeReject(buildCloudinaryUploadError('تعذر الاتصال بـ Cloudinary. تحقق من الشبكة ثم حاول مرة أخرى.', {
-                code: 'NETWORK_ERROR',
-                transient: true
-            }));
+        xhr.onerror = function () {
+          safeReject(buildCloudinaryUploadError('تعذر الاتصال بـ Cloudinary. تحقق من الشبكة ثم حاول مرة أخرى.', {
+            code: 'NETWORK_ERROR',
+            transient: true
+          }));
         };
 
-        xhr.onabort = () => {
-            notifyAbort();
-            safeReject(buildCloudinaryUploadError('تم إلغاء الرفع', {
-                code: 'UPLOAD_ABORTED'
-            }));
+        xhr.onabort = function () {
+          notifyAbort();
+          safeReject(buildCloudinaryUploadError('تم إلغاء الرفع', {
+            code: 'UPLOAD_ABORTED'
+          }));
         };
 
-        xhr.onload = () => {
-            const status = Number(xhr.status || 0);
-            if (status < 200 || status >= 300) {
-                const rawText = String(xhr.responseText || '');
-                let parsedMessage = '';
-                try {
-                    const parsed = JSON.parse(rawText || '{}');
-                    parsedMessage = String(parsed.error?.message || parsed.message || '').trim();
-                } catch (_) {}
+        xhr.onload = function () {
+          var status = Number(xhr.status || 0);
+          var rawText;
+          var parsedMessage = '';
+          var snippet;
+          var payload;
+          var secureUrl;
 
-                if (status === 429) {
-                    safeReject(buildCloudinaryUploadError('تم تجاوز حد الرفع المؤقت في Cloudinary. حاول مرة أخرى بعد دقيقة.', {
-                        code: 'CLOUDINARY_RATE_LIMIT',
-                        statusCode: status,
-                        transient: true
-                    }));
-                    return;
-                }
-                if (/upload preset|preset/i.test(parsedMessage)) {
-                    safeReject(buildCloudinaryUploadError('إعداد upload preset غير صالح أو غير مسموح.', {
-                        code: 'CLOUDINARY_PRESET_INVALID',
-                        statusCode: status,
-                        transient: false
-                    }));
-                    return;
-                }
-                if (/unsigned upload|not allowed|not authorized|denied/i.test(parsedMessage)) {
-                    safeReject(buildCloudinaryUploadError('إعدادات الرفع غير الموقّع غير مفعّلة لهذا الـ preset.', {
-                        code: 'CLOUDINARY_PRESET_UNAUTHORIZED',
-                        statusCode: status,
-                        transient: false
-                    }));
-                    return;
-                }
-                if (/rate limit/i.test(parsedMessage)) {
-                    safeReject(buildCloudinaryUploadError('تم تجاوز حد الرفع المؤقت في Cloudinary. حاول مرة أخرى بعد دقيقة.', {
-                        code: 'CLOUDINARY_RATE_LIMIT',
-                        statusCode: status,
-                        transient: true
-                    }));
-                    return;
-                }
-
-                const snippet = (parsedMessage || rawText).slice(0, 260);
-                safeReject(buildCloudinaryUploadError(`فشل رفع الصورة على Cloudinary (HTTP ${status}): ${snippet}`, {
-                    code: 'HTTP_ERROR',
-                    statusCode: status,
-                    transient: status >= 500
-                }));
-                return;
-            }
-
-            let payload;
+          if (status < 200 || status >= 300) {
+            rawText = String(xhr.responseText || '');
             try {
-                payload = JSON.parse(xhr.responseText || '{}');
-            } catch (_) {
-                safeReject(buildCloudinaryUploadError('استجابة Cloudinary غير صالحة (JSON).', {
-                    code: 'CLOUDINARY_BAD_RESPONSE'
-                }));
-                return;
+              parsedMessage = String(JSON.parse(rawText || '{}').error?.message || JSON.parse(rawText || '{}').message || '').trim();
+            } catch (_) {}
+
+            if (status === 429 || /rate limit/i.test(parsedMessage)) {
+              safeReject(buildCloudinaryUploadError('تم تجاوز حد الرفع المؤقت في Cloudinary. حاول مرة أخرى بعد دقيقة.', {
+                code: 'CLOUDINARY_RATE_LIMIT',
+                statusCode: status,
+                transient: true
+              }));
+              return;
+            }
+            if (/upload preset|preset/i.test(parsedMessage)) {
+              safeReject(buildCloudinaryUploadError('إعداد upload preset غير صالح أو غير مسموح.', {
+                code: 'CLOUDINARY_PRESET_INVALID',
+                statusCode: status,
+                transient: false
+              }));
+              return;
+            }
+            if (/unsigned upload|not allowed|not authorized|denied/i.test(parsedMessage)) {
+              safeReject(buildCloudinaryUploadError('إعدادات الرفع غير الموقّع غير مفعّلة لهذا الـ preset.', {
+                code: 'CLOUDINARY_PRESET_UNAUTHORIZED',
+                statusCode: status,
+                transient: false
+              }));
+              return;
             }
 
-            const secureUrl = String(payload.secure_url || '').trim();
-            if (!isValidCloudinarySecureUrl(secureUrl)) {
-                safeReject(buildCloudinaryUploadError('تم استلام رابط صورة غير صالح من Cloudinary. تم إيقاف الحفظ لحماية البيانات.', {
-                    code: 'CLOUDINARY_INVALID_URL'
-                }));
-                return;
-            }
+            snippet = (parsedMessage || rawText).slice(0, 260);
+            safeReject(buildCloudinaryUploadError('فشل رفع الصورة على Cloudinary (HTTP ' + status + '): ' + snippet, {
+              code: 'HTTP_ERROR',
+              statusCode: status,
+              transient: status >= 500
+            }));
+            return;
+          }
 
-            safeResolve({
-                secure_url: secureUrl,
-                public_id: String(payload.public_id || ''),
-                url: secureUrl,
-                publicId: String(payload.public_id || ''),
-                bytes: Number(payload.bytes || 0),
-                width: Number(payload.width || 0),
-                height: Number(payload.height || 0),
-                format: String(payload.format || '')
-            });
+          try {
+            payload = JSON.parse(xhr.responseText || '{}');
+          } catch (_) {
+            safeReject(buildCloudinaryUploadError('استجابة Cloudinary غير صالحة (JSON).', {
+              code: 'CLOUDINARY_BAD_RESPONSE'
+            }));
+            return;
+          }
+
+          secureUrl = String(payload.secure_url || '').trim();
+          if (!isValidCloudinarySecureUrl(secureUrl)) {
+            safeReject(buildCloudinaryUploadError('تم استلام رابط صورة غير صالح من Cloudinary. تم إيقاف الحفظ لحماية البيانات.', {
+              code: 'CLOUDINARY_INVALID_URL'
+            }));
+            return;
+          }
+
+          safeResolve({
+            secure_url: secureUrl,
+            public_id: String(payload.public_id || ''),
+            url: secureUrl,
+            publicId: String(payload.public_id || ''),
+            bytes: Number(payload.bytes || 0),
+            width: Number(payload.width || 0),
+            height: Number(payload.height || 0),
+            format: String(payload.format || '')
+          });
         };
-
-        const formData = new FormData();
-        formData.append('file', uploadFile);
-        formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
-        if (folder) formData.append('folder', folder);
-        if (publicId) formData.append('public_id', publicId);
 
         if (signal && typeof signal.addEventListener === 'function') {
-            abortHandler = () => {
-                if (settled) return;
-                notifyAbort();
-                try { xhr.abort(); } catch (_) {}
-                safeReject(buildCloudinaryUploadError('تم إلغاء الرفع', {
-                    code: 'UPLOAD_ABORTED'
-                }));
-            };
-            signal.addEventListener('abort', abortHandler, { once: true });
+          abortHandler = function () {
+            if (settled) return;
+            notifyAbort();
+            try { xhr.abort(); } catch (_) {}
+            safeReject(buildCloudinaryUploadError('تم إلغاء الرفع', {
+              code: 'UPLOAD_ABORTED'
+            }));
+          };
+          signal.addEventListener('abort', abortHandler, { once: true });
         }
 
         try {
-            xhr.send(formData);
+          var formData = new FormData();
+          formData.append('file', uploadFile);
+          formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
+          if (folder) formData.append('folder', folder);
+          if (publicId) formData.append('public_id', publicId);
+          xhr.send(formData);
         } catch (error) {
-            safeReject(error);
+          safeReject(error);
         }
+      });
     });
-}
+  }
 
-if (typeof window !== 'undefined') {
-    window.getOptimizedImageUrl = getOptimizedImageUrl;
-    window.enhanceProductImageUrl = enhanceProductImageUrl;
-    window.compressImageBeforeUpload = compressImageBeforeUpload;
-}
+  var CloudinaryService = {
+    config: CLOUDINARY_CONFIG,
+    transforms: TRANSFORMS,
+    enhance: enhanceProductImageUrl,
+    getOptimized: getOptimizedImageUrl,
+    getSafe: getSafeImageUrl,
+    compressBeforeUpload: compressImageBeforeUpload,
+    upload: uploadToCloudinary,
+    isConfigured: isCloudinaryConfigured,
+    buildUploadError: buildCloudinaryUploadError
+  };
+
+  global.CloudinaryService = CloudinaryService;
+
+  global.CLOUDINARY_CONFIG = CLOUDINARY_CONFIG;
+  global.enhanceProductImageUrl = enhanceProductImageUrl;
+  global.getOptimizedImageUrl = getOptimizedImageUrl;
+  global.getSafeImageUrl = getSafeImageUrl;
+  global.compressImageBeforeUpload = compressImageBeforeUpload;
+  global.uploadToCloudinary = uploadToCloudinary;
+  global.isCloudinaryConfigured = isCloudinaryConfigured;
+  global.buildCloudinaryUploadError = buildCloudinaryUploadError;
+
+})(window);
