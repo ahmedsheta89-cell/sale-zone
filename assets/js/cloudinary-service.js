@@ -49,11 +49,52 @@ function isLikelyImageUploadFile(file) {
     return /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)$/i.test(String(file.name || ''));
 }
 
+function isCloudinaryTransformSegment(segment) {
+    const value = String(segment || '').trim();
+    if (!value || /^v\d+$/i.test(value)) return false;
+    const supportedKeys = new Set([
+        'a', 'ac', 'af', 'ar', 'b', 'bo', 'c', 'co', 'd', 'dl', 'dn', 'dpi',
+        'dr', 'du', 'e', 'eo', 'f', 'fl', 'fn', 'fps', 'g', 'h', 'ki', 'l',
+        'o', 'p', 'pg', 'q', 'r', 'so', 'sp', 't', 'u', 'vc', 'w', 'x', 'y', 'z'
+    ]);
+    return value.split(',').every((part) => {
+        const chunk = String(part || '').trim();
+        const separatorIndex = chunk.indexOf('_');
+        if (separatorIndex <= 0) return false;
+        return supportedKeys.has(chunk.slice(0, separatorIndex));
+    });
+}
+
+function extractCloudinaryAssetPath(url) {
+    const rawUrl = String(url || '').trim();
+    if (!isValidCloudinarySecureUrl(rawUrl)) return '';
+
+    try {
+        const parsed = new URL(rawUrl);
+        const marker = `/${CLOUDINARY_CONFIG.cloudName}/image/upload/`;
+        const markerIndex = parsed.pathname.indexOf(marker);
+        if (markerIndex === -1) return '';
+        const afterUpload = parsed.pathname.slice(markerIndex + marker.length);
+        const segments = afterUpload.split('/').filter(Boolean);
+        while (segments.length > 1 && isCloudinaryTransformSegment(segments[0])) {
+            segments.shift();
+        }
+        if (segments.length > 1 && /^v\d+$/i.test(segments[0])) {
+            segments.shift();
+        }
+        return segments.join('/');
+    } catch (_) {
+        return '';
+    }
+}
+
 function getOptimizedImageUrl(cloudinaryUrl, width = 800) {
     const rawUrl = String(cloudinaryUrl || '').trim();
     if (!isValidCloudinarySecureUrl(rawUrl)) return rawUrl;
     const safeWidth = Math.max(120, Math.min(2000, Number(width) || 800));
-    return rawUrl.replace('/upload/', `/upload/f_auto,q_auto,w_${safeWidth},c_fill/`);
+    const assetPath = extractCloudinaryAssetPath(rawUrl);
+    if (!assetPath) return rawUrl;
+    return `https://res.cloudinary.com/${CLOUDINARY_CONFIG.cloudName}/image/upload/f_auto,q_auto,w_${safeWidth},c_fill/${assetPath}`;
 }
 
 async function compressImageBeforeUpload(file, maxSizeKB = 500) {
