@@ -23,9 +23,10 @@
     
     <!-- Firebase Configuration -->
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/firebase-api.js"></script>
-    <script src="assets/js/firebase-data.js"></script>
-    <script src="assets/js/auth-utils.js"></script>
+<script src="assets/js/firebase-api.js"></script>
+<script src="assets/js/firebase-data.js"></script>
+<script src="assets/js/feed-generator.js"></script>
+<script src="assets/js/auth-utils.js"></script>
     <script src="assets/js/security-utils.js"></script>
     <script src="assets/js/core/logger.js"></script>
     <script src="assets/js/enhancement-utils.js"></script>
@@ -1190,6 +1191,33 @@
                             <div class="form-group" style="display:flex;align-items:end;gap:8px;">
                                 <button type="button" class="btn btn-info" onclick="saveProductFilterView()">💾 حفظ العرض</button>
                                 <button type="button" class="btn btn-navy" onclick="loadProductFilterView()">📂 تحميل</button>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:16px;">
+                            <div id="legacyImageFixer" style="padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
+                                <h4 style="margin:0 0 8px;">إصلاح الصور القديمة</h4>
+                                <p style="margin:0 0 12px;color:#64748b;font-size:13px;">فحص المنتجات التي ما زالت تستخدم أسماء صور قديمة أو غير متوافقة مع convention الرفع.</p>
+                                <button type="button" onclick="scanAndFixLegacyImages()" class="btn btn-secondary">
+                                    فحص الصور غير المتوافقة
+                                </button>
+                                <div id="legacyFixResults" style="margin-top:12px;"></div>
+                            </div>
+                            <div id="aiVisionSection" style="border:1px solid var(--color-border-tertiary);border-radius:12px;padding:16px;background:#fff;">
+                                <h4 style="margin:0 0 8px;">🤖 تحليل الصور بالـ AI</h4>
+                                <p style="font-size:0.85rem;color:var(--color-text-secondary);margin:0 0 12px;">
+                                    تحليل صور المنتجات تلقائياً واستخراج الاسم والوصف والعلامة التجارية عند توفر إعدادات الـ AI.
+                                </p>
+                                <button id="startAIVision" type="button" onclick="startAIVisionAnalysis()"
+                                  style="background:var(--color-text-info);color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer">
+                                    ابدأ التحليل
+                                </button>
+                                <div id="aiVisionProgress" style="display:none;margin-top:12px">
+                                    <div id="aiVisionBar" style="height:6px;background:var(--color-border-tertiary);border-radius:3px">
+                                        <div id="aiVisionFill" style="height:100%;width:0%;background:var(--color-text-info);border-radius:3px;transition:width 0.3s"></div>
+                                    </div>
+                                    <p id="aiVisionStatus" style="font-size:0.8rem;color:var(--color-text-secondary);margin-top:6px"></p>
+                                </div>
+                                <div id="aiVisionResults" style="margin-top:16px"></div>
                             </div>
                         </div>
                         <div class="table-container">
@@ -2548,9 +2576,17 @@
             if (rawValue.startsWith('data:')) return rawValue;
             if (rawValue.startsWith('./') || rawValue.startsWith('assets/')) return rawValue;
             if (/^https?:\/\//i.test(rawValue)) return rawValue;
-            return rawValue
+            let cleaned = rawValue
                 .replace(/^\/+/, '')
                 .replace(/\.(jpg|jpeg|png|webp|gif)$/i, '');
+            cleaned = cleaned
+                .replace(/%/g, '_pct_')
+                .replace(/\+/g, '_plus_')
+                .replace(/\s+/g, '_')
+                .replace(/[^\w\-_.]/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_|_$/g, '');
+            return cleaned;
         }
 
         function buildCloudinaryProductImageUrl(value, width = 400) {
@@ -10139,6 +10175,326 @@ async function openExcelImagesOnlyUploader() {
     } finally {
         toggleExcelUploaderButtonLoading(false);
     }
+}
+
+function isLegacyImageName(value) {
+    const raw = String(value || '').trim();
+    const normalized = cleanImageField(raw);
+    if (!normalized) return false;
+    if (/^https?:\/\//i.test(raw)) return false;
+    if (normalized.includes('/')) return false;
+    return !normalized.includes('_') && normalized.length < 30;
+}
+
+async function scanAndFixLegacyImages() {
+    const container = document.getElementById('legacyFixResults');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#64748b">جارٍ فحص المنتجات...</p>';
+
+    try {
+        const productsList = await getAllProducts();
+        const legacy = (Array.isArray(productsList) ? productsList : []).filter((product) => {
+            const imageValue = product && (product.image || product.imageUrl || '');
+            return isLegacyImageName(imageValue);
+        });
+        window._legacyImageFixProducts = legacy;
+
+        if (legacy.length === 0) {
+            container.innerHTML = '<p style="color:green">✅ لا توجد صور قديمة</p>';
+            return legacy;
+        }
+
+        container.innerHTML = `
+            <p>⚠️ ${legacy.length} منتج بصور غير متوافقة:</p>
+            <ul style="margin:0;padding-inline-start:18px;display:grid;gap:10px;">
+                ${legacy.map((product) => {
+                    const productId = escapeUploadHtml(String(product && product.id || ''));
+                    const productName = escapeUploadHtml(String(product && product.name || ''));
+                    const legacyName = escapeUploadHtml(String(product && (product.image || product.imageUrl) || ''));
+                    const defaultValue = escapeUploadHtml(cleanImageField(product && (product.image || product.imageUrl || '')));
+                    return `
+                        <li style="line-height:1.8;">
+                            <strong>${productName}</strong>: ${legacyName}
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+                                <input type="text" placeholder="اسم الصورة الجديد"
+                                  id="fix_${productId}" value="${defaultValue}"
+                                  style="min-width:240px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;">
+                                <button type="button" class="btn btn-info" data-product-id="${productId}" onclick="applyImageFix(this.dataset.productId)">تطبيق</button>
+                            </div>
+                        </li>
+                    `;
+                }).join('')}
+            </ul>
+        `;
+        return legacy;
+    } catch (error) {
+        container.innerHTML = `<p style="color:#b91c1c">❌ ${escapeUploadHtml(String(error && error.message || error || 'فشل غير معروف'))}</p>`;
+        showNotification('error', 'فشل فحص الصور القديمة');
+        return [];
+    }
+}
+
+async function applyImageFix(productId) {
+    const sourceList = Array.isArray(window._legacyImageFixProducts) ? window._legacyImageFixProducts : [];
+    const product = sourceList.find((item) => String(item && item.id || '') === String(productId || ''));
+    const input = document.getElementById(`fix_${productId}`);
+    const nextValue = cleanImageField(input && input.value || '');
+    if (!product || !nextValue) {
+        showNotification('error', 'أدخل اسم صورة صالح قبل التطبيق');
+        return;
+    }
+
+    const payload = {
+        ...product,
+        image: nextValue,
+        imageUrl: nextValue,
+        updatedAt: new Date().toISOString()
+    };
+
+    await updateProduct(productId, payload);
+    if (input) input.value = nextValue;
+    showNotification('success', 'تم تحديث اسم الصورة ✅');
+    await scanAndFixLegacyImages();
+    if (typeof loadAllData === 'function') {
+        try { await loadAllData(); } catch (_) {}
+    }
+}
+
+function getAIVisionRuntimeConfig() {
+    const endpoint = String(
+        window.SALEZONE_AI_VISION_ENDPOINT ||
+        window.AI_VISION_ENDPOINT ||
+        'https://api.anthropic.com/v1/messages'
+    ).trim();
+    const apiKey = String(
+        window.SALEZONE_AI_VISION_API_KEY ||
+        window.ANTHROPIC_API_KEY ||
+        ''
+    ).trim();
+    const directAnthropic = /api\.anthropic\.com\/v1\/messages/i.test(endpoint);
+    return { endpoint, apiKey, directAnthropic };
+}
+
+async function startAIVisionAnalysis() {
+    const btn = document.getElementById('startAIVision');
+    const progress = document.getElementById('aiVisionProgress');
+    const fill = document.getElementById('aiVisionFill');
+    const status = document.getElementById('aiVisionStatus');
+    const results = document.getElementById('aiVisionResults');
+
+    if (!btn || !progress || !fill || !status || !results) return;
+
+    btn.disabled = true;
+    btn.textContent = 'جاري التحليل...';
+    progress.style.display = 'block';
+    fill.style.width = '0%';
+    results.innerHTML = '';
+
+    try {
+        const config = getAIVisionRuntimeConfig();
+        if (config.directAnthropic && !config.apiKey) {
+            throw new Error('يلزم ضبط SALEZONE_AI_VISION_API_KEY أو استخدام endpoint وسيط آمن قبل بدء التحليل.');
+        }
+
+        const productsList = await getAllProducts();
+        const needsAnalysis = (Array.isArray(productsList) ? productsList : []).filter((product) => {
+            const imageUrl = String(product && (product.imageUrl || product.image) || '');
+            const descriptionText = String(product && (product.description || product.descriptionAr || product.desc) || '');
+            return imageUrl.includes('cloudinary.com') && descriptionText.trim().length < 10;
+        });
+
+        status.textContent = `وجدنا ${needsAnalysis.length} منتج يحتاج تحليل`;
+        if (needsAnalysis.length === 0) {
+            results.innerHTML = '<p style="color:green">✅ لا توجد منتجات تحتاج تحليل حالياً</p>';
+            return;
+        }
+
+        const analyzed = [];
+        for (let index = 0; index < needsAnalysis.length; index += 1) {
+            const product = needsAnalysis[index];
+            const percent = Math.round(((index + 1) / needsAnalysis.length) * 100);
+            fill.style.width = `${percent}%`;
+            status.textContent = `تحليل ${index + 1}/${needsAnalysis.length}: ${product.name}`;
+
+            try {
+                const result = await analyzeProductImage(product);
+                analyzed.push({ product, result, approved: false });
+            } catch (error) {
+                analyzed.push({ product, result: null, error: String(error && error.message || error) });
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        renderAIVisionResults(analyzed);
+    } catch (error) {
+        status.textContent = 'خطأ: ' + String(error && error.message || error);
+        showNotification('error', String(error && error.message || 'فشل تشغيل التحليل'));
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'ابدأ التحليل';
+    }
+}
+
+async function analyzeProductImage(product) {
+    const imageUrl = String(product && (product.imageUrl || product.image) || '').trim();
+    if (!imageUrl) throw new Error('المنتج لا يحتوي على صورة صالحة للتحليل');
+
+    const config = getAIVisionRuntimeConfig();
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+    if (config.directAnthropic) {
+        headers['x-api-key'] = config.apiKey;
+        headers['anthropic-version'] = '2023-06-01';
+    }
+
+    const response = await fetch(config.endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1000,
+            messages: [{
+                role: 'user',
+                content: [
+                    {
+                        type: 'image',
+                        source: { type: 'url', url: imageUrl }
+                    },
+                    {
+                        type: 'text',
+                        text: `Analyze this product image and respond ONLY with valid JSON:
+{
+  "nameEn": "Product name in English",
+  "nameAr": "اسم المنتج بالعربي",
+  "brand": "Brand name",
+  "category": "skincare|haircare|supplements|bodycare|babycare|dental|other",
+  "descriptionEn": "2-sentence English description",
+  "descriptionAr": "وصف عربي جملتان",
+  "size": "e.g. 50ml or 30g or empty string",
+  "keyIngredient": "main ingredient if visible or empty string",
+  "confidence": 0.0-1.0
+}`
+                    }
+                ]
+            }]
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`AI Vision request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data && data.content && data.content[0] && data.content[0].text
+        ? String(data.content[0].text)
+        : '{}';
+    const clean = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+}
+
+function renderAIVisionResults(analyzed) {
+    const results = document.getElementById('aiVisionResults');
+    if (!results) return;
+
+    const source = Array.isArray(analyzed) ? analyzed : [];
+    const successful = source.filter((item) => item && item.result);
+    const failed = source.filter((item) => !item || !item.result);
+
+    let html = `
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="background:var(--color-background-success);color:var(--color-text-success);padding:8px 16px;border-radius:8px;font-size:0.9rem">
+          ✅ تم تحليل: ${successful.length}
+        </div>
+        <div style="background:var(--color-background-danger);color:var(--color-text-danger);padding:8px 16px;border-radius:8px;font-size:0.9rem">
+          ❌ فشل: ${failed.length}
+        </div>
+      </div>`;
+
+    successful.forEach((item, idx) => {
+        const result = item.result || {};
+        html += `
+            <div id="aiResult_${idx}" style="border:1px solid var(--color-border-tertiary);border-radius:10px;padding:14px;margin-bottom:12px">
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <img src="${escapeUploadHtml(String(item.product && (item.product.imageUrl || item.product.image) || ''))}"
+                  style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0"
+                  onerror="this.style.display='none'">
+                <div style="flex:1">
+                  <strong>${escapeUploadHtml(String(result.nameAr || item.product.name || ''))}</strong>
+                  <span style="font-size:0.75rem;color:var(--color-text-tertiary);margin-right:8px">${escapeUploadHtml(String(result.nameEn || ''))}</span>
+                  <p style="font-size:0.8rem;color:var(--color-text-secondary);margin:4px 0">${escapeUploadHtml(String(result.descriptionAr || ''))}</p>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                    <span style="font-size:0.75rem;background:var(--color-background-info);color:var(--color-text-info);padding:2px 8px;border-radius:4px">${escapeUploadHtml(String(result.brand || ''))}</span>
+                    <span style="font-size:0.75rem;background:var(--color-background-secondary);padding:2px 8px;border-radius:4px">${escapeUploadHtml(String(result.category || 'other'))}</span>
+                    ${result.size ? `<span style="font-size:0.75rem;background:var(--color-background-secondary);padding:2px 8px;border-radius:4px">${escapeUploadHtml(String(result.size))}</span>` : ''}
+                  </div>
+                </div>
+                <button type="button" data-ai-index="${idx}" data-product-id="${escapeUploadHtml(String(item.product.id || ''))}" onclick="applyAIResult(Number(this.dataset.aiIndex), this.dataset.productId)"
+                  style="background:var(--color-text-success);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap;font-size:0.8rem">
+                  تطبيق
+                </button>
+              </div>
+            </div>`;
+    });
+
+    if (failed.length > 0) {
+        html += `
+            <details style="margin-top:12px;">
+                <summary style="cursor:pointer;font-weight:600;">عرض المنتجات التي فشل تحليلها (${failed.length})</summary>
+                <ul style="margin-top:8px;padding-inline-start:18px;color:var(--color-text-secondary);font-size:0.85rem;">
+                    ${failed.map((item) => `<li>${escapeUploadHtml(String(item && item.product && item.product.name || 'منتج غير معروف'))}: ${escapeUploadHtml(String(item && item.error || 'فشل غير معروف'))}</li>`).join('')}
+                </ul>
+            </details>`;
+    }
+
+    html += `
+      <button type="button" onclick="applyAllAIResults()"
+        style="width:100%;background:var(--color-text-info);color:#fff;border:none;border-radius:8px;padding:12px;cursor:pointer;font-size:1rem;margin-top:8px">
+        تطبيق الكل على Firebase (${successful.length} منتج)
+      </button>`;
+
+    results.innerHTML = html;
+    window._aiVisionResults = source;
+}
+
+async function applyAIResult(idx, productId) {
+    const item = Array.isArray(window._aiVisionResults) ? window._aiVisionResults[idx] : null;
+    if (!item || !item.result) return;
+    const result = item.result;
+    const payload = {
+        ...item.product,
+        nameAr: String(result.nameAr || item.product.nameAr || ''),
+        nameEn: String(result.nameEn || item.product.nameEn || ''),
+        brand: String(result.brand || item.product.brand || ''),
+        category: String(result.category || item.product.category || ''),
+        desc: String(result.descriptionEn || item.product.desc || ''),
+        description: String(result.descriptionEn || item.product.description || ''),
+        descriptionAr: String(result.descriptionAr || item.product.descriptionAr || ''),
+        size: String(result.size || item.product.size || ''),
+        keyIngredient: String(result.keyIngredient || item.product.keyIngredient || ''),
+        aiAnalyzed: true,
+        aiConfidence: Number.isFinite(Number(result.confidence)) ? Number(result.confidence) : 0,
+        updatedAt: new Date().toISOString()
+    };
+
+    await updateProduct(productId, payload);
+    item.product = { ...item.product, ...payload };
+    const card = document.getElementById(`aiResult_${idx}`);
+    if (card) card.style.opacity = '0.4';
+    showNotification('success', 'تم تحديث المنتج ✅');
+}
+
+async function applyAllAIResults() {
+    const all = Array.isArray(window._aiVisionResults)
+        ? window._aiVisionResults.filter((item) => item && item.result)
+        : [];
+    for (const item of all) {
+        const index = window._aiVisionResults.indexOf(item);
+        await applyAIResult(index, item.product.id);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    showNotification('success', `✅ تم تحديث ${all.length} منتج`);
 }
 
 // Safety net: abort any in-flight upload and revoke preview object URLs on page unload.
