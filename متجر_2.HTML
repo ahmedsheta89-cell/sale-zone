@@ -10,12 +10,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0A1128">
-    <meta name="description" content="Sale Zone Store - متجرك الأول للتسوق الفاخر">
+    <meta name="description" content="Sale Zone - متجر التجميل والعناية الأول في مصر. أكثر من 635 منتج أصلي بأفضل الأسعار">
+    <meta name="keywords" content="متجر تجميل, عناية بالبشرة, شامبو, كريم, مصر, Sale Zone">
+    <meta name="author" content="Sale Zone">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML">
     <meta name="firebase-app-check-site-key" content="">
     <meta name="backend-api-base-url" content="https://us-central1-sale-zone-601f0.cloudfunctions.net/api">
+    <meta property="og:site_name" content="Sale Zone">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ar_EG">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:title" content="Sale Zone | متجر التجميل والعناية الأول في مصر">
+    <meta property="og:description" content="أكثر من 635 منتج أصلي للعناية والتجميل بأفضل الأسعار داخل مصر">
+    <meta property="og:url" content="https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML">
+    <meta property="og:image" content="https://ahmedsheta89-cell.github.io/sale-zone/icon-192.png">
+    <link rel="alternate" type="application/rss+xml" title="Sale Zone Products Feed" href="https://ahmedsheta89-cell.github.io/sale-zone/feed.xml">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="icon" href="./icon-192.png">
@@ -601,6 +613,50 @@
             .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: white; border-top: 1px solid #eee; display: flex; align-items: center; justify-content: space-around; z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
             .mobile-bottom-nav .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.7rem; color: #666; min-width: 44px; min-height: 44px; justify-content: center; cursor: pointer; background: transparent; padding: 0 6px; }
             .mobile-bottom-nav .nav-item.active { color: #667eea; }
+            #main-content, .products-grid, .store-container, #storeContainer, #storeGrid {
+                padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+            }
+            #cartPanel, .cart-panel, .cart-sidebar, #favSidebar, .fav-sidebar, [id*="cart"][class*="panel"] {
+                position: fixed !important;
+                top: 0 !important;
+                right: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
+                z-index: 9999 !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                transform: none !important;
+            }
+            .cart-overlay, #cartOverlay, #favOverlay {
+                z-index: 9998 !important;
+            }
+            .cart-sidebar.active, .fav-sidebar.active, #cartPanel.open, .cart-panel.open {
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            .cart-header, .fav-header {
+                position: sticky !important;
+                top: 0 !important;
+                z-index: 2 !important;
+                background: var(--color-background-primary, var(--white)) !important;
+            }
+            .cart-footer {
+                position: sticky !important;
+                bottom: 0 !important;
+                z-index: 2 !important;
+                background: var(--color-background-primary, var(--cream)) !important;
+                padding-bottom: env(safe-area-inset-bottom) !important;
+            }
+            .close-cart, .cart-close-btn, [onclick*="closeCart"], [onclick*="toggleCart"], [onclick*="toggleFavorites"] {
+                min-width: 44px !important;
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
         }
         @media (max-width: 480px) {
             .top-bar { font-size: 12px; gap: 8px; }
@@ -672,11 +728,11 @@
                 <span id="loyaltyPoints">0</span>
                 <span data-i18n="pointsLabel">نقطة</span>
             </div>
-            <button class="nav-btn" type="button" aria-label="فتح المفضلة" onclick="toggleFavorites()">
+            <button class="nav-btn" type="button" aria-label="فتح المفضلة" onclick="toggleFavorites()" data-action="open-favorites">
                 ❤️ <span data-i18n="favorites">المفضلة</span>
                 <div class="fav-count" id="favCount">0</div>
             </button>
-            <button class="nav-btn cart-btn" type="button" aria-label="فتح السلة" onclick="toggleCart()">
+            <button class="nav-btn cart-btn" type="button" aria-label="فتح السلة" onclick="toggleCart()" data-action="open-cart">
                 🛒 <span data-i18n="cart">السلة</span>
                 <div class="cart-count" id="cartCount">0</div>
             </button>
@@ -939,11 +995,11 @@
     </footer>
 
     <!-- Cart Sidebar -->
-    <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
+    <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()" data-action="close-cart"></div>
     <div class="cart-sidebar" id="cartSidebar">
         <div class="cart-header">
             <h2>🛒 <span data-i18n="cartTitle">سلة التسوق</span></h2>
-            <button class="close-cart" type="button" aria-label="إغلاق السلة" onclick="toggleCart()">✕</button>
+            <button class="close-cart" type="button" aria-label="إغلاق السلة" onclick="toggleCart()" data-action="close-cart">✕</button>
         </div>
         <div class="cart-items" id="cartItems">
             <div class="cart-empty">
@@ -994,11 +1050,11 @@
     </div>
 
     <!-- Favorites Sidebar -->
-    <div class="cart-overlay" id="favOverlay" onclick="toggleFavorites()"></div>
+    <div class="cart-overlay" id="favOverlay" onclick="toggleFavorites()" data-action="close-favorites"></div>
     <div class="fav-sidebar" id="favSidebar">
         <div class="fav-header">
             <h2>❤️ <span data-i18n="favorites">المفضلة</span></h2>
-            <button class="close-cart" type="button" aria-label="إغلاق المفضلة" onclick="toggleFavorites()">✕</button>
+            <button class="close-cart" type="button" aria-label="إغلاق المفضلة" onclick="toggleFavorites()" data-action="close-favorites">✕</button>
         </div>
         <div class="fav-items" id="favItems">
             <div class="fav-empty">
@@ -1248,11 +1304,11 @@
             <span>🔍</span>
             <span data-i18n="search">بحث</span>
         </button>
-        <button type="button" class="nav-item" data-mobile-nav="cart" onclick="openCart()">
+        <button type="button" class="nav-item" data-mobile-nav="cart" onclick="openCart()" data-action="open-cart">
             <span>🛒</span>
             <span data-i18n="cart">السلة</span>
         </button>
-        <button type="button" class="nav-item" data-mobile-nav="favorites" onclick="openFavorites()">
+        <button type="button" class="nav-item" data-mobile-nav="favorites" onclick="openFavorites()" data-action="open-favorites">
             <span>❤️</span>
             <span data-i18n="favorites">المفضلة</span>
         </button>
@@ -2804,14 +2860,14 @@
                             ${escapeHtml(t('discountLabel').replace('{discount}', String(discountPercent)))}
                         </span>
                     ` : ''}
-                    <button type="button" class="product-fav ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? t('removeFromFavorites') : t('addToFavorites')}" onclick="event.stopPropagation(); toggleFav(this.dataset.productId)">
+                    <button type="button" class="product-fav ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" data-action="toggle-favorite" aria-label="${isFav ? t('removeFromFavorites') : t('addToFavorites')}" onclick="event.stopPropagation(); toggleFav(this.dataset.productId)">
                         ${isFav ? '❤️' : '🤍'}
                     </button>
                     <div class="product-image">
                         <img src="${safeImageSrc}" alt="${safeName}" onerror="handleStoreImageError(this)" loading="${imageLoading}">
                         <div class="product-actions">
                             <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('productDetails')}" onclick="event.stopPropagation(); showProductDetails(this.dataset.productId)">👁️</button>
-                            <button type="button" class="action-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>🛒</button>
+                            <button type="button" class="action-btn" data-product-id="${safeProductId}" data-action="add-to-cart" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>🛒</button>
                         </div>
                     </div>
                     <div class="product-info">
@@ -2826,7 +2882,7 @@
                             ${hasOldPrice ? `<span class="old-price" style="text-decoration:line-through;color:var(--color-text-tertiary);font-size:0.8rem">${oldPrice}</span>` : ''}
                         </div>
                         ${stockMessage ? `<div class="product-stock-note" style="font-size:0.8rem;color:${getProductStockValue(p) === 0 ? '#e53e3e' : '#dd6b20'}">${escapeHtml(stockMessage)}</div>` : ''}
-                        <button type="button" class="add-to-cart-btn" data-product-id="${safeProductId}" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>${canAddToCart ? `🛒 ${escapeHtml(t('addToCart'))}` : `⚠️ ${escapeHtml(getProductStockValue(p) === 0 ? t('outOfStockNow') : t('unavailableForSale'))}`}</button>
+                        <button type="button" class="add-to-cart-btn" data-product-id="${safeProductId}" data-action="add-to-cart" aria-label="${t('addToCart')}" onclick="event.stopPropagation(); addToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>${canAddToCart ? `🛒 ${escapeHtml(t('addToCart'))}` : `⚠️ ${escapeHtml(getProductStockValue(p) === 0 ? t('outOfStockNow') : t('unavailableForSale'))}`}</button>
                     </div>
                 </div>
             `;
@@ -3293,8 +3349,8 @@
                             <button type="button" onclick="changeProductModalQuantity(1)" aria-label="${currentLang === 'ar' ? 'زيادة الكمية' : 'Increase quantity'}">+</button>
                         </div>
                         <div class="product-modal-actions">
-                            <button type="button" class="btn-add-to-cart-modal" data-product-id="${safeProductId}" aria-label="${escapeHtml(t('addToCart'))}" onclick="addProductModalToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>${canAddToCart ? `🛒 ${escapeHtml(t('addToCartNow'))}` : `⚠️ ${escapeHtml(getProductStockValue(p) === 0 ? t('outOfStockNow') : t('unavailableForSale'))}`}</button>
-                            <button type="button" class="btn-wish-modal ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" aria-label="${isFav ? escapeHtml(t('removeFromFavorites')) : escapeHtml(t('addToFavorites'))}" onclick="toggleProductModalFavorite(this.dataset.productId)">${isFav ? `❤️ ${escapeHtml(t('removeFromFavorites'))}` : `🤍 ${escapeHtml(t('addToFavorites'))}`}</button>
+                            <button type="button" class="btn-add-to-cart-modal" data-product-id="${safeProductId}" data-action="add-to-cart" aria-label="${escapeHtml(t('addToCart'))}" onclick="addProductModalToCart(this.dataset.productId)" ${canAddToCart ? '' : 'disabled'}>${canAddToCart ? `🛒 ${escapeHtml(t('addToCartNow'))}` : `⚠️ ${escapeHtml(getProductStockValue(p) === 0 ? t('outOfStockNow') : t('unavailableForSale'))}`}</button>
+                            <button type="button" class="btn-wish-modal ${isFav ? 'active' : ''}" data-product-id="${safeProductId}" data-action="toggle-favorite" aria-label="${isFav ? escapeHtml(t('removeFromFavorites')) : escapeHtml(t('addToFavorites'))}" onclick="toggleProductModalFavorite(this.dataset.productId)">${isFav ? `❤️ ${escapeHtml(t('removeFromFavorites'))}` : `🤍 ${escapeHtml(t('addToFavorites'))}`}</button>
                             <button type="button" class="btn-wish-modal" data-product-id="${safeProductId}" aria-label="${escapeHtml(t('shareOnWhatsApp'))}" onclick="shareProductOnWhatsApp(this.dataset.productId)" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:6px">
                                 <span>${escapeHtml(t('shareOnWhatsApp'))}</span>
                             </button>
@@ -3396,6 +3452,7 @@
             overlay.classList.toggle('active');
             sidebar.classList.toggle('active');
             setMobileBottomNavActive(sidebar.classList.contains('active') ? 'favorites' : 'home');
+            syncSidePanelScrollLock();
         }
 
         function toggleFav(id) {
@@ -3414,24 +3471,23 @@
         }
 
         function updateFavUI() {
-            const visibleProducts = getVisibleProductsList();
-            const visibleFavoriteIds = favorites.filter((favId) =>
-                visibleProducts.some((p) => String(p.id) === String(favId))
-            );
-            document.getElementById('favCount').textContent = visibleFavoriteIds.length;
+            const sourceProducts = Array.isArray(products) && products.length > 0
+                ? products
+                : getVisibleProductsList();
+            const favoriteProducts = favorites.map((favId) =>
+                sourceProducts.find((p) => String(p.id) === String(favId))
+            ).filter(Boolean);
             const container = document.getElementById('favItems');
+            updateFavoriteBadge();
             
-            if (visibleFavoriteIds.length === 0) {
+            if (favoriteProducts.length === 0) {
                 container.innerHTML = `<div class="fav-empty"><div class="cart-empty-icon">❤️</div><p>${escapeHtml(currentLang === 'ar' ? 'لا توجد منتجات مفضلة' : 'No favorite products yet')}</p></div>`;
                 return;
             }
 
-            container.innerHTML = visibleFavoriteIds.map((id) => {
-                const p = visibleProducts.find((x) => String(x.id) === String(id));
-                if (!p) return '';
+            container.innerHTML = favoriteProducts.map((p) => {
                 const safeProductId = escapeHtml(String(p && p.id || ''));
                 const safeImageSrc = escapeHtml(getSafeImageUrl(p, 240));
-                const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const safeName = escapeHtml(p && p.name || '');
                 const displayPrice = resolveDisplayPrice(p);
                 const hasValidPrice = Number.isFinite(displayPrice);
@@ -3444,8 +3500,8 @@
                             <div class="fav-item-price">${safePrice}</div>
                         </div>
                         <div class="fav-item-actions">
-                            <button class="fav-add-btn" data-product-id="${safeProductId}" onclick="addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
-                            <button class="fav-remove-btn" data-product-id="${safeProductId}" onclick="toggleFav(this.dataset.productId)">🗑️</button>
+                            <button class="fav-add-btn" data-product-id="${safeProductId}" data-action="add-to-cart" onclick="addToCart(this.dataset.productId)" ${hasValidPrice ? '' : 'disabled'}>🛒</button>
+                            <button class="fav-remove-btn" data-product-id="${safeProductId}" data-action="toggle-favorite" onclick="toggleFav(this.dataset.productId)">🗑️</button>
                         </div>
                     </div>
                 `;
@@ -3462,11 +3518,16 @@
             sidebar.classList.toggle('active');
             setMobileBottomNavActive(sidebar.classList.contains('active') ? 'cart' : 'home');
             updatePointsSection();
+            syncSidePanelScrollLock();
         }
 
         function addToCart(id, quantity = 1) {
             const p = getVisibleProductsList().find((x) => x.id == id || String(x.id) === String(id));
             if (!p) return;
+            if (getProductStockValue(p) === 0) {
+                showToast('المنتج غير متوفر حالياً', 'warning');
+                return;
+            }
             if (!isProductInStock(p)) {
                 showToast(t('unavailableNow'), 'warning');
                 return;
@@ -3515,8 +3576,7 @@
 
         function updateCartUI() {
             const cartItems = document.getElementById('cartItems');
-            const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
-            document.getElementById('cartCount').textContent = totalItems;
+            updateCartBadge();
 
             if (cart.length === 0) {
                 cartItems.innerHTML = `<div class="cart-empty"><div class="cart-empty-icon">🛒</div><p>${escapeHtml(currentLang === 'ar' ? 'السلة فارغة' : 'Your cart is empty')}</p></div>`;
@@ -3527,7 +3587,6 @@
             cartItems.innerHTML = cart.map((item) => {
                 const safeItemId = escapeHtml(String(item && item.id || ''));
                 const safeImageSrc = escapeHtml(getSafeImageUrl(item, 240));
-                const safeFallbackImage = escapeHtml(PRODUCT_IMAGE_PLACEHOLDER);
                 const safeItemName = escapeHtml(item && item.name || '');
                 const safeItemPrice = escapeHtml(formatPrice(Number(item && item.price || 0)));
                 const safeQuantity = escapeHtml(Number(item && item.quantity || 0).toFixed(0));
@@ -5463,6 +5522,83 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             });
         }
 
+        function getCartCount() {
+            return cart.reduce((sum, item) => sum + Math.max(0, Number(item && item.quantity || 0)), 0);
+        }
+
+        function getFavoriteCount() {
+            return favorites.length;
+        }
+
+        function updateCartBadge() {
+            const count = getCartCount();
+            document.querySelectorAll('.cart-badge, .cart-count, [data-cart-count], #cartCount').forEach((badge) => {
+                badge.textContent = String(count);
+                badge.style.display = count > 0 ? 'flex' : 'none';
+            });
+        }
+
+        function updateFavoriteBadge() {
+            const count = getFavoriteCount();
+            document.querySelectorAll('.fav-count, .wishlist-badge, [data-favorites-count], #favCount').forEach((badge) => {
+                badge.textContent = String(count);
+                badge.style.display = count > 0 ? 'flex' : 'none';
+            });
+        }
+
+        function lockBodyScroll() {
+            if (document.body.dataset.scrollLocked === '1') return;
+            const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+            document.body.dataset.scrollLocked = '1';
+            document.body.dataset.scrollY = String(scrollY);
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.width = '100%';
+            document.body.style.top = `-${scrollY}px`;
+        }
+
+        function unlockBodyScroll() {
+            if (document.body.dataset.scrollLocked !== '1') return;
+            const previousScrollY = Number(document.body.dataset.scrollY || 0);
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.top = '';
+            delete document.body.dataset.scrollLocked;
+            delete document.body.dataset.scrollY;
+            window.scrollTo(0, previousScrollY);
+        }
+
+        function syncSidePanelScrollLock() {
+            const cartOpen = document.getElementById('cartSidebar')?.classList.contains('active') === true;
+            const favOpen = document.getElementById('favSidebar')?.classList.contains('active') === true;
+            if (cartOpen || favOpen) lockBodyScroll();
+            else unlockBodyScroll();
+        }
+
+        function initCartTouchHandlers() {
+            if (window.__STORE_TOUCH_HANDLERS_BOUND__) return;
+            const touchSelector = [
+                '[data-action="add-to-cart"]',
+                '[data-action="toggle-favorite"]',
+                '[data-action="open-cart"]',
+                '[data-action="open-favorites"]',
+                '[data-action="close-cart"]',
+                '[data-action="close-favorites"]'
+            ].join(',');
+
+            document.addEventListener('touchstart', (event) => {
+                const target = event.target && typeof event.target.closest === 'function'
+                    ? event.target.closest(touchSelector)
+                    : null;
+                if (!target || target.disabled) return;
+                if (event.cancelable) event.preventDefault();
+                target.click();
+            }, { passive: false });
+
+            window.__STORE_TOUCH_HANDLERS_BOUND__ = true;
+        }
+
         function scrollToTop() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             setMobileBottomNavActive('home');
@@ -5488,6 +5624,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 toggleCart();
             }
             setMobileBottomNavActive('cart');
+            syncSidePanelScrollLock();
         }
 
         function openFavorites() {
@@ -5498,6 +5635,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 toggleFavorites();
             }
             setMobileBottomNavActive('favorites');
+            syncSidePanelScrollLock();
         }
 
         function openAuth() {
@@ -5545,11 +5683,17 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 document.getElementById('favOverlay').classList.remove('active');
                 document.getElementById('favSidebar').classList.remove('active');
                 document.getElementById('chatBox').classList.remove('active');
+                syncSidePanelScrollLock();
             }
         });
 
         document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key === 'Enter') searchProducts(); });
         document.getElementById('searchInput').addEventListener('input', () => searchProducts());
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initCartTouchHandlers);
+        } else {
+            initCartTouchHandlers();
+        }
     </script>
     <script src="assets/js/product-router.js"></script>
 </body>
