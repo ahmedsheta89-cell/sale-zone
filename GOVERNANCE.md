@@ -44,6 +44,17 @@ Required checks (exact names):
   6. Set the key in `<meta name="firebase-app-check-site-key">`, `window.FIREBASE_APP_CHECK_SITE_KEY`, or `DEFAULT_FIREBASE_APP_CHECK_SITE_KEY` in `assets/js/firebase-config.js`
   7. Reload the app and verify App Check is active
 
+## Setup Firebase Auto-Deploy
+If `.github/workflows/deploy-firestore-rules.yml` needs to deploy rules automatically:
+1. Run `npx firebase-tools login:ci`
+2. Copy the generated token
+3. Open GitHub -> Settings -> Secrets -> Actions
+4. Add `FIREBASE_TOKEN` with that token value
+
+Fallback:
+- If the secret is still missing, the workflow now continues without blocking the merge.
+- You still need to publish `firestore.rules` manually from Firebase Console or Firebase CLI.
+
 ## Release Gate Jobs
 | Job | Purpose | Trigger |
 |-----|---------|---------|

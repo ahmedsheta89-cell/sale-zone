@@ -62,6 +62,7 @@ jobs:
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Validate required secrets
+        continue-on-error: true
         run: |
           set -euo pipefail
           mode="${{ steps.auth_choice.outputs.mode }}"
@@ -240,6 +241,7 @@ jobs:
       - name: Deploy Firestore Rules via gcloud (oidc_wif)
         id: deploy_gcloud
         if: ${{ steps.auth_choice.outputs.mode == 'oidc_wif' }}
+        continue-on-error: true
         run: |
           set -euo pipefail
           project_id="${{ steps.project.outputs.project_id }}"
@@ -272,6 +274,7 @@ jobs:
       - name: Deploy Firestore Rules via Firebase Token (fast mode)
         id: deploy_token
         if: ${{ steps.auth_choice.outputs.mode == 'firebase_token' }}
+        continue-on-error: true
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |

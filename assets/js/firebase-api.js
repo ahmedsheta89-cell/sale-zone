@@ -511,6 +511,17 @@ function normalizePricingFields(input) {
     };
 }
 
+function cleanImageField(value) {
+    const rawValue = String(value || '').trim();
+    if (!rawValue) return '';
+    if (rawValue.startsWith('data:')) return rawValue;
+    if (rawValue.startsWith('./') || rawValue.startsWith('assets/')) return rawValue;
+    if (/^https?:\/\//i.test(rawValue)) return rawValue;
+    return rawValue
+        .replace(/^\/+/, '')
+        .replace(/\.(jpg|jpeg|png|webp|gif)$/i, '');
+}
+
 function normalizeProductPayloadForWrite(product, options = {}) {
     const input = product && typeof product === 'object' ? product : {};
     const nowIso = new Date().toISOString();
@@ -533,12 +544,16 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     const searchTokens = Array.isArray(input.searchTokens) && input.searchTokens.length
         ? input.searchTokens.map((token) => normalizeSearchText(token)).filter(Boolean).slice(0, 120)
         : buildProductSearchTokens(mergedForTokens);
+    const cleanedImage = cleanImageField(Object.prototype.hasOwnProperty.call(input, 'image') ? input.image : defaults.image);
+    const cleanedImageUrl = cleanImageField(Object.prototype.hasOwnProperty.call(input, 'imageUrl') ? input.imageUrl : (defaults.imageUrl || cleanedImage));
 
     return {
         ...input,
         supplierId: String(input.supplierId || defaults.supplierId || ''),
         supplierName: String(input.supplierName || defaults.supplierName || ''),
         supplierCode: String(input.supplierCode || defaults.supplierCode || ''),
+        image: cleanedImage || cleanedImageUrl || '',
+        imageUrl: cleanedImageUrl || cleanedImage || '',
         ...pricing,
         isPublished,
         visibilityState,
@@ -572,7 +587,8 @@ function mapProductFromSnapshot(doc) {
         category: data.category || '',
         price: data.price || 0,
         oldPrice: data.oldPrice || null,
-        image: data.image || '',
+        image: cleanImageField(data.image || data.imageUrl || ''),
+        imageUrl: cleanImageField(data.imageUrl || data.image || ''),
         rating: data.rating || 4.5,
         ratingCount: data.ratingCount || 0,
         code: data.code || '',
