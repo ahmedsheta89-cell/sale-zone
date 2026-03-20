@@ -8693,6 +8693,7 @@ function ensureExcelImageUploadModal() {
                     <input id="excelImageUploadPreviewSearch" type="text" placeholder="ابحث داخل أسماء الصور المطابقة..." aria-label="بحث داخل قائمة الصور المطابقة" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;">
                     <ul id="excelImageUploadPreviewList" style="margin:0;padding:0;list-style:none;max-height:220px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;background:#fff;"></ul>
                 </div>
+                <div id="uploadSummaryContainer" style="display:none;margin-top:12px;"></div>
                 <div id="excelImageUploadReport" class="wizard-report" style="display:none;margin-top:12px;"></div>
                 <textarea id="excelImageUploadMissingTextarea" style="position:absolute;left:-9999px;top:-9999px;" aria-hidden="true"></textarea>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
@@ -8787,6 +8788,7 @@ function getExcelImageUploadElements() {
         previewMeta: root.querySelector('#excelImageUploadPreviewMeta'),
         previewSearch: root.querySelector('#excelImageUploadPreviewSearch'),
         previewList: root.querySelector('#excelImageUploadPreviewList'),
+        summaryContainer: root.querySelector('#uploadSummaryContainer'),
         report: root.querySelector('#excelImageUploadReport'),
         missingTextarea: root.querySelector('#excelImageUploadMissingTextarea'),
         startBtn: root.querySelector('#excelImageUploadStartBtn'),
@@ -8825,6 +8827,10 @@ function resetExcelImageUploadModalState() {
     if (ui.previewMeta) ui.previewMeta.textContent = '';
     if (ui.previewSearch) ui.previewSearch.value = '';
     if (ui.previewList) ui.previewList.innerHTML = '';
+    if (ui.summaryContainer) {
+        ui.summaryContainer.style.display = 'none';
+        ui.summaryContainer.innerHTML = '';
+    }
     if (ui.report) {
         ui.report.style.display = 'none';
         ui.report.innerHTML = '';
@@ -8867,6 +8873,34 @@ function setExcelImageUploadProgress(payload = {}) {
     }
 }
 
+function renderUploadSummary(results) {
+    const ui = getExcelImageUploadElements();
+    if (!ui.summaryContainer) return;
+
+    const items = Array.isArray(results) ? results : [];
+    const matched = items.filter((item) => item && item.matched);
+    const unmatched = items.filter((item) => !item || item.matched !== true);
+
+    let html = `
+        <div class="upload-summary" style="text-align:right;padding:16px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;line-height:1.8;">
+            <h3 style="margin:0 0 10px;font-size:16px;">نتيجة الرفع</h3>
+            <p style="margin:0;">✅ تم التوافق: <strong>${matched.length}</strong> منتج</p>
+            <p style="margin:0;">❌ لم يتم التوافق: <strong>${unmatched.length}</strong> صورة</p>
+    `;
+
+    if (unmatched.length > 0) {
+        html += '<details style="margin-top:10px;"><summary>الصور غير المتوافقة</summary><ul style="margin:8px 0 0;padding-inline-start:18px;">';
+        unmatched.forEach((item) => {
+            html += `<li>${escapeUploadHtml(item && item.filename || '')}</li>`;
+        });
+        html += '</ul></details>';
+    }
+
+    html += '</div>';
+    ui.summaryContainer.style.display = 'block';
+    ui.summaryContainer.innerHTML = html;
+}
+
 function finalizeExcelImageUploadModal(reportPayload = {}) {
     const runtime = getExcelImageUploaderRuntime();
     const ui = getExcelImageUploadElements();
@@ -8883,6 +8917,8 @@ function finalizeExcelImageUploadModal(reportPayload = {}) {
         : (Array.isArray(reportPayload.duplicates) ? reportPayload.duplicates : []);
     const canceled = reportPayload.canceled === true;
     const linkedProducts = Array.isArray(reportPayload.linkedProducts) ? reportPayload.linkedProducts : [];
+    const matchedFiles = Array.isArray(reportPayload.matchedFiles) ? reportPayload.matchedFiles : [];
+    const unmatchedSelected = Array.isArray(reportPayload.unmatchedSelected) ? reportPayload.unmatchedSelected : [];
     runtime.failedRetryQueue = failed.map((item) => ({ ...item }));
     runtime.lastFailedItems = failed.map((item) => ({ ...item }));
 
@@ -8911,6 +8947,22 @@ function finalizeExcelImageUploadModal(reportPayload = {}) {
             ui.summary.textContent = 'اكتملت عملية الرفع.';
         }
     }
+
+    renderUploadSummary([
+        ...(matchedFiles.length
+            ? matchedFiles.map((item) => ({
+                matched: true,
+                filename: String((item && (item.filename || item.file && item.file.name)) || '')
+            }))
+            : linkedProducts.map((productId, index) => ({
+                matched: true,
+                filename: String((uploaded[index] && uploaded[index].file) || productId || '')
+            }))),
+        ...unmatchedSelected.map((filename) => ({
+            matched: false,
+            filename: String(filename || '')
+        }))
+    ]);
 
     if (ui.report) {
         ui.report.style.display = 'block';
@@ -9007,6 +9059,35 @@ function normalizeImageKey(value) {
     return normalizeFilenameForMatch(value);
 }
 
+function normalizeTextForImageMatch(value) {
+    if (!value) return '';
+    return String(value)
+        .toLowerCase()
+        .trim()
+        .replace(/[\u0610-\u061A\u064B-\u065F]/g, '')
+        .replace(/[^\w\u0600-\u06FF]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
+}
+
+function stripImageVendorPatterns(value) {
+    return normalizeTextForImageMatch(value)
+        .replace(/_eparkville_\d+$/i, '')
+        .replace(/_biostream_\d+$/i, '')
+        .replace(/_salezone_\d+$/i, '')
+        .replace(/_e_maj_\d+$/i, '')
+        .replace(/_infin_\d+$/i, '')
+        .replace(/_epark_\d+$/i, '')
+        .replace(/_blank_\d+$/i, '')
+        .replace(/_e_park_\d+$/i, '')
+        .replace(/_\d{3}$/i, '');
+}
+
+function getImageVendorPrefix(value) {
+    const normalized = normalizeTextForImageMatch(value);
+    return normalized.split('_')[0] || '';
+}
+
 function getProductImageMatchAliases(product) {
     const source = product && typeof product === 'object' ? product : {};
     const aliasSet = new Set();
@@ -9027,6 +9108,97 @@ function getProductImageMatchAliases(product) {
 
 function isCloudinaryProductImage(value) {
     return /^https:\/\/res\.cloudinary\.com\//i.test(String(value || '').trim());
+}
+
+function findBestProductMatch(imageFilename, productsList) {
+    const candidates = Array.isArray(productsList) ? productsList : [];
+    const rawFilename = basenameWithoutExt(imageFilename) || String(imageFilename || '');
+    const normalizedFilename = normalizeTextForImageMatch(rawFilename);
+    const strippedFilename = stripImageVendorPatterns(rawFilename);
+    const fileVendor = getImageVendorPrefix(rawFilename);
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const product of candidates) {
+        if (!product) continue;
+        const productImage = basenameWithoutExt(product.image) || String(product.image || '');
+        const productImageUrl = basenameWithoutExt(product.imageUrl) || String(product.imageUrl || '');
+        const productImageFilename = basenameWithoutExt(product.image_filename) || String(product.image_filename || '');
+        const productCode = String(product.code || '');
+        const productSku = String(product.sku || '');
+        const productName = String(product.name || '');
+        const productVendor = String(product.vendor || '');
+
+        if (productImage === rawFilename ||
+            productImageUrl === rawFilename ||
+            productImageFilename === rawFilename) {
+            return { product, score: 100, level: 1 };
+        }
+
+        let score = 0;
+
+        const normalizedProductImage = normalizeTextForImageMatch(productImage);
+        const normalizedProductImageUrl = normalizeTextForImageMatch(productImageUrl);
+        const normalizedProductImageFilename = normalizeTextForImageMatch(productImageFilename);
+        if (
+            normalizedProductImage === normalizedFilename ||
+            normalizedProductImageUrl === normalizedFilename ||
+            normalizedProductImageFilename === normalizedFilename ||
+            normalizedProductImage === strippedFilename ||
+            normalizedProductImageUrl === strippedFilename ||
+            normalizedProductImageFilename === strippedFilename
+        ) {
+            score = Math.max(score, 90);
+        }
+
+        if (productCode && normalizeTextForImageMatch(productCode).length > 2 && normalizedFilename.includes(normalizeTextForImageMatch(productCode))) {
+            score = Math.max(score, 85);
+        }
+        if (productSku && normalizeTextForImageMatch(productSku).length > 2 && normalizedFilename.includes(normalizeTextForImageMatch(productSku))) {
+            score = Math.max(score, 85);
+        }
+
+        const productWords = normalizeTextForImageMatch(productName)
+            .split('_')
+            .filter((word) => word.length > 3);
+        const filenameWords = strippedFilename
+            .split('_')
+            .filter((word) => word.length > 3);
+
+        if (productWords.length > 0 && filenameWords.length > 0) {
+            const matches = productWords.filter((word) =>
+                filenameWords.some((fileWord) => fileWord.includes(word) || word.includes(fileWord))
+            );
+            const overlap = matches.length / Math.max(productWords.length, filenameWords.length);
+            if (overlap >= 0.5) {
+                score = Math.max(score, Math.round(overlap * 80));
+            }
+        }
+
+        const normalizedProductVendor = getImageVendorPrefix(productVendor || productName || productCode || productSku);
+        const normalizedProductName = normalizeTextForImageMatch(productName);
+        if (
+            fileVendor &&
+            fileVendor.length > 2 &&
+            (
+                fileVendor === normalizedProductVendor ||
+                normalizedProductName.startsWith(fileVendor)
+            )
+        ) {
+            if (score > 0) score = Math.min(score + 10, 95);
+        }
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestMatch = product;
+        }
+    }
+
+    if (bestMatch && bestScore >= 50) {
+        return { product: bestMatch, score: bestScore, level: 'fuzzy' };
+    }
+
+    return null;
 }
 
 function shouldProductReceiveExcelImage(product) {
@@ -9231,53 +9403,87 @@ function buildSelectedFileIndex(selectedFiles) {
     return selectedIndex;
 }
 
-function matchFilesByBasename(requiredMap, selectedIndex) {
+function matchFilesByBasename(requiredMap, selectedIndex, productsList = []) {
     const required = requiredMap instanceof Map ? requiredMap : new Map();
     const matchedFiles = [];
-    const missingRequired = [];
     const duplicatesSkipped = [];
     const unmatchedSelected = [];
     const usedKeys = new Set();
+    const matchedProductIds = new Set();
+    const products = (Array.isArray(productsList) ? productsList : []).filter((product) => shouldProductReceiveExcelImage(product));
 
-    required.forEach((entry, key) => {
-        const selected = selectedIndex.get(key);
-        if (!selected) {
-            const display = Array.from((entry && entry.displayNames) || []);
-            missingRequired.push(display[0] || key);
-            return;
-        }
-        usedKeys.add(key);
-        matchedFiles.push({
-            file: selected.primary,
-            key,
-            requiredDisplay: Array.from((entry && entry.displayNames) || []),
-            rawValues: Array.from((entry && entry.rawValues) || []),
-            productIds: Array.from((entry && entry.productIds) || []),
-            productNames: Array.from((entry && entry.productNames) || [])
-        });
-        if (Array.isArray(selected.duplicates) && selected.duplicates.length) {
-            selected.duplicates.forEach((dup) => {
+    selectedIndex.forEach((item) => {
+        if (Array.isArray(item && item.duplicates) && item.duplicates.length) {
+            item.duplicates.forEach((dup) => {
                 if (typeof dup === 'string') duplicatesSkipped.push({ name: dup, reason: 'ملف مكرر' });
                 else duplicatesSkipped.push(dup);
             });
         }
     });
 
-    let skippedCount = 0;
-    selectedIndex.forEach((item, key) => {
-        if (!usedKeys.has(key)) {
-            skippedCount += 1;
-            if (item && item.primary && item.primary.name) unmatchedSelected.push(String(item.primary.name));
+    products.forEach((product) => {
+        const aliases = getProductImageMatchAliases(product);
+        const productId = String(product && product.id || '').trim();
+        for (const key of aliases) {
+            const selected = selectedIndex.get(key);
+            if (!selected || !selected.primary || usedKeys.has(key)) continue;
+            usedKeys.add(key);
+            if (productId) matchedProductIds.add(productId);
+            matchedFiles.push({
+                file: selected.primary,
+                key,
+                requiredDisplay: [String(product && product.name || key).trim()].filter(Boolean),
+                rawValues: [String(product && (product.imageUrl || product.image) || '').trim()].filter(Boolean),
+                productIds: productId ? [productId] : [],
+                productNames: [String(product && product.name || '').trim()].filter(Boolean),
+                matched: true,
+                matchScore: 100,
+                matchLevel: 1,
+                filename: String(selected.primary.name || '')
+            });
+            break;
         }
-        skippedCount += Array.isArray(item.duplicates) ? item.duplicates.length : 0;
     });
+
+    const remainingProducts = products.filter((product) => !matchedProductIds.has(String(product && product.id || '').trim()));
+    selectedIndex.forEach((item, key) => {
+        if (!item || !item.primary || usedKeys.has(key)) return;
+        const match = findBestProductMatch(item.primary.name, remainingProducts);
+        if (!match || !match.product) {
+            unmatchedSelected.push(String(item.primary.name || key));
+            return;
+        }
+
+        const matchedProduct = match.product;
+        const productId = String(matchedProduct && matchedProduct.id || '').trim();
+        usedKeys.add(key);
+        if (productId) matchedProductIds.add(productId);
+        matchedFiles.push({
+            file: item.primary,
+            key,
+            requiredDisplay: [String(matchedProduct && matchedProduct.name || key).trim()].filter(Boolean),
+            rawValues: [String(matchedProduct && (matchedProduct.imageUrl || matchedProduct.image) || '').trim()].filter(Boolean),
+            productIds: productId ? [productId] : [],
+            productNames: [String(matchedProduct && matchedProduct.name || '').trim()].filter(Boolean),
+            matched: true,
+            matchScore: Number(match.score || 0),
+            matchLevel: match.level,
+            filename: String(item.primary.name || '')
+        });
+    });
+
+    const missingRequired = products
+        .filter((product) => !matchedProductIds.has(String(product && product.id || '').trim()))
+        .map((product) => String(product && product.name || '').trim())
+        .filter(Boolean);
+    const skippedCount = unmatchedSelected.length + duplicatesSkipped.length;
 
     return { matchedFiles, missingRequired, duplicatesSkipped, nonMatchedSelectedCount: skippedCount, unmatchedSelected };
 }
 
-function filterMatchingFiles(selectedFiles, requiredMap) {
+function filterMatchingFiles(selectedFiles, requiredMap, productsList = []) {
     const selectedIndex = buildSelectedFileIndex(selectedFiles);
-    const result = matchFilesByBasename(requiredMap, selectedIndex);
+    const result = matchFilesByBasename(requiredMap, selectedIndex, productsList);
     return {
         matchedFiles: result.matchedFiles,
         missingRequired: result.missingRequired,
@@ -9830,7 +10036,7 @@ async function openExcelImagesOnlyUploader() {
             }
         }
 
-        const { matchedFiles, missingRequired, duplicates, skippedCount, unmatchedSelected } = filterMatchingFiles(selectedFiles, requiredMap);
+        const { matchedFiles, missingRequired, duplicates, skippedCount, unmatchedSelected } = filterMatchingFiles(selectedFiles, requiredMap, productsList);
         (Array.isArray(unmatchedSelected) ? unmatchedSelected : []).forEach((fileName) => {
             console.warn(`⚠️ لم يتم العثور على منتج لـ ${fileName}`);
         });
@@ -9845,6 +10051,7 @@ async function openExcelImagesOnlyUploader() {
                 failed: [],
                 nonMatchedSelectedCount: skippedCount,
                 duplicatesSkipped: duplicates,
+                unmatchedSelected,
                 canceled: false
             });
             showNotification('warning', 'لا توجد ملفات مطابقة لأسماء الصور المطلوبة.');
@@ -9855,7 +10062,8 @@ async function openExcelImagesOnlyUploader() {
             matchedFiles,
             missingRequired,
             duplicatesSkipped: duplicates,
-            nonMatchedSelectedCount: skippedCount
+            nonMatchedSelectedCount: skippedCount,
+            unmatchedSelected
         });
         setExcelImageUploadProgress({
             summary: `سيتم رفع ${matchedFiles.length} صورة مطابقة. راجع القائمة ثم اضغط "بدء الرفع".`,
@@ -9868,11 +10076,13 @@ async function openExcelImagesOnlyUploader() {
         const previewDecision = await waitForUploadPreviewDecision();
         if (previewDecision !== 'start') {
             finalizeExcelImageUploadModal({
+                matchedFiles,
                 uploaded: [],
                 missingRequired,
                 failed: [],
                 nonMatchedSelectedCount: skippedCount,
                 duplicatesSkipped: duplicates,
+                unmatchedSelected,
                 canceled: true
             });
             showNotification('warning', 'تم إلغاء العملية قبل بدء الرفع.');
@@ -9897,11 +10107,13 @@ async function openExcelImagesOnlyUploader() {
         const allFailures = [...uploadResult.failed, ...persistFailed];
 
         finalizeExcelImageUploadModal({
+            matchedFiles,
             uploaded: uploadResult.uploaded,
             missingRequired,
             failed: allFailures,
             nonMatchedSelectedCount: skippedCount,
             duplicatesSkipped: duplicates,
+            unmatchedSelected,
             canceled: uploadResult.canceled,
             linkedProducts: Array.isArray(persistResult && persistResult.linkedProducts) ? persistResult.linkedProducts : []
         });
