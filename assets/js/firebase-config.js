@@ -118,6 +118,28 @@ const DEFAULT_FIREBASE_APP_CHECK_SITE_KEY = '6Lf0koQsAAAAAOx8NJIJXxMaAmL97DLwQwD
 const APP_CHECK_MAX_RETRIES = 3;
 const APP_CHECK_RETRY_DELAY_MS = 3000;
 
+function isAppCheckThrottleError(error) {
+    const code = String(error && (error.code || error.message || error.reason) || '').trim();
+    const message = String(error && error.message || '').trim();
+    return code === 'appCheck/throttled'
+        || message.includes('appCheck/throttled')
+        || message.includes('Too many attempts');
+}
+
+function markAppCheckThrottled(error) {
+    const reason = String(error && (error.code || error.message || error.reason) || 'appCheck/throttled').trim();
+    if (window._appCheckThrottled !== true) {
+        console.warn('[App Check] Throttled - stopping all retries');
+    }
+    window._appCheckThrottled = true;
+    window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+    window.__FIREBASE_APP_CHECK_REASON__ = reason || 'appCheck/throttled';
+    if (window.__FIREBASE_APP_CHECK_RETRY_TIMER__) {
+        window.clearTimeout(window.__FIREBASE_APP_CHECK_RETRY_TIMER__);
+        window.__FIREBASE_APP_CHECK_RETRY_TIMER__ = null;
+    }
+}
+
 function resolveAppCheckSiteKey() {
     if (typeof window.FIREBASE_APP_CHECK_SITE_KEY === 'string' && window.FIREBASE_APP_CHECK_SITE_KEY.trim()) {
         return window.FIREBASE_APP_CHECK_SITE_KEY.trim();
@@ -131,6 +153,9 @@ function resolveAppCheckSiteKey() {
 }
 
 async function waitForAppCheck(maxWaitMs = 3000) {
+    if (window._appCheckThrottled) {
+        return Promise.resolve(null);
+    }
     if (!(firebase && typeof firebase.appCheck === 'function')) return false;
 
     const start = Date.now();
@@ -141,7 +166,11 @@ async function waitForAppCheck(maxWaitMs = 3000) {
                 console.log('[App Check] Token ready ✅');
                 return true;
             }
-        } catch (_) {
+        } catch (error) {
+            if (isAppCheckThrottleError(error)) {
+                markAppCheckThrottled(error);
+                return null;
+            }
             // WHY: token not ready yet. Keep waiting until timeout expires.
         }
         await new Promise((resolve) => setTimeout(resolve, 300));
@@ -165,6 +194,7 @@ function enableAppCheckDebugTokenForLocalhost() {
 
 function scheduleAppCheckRetry(reason) {
     const currentAttempts = Number(window.__FIREBASE_APP_CHECK_RETRY_COUNT__ || 0);
+    if (window._appCheckThrottled) return;
     if (window.__FIREBASE_APP_CHECK_ACTIVE__ === true) return;
     if (currentAttempts >= APP_CHECK_MAX_RETRIES) return;
     if (window.__FIREBASE_APP_CHECK_RETRY_TIMER__) return;
@@ -178,6 +208,7 @@ function scheduleAppCheckRetry(reason) {
 }
 
 function initAppCheck() {
+    if (window._appCheckThrottled) return;
     if (window.__FIREBASE_APP_CHECK_ACTIVE__ === true) return;
     if (window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ === true) return;
 
@@ -212,10 +243,18 @@ function initAppCheck() {
                 console.log('[App Check] Token ready and active');
                 return;
             }
+            if (window._appCheckThrottled) {
+                window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+                return;
+            }
             window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
             window.__FIREBASE_APP_CHECK_REASON__ = 'token-timeout';
             scheduleAppCheckRetry('token-timeout');
         }).catch((error) => {
+            if (isAppCheckThrottleError(error)) {
+                markAppCheckThrottled(error);
+                return;
+            }
             window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
             window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'token-error';
             scheduleAppCheckRetry(window.__FIREBASE_APP_CHECK_REASON__);
@@ -224,6 +263,10 @@ function initAppCheck() {
         });
         return;
     } catch (error) {
+        if (isAppCheckThrottleError(error)) {
+            markAppCheckThrottled(error);
+            return;
+        }
         window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
         window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';
         console.warn('[App Check] Activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
@@ -238,6 +281,7 @@ function initAppCheck() {
 function setupFirebaseAppCheck() {
     window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
     window.__FIREBASE_APP_CHECK_REASON__ = 'waiting-for-window-load';
+    window._appCheckThrottled = false;
 
     // WHY: compat SDK needs full DOM + window.load before it injects the reCAPTCHA script safely.
     if (document.readyState === 'complete') {

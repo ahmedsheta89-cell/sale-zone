@@ -9,7 +9,7 @@
 <head>
     <script>
         (function() {
-            var PANEL_HASHES = ['wishlist', 'cart', 'search', 'menu'];
+            var PANEL_HASHES = ['wishlist', 'cart', 'search', 'menu', 'contact', 'chat'];
             var rawHash = String(window.location.hash || '').replace(/^#/, '');
             window.__SALEZONE_FRESH_LOAD__ = !document.referrer && window.history.length <= 1;
             window.__SALEZONE_PANEL_HASH_STRIPPED__ = '';
@@ -550,6 +550,25 @@
         .chat-input:focus { border-color: var(--gold); }
         .chat-send { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white); display: flex; align-items: center; justify-content: center; font-size: 14px; transition: var(--transition); }
         .chat-send:hover { transform: scale(1.1); }
+        .chat-widget.chat-widget-panel { position: fixed; inset: 0; z-index: 2500; pointer-events: none; }
+        .chat-widget.chat-widget-panel .chat-panel-backdrop { position: absolute; inset: 0; background: rgba(10,17,40,0.45); opacity: 0; visibility: hidden; transition: var(--transition); pointer-events: none; }
+        .chat-widget.chat-widget-panel .chat-panel-backdrop.active { opacity: 1; visibility: visible; pointer-events: auto; }
+        .chat-widget.chat-widget-panel .chat-box { position: absolute; bottom: 84px; left: 16px; pointer-events: auto; }
+        .contact-sheet-overlay { position: fixed; inset: 0; background: rgba(10,17,40,0.45); opacity: 0; visibility: hidden; transition: var(--transition); z-index: 2200; }
+        .contact-sheet-overlay.active { opacity: 1; visibility: visible; }
+        .contact-sheet { position: fixed; left: 16px; right: 16px; bottom: 78px; background: var(--white); border-radius: 20px; box-shadow: var(--shadow-lg); padding: 16px; z-index: 2201; opacity: 0; visibility: hidden; transform: translateY(20px); transition: var(--transition); }
+        .contact-sheet.active { opacity: 1; visibility: visible; transform: translateY(0); }
+        .contact-sheet-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .contact-sheet-title { font-family: var(--font-display); font-size: 18px; color: var(--navy); }
+        .contact-sheet-close { width: 44px; height: 44px; border-radius: 50%; background: #f3f4f6; color: var(--navy); display: inline-flex; align-items: center; justify-content: center; }
+        .contact-sheet-actions { display: grid; gap: 10px; }
+        .contact-action { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-radius: 14px; background: #f8fafc; border: 1px solid #e5e7eb; color: var(--navy); font-size: 0.95rem; font-weight: 700; text-decoration: none; text-align: right; }
+        .contact-action small { display: block; font-weight: 500; color: #64748b; margin-top: 4px; }
+        .contact-action__content { flex: 1; }
+        .contact-action__icon { width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; }
+        .contact-action--chat .contact-action__icon { background: #ede9fe; color: #6d28d9; }
+        .contact-action--support .contact-action__icon { background: #dbeafe; color: #2563eb; }
+        .contact-action--whatsapp .contact-action__icon { background: #dcfce7; color: #16a34a; }
 
         /* Floating Buttons */
         .floating-buttons { position: fixed; bottom: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; }
@@ -1305,51 +1324,82 @@
         </div>
     </div>
 
-    <!-- Legacy chat widget removed: replaced by tawk.to -->
-    <div id="legacyChatContracts" hidden aria-hidden="true" style="display:none !important">
-        <button type="button" id="chatModeBotBtn" tabindex="-1"></button>
-        <button type="button" id="chatModeSupportBtn" tabindex="-1"></button>
+        <div class="contact-sheet-overlay" id="contactMenuOverlay" onclick="closeContactMenu()" data-action="close-contact"></div>
+    <div class="contact-sheet" id="contactMenu" role="dialog" aria-modal="true" aria-label="خيارات التواصل">
+        <div class="contact-sheet-header">
+            <div>
+                <div class="contact-sheet-title">تواصل معنا</div>
+                <small style="color:#64748b">اختر وسيلة التواصل المناسبة لك</small>
+            </div>
+            <button class="contact-sheet-close" type="button" aria-label="إغلاق قائمة التواصل" onclick="closeContactMenu()">&times;</button>
+        </div>
+        <div class="contact-sheet-actions">
+            <button type="button" class="contact-action contact-action--chat" onclick="openInternalChat()">
+                <span class="contact-action__content">💬 دردشة داخلية<small>تحدث معنا من داخل المتجر دون مغادرة الصفحة</small></span>
+                <span class="contact-action__icon">💬</span>
+            </button>
+            <button type="button" class="contact-action contact-action--support" onclick="openTawkSupport()">
+                <span class="contact-action__content">🎧 دعم العملاء<small>افتح tawk.to للتواصل المباشر مع الفريق</small></span>
+                <span class="contact-action__icon">🎧</span>
+            </button>
+            <button type="button" class="contact-action contact-action--whatsapp" onclick="openStoreWhatsApp()">
+                <span class="contact-action__content">📱 واتساب<small>راسلنا مباشرة على رقم خدمة العملاء</small></span>
+                <span class="contact-action__icon">📱</span>
+            </button>
+        </div>
     </div>
 
-    <!-- Floating Buttons -->
-    <div class="floating-buttons">
-        <a id="floatingWhatsApp"
-           href="https://wa.me/201018108979?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D9%81%D8%B3%D8%A7%D8%B1%20%D8%B9%D9%86%20%D9%85%D9%86%D8%AA%D8%AC"
-           target="_blank"
-           rel="noopener noreferrer"
-           aria-label="تواصل عبر واتساب"
-           style="position:fixed;bottom:80px;left:16px;width:56px;height:56px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(37,211,102,0.4);z-index:9990;transition:transform 0.2s, box-shadow 0.2s;text-decoration:none;overflow:hidden;"
-           onmouseenter="this.style.transform='scale(1.1)'"
-           onmouseleave="this.style.transform='scale(1)'"
-           ontouchstart="this.style.transform='scale(0.95)'"
-           ontouchend="this.style.transform='scale(1)'">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="white" style="position:relative;z-index:1">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.522 5.849L0 24l6.335-1.501A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.01-1.371l-.36-.213-3.732.884.944-3.617-.235-.372A9.818 9.818 0 012.182 12C2.182 6.58 6.58 2.182 12 2.182S21.818 6.58 21.818 12c0 5.42-4.398 9.818-9.818 9.818z"/>
-            </svg>
-            <span style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(37,211,102,0.4);animation:whatsapp-pulse 2s infinite;"></span>
-        </a>
+    <div class="chat-widget chat-widget-panel" id="internalChatPanel" aria-live="polite">
+        <div class="chat-panel-backdrop" id="chatPanelBackdrop" onclick="closeInternalChat()" data-action="close-chat"></div>
+        <div class="chat-box" id="chatBox" role="dialog" aria-modal="true" aria-label="الدردشة الداخلية">
+            <div class="chat-box-header">
+                <div class="chat-avatar">💬</div>
+                <div class="chat-bot-info">
+                    <h4 data-i18n="assistantTitle">مساعد Sale Zone</h4>
+                    <span id="chatStatusText"><span class="online-dot"></span> <span data-i18n="faqMode">وضع FAQ</span></span>
+                </div>
+                <div class="chat-mode-toggle">
+                    <button type="button" class="chat-mode-btn active" id="chatModeBotBtn" aria-label="التبديل إلى وضع الأسئلة الشائعة" onclick="switchChatMode('bot')">FAQ</button>
+                    <button type="button" class="chat-mode-btn" id="chatModeSupportBtn" aria-label="التبديل إلى وضع الدعم" onclick="switchChatMode('support')">دعم</button>
+                </div>
+                <button type="button" class="contact-sheet-close" aria-label="إغلاق الدردشة" onclick="closeInternalChat()">&times;</button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-message bot" data-i18n="chatWelcome">مرحباً! كيف أساعدك؟</div>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب رسالتك..." data-i18n-placeholder="typeMessage" onkeypress="if(event.key==='Enter')sendChatMessage()" autocomplete="off">
+                <button class="chat-send" type="button" aria-label="إرسال الرسالة" onclick="sendChatMessage()">إرسال</button>
+            </div>
+        </div>
     </div>
+
     <style>
-        @keyframes whatsapp-pulse {
-            0% { transform: scale(1); opacity: 0.7; }
-            70% { transform: scale(1.4); opacity: 0; }
-            100% { transform: scale(1.4); opacity: 0; }
-        }
-
-        body.panel-open #floatingWhatsApp {
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s ease;
-        }
-
         @media (max-width: 768px) {
             #productsPagination[data-infinite-active="true"] {
                 display: none !important;
             }
+
+            .contact-sheet {
+                left: 0;
+                right: 0;
+                bottom: 0;
+                border-radius: 20px 20px 0 0;
+                padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            }
+
+            .chat-widget.chat-widget-panel .chat-box {
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                max-width: none;
+                height: min(72dvh, 520px);
+                border-radius: 20px 20px 0 0;
+            }
         }
     </style>
-    <nav class="mobile-bottom-nav" role="navigation" aria-label="التنقل الرئيسي">
+<nav class="mobile-bottom-nav" role="navigation" aria-label="التنقل الرئيسي">
         <button type="button" class="nav-item active" data-mobile-nav="home" onclick="scrollToTop()">
             <span>🏠</span>
             <span data-i18n="home">الرئيسية</span>
@@ -1366,9 +1416,9 @@
             <span>❤️</span>
             <span data-i18n="favorites">المفضلة</span>
         </button>
-        <button type="button" class="nav-item" data-mobile-nav="account" onclick="openAuth()">
-            <span>👤</span>
-            <span data-i18n="account">حسابي</span>
+                <button type="button" class="nav-item" data-mobile-nav="contact" onclick="openContactMenu()" data-action="open-contact">
+            <span>📞</span>
+            <span data-i18n="contactUs">تواصل معنا</span>
         </button>
     </nav>
     </main>
@@ -2223,7 +2273,7 @@
                 }, 6000);
             }
 
-            // ?? Load data with timeout, then re-render safely
+            // Load data with timeout, then re-render safely
             safeRun('loadDataWithTimeout', () => {
                 loadDataWithTimeout(25000)
                     .then(() => {
@@ -2673,11 +2723,7 @@
                 '🔔 24/7 service'
             );
             document.getElementById('footerCopyright').textContent = storeSettings.footer?.copyright || '';
-            const floatingWhatsApp = document.getElementById('floatingWhatsApp') || document.getElementById('floatWhatsapp');
-            if (floatingWhatsApp) {
-                floatingWhatsApp.href = `${whatsappLink}?text=${encodeURIComponent('مرحباً، أريد الاستفسار عن منتج')}`;
-            }
-            if (!Array.isArray(storeSettings.customCategories)) {
+                        if (!Array.isArray(storeSettings.customCategories)) {
                 storeSettings.customCategories = [];
             }
             renderDynamicCategoryCards();
@@ -3805,6 +3851,8 @@
         }
 
         function openWishlist(options = {}) {
+            closeContactMenu({ skipHistory: true });
+            closeInternalChat({ skipHistory: true });
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
                 window.NavHistory.open('wishlist');
                 return true;
@@ -3915,6 +3963,8 @@
         }
 
         function openCart(options = {}) {
+            closeContactMenu({ skipHistory: true });
+            closeInternalChat({ skipHistory: true });
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
                 window.NavHistory.open('cart');
                 return true;
@@ -5393,7 +5443,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
 
             console.warn(`support access denied (${normalizedSource}):`, reason);
-            fallbackSupportChatToFaq('تعذر استخدام الدردشة الداخلية بسبب الصلاحيات. تم التحويل إلى FAQ.');
+            fallbackSupportChatToFaq('تعذر فتح وضع المحادثة المباشرة حالياً. سنبقيك داخل وضع FAQ مؤقتاً.');
             return true;
         }
 
@@ -5481,7 +5531,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 showNotification('warning', 'الدردشة الداخلية', 'يلزم تسجيل دخول Firebase بحسابك المفعّل لاستخدام الدعم الداخلي.');
             }
             promptSupportReLogin();
-            fallbackSupportChatToFaq('الدعم الداخلي يتطلب جلسة Firebase صالحة وبريدًا مفعلًا. سجّل الدخول ثم جرّب مرة أخرى.');
+            fallbackSupportChatToFaq('تعذر فتح وضع المحادثة المباشرة حالياً. سنبقيك داخل وضع FAQ مؤقتاً.');
             trackStoreEvent('SUPPORT_AUTH_SESSION_REQUIRED', 'Support chat requires Firebase Auth session', 'warning', {
                 customerId: String(currentUser && currentUser.id || ''),
                 source: String(source || 'support'),
@@ -5534,17 +5584,10 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
         }
 
-        function toggleChat() {
+        function toggleChat(options = {}) {
             const box = document.getElementById('chatBox');
-            if (!box) return;
-            box.classList.toggle('active');
-            if (!box.classList.contains('active')) return;
-            if (chatMode === 'support') {
-                ensureSupportChatReady().catch((error) => {
-                    console.warn('support chat init warning:', error);
-                    handleSupportAccessError(error, 'toggleChat.ensureSupportChatReady');
-                });
-            }
+            const isOpen = box?.classList.contains('active') === true;
+            return isOpen ? closeInternalChat(options) : openInternalChat(options);
         }
 
         async function sendChatMessage() {
@@ -6003,6 +6046,118 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             window.__STORE_TOOLTIP_OBSERVER__ = observer;
         }
 
+        function setContactMenuState(isOpen) {
+            const overlay = document.getElementById('contactMenuOverlay');
+            const panel = document.getElementById('contactMenu');
+            if (!overlay || !panel) return false;
+            overlay.classList.toggle('active', Boolean(isOpen));
+            panel.classList.toggle('active', Boolean(isOpen));
+            setMobileBottomNavActive(Boolean(isOpen) ? 'contact' : (document.getElementById('chatBox')?.classList.contains('active') ? 'contact' : 'home'));
+            syncSidePanelScrollLock();
+            return Boolean(isOpen);
+        }
+
+        function openContactMenu(options = {}) {
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
+                window.NavHistory.open('contact');
+                return true;
+            }
+            closeInternalChat({ skipHistory: true });
+            return setContactMenuState(true);
+        }
+
+        function closeContactMenu(options = {}) {
+            const overlay = document.getElementById('contactMenuOverlay');
+            const panel = document.getElementById('contactMenu');
+            const isOpen = overlay?.classList.contains('active') || panel?.classList.contains('active');
+            if (!isOpen) {
+                setContactMenuState(false);
+                return false;
+            }
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
+                window.NavHistory.close('contact');
+                return true;
+            }
+            return setContactMenuState(false);
+        }
+
+        function setChatPanelState(isOpen) {
+            const box = document.getElementById('chatBox');
+            const backdrop = document.getElementById('chatPanelBackdrop');
+            if (!box) return false;
+            box.classList.toggle('active', Boolean(isOpen));
+            if (backdrop) backdrop.classList.toggle('active', Boolean(isOpen));
+            setMobileBottomNavActive(Boolean(isOpen) ? 'contact' : (document.getElementById('contactMenu')?.classList.contains('active') ? 'contact' : 'home'));
+            syncSidePanelScrollLock();
+            return Boolean(isOpen);
+        }
+
+        function openInternalChat(options = {}) {
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
+                window.NavHistory.open('chat');
+                return true;
+            }
+
+            closeContactMenu({ skipHistory: true });
+            const opened = setChatPanelState(true);
+            if (!opened) return false;
+
+            if (currentUser) {
+                switchChatMode('support');
+            } else {
+                fallbackSupportChatToFaq('تعذر فتح وضع المحادثة المباشرة حالياً. سنبقيك داخل وضع FAQ مؤقتاً.');
+                showNotification('info', 'الدردشة الداخلية', 'تم فتح المحادثة في وضع FAQ حتى يصبح الدعم المباشر متاحاً.');
+            }
+            return true;
+        }
+
+        function closeInternalChat(options = {}) {
+            const box = document.getElementById('chatBox');
+            const isOpen = box?.classList.contains('active') === true;
+            if (!isOpen) {
+                setChatPanelState(false);
+                return false;
+            }
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
+                window.NavHistory.close('chat');
+                return true;
+            }
+            return setChatPanelState(false);
+        }
+
+        function openStoreWhatsApp() {
+            closeContactMenu({ skipHistory: true });
+            const message = encodeURIComponent('مرحباً، أريد الاستفسار عن طلب');
+            window.open('https://wa.me/' + getStoreWhatsappNumber() + '?text=' + message, '_blank');
+        }
+
+        function openTawkSupport() {
+            closeContactMenu({ skipHistory: true });
+            maybeLoadTawkWidget();
+            if (window.Toast && typeof window.Toast.info === 'function') {
+                window.Toast.info('جارٍ فتح دعم العملاء...');
+            }
+            window.setTimeout(function() {
+                if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
+                    window.Tawk_API.maximize();
+                    return;
+                }
+                openStoreWhatsApp();
+            }, 180);
+        }
+
+        function registerSupportPanelsWithNavHistory() {
+            if (!window.NavHistory || typeof window.NavHistory.register !== 'function') return;
+            window.NavHistory.register('contact', function() { openContactMenu({ skipHistory: true, fromNavHistory: true }); }, function() { closeContactMenu({ skipHistory: true, fromNavHistory: true }); });
+            window.NavHistory.register('chat', function() { openInternalChat({ skipHistory: true, fromNavHistory: true }); }, function() { closeInternalChat({ skipHistory: true, fromNavHistory: true }); });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', registerSupportPanelsWithNavHistory);
+        } else {
+            registerSupportPanelsWithNavHistory();
+        }
+
         function setMobileBottomNavActive(target = 'home') {
             document.querySelectorAll('.mobile-bottom-nav .nav-item').forEach((item) => {
                 item.classList.toggle('active', String(item.dataset.mobileNav || '') === String(target || 'home'));
@@ -6076,7 +6231,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function syncSidePanelScrollLock() {
             const cartOpen = document.getElementById('cartSidebar')?.classList.contains('active') === true;
             const favOpen = document.getElementById('favSidebar')?.classList.contains('active') === true;
-            const anyPanelOpen = cartOpen || favOpen;
+            const contactOpen = document.getElementById('contactMenu')?.classList.contains('active') === true;
+            const chatOpen = document.getElementById('chatBox')?.classList.contains('active') === true;
+            const anyPanelOpen = cartOpen || favOpen || contactOpen || chatOpen;
             document.body.classList.toggle('panel-open', anyPanelOpen);
             if (anyPanelOpen) lockBodyScroll();
             else unlockBodyScroll();
@@ -6212,6 +6369,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function openSearch() {
+            closeContactMenu({ skipHistory: true });
+            closeInternalChat({ skipHistory: true });
             const input = document.getElementById('searchInput');
             const navbar = document.querySelector('.navbar');
             if (navbar && typeof navbar.scrollIntoView === 'function') {
@@ -6232,18 +6391,20 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function openAuth() {
+            closeContactMenu({ skipHistory: true });
+            closeInternalChat({ skipHistory: true });
             const dropdown = document.querySelector('.user-dropdown');
             const trigger = document.getElementById('userBtn');
             if (currentUser && dropdown && trigger) {
                 const isOpen = dropdown.classList.toggle('force-open');
                 trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-                setMobileBottomNavActive(isOpen ? 'account' : 'home');
+                setMobileBottomNavActive('home');
                 return;
             }
             if (dropdown) dropdown.classList.remove('force-open');
             if (trigger) trigger.setAttribute('aria-expanded', 'false');
             showAuthModal('magic');
-            setMobileBottomNavActive('account');
+            setMobileBottomNavActive('home');
         }
 
         function openModal(id) { document.getElementById(id).classList.add('active'); }
@@ -6271,9 +6432,10 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
                 document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
-                closeCart();
-                closeWishlist();
-                document.getElementById('chatBox')?.classList.remove('active');
+                closeCart({ skipHistory: true });
+                closeWishlist({ skipHistory: true });
+                closeContactMenu({ skipHistory: true });
+                closeInternalChat({ skipHistory: true });
                 syncSidePanelScrollLock();
             }
         });
@@ -6302,9 +6464,13 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         @media (max-width: 768px) {
             #tawkchat-container,
-            .tawk-min-container,
             iframe[title*="chat"] {
                 bottom: 70px !important;
+            }
+
+            #tawkchat-minified-wrapper,
+            .tawk-min-container {
+                display: none !important;
             }
         }
     </style>
