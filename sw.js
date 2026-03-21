@@ -163,6 +163,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Defensive normalization: fragments are not network-addressable and
+  // should never influence cached document responses.
+  if (request.url.includes('#')) {
+    const cleanUrl = request.url.split('#')[0];
+    event.respondWith(
+      caches.match(cleanUrl).then((cached) => cached || fetch(cleanUrl))
+    );
+    return;
+  }
+
   // Never intercept runtime version checks to avoid stale/invalid SW responses.
   if (/\/version\.json$/i.test(url.pathname)) {
     return;
