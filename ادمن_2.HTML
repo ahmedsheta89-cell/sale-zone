@@ -1049,16 +1049,16 @@
         <main class="main-content">
             <div class="top-bar">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <button type="button" class="mobile-menu-btn" id="sidebarToggleBtn" aria-label="??? ??????? ????????" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar()">?</button>
+                    <button type="button" class="mobile-menu-btn" id="sidebarToggleBtn" aria-label="فتح القائمة الجانبية" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar()">☰</button>
                     <h1 class="page-title" id="pageTitle">📊 نظرة عامة</h1>
                 </div>
-                <div class="top-bar-actions">
-                    <div class="admin-info">
-                        <div class="admin-avatar">م</div>
-                        <span>المدير</span>
+                    <div class="top-bar-actions">
+                        <div class="admin-info">
+                            <div class="admin-avatar" id="adminAvatarInitial">م</div>
+                            <span id="adminDisplayName">المدير</span>
+                        </div>
+                        <button class="logout-btn" onclick="adminLogout()">🚪 خروج</button>
                     </div>
-                    <button class="logout-btn" onclick="adminLogout()">🚪 خروج</button>
-                </div>
             </div>
             <!-- Overview -->
             <section class="content-section active" id="overviewSection">
@@ -1747,9 +1747,31 @@
                                     <textarea id="storeDescription"></textarea>
                                 </div>
                                 <div class="form-group">
-                                    <label>💬 إعدادات FAQ Bot (JSON)</label>
-                                    <textarea id="storeFaqIntents" rows="5" placeholder='[{"keywords":["شحن","توصيل"],"response":"التوصيل مجاني فوق 500 ج.م"}]'></textarea>
-                                    <small style="color:#777;">اختياري: مصفوفة عناصر تحتوي keywords و response.</small>
+                                    <div id="faqBotEditor">
+                                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                                            <h4 style="margin:0">🤖 FAQ Bot — الأسئلة الشائعة</h4>
+                                            <button type="button" onclick="addFAQItem()" style="background:var(--color-text-info);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.85rem">
+                                                + إضافة سؤال
+                                            </button>
+                                        </div>
+
+                                        <div id="faqItemsList"></div>
+
+                                        <div style="margin-top:16px;padding:12px;background:var(--color-background-secondary);border-radius:8px;font-size:0.8rem;color:var(--color-text-secondary)">
+                                            💡 الـ Bot يجاوب تلقائياً لما الزبون يكتب كلمة من الـ Keywords. لو مش لاقي إجابة → يحوله لـ tawk.to
+                                        </div>
+
+                                        <button type="button" onclick="saveFAQBot()" style="margin-top:12px;background:var(--color-text-success);color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">
+                                            💾 حفظ FAQ Bot
+                                        </button>
+
+                                        <details style="margin-top:12px">
+                                            <summary style="cursor:pointer;font-size:0.8rem;color:var(--color-text-secondary)">
+                                                عرض/تعديل JSON مباشرة
+                                            </summary>
+                                            <textarea id="faqBotJSON" style="width:100%;height:200px;margin-top:8px;font-family:monospace;font-size:0.75rem;border-radius:8px;padding:8px;border:1px solid var(--color-border-tertiary)" onchange="syncFAQFromJSON(this.value)" placeholder='[{"keywords":["سعر"],"response":"..."}]'></textarea>
+                                        </details>
+                                    </div>
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group">
@@ -3453,6 +3475,114 @@
             }
         }
 
+        var _faqItems = [];
+
+        function getValidatedFAQItems() {
+            return (_faqItems || []).map((item) => ({
+                keywords: Array.isArray(item && item.keywords)
+                    ? item.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean)
+                    : [],
+                response: String(item && item.response || '').trim()
+            })).filter((item) => item.keywords.length > 0 && item.response);
+        }
+
+        function syncJSONDisplay() {
+            var el = document.getElementById('faqBotJSON');
+            if (el) {
+                el.value = JSON.stringify(_faqItems || [], null, 2);
+            }
+        }
+
+        function renderFAQEditor() {
+            var list = document.getElementById('faqItemsList');
+            if (!list) return;
+
+            if (!_faqItems.length) {
+                list.innerHTML = '<p style="color:var(--color-text-tertiary);text-align:center;padding:20px">لا توجد أسئلة بعد — اضغط + إضافة</p>';
+                syncJSONDisplay();
+                return;
+            }
+
+            list.innerHTML = _faqItems.map(function(item, index) {
+                var keywords = Array.isArray(item && item.keywords) ? item.keywords.join(', ') : '';
+                var response = String(item && item.response || '');
+                return '<div style="border:1px solid var(--color-border-tertiary);border-radius:10px;padding:12px;margin-bottom:10px">'
+                    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+                    + '<div style="flex:1">'
+                    + '<label style="font-size:0.8rem;color:var(--color-text-secondary)">الكلمات المفتاحية (افصل بفاصلة)</label>'
+                    + '<input type="text" value="' + escapeHtml(keywords) + '" onchange="_faqItems[' + index + '].keywords=this.value.split(\',\').map(function(k){return k.trim();}).filter(Boolean);syncJSONDisplay();" style="width:100%;margin-top:4px;padding:6px;border:1px solid var(--color-border-tertiary);border-radius:6px">'
+                    + '<label style="font-size:0.8rem;color:var(--color-text-secondary);margin-top:8px;display:block">الإجابة</label>'
+                    + '<textarea onchange="_faqItems[' + index + '].response=this.value;syncJSONDisplay();" style="width:100%;margin-top:4px;padding:6px;height:70px;border:1px solid var(--color-border-tertiary);border-radius:6px;resize:vertical">'
+                    + escapeHtml(response)
+                    + '</textarea>'
+                    + '</div>'
+                    + '<button type="button" onclick="removeFAQItem(' + index + ')" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;flex-shrink:0">✕</button>'
+                    + '</div></div>';
+            }).join('');
+            syncJSONDisplay();
+        }
+
+        function addFAQItem() {
+            _faqItems.push({ keywords: [''], response: '' });
+            renderFAQEditor();
+        }
+
+        function removeFAQItem(index) {
+            _faqItems.splice(index, 1);
+            renderFAQEditor();
+        }
+
+        function syncFAQFromJSON(value) {
+            try {
+                var parsed = JSON.parse(value);
+                _faqItems = Array.isArray(parsed) ? parsed : [];
+                renderFAQEditor();
+            } catch (error) {
+                showNotification('error', 'JSON غير صحيح');
+            }
+        }
+
+        function saveFAQBot() {
+            var valid = getValidatedFAQItems();
+            _faqItems = valid.slice();
+            storeSettings.faqIntents = valid;
+            try {
+                localStorage.setItem('salezone_faq_bot', JSON.stringify(valid));
+            } catch (_) {}
+            saveStoreSettings();
+            syncJSONDisplay();
+            showNotification('success', 'تم حفظ FAQ Bot ✅');
+        }
+
+        function renderAdminIdentity(user) {
+            var nameNode = document.getElementById('adminDisplayName');
+            var avatarNode = document.getElementById('adminAvatarInitial');
+            var safeName = 'المدير';
+
+            if (user) {
+                safeName = String(user.displayName || user.email || 'المدير').trim() || 'المدير';
+            }
+
+            if (nameNode) {
+                nameNode.innerHTML = escapeHtml(safeName);
+            }
+            if (avatarNode) {
+                avatarNode.textContent = safeName.charAt(0) || 'م';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                var storedFaq = localStorage.getItem('salezone_faq_bot');
+                _faqItems = storedFaq ? JSON.parse(storedFaq) : [];
+            } catch (_) {
+                _faqItems = [];
+            }
+            renderFAQEditor();
+            syncJSONDisplay();
+            renderAdminIdentity(null);
+        });
+
         // ============================================
         // Auth
         // ============================================
@@ -3538,6 +3668,7 @@ async function handleLogin(e){
      initDashboard();
      await loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
      await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
+     renderAdminIdentity(user);
      
      showNotification('success', 'تم تسجيل الدخول بنجاح');
 
@@ -3621,6 +3752,7 @@ async function sendPasswordReset() {
         return;
       }
       if (isClaimAdmin) {
+        renderAdminIdentity(user);
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').classList.add('active');
         if (!products.length) {
@@ -3642,6 +3774,7 @@ async function sendPasswordReset() {
   // Fallback: no Firebase
   stopStoreOperationsMonitoring();
   stopAdminChangeNotificationWatcher();
+  renderAdminIdentity(null);
   document.getElementById('dashboard').classList.remove('active');
   document.getElementById('loginScreen').style.display = 'flex';
 }
@@ -3665,6 +3798,7 @@ function adminLogout(){
     firebase.auth().signOut();
   }
   
+  renderAdminIdentity(null);
   showNotification('info', 'تم تسجيل الخروج بنجاح');
   location.reload();
 }
@@ -6068,11 +6202,20 @@ function adminLogout(){
                 return;
             }
 
-            listEl.innerHTML = rows.map((msg) => {
+            const renderedMessages = rows.map((msg) => {
                 const role = String(msg && msg.senderRole || 'customer');
                 const name = role === 'admin' ? 'الأدمن' : (thread.customerName || 'العميل');
                 const cssClass = role === 'admin' ? 'admin' : 'customer';
-                const text = escapeHtml(msg && msg.message || '');
+                const rawText = String(
+                    msg && (
+                        msg.message
+                        || msg.text
+                        || msg.content
+                        || msg.body
+                    ) || ''
+                ).trim();
+                if (!rawText) return '';
+                const text = escapeHtml(rawText);
                 const createdAt = safeSupportTime(msg && msg.createdAt);
                 return `
                     <div class="support-message ${cssClass}">
@@ -6080,7 +6223,12 @@ function adminLogout(){
                         <div class="support-message-meta">${escapeHtml(name)} · ${createdAt}</div>
                     </div>
                 `;
-            }).join('');
+            }).filter(Boolean).join('');
+            if (!renderedMessages) {
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><p>لا توجد رسائل قابلة للعرض بعد</p></div>';
+                return;
+            }
+            listEl.innerHTML = renderedMessages;
             listEl.scrollTop = listEl.scrollHeight;
         }
 
@@ -6451,7 +6599,9 @@ function adminLogout(){
             document.getElementById('storeName').value = storeSettings.name || '';
             document.getElementById('storeTagline').value = storeSettings.tagline || '';
             document.getElementById('storeDescription').value = storeSettings.description || '';
-            document.getElementById('storeFaqIntents').value = JSON.stringify(storeSettings.faqIntents || [], null, 2);
+            _faqItems = Array.isArray(storeSettings.faqIntents) ? storeSettings.faqIntents.slice() : [];
+            renderFAQEditor();
+            syncJSONDisplay();
             document.getElementById('tawkPropertyId').value = storeSettings.chatSupport?.tawkPropertyId || '';
             document.getElementById('tawkWidgetId').value = storeSettings.chatSupport?.tawkWidgetId || '';
             document.getElementById('tawkEnabled').checked = storeSettings.chatSupport?.enableTawk === true;
@@ -6475,18 +6625,9 @@ function adminLogout(){
             storeSettings.name = document.getElementById('storeName').value.trim();
             storeSettings.tagline = document.getElementById('storeTagline').value.trim();
             storeSettings.description = document.getElementById('storeDescription').value.trim();
-            const faqRaw = document.getElementById('storeFaqIntents').value.trim();
-            if (faqRaw) {
-                try {
-                    const parsed = JSON.parse(faqRaw);
-                    storeSettings.faqIntents = Array.isArray(parsed) ? parsed : [];
-                } catch (error) {
-                    showNotification('error', 'JSON FAQ غير صالح');
-                    return;
-                }
-            } else {
-                storeSettings.faqIntents = [];
-            }
+            storeSettings.faqIntents = getValidatedFAQItems();
+            _faqItems = storeSettings.faqIntents.slice();
+            syncJSONDisplay();
             storeSettings.chatSupport = {
                 enableTawk: document.getElementById('tawkEnabled').checked,
                 tawkPropertyId: document.getElementById('tawkPropertyId').value.trim(),
@@ -10642,6 +10783,60 @@ async function uploadAndPreview(input) {
         alert('❌ فشل الرفع: ' + err.message);
     }
 }
+</script>
+<style>
+    #tawkchat-container,
+    .tawk-min-container,
+    iframe[title*="chat"] {
+        right: 16px !important;
+        left: auto !important;
+        bottom: 80px !important;
+        z-index: 9985 !important;
+    }
+
+    @media (max-width: 768px) {
+        #tawkchat-container,
+        .tawk-min-container,
+        iframe[title*="chat"] {
+            bottom: 70px !important;
+        }
+    }
+</style>
+<script>
+    ;(function() {
+        'use strict';
+        if (window.__SALEZONE_ADMIN_TAWK_BOOTSTRAPPED__ === true) return;
+        window.__SALEZONE_ADMIN_TAWK_BOOTSTRAPPED__ = true;
+        window.Tawk_API = window.Tawk_API || {};
+        window.Tawk_LoadStart = new Date();
+
+        window.Tawk_API.onLoad = function() {
+            var authUser = null;
+            try {
+                authUser = window.firebase && firebase.auth ? firebase.auth().currentUser : null;
+            } catch (_) {}
+
+            if (authUser && typeof window.Tawk_API.setAttributes === 'function') {
+                window.Tawk_API.setAttributes({
+                    name: authUser.displayName || authUser.email || 'Admin',
+                    email: authUser.email || '',
+                    id: authUser.uid || ''
+                }, function() {});
+            }
+
+            try {
+                window.Tawk_API.customStyle = { zIndex: 9985 };
+            } catch (_) {}
+        };
+
+        var s1 = document.createElement('script');
+        var s0 = document.getElementsByTagName('script')[0];
+        s1.async = true;
+        s1.src = 'https://embed.tawk.to/69bddad6b97d9f1c3c8b0224/1jk6ptm80';
+        s1.charset = 'UTF-8';
+        s1.setAttribute('crossorigin', '*');
+        s0.parentNode.insertBefore(s1, s0);
+    })();
 </script>
 </body>
 </html>

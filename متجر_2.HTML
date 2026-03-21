@@ -7,6 +7,22 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-page="store">
 <head>
+    <script>
+        (function() {
+            var PANEL_HASHES = ['wishlist', 'cart', 'search', 'menu'];
+            var rawHash = String(window.location.hash || '').replace(/^#/, '');
+            window.__SALEZONE_FRESH_LOAD__ = !document.referrer && window.history.length <= 1;
+            window.__SALEZONE_PANEL_HASH_STRIPPED__ = '';
+            if (PANEL_HASHES.indexOf(rawHash) !== -1) {
+                window.__SALEZONE_PANEL_HASH_STRIPPED__ = rawHash;
+                window.history.replaceState(
+                    { view: 'store', depth: 0, strippedPanelHash: rawHash },
+                    '',
+                    window.location.pathname + window.location.search
+                );
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <meta name="theme-color" content="#0A1128">
@@ -632,10 +648,26 @@
             }
             .cart-overlay, #cartOverlay, #favOverlay {
                 z-index: 9998 !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }
+            .cart-overlay.active, #cartOverlay.active, #favOverlay.active {
+                opacity: 1 !important;
+                visibility: visible !important;
+                pointer-events: auto !important;
+            }
+            .cart-sidebar, .fav-sidebar, #cartPanel, .cart-panel {
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
             }
             .cart-sidebar.active, .fav-sidebar.active, #cartPanel.open, .cart-panel.open {
                 display: flex !important;
                 flex-direction: column !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                pointer-events: auto !important;
             }
             .cart-header, .fav-header {
                 position: sticky !important;
@@ -1273,29 +1305,10 @@
         </div>
     </div>
 
-    <!-- Chat Widget -->
-    <div class="chat-widget">
-        <button class="chat-toggle" type="button" aria-label="فتح المساعد" onclick="toggleChat()">🤖</button>
-        <div class="chat-box" id="chatBox">
-            <div class="chat-box-header">
-                <div class="chat-avatar">🤖</div>
-                <div class="chat-bot-info">
-                    <h4 data-i18n="assistantTitle">مساعد Sale Zone</h4>
-                    <span id="chatStatusText"><span class="online-dot"></span> <span data-i18n="faqMode">وضع FAQ</span></span>
-                </div>
-                <div class="chat-mode-toggle">
-                    <button type="button" class="chat-mode-btn active" id="chatModeBotBtn" aria-label="التبديل إلى وضع الأسئلة الشائعة" onclick="switchChatMode('bot')">FAQ</button>
-                    <button type="button" class="chat-mode-btn" id="chatModeSupportBtn" aria-label="التبديل إلى وضع الدعم" onclick="switchChatMode('support')">دعم</button>
-                </div>
-            </div>
-            <div class="chat-messages" id="chatMessages">
-                <div class="chat-message bot" data-i18n="chatWelcome">مرحباً! كيف أساعدك؟ 😊</div>
-            </div>
-            <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب..." data-i18n-placeholder="typeMessage" onkeypress="if(event.key==='Enter')sendChatMessage()" autocomplete="off">
-                <button class="chat-send" type="button" aria-label="إرسال الرسالة" onclick="sendChatMessage()">➤</button>
-            </div>
-        </div>
+    <!-- Legacy chat widget removed: replaced by tawk.to -->
+    <div id="legacyChatContracts" hidden aria-hidden="true" style="display:none !important">
+        <button type="button" id="chatModeBotBtn" tabindex="-1"></button>
+        <button type="button" id="chatModeSupportBtn" tabindex="-1"></button>
     </div>
 
     <!-- Floating Buttons -->
@@ -1366,10 +1379,17 @@
             'use strict';
 
             var hash = window.location.hash;
+            var strippedPanelHash = window.__SALEZONE_PANEL_HASH_STRIPPED__;
             var panels = ['#cart', '#wishlist', '#search', '#menu'];
             var isPanel = panels.some(function(panelHash) { return hash === panelHash; });
 
-            if (isPanel) {
+            if (strippedPanelHash) {
+                window.history.replaceState(
+                    { view: 'store', depth: 0, strippedPanelHash: strippedPanelHash },
+                    '',
+                    window.location.pathname + window.location.search
+                );
+            } else if (isPanel) {
                 window.history.replaceState(
                     { view: 'store', depth: 0 },
                     '',
@@ -5845,6 +5865,15 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function getBotResponse(msg) {
+            if (window.FAQBot && typeof window.FAQBot.respond === 'function') {
+                const reply = window.FAQBot.respond(msg);
+                if (reply && reply.text) {
+                    if (reply.showEscalate && window.FAQBot && typeof window.FAQBot.maybeEscalate === 'function') {
+                        window.FAQBot.maybeEscalate();
+                    }
+                    return reply.text;
+                }
+            }
             const text = normalizeSearchKeyword(msg);
             const intents = getFaqIntents();
             for (const intent of intents) {
@@ -5860,6 +5889,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         let tawkWidgetLoaded = false;
         function maybeLoadTawkWidget() {
+            if (window.__SALEZONE_TAWK_BOOTSTRAPPED__ === true) return;
             const config = storeSettings && storeSettings.chatSupport && typeof storeSettings.chatSupport === 'object'
                 ? storeSettings.chatSupport
                 : {};
@@ -6243,7 +6273,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
                 closeCart();
                 closeWishlist();
-                document.getElementById('chatBox').classList.remove('active');
+                document.getElementById('chatBox')?.classList.remove('active');
                 syncSidePanelScrollLock();
             }
         });
@@ -6258,6 +6288,73 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
     </script>
     <script src="assets/js/nav-history.js"></script>
     <script src="assets/js/toast.js"></script>
+    <script src="assets/js/faq-bot.js"></script>
     <script src="assets/js/product-router.js"></script>
+    <style>
+        #tawkchat-container,
+        .tawk-min-container,
+        iframe[title*="chat"] {
+            right: 16px !important;
+            left: auto !important;
+            bottom: 80px !important;
+            z-index: 9985 !important;
+        }
+
+        @media (max-width: 768px) {
+            #tawkchat-container,
+            .tawk-min-container,
+            iframe[title*="chat"] {
+                bottom: 70px !important;
+            }
+        }
+    </style>
+    <script>
+        ;(function() {
+            'use strict';
+            if (window.__SALEZONE_TAWK_BOOTSTRAPPED__ === true) return;
+            window.__SALEZONE_TAWK_BOOTSTRAPPED__ = true;
+            window.Tawk_API = window.Tawk_API || {};
+            window.Tawk_LoadStart = new Date();
+
+            window.Tawk_API.onLoad = function() {
+                var authUser = null;
+                try {
+                    authUser = window.firebase && firebase.auth ? firebase.auth().currentUser : null;
+                } catch (_) {}
+
+                if (authUser && typeof window.Tawk_API.setAttributes === 'function') {
+                    window.Tawk_API.setAttributes({
+                        name: authUser.displayName || authUser.email || 'عميل Sale Zone',
+                        email: authUser.email || '',
+                        id: authUser.uid || ''
+                    }, function() {});
+                }
+
+                try {
+                    window.Tawk_API.customStyle = { zIndex: 9985 };
+                } catch (_) {}
+            };
+
+            window.Tawk_API.onChatStarted = function() {
+                if (window.Toast && typeof window.Toast.info === 'function') {
+                    window.Toast.info('تم الاتصال بفريق الدعم 💬');
+                }
+            };
+
+            window.Tawk_API.onChatEnded = function() {
+                if (window.Toast && typeof window.Toast.success === 'function') {
+                    window.Toast.success('شكراً لتواصلك معنا ✅');
+                }
+            };
+
+            var s1 = document.createElement('script');
+            var s0 = document.getElementsByTagName('script')[0];
+            s1.async = true;
+            s1.src = 'https://embed.tawk.to/69bddad6b97d9f1c3c8b0224/1jk6ptm80';
+            s1.charset = 'UTF-8';
+            s1.setAttribute('crossorigin', '*');
+            s0.parentNode.insertBefore(s1, s0);
+        })();
+    </script>
 </body>
 </html>

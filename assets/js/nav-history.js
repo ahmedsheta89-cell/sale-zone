@@ -148,12 +148,13 @@
     if (_stack.length > 0) {
       var topPanel = _stack[_stack.length - 1];
       close(topPanel);
-    } else {
+    } else if (global.history.length <= 2) {
       global.history.pushState(
         { panel: 'store', depth: 0 },
         '',
         _homeUrl()
       );
+      _homeGuardReady = true;
     }
 
     global.setTimeout(function() { _popping = false; }, 50);
