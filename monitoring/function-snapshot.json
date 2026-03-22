@@ -5,8 +5,8 @@
       "hash": "06caf355e51138c4d963faabd64bb661"
     },
     "addChatMessage": {
-      "found": false,
-      "hash": null
+      "found": true,
+      "hash": "817565b71bbe4728997fc10626f15c65"
     },
     "applyAdvancedFilters": {
       "found": true,
@@ -29,12 +29,12 @@
       "hash": "29c09085853527f2177dfc1c58871d5f"
     },
     "ensureSupportAuthSession": {
-      "found": false,
-      "hash": null
+      "found": true,
+      "hash": "451d49bbf1aca479458869e56c9d7219"
     },
     "ensureSupportChatReady": {
-      "found": false,
-      "hash": null
+      "found": true,
+      "hash": "18480ac4e9281f1e602410fd9eae0180"
     },
     "filterByCategory": {
       "found": true,
@@ -109,8 +109,8 @@
       "hash": "f0635dd51ec94e3e86773a9eb3763d33"
     },
     "sendChatMessage": {
-      "found": false,
-      "hash": null
+      "found": true,
+      "hash": "7c5b8865bb652d3ac2b2b93fc6c5116b"
     },
     "showAuthModal": {
       "found": true,
@@ -145,8 +145,8 @@
       "hash": "e0b68cbad4f8161b523d6ff1d9741ebe"
     },
     "switchChatMode": {
-      "found": false,
-      "hash": null
+      "found": true,
+      "hash": "662486d8ae63960dade4af5e11208773"
     },
     "toggleCart": {
       "found": true,

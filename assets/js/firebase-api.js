@@ -1905,7 +1905,28 @@ async function saveSettings(settings) {
     }
 }
 
+async function getStoreSettings() {
+    try {
+        return await getSettings() || {};
+    } catch (e) {
+        console.warn('[Settings] Using defaults:', e && e.message ? e.message : e);
+        return {};
+    }
+}
+
+async function updateStoreSettings(updates) {
+    try {
+        const result = await saveSettings(updates || {});
+        return Boolean(result && result.success);
+    } catch (e) {
+        console.error('[Settings] Update failed:', e);
+        return false;
+    }
+}
+
 if (typeof window !== 'undefined') {
+    window.getStoreSettings = getStoreSettings;
+    window.updateStoreSettings = updateStoreSettings;
     window.ReleaseGateStateAPI = {
         getReleaseGateState,
         saveReleaseGateState
@@ -1914,6 +1935,8 @@ if (typeof window !== 'undefined') {
 
 // WHY: release-gate smoke checks require a Node/module bridge marker in firebase-api.js.
 if (typeof module !== 'undefined' && module.exports) {
+    module.exports.getStoreSettings = getStoreSettings;
+    module.exports.updateStoreSettings = updateStoreSettings;
     module.exports.ReleaseGateStateAPI = {
         getReleaseGateState,
         saveReleaseGateState
