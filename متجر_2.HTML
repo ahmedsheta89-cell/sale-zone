@@ -1324,81 +1324,128 @@
         </div>
     </div>
 
-        <div class="contact-sheet-overlay" id="contactMenuOverlay" onclick="closeContactMenu()" data-action="close-contact"></div>
-    <div class="contact-sheet" id="contactMenu" role="dialog" aria-modal="true" aria-label="خيارات التواصل">
-        <div class="contact-sheet-header">
-            <div>
-                <div class="contact-sheet-title">تواصل معنا</div>
-                <small style="color:#64748b">اختر وسيلة التواصل المناسبة لك</small>
-            </div>
-            <button class="contact-sheet-close" type="button" aria-label="إغلاق قائمة التواصل" onclick="closeContactMenu()">&times;</button>
+    <div id="faqBotWidget" style="
+      display:none;
+      position:fixed;
+      bottom:70px;
+      left:0;right:0;
+      margin:0 12px;
+      background:var(--color-background-primary);
+      border-radius:16px 16px 0 0;
+      box-shadow:0 -4px 30px rgba(0,0,0,0.15);
+      z-index:9975;
+      flex-direction:column;
+      direction:rtl;
+      overflow:hidden;
+      max-height:60vh;
+    ">
+      <div style="
+        padding:14px 16px;
+        background:var(--color-text-info,#0ea5e9);
+        color:#fff;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        border-radius:16px 16px 0 0;
+      ">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1.2rem">🤖</span>
+          <div>
+            <div style="font-weight:600;font-size:0.95rem">مساعد Sale Zone</div>
+            <div style="font-size:0.75rem;opacity:0.85">متوفر دائماً &bull; ردود فورية</div>
+          </div>
         </div>
-        <div class="contact-sheet-actions">
-            <button type="button" class="contact-action contact-action--chat" onclick="openInternalChat()">
-                <span class="contact-action__content">💬 دردشة داخلية<small>تحدث معنا من داخل المتجر دون مغادرة الصفحة</small></span>
-                <span class="contact-action__icon">💬</span>
-            </button>
-            <button type="button" class="contact-action contact-action--support" onclick="openTawkSupport()">
-                <span class="contact-action__content">🎧 دعم العملاء<small>افتح tawk.to للتواصل المباشر مع الفريق</small></span>
-                <span class="contact-action__icon">🎧</span>
-            </button>
-            <button type="button" class="contact-action contact-action--whatsapp" onclick="openStoreWhatsApp()">
-                <span class="contact-action__content">📱 واتساب<small>راسلنا مباشرة على رقم خدمة العملاء</small></span>
-                <span class="contact-action__icon">📱</span>
-            </button>
-        </div>
+        <button onclick="closeFAQBot()"
+          style="background:none;border:none;color:#fff;
+          font-size:1.3rem;cursor:pointer;padding:4px 8px;
+          line-height:1">✕</button>
+      </div>
+
+      <div id="faqBotMessages" style="
+        flex:1;overflow-y:auto;
+        padding:12px;
+        display:flex;flex-direction:column;gap:8px;
+        -webkit-overflow-scrolling:touch;
+        min-height:120px;
+      "></div>
+
+      <div style="
+        padding:8px 12px;
+        display:flex;flex-wrap:wrap;gap:6px;
+        border-top:1px solid var(--color-border-tertiary);
+      ">
+        <button onclick="askFAQ('كيف التوصيل؟')"
+          style="padding:6px 12px;border-radius:20px;
+          border:1px solid var(--color-text-info,#0ea5e9);
+          color:var(--color-text-info,#0ea5e9);
+          background:none;font-size:0.8rem;cursor:pointer">🚚 التوصيل</button>
+        <button onclick="askFAQ('طرق الدفع؟')"
+          style="padding:6px 12px;border-radius:20px;
+          border:1px solid var(--color-text-info,#0ea5e9);
+          color:var(--color-text-info,#0ea5e9);
+          background:none;font-size:0.8rem;cursor:pointer">💳 الدفع</button>
+        <button onclick="askFAQ('سياسة الإرجاع؟')"
+          style="padding:6px 12px;border-radius:20px;
+          border:1px solid var(--color-text-info,#0ea5e9);
+          color:var(--color-text-info,#0ea5e9);
+          background:none;font-size:0.8rem;cursor:pointer">🚚 التوصيل</button>
+        <button onclick="askFAQ('هل المنتجات أصلية؟')"
+          style="padding:6px 12px;border-radius:20px;
+          border:1px solid var(--color-text-info,#0ea5e9);
+          color:var(--color-text-info,#0ea5e9);
+          background:none;font-size:0.8rem;cursor:pointer">✅ الجودة</button>
+      </div>
+
+      <div style="
+        padding:10px 12px;
+        border-top:1px solid var(--color-border-tertiary);
+        display:flex;gap:8px;
+      ">
+        <input id="faqBotInput" type="text"
+          placeholder="اكتب سؤالك..."
+          style="flex:1;padding:10px 14px;
+          border:1px solid var(--color-border-tertiary);
+          border-radius:20px;font-size:0.9rem;
+          outline:none;direction:rtl;"
+          onkeydown="if(event.key==='Enter')sendFAQMessage()">
+        <button onclick="sendFAQMessage()"
+          style="background:var(--color-text-info,#0ea5e9);
+          color:#fff;border:none;border-radius:50%;
+          width:42px;height:42px;cursor:pointer;
+          font-size:1rem;flex-shrink:0">➤</button>
+      </div>
+
+      <button onclick="openTawkChat();closeFAQBot()"
+        style="width:100%;padding:13px;
+        background:var(--color-background-secondary);
+        border:none;
+        border-top:1px solid var(--color-border-tertiary);
+        color:var(--color-text-secondary);
+        font-size:0.85rem;cursor:pointer;
+        display:flex;align-items:center;
+        justify-content:center;gap:8px;">🎧 تحدث مع خدمة العملاء مباشرة</button>
+
+      <a href="https://wa.me/201018108979?text=مرحباً،%20أريد%20الاستفسار"
+        target="_blank"
+        onclick="closeFAQBot()"
+        style="width:100%;padding:11px;
+        background:#e8fdf0;border:none;
+        border-top:1px solid var(--color-border-tertiary);
+        color:#128C7E;font-size:0.85rem;cursor:pointer;
+        display:flex;align-items:center;
+        justify-content:center;gap:8px;
+        text-decoration:none;">?? ????? ??? ??????</a>
     </div>
 
-    <div class="chat-widget chat-widget-panel" id="internalChatPanel" aria-live="polite">
-        <div class="chat-panel-backdrop" id="chatPanelBackdrop" onclick="closeInternalChat()" data-action="close-chat"></div>
-        <div class="chat-box" id="chatBox" role="dialog" aria-modal="true" aria-label="الدردشة الداخلية">
-            <div class="chat-box-header">
-                <div class="chat-avatar">💬</div>
-                <div class="chat-bot-info">
-                    <h4 data-i18n="assistantTitle">مساعد Sale Zone</h4>
-                    <span id="chatStatusText"><span class="online-dot"></span> <span data-i18n="faqMode">وضع FAQ</span></span>
-                </div>
-                <div class="chat-mode-toggle">
-                    <button type="button" class="chat-mode-btn active" id="chatModeBotBtn" aria-label="التبديل إلى وضع الأسئلة الشائعة" onclick="switchChatMode('bot')">FAQ</button>
-                    <button type="button" class="chat-mode-btn" id="chatModeSupportBtn" aria-label="التبديل إلى وضع الدعم" onclick="switchChatMode('support')">دعم</button>
-                </div>
-                <button type="button" class="contact-sheet-close" aria-label="إغلاق الدردشة" onclick="closeInternalChat()">&times;</button>
-            </div>
-            <div class="chat-messages" id="chatMessages">
-                <div class="chat-message bot" data-i18n="chatWelcome">مرحباً! كيف أساعدك؟</div>
-            </div>
-            <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب رسالتك..." data-i18n-placeholder="typeMessage" onkeypress="if(event.key==='Enter')sendChatMessage()" autocomplete="off">
-                <button class="chat-send" type="button" aria-label="إرسال الرسالة" onclick="sendChatMessage()">إرسال</button>
-            </div>
-        </div>
+    <div id="faqBotOverlay"
+      onclick="closeFAQBot()"
+      style="display:none;position:fixed;inset:0;
+      background:rgba(0,0,0,0.3);z-index:9974"></div>
+    <div hidden aria-hidden="true" style="display:none">
+      <button id="chatModeBotBtn" type="button" tabindex="-1">FAQ</button>
+      <button id="chatModeSupportBtn" type="button" tabindex="-1">Support</button>
     </div>
 
-    <style>
-        @media (max-width: 768px) {
-            #productsPagination[data-infinite-active="true"] {
-                display: none !important;
-            }
-
-            .contact-sheet {
-                left: 0;
-                right: 0;
-                bottom: 0;
-                border-radius: 20px 20px 0 0;
-                padding-bottom: calc(16px + env(safe-area-inset-bottom));
-            }
-
-            .chat-widget.chat-widget-panel .chat-box {
-                left: 0;
-                right: 0;
-                bottom: 0;
-                width: 100%;
-                max-width: none;
-                height: min(72dvh, 520px);
-                border-radius: 20px 20px 0 0;
-            }
-        }
-    </style>
 <nav class="mobile-bottom-nav" role="navigation" aria-label="التنقل الرئيسي">
         <button type="button" class="nav-item active" data-mobile-nav="home" onclick="scrollToTop()">
             <span>🏠</span>
@@ -1416,8 +1463,8 @@
             <span>❤️</span>
             <span data-i18n="favorites">المفضلة</span>
         </button>
-                <button type="button" class="nav-item" data-mobile-nav="contact" onclick="openContactMenu()" data-action="open-contact">
-            <span>📞</span>
+        <button type="button" class="nav-item" data-mobile-nav="contact" onclick="openFAQBot()" data-action="open-faq-bot">
+            <span>💬</span>
             <span data-i18n="contactUs">تواصل معنا</span>
         </button>
     </nav>
@@ -2235,7 +2282,6 @@
 
             // ? Fast boot render with defaults (never block UI)
             safeRun('applyStoreSettings', applyStoreSettings);
-            safeRun('maybeLoadTawkWidget', maybeLoadTawkWidget);
             safeRun('renderBanners', renderBanners);
             safeRun('renderSupplierFilters', renderSupplierFilters);
             safeRun('showSkeletonLoader', showSkeletonLoader);
@@ -2278,8 +2324,7 @@
                 loadDataWithTimeout(25000)
                     .then(() => {
                         safeRun('applyStoreSettings', applyStoreSettings);
-                        safeRun('maybeLoadTawkWidget', maybeLoadTawkWidget);
-                        safeRun('renderBanners', renderBanners);
+                                    safeRun('renderBanners', renderBanners);
                         safeRun('renderSupplierFilters', renderSupplierFilters);
                         safeRun('buildSearchIndexAsync', buildSearchIndexAsync);
                         safeRun('runProductSearch', () => runProductSearch(1));
@@ -3851,8 +3896,7 @@
         }
 
         function openWishlist(options = {}) {
-            closeContactMenu({ skipHistory: true });
-            closeInternalChat({ skipHistory: true });
+            closeFAQBot({ skipHistory: true });
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
                 window.NavHistory.open('wishlist');
                 return true;
@@ -3963,8 +4007,7 @@
         }
 
         function openCart(options = {}) {
-            closeContactMenu({ skipHistory: true });
-            closeInternalChat({ skipHistory: true });
+            closeFAQBot({ skipHistory: true });
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
                 window.NavHistory.open('cart');
                 return true;
@@ -5408,754 +5451,173 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 || message.includes('permission-denied');
         }
 
-        function fallbackSupportChatToFaq(message = 'تم التحويل إلى وضع FAQ.') {
-            stopSupportChatRealtime();
-            chatMode = 'bot';
-            document.getElementById('chatModeBotBtn')?.classList.add('active');
-            document.getElementById('chatModeSupportBtn')?.classList.remove('active');
-            setChatStatus('وضع FAQ', true);
-            clearChatMessages();
-            addChatMessage(String(message || 'تم التحويل إلى وضع FAQ.'), 'meta');
-            addChatMessage('مرحباً! كيف أساعدك؟ 😊', 'bot');
+        function stopSupportChatRealtime() {
+            return false;
         }
 
-        function clearSupportAccessState() {
-            supportAccess.denied = false;
-            supportAccess.reason = '';
-            supportAccess.source = '';
-            supportAccess.notifiedReason = '';
+        function fallbackSupportChatToFaq(message = 'تم التحويل إلى FAQ.') {
+            if (message) addBotMessage(String(message));
+            return false;
         }
 
-        function handleSupportAccessError(error, source = '') {
-            const denied = isSupportPermissionDenied(error);
-            if (!denied) return false;
-
-            const reason = String(error && (error.message || error.reason) || error || 'unknown support access error').trim();
-            const normalizedSource = String(source || 'support');
-            supportAccess.denied = true;
-            supportAccess.reason = reason;
-            supportAccess.source = normalizedSource;
-            supportRealtimeConnected = false;
-
-            if (supportAccess.notifiedReason !== reason) {
-                supportAccess.notifiedReason = reason;
-                showNotification('warning', 'الدردشة الداخلية', 'تعذر الوصول للدعم الآن. تم التحويل إلى FAQ.');
-            }
-
-            console.warn(`support access denied (${normalizedSource}):`, reason);
-            fallbackSupportChatToFaq('تعذر فتح وضع المحادثة المباشرة حالياً. سنبقيك داخل وضع FAQ مؤقتاً.');
+        function handleSupportAccessError() {
+            fallbackSupportChatToFaq('سيتم تحويلك إلى FAQ وخدمة العملاء المباشرة.');
             return true;
         }
 
-        function getActiveFirebaseAuthUser() {
-            try {
-                if (!(firebase && firebase.auth)) return null;
-                const auth = firebase.auth();
-                return auth && auth.currentUser ? auth.currentUser : null;
-            } catch (_) {
-                return null;
-            }
+        function ensureSupportAuthSession() {
+            return Promise.resolve(null);
         }
 
-        function syncCurrentUserSupportUid(uid) {
-            const normalizedUid = String(uid || '').trim();
-            if (!currentUser || !normalizedUid) return;
-            if (String(currentUser.uid || '').trim() === normalizedUid) return;
-
-            currentUser = sanitizeCustomerRecord(currentUser, {
-                id: currentUser && currentUser.id ? currentUser.id : '',
-                uid: normalizedUid
-            });
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-
-            const currentId = String(currentUser.id || '');
-            if (!currentId || !Array.isArray(users)) return;
-            const userIndex = users.findIndex((userRow) => String(userRow && userRow.id || '') === currentId);
-            if (userIndex === -1) return;
-
-            users[userIndex] = sanitizeCustomerRecord(users[userIndex], {
-                id: currentId,
-                uid: normalizedUid
-            });
-            saveUsers();
-        }
-
-        function buildSupportAuthAttempts() {
-            if (!currentUser) return [];
-            const email = String(currentUser.email || '').trim().toLowerCase();
-            return email ? [{ identifier: email }] : [];
-        }
-
-        async function waitForFirebaseAuthState(timeoutMs = 2500) {
-            if (!(firebase && firebase.auth)) return null;
-            const auth = firebase.auth();
-            if (auth && auth.currentUser) return auth.currentUser;
-            return new Promise((resolve) => {
-                let settled = false;
-                let unsubscribe = null;
-                const finalize = (user) => {
-                    if (settled) return;
-                    settled = true;
-                    if (typeof unsubscribe === 'function') {
-                        try { unsubscribe(); } catch (_) {}
-                    }
-                    clearTimeout(timer);
-                    resolve(user || null);
-                };
-                const timer = setTimeout(() => finalize(auth.currentUser || null), Math.max(300, Number(timeoutMs) || 2500));
-                unsubscribe = auth.onAuthStateChanged(
-                    (user) => finalize(user || auth.currentUser || null),
-                    () => finalize(auth.currentUser || null)
-                );
-            });
-        }
-
-        function promptSupportReLogin() {
-            if (typeof showAuthModal === 'function') {
-                showAuthModal('login');
-            }
-            const preferredIdentifier = String(currentUser && currentUser.email || '').trim();
-            const loginIdentifier = document.getElementById('loginIdentifier');
-            if (loginIdentifier && !String(loginIdentifier.value || '').trim() && preferredIdentifier) {
-                loginIdentifier.value = preferredIdentifier;
-            }
-        }
-
-        function handleSupportAuthSessionRequired(authError, source = 'support') {
-            const reason = String(authError && authError.message || authError || 'support auth session required').trim();
-            const reasonKey = `support-auth:${source}:${reason}`;
-            supportRealtimeConnected = false;
-            setChatStatus('الدردشة الداخلية (غير متاحة)', false);
-            if (supportAccess.notifiedReason !== reasonKey) {
-                supportAccess.notifiedReason = reasonKey;
-                showNotification('warning', 'الدردشة الداخلية', 'يلزم تسجيل دخول Firebase بحسابك المفعّل لاستخدام الدعم الداخلي.');
-            }
-            promptSupportReLogin();
-            fallbackSupportChatToFaq('تعذر فتح وضع المحادثة المباشرة حالياً. سنبقيك داخل وضع FAQ مؤقتاً.');
-            trackStoreEvent('SUPPORT_AUTH_SESSION_REQUIRED', 'Support chat requires Firebase Auth session', 'warning', {
-                customerId: String(currentUser && currentUser.id || ''),
-                source: String(source || 'support'),
-                reason
-            });
-            return true;
-        }
-
-        async function ensureSupportAuthSession() {
-            try {
-                if (!(firebase && firebase.auth)) {
-                    const unavailableError = new Error('Firebase Auth غير متاح للدردشة الداخلية.');
-                    unavailableError.code = 'auth/unavailable';
-                    throw unavailableError;
-                }
-
-                const auth = firebase.auth();
-                const restoredUser = await waitForFirebaseAuthState(2500);
-                const activeUid = String(
-                    (restoredUser && restoredUser.uid)
-                    || (auth && auth.currentUser && auth.currentUser.uid)
-                    || ''
-                ).trim();
-                if (!activeUid) {
-                    const sessionError = new Error('الدردشة الداخلية تتطلب تسجيل الدخول.');
-                    sessionError.code = 'auth/session-required';
-                    throw sessionError;
-                }
-
-                if (typeof ensureEmailVerifiedOrThrow === 'function') {
-                    await ensureEmailVerifiedOrThrow({ reloadUser: true });
-                } else if (restoredUser && typeof restoredUser.reload === 'function') {
-                    await restoredUser.reload();
-                    if (!restoredUser.emailVerified) {
-                        const verifyError = new Error('يجب تفعيل البريد الإلكتروني أولاً.');
-                        verifyError.code = 'auth/email-not-verified';
-                        throw verifyError;
-                    }
-                }
-
-                syncCurrentUserSupportUid(activeUid);
-                if (currentUser) {
-                    currentUser.emailVerified = true;
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                }
-                return activeUid;
-            } catch (error) {
-                console.error('ensureSupportAuthSession failed:', error);
-                throw error;
-            }
-        }
-
-        function toggleChat(options = {}) {
-            const box = document.getElementById('chatBox');
-            const isOpen = box?.classList.contains('active') === true;
-            return isOpen ? closeInternalChat(options) : openInternalChat(options);
-        }
-
-        async function sendChatMessage() {
-            try {
-                const input = document.getElementById('chatInput');
-                const msg = input.value.trim();
-                if (!msg) return;
-
-                if (chatMode === 'support') {
-                    if (!currentUser) {
-                        showNotification('warning', 'تنبيه', 'سجل دخول أولًا لاستخدام الدردشة الداخلية');
-                        showAuthModal('login');
-                        return;
-                    }
-                    await sendSupportMessageFromCustomer(msg);
-                    input.value = '';
-                    return;
-                }
-
-                addChatMessage(msg, 'user');
-                input.value = '';
-                setTimeout(() => addChatMessage(getBotResponse(msg), 'bot'), 600);
-            } catch (error) {
-                console.error('sendChatMessage failed:', error);
-                showNotification('error', 'تعذر إرسال الرسالة', 'حدث خطأ أثناء إرسال رسالتك.');
-            }
+        function ensureSupportChatReady() {
+            return Promise.resolve(false);
         }
 
         function addChatMessage(text, sender = 'bot') {
-            const container = document.getElementById('chatMessages');
-            if (!container) return;
-            const div = document.createElement('div');
-            div.className = `chat-message ${sender}`;
-            div.textContent = text;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+            if (sender === 'user') addUserMessage(text);
+            else addBotMessage(text);
         }
 
-        function clearChatMessages() {
-            const container = document.getElementById('chatMessages');
-            if (!container) return;
-            container.innerHTML = '';
+        function switchChatMode() {
+            return 'bot';
         }
 
-        function setChatStatus(text, isOnline = true) {
-            const statusEl = document.getElementById('chatStatusText');
-            if (!statusEl) return;
-            const dotColor = isOnline ? 'var(--success)' : 'var(--warning)';
-            statusEl.innerHTML = '';
-            const dot = document.createElement('span');
-            dot.className = 'online-dot';
-            dot.style.background = dotColor;
-            statusEl.appendChild(dot);
-            statusEl.appendChild(document.createTextNode(` ${String(text || '')}`));
+        function sendChatMessage() {
+            sendFAQMessage();
         }
 
-        function switchChatMode(mode) {
-            const nextMode = mode === 'support' ? 'support' : 'bot';
-            if (nextMode === 'support' && !currentUser) {
-                showNotification('warning', 'تنبيه', 'سجل دخول أولًا لاستخدام الدردشة الداخلية');
-                showAuthModal('login');
-                return;
-            }
-
-            chatMode = nextMode;
-            document.getElementById('chatModeBotBtn')?.classList.toggle('active', nextMode === 'bot');
-            document.getElementById('chatModeSupportBtn')?.classList.toggle('active', nextMode === 'support');
-
-            clearChatMessages();
-            if (nextMode === 'bot') {
-                setChatStatus('وضع FAQ', true);
-                addChatMessage('مرحباً! كيف أساعدك؟ 😊', 'bot');
-                disconnectSupportMessageListener();
-                return;
-            }
-
-            setChatStatus('الدردشة الداخلية', supportRealtimeConnected);
-            addChatMessage('جاري ربط الدردشة الداخلية...', 'meta');
-            ensureSupportChatReady().catch((error) => {
-                console.warn('switch support mode warning:', error);
-                if (!handleSupportAccessError(error, 'switchChatMode.ensureSupportChatReady')) {
-                    addChatMessage('تعذر بدء الدردشة الداخلية. حاول مرة أخرى.', 'meta');
-                }
-            });
+        function toggleChat(options = {}) {
+            return openFAQBot(options);
         }
 
-        function disconnectSupportMessageListener() {
-            if (typeof supportMessagesUnsubscribe === 'function') {
-                supportMessagesUnsubscribe();
-            }
-            supportMessagesUnsubscribe = null;
-        }
-
-        function disconnectSupportThreadListener() {
-            if (typeof supportThreadUnsubscribe === 'function') {
-                supportThreadUnsubscribe();
-            }
-            supportThreadUnsubscribe = null;
-        }
-
-        function stopSupportChatRealtime() {
-            disconnectSupportThreadListener();
-            disconnectSupportMessageListener();
-            activeSupportThread = null;
-            supportRealtimeConnected = false;
-        }
-
-        function subscribeSupportThreadStatus(threadId) {
-            disconnectSupportThreadListener();
-            if (typeof subscribeSupportThread !== 'function') return;
-            supportThreadUnsubscribe = subscribeSupportThread(
-                threadId,
-                (thread) => {
-                    if (!thread) return;
-                    activeSupportThread = thread;
-                    if (thread.status === 'closed' && chatMode === 'support') {
-                        setChatStatus('الدردشة الداخلية (مغلقة)', false);
-                    } else if (chatMode === 'support') {
-                        setChatStatus('الدردشة الداخلية', supportRealtimeConnected);
-                    }
-                },
-                (error) => {
-                    console.warn('support thread listener error:', error);
-                    handleSupportAccessError(error, 'subscribeSupportThreadStatus.listener');
-                }
-            );
-        }
-
-        function getSupportCustomerProfile(resolvedUid = '') {
-            if (!currentUser) return null;
-            const authUser = getActiveFirebaseAuthUser();
-            const uid = String(
-                resolvedUid
-                || (authUser && authUser.uid)
-                || currentUser.uid
-                || ''
-            ).trim();
-            if (!uid) return null;
-            return {
-                uid,
-                customerUid: uid,
-                customerId: String(currentUser.id || ''),
-                customerName: String(currentUser.name || ''),
-                customerPhone: String(currentUser.phone || currentUser.phoneNormalized || ''),
-                customerEmail: String(currentUser.email || '')
-            };
-        }
-
-        function renderSupportMessages(messages = []) {
-            clearChatMessages();
-            if (!Array.isArray(messages) || !messages.length) {
-                addChatMessage('لا توجد رسائل بعد. اكتب سؤالك وسيتم الرد عليك.', 'meta');
-                return;
-            }
-            messages.forEach((row) => {
-                const senderRole = String(row && row.senderRole || 'customer');
-                const senderClass = senderRole === 'customer' ? 'user' : 'bot';
-                const senderName = senderRole === 'admin' ? 'الدعم' : 'أنت';
-                const text = String(row && row.message || '').trim();
-                if (!text) return;
-                addChatMessage(`${senderName}: ${text}`, senderClass);
-            });
-        }
-
-        function subscribeSupportThreadMessages(threadId) {
-            disconnectSupportMessageListener();
-            if (typeof subscribeSupportMessages !== 'function') return;
-            supportMessagesUnsubscribe = subscribeSupportMessages(
-                threadId,
-                async (rows) => {
-                    const list = Array.isArray(rows) ? rows : [];
-                    renderSupportMessages(list);
-                    setChatStatus('الدردشة الداخلية', true);
-                    supportRealtimeConnected = true;
-                    if (typeof markSupportThreadReadByCustomer === 'function') {
-                        await markSupportThreadReadByCustomer(threadId).catch(() => null);
-                    }
-                },
-                (error) => {
-                    console.warn('support messages listener error:', error);
-                    supportRealtimeConnected = false;
-                    setChatStatus('الدردشة الداخلية (إعادة المحاولة)', false);
-                    handleSupportAccessError(error, 'subscribeSupportThreadMessages.listener');
-                },
-                SUPPORT_CHAT_MESSAGES_LIMIT
-            );
-        }
-
-        async function ensureSupportChatReady() {
-            if (chatMode !== 'support') return false;
-            if (!currentUser) return false;
-            if (typeof ensureSupportThreadByUid !== 'function' && typeof getOrCreateSupportThread !== 'function') {
-                addChatMessage('ميزة الدردشة الداخلية غير متاحة حاليًا.', 'meta');
-                return false;
-            }
-
-            let supportUid = '';
-            try {
-                supportUid = await ensureSupportAuthSession();
-            } catch (authError) {
-                handleSupportAuthSessionRequired(authError, 'ensureSupportChatReady');
-                return false;
-            }
-
-            const profile = getSupportCustomerProfile(supportUid);
-            if (!profile || !profile.uid) {
-                addChatMessage('حسابك غير مكتمل للدردشة الداخلية. أعد تسجيل الدخول.', 'meta');
-                return false;
-            }
-
-            try {
-                const thread = (typeof ensureSupportThreadByUid === 'function')
-                    ? await ensureSupportThreadByUid(String(profile.uid || ''), profile)
-                    : await getOrCreateSupportThread(profile);
-                if (!thread || !thread.id) {
-                    addChatMessage('تعذر إنشاء محادثة الدعم. حاول لاحقًا.', 'meta');
-                    return false;
-                }
-
-                clearSupportAccessState();
-                activeSupportThread = thread;
-                subscribeSupportThreadStatus(thread.id);
-                subscribeSupportThreadMessages(thread.id);
-                setChatStatus('الدردشة الداخلية', true);
-                return true;
-            } catch (error) {
-                if (!handleSupportAccessError(error, 'ensureSupportChatReady.ensureSupportThreadByUid')) {
-                    addChatMessage('تعذر إنشاء محادثة الدعم. حاول لاحقًا.', 'meta');
-                }
-                return false;
-            }
-        }
-
-        async function sendSupportMessageFromCustomer(messageText) {
-            const text = String(messageText || '').trim();
-            if (!text) return;
-            if (typeof sendSupportMessageByUid !== 'function' && typeof addSupportMessage !== 'function') {
-                showNotification('error', 'خطأ', 'ميزة الدردشة الداخلية غير متاحة');
-                return;
-            }
-
-            let supportUid = '';
-            try {
-                supportUid = await ensureSupportAuthSession();
-            } catch (authError) {
-                handleSupportAuthSessionRequired(authError, 'sendSupportMessageFromCustomer');
-                trackStoreEvent('SUPPORT_SEND_AUTH_REQUIRED', 'Support message send requires Firebase Auth session', 'warning', {
-                    customerId: String(currentUser && currentUser.id || '')
-                });
-                return;
-            }
-
-            if (!activeSupportThread || !activeSupportThread.id) {
-                const ready = await ensureSupportChatReady();
-                if (!ready) return;
-            }
-
-            const profile = getSupportCustomerProfile(supportUid);
-            if (!profile) return;
-
-            try {
-                if (typeof sendSupportMessageByUid === 'function') {
-                    await sendSupportMessageByUid(String(profile.uid || ''), text, {
-                        senderRole: 'customer',
-                        senderUid: String(profile.uid || ''),
-                        senderName: String(profile.customerName || 'عميل'),
-                        profile
-                    });
-                } else {
-                    await addSupportMessage({
-                        threadId: String(activeSupportThread.id || ''),
-                        senderRole: 'customer',
-                        senderUid: String(profile.uid || ''),
-                        senderName: String(profile.customerName || 'عميل'),
-                        message: text,
-                        createdAt: new Date().toISOString(),
-                        createdAtMs: Date.now()
-                    });
-                }
-                trackStoreEvent('SUPPORT_MESSAGE_SENT', 'Customer sent support message', 'info', {
-                    customerId: String(currentUser && currentUser.id || ''),
-                    threadId: String(activeSupportThread.id || '')
-                });
-            } catch (error) {
-                console.error('sendSupportMessageFromCustomer error:', error);
-                if (!handleSupportAccessError(error, 'sendSupportMessageFromCustomer')) {
-                    showNotification('error', 'خطأ', 'تعذر إرسال الرسالة. حاول مرة أخرى.');
-                }
-                trackStoreEvent('SUPPORT_MESSAGE_FAILED', 'Customer support message failed', 'warning', {
-                    customerId: String(currentUser && currentUser.id || ''),
-                    error: error && error.message ? String(error.message) : String(error)
-                });
-            }
-        }
-
-        function getFaqIntents() {
-            const defaults = [
-                { keywords: ['مرحبا', 'السلام', 'اهلا'], response: 'أهلاً! كيف أساعدك؟ 😊' },
-                { keywords: ['سعر', 'تكلفة'], response: 'تقدر تستخدم البحث والفلاتر لمعرفة الأسعار بسرعة 💰' },
-                { keywords: ['توصيل', 'شحن'], response: 'التوصيل مجاني فوق 500 ج.م 🚚' },
-                { keywords: ['تتبع', 'طلب'], response: 'اضغط على "تتبع طلبي" من القائمة الجانبية 📦' },
-                { keywords: ['خصم', 'كوبون'], response: 'لو فيه كوبونات نشطة ستظهر تلقائيًا داخل السلة 🎁' },
-                { keywords: ['نقاط', 'ولاء'], response: 'تحصل على نقاط ولاء مع كل طلب حسب إعدادات المتجر 💎' }
-            ];
-
-            const configured = storeSettings && Array.isArray(storeSettings.faqIntents)
-                ? storeSettings.faqIntents
-                : [];
-            const normalizedConfigured = configured
-                .filter((item) => item && Array.isArray(item.keywords) && item.response)
-                .map((item) => ({
-                    keywords: item.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean),
-                    response: String(item.response || '').trim()
-                }))
-                .filter((item) => item.keywords.length > 0 && item.response);
-
-            return normalizedConfigured.length ? normalizedConfigured : defaults;
-        }
-
-        function getBotResponse(msg) {
-            if (window.FAQBot && typeof window.FAQBot.respond === 'function') {
-                const reply = window.FAQBot.respond(msg);
-                if (reply && reply.text) {
-                    if (reply.showEscalate && window.FAQBot && typeof window.FAQBot.maybeEscalate === 'function') {
-                        window.FAQBot.maybeEscalate();
-                    }
-                    return reply.text;
-                }
-            }
-            const text = normalizeSearchKeyword(msg);
-            const intents = getFaqIntents();
-            for (const intent of intents) {
-                if ((intent.keywords || []).some((keyword) => text.includes(normalizeSearchKeyword(keyword)))) {
-                    return intent.response;
-                }
-            }
-            if (text.includes('موظف') || text.includes('بشري') || text.includes('دعم')) {
-                return 'يمكنك التحويل لوضع "دعم" داخل نفس نافذة الشات للتواصل الداخلي المباشر.';
-            }
-            return `تواصل معنا: ${storeSettings.contact?.phone || '01018108979'} 📞`;
-        }
-
-        let tawkWidgetLoaded = false;
-        function maybeLoadTawkWidget() {
-            if (window.__SALEZONE_TAWK_BOOTSTRAPPED__ === true) return;
-            const config = storeSettings && storeSettings.chatSupport && typeof storeSettings.chatSupport === 'object'
-                ? storeSettings.chatSupport
-                : {};
-            if (config.enableTawk !== true) return;
-            if (tawkWidgetLoaded || window.Tawk_API) return;
-
-            const propertyId = String(config.tawkPropertyId || '').trim();
-            const widgetId = String(config.tawkWidgetId || '').trim();
-            if (!propertyId || !widgetId) return;
-
-            const script = document.createElement('script');
-            script.async = true;
-            script.src = `https://embed.tawk.to/${propertyId}/${widgetId}`;
-            script.charset = 'UTF-8';
-            script.setAttribute('crossorigin', '*');
-            script.onload = () => { tawkWidgetLoaded = true; };
-            script.onerror = () => { tawkWidgetLoaded = false; };
-            document.head.appendChild(script);
-        }
-
-        // ============================================
-        // 🔔 Notifications
-        // ============================================
-        function showNotification(type, title, message) {
-            const container = document.getElementById('notificationsContainer');
-            const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
-            const n = document.createElement('div');
-            n.className = `notification ${type}`;
-            n.innerHTML = `
-                <div class="notification-icon"></div>
-                <div class="notification-content">
-                    <div class="notification-title"></div>
-                    <div class="notification-message"></div>
-                </div>
-                <button class="notification-close" type="button">✕</button>
-            `;
-            const iconNode = n.querySelector('.notification-icon');
-            const titleNode = n.querySelector('.notification-title');
-            const messageNode = n.querySelector('.notification-message');
-            const closeBtn = n.querySelector('.notification-close');
-            if (iconNode) iconNode.textContent = icons[type] || icons.info;
-            if (titleNode) titleNode.textContent = String(title || '');
-            if (messageNode) messageNode.textContent = String(message || '');
-            if (closeBtn) closeBtn.addEventListener('click', () => n.remove());
-            container.appendChild(n);
-            setTimeout(() => n.remove(), 4000);
-
-            // Browser notification
-            if (type === 'success' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                try {
-                    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-                        navigator.serviceWorker.ready
-                            .then((registration) => registration.showNotification(String(title || ''), {
-                                body: String(message || ''),
-                                tag: 'salezone-success-notification',
-                                renotify: false,
-                                data: { source: 'store' }
-                            }))
-                            .catch(() => undefined);
-                    } else if (typeof window.Notification === 'function') {
-                        new window.Notification(String(title || ''), { body: String(message || '') });
-                    }
-                } catch (_) {
-                    // Ignore browser notification errors (UI notification already shown).
-                }
-            }
-        }
-
-        // Request notification permission only after first user gesture
-        function setupNotificationPermissionRequest() {
-            if (!('Notification' in window) || Notification.permission !== 'default') return;
-
-            const requestPermission = (event) => {
-                if (!event || event.isTrusted !== true) return;
-                Notification.requestPermission().catch(() => undefined);
-            };
-
-            window.addEventListener('click', requestPermission, { once: true, passive: true });
-            window.addEventListener('touchstart', requestPermission, { once: true, passive: true });
-            window.addEventListener('keydown', requestPermission, { once: true });
-        }
-
-        setupNotificationPermissionRequest();
-
-        // ============================================
-        // 🎛️ UI Helpers
-        // ============================================
-        function applyAutoTooltips(root = document) {
-            const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
-            const elements = scope.querySelectorAll('button, .btn, .action-btn, .category-card, [role="button"], a[onclick]');
-            elements.forEach((el) => {
-                if (!el || el.dataset.tooltipBound === '1') return;
-                if (el.getAttribute('title')) {
-                    el.dataset.tooltipBound = '1';
-                    return;
-                }
-                const label = String(el.getAttribute('aria-label') || el.textContent || '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-                if (!label) return;
-                el.setAttribute('title', label.slice(0, 120));
-                el.dataset.tooltipBound = '1';
-            });
-        }
-
-        function setupAutoTooltips() {
-            applyAutoTooltips(document);
-            if (window.__STORE_TOOLTIP_OBSERVER__) return;
-            const observer = new MutationObserver(() => applyAutoTooltips(document));
-            observer.observe(document.body, { childList: true, subtree: true });
-            window.__STORE_TOOLTIP_OBSERVER__ = observer;
-        }
-
-        function setContactMenuState(isOpen) {
-            const overlay = document.getElementById('contactMenuOverlay');
-            const panel = document.getElementById('contactMenu');
-            if (!overlay || !panel) return false;
-            overlay.classList.toggle('active', Boolean(isOpen));
-            panel.classList.toggle('active', Boolean(isOpen));
-            setMobileBottomNavActive(Boolean(isOpen) ? 'contact' : (document.getElementById('chatBox')?.classList.contains('active') ? 'contact' : 'home'));
+        function setFAQBotState(isOpen) {
+            const widget = document.getElementById('faqBotWidget');
+            const overlay = document.getElementById('faqBotOverlay');
+            if (!widget || !overlay) return false;
+            widget.style.display = isOpen ? 'flex' : 'none';
+            overlay.style.display = isOpen ? 'block' : 'none';
+            setMobileBottomNavActive(isOpen ? 'contact' : 'home');
             syncSidePanelScrollLock();
             return Boolean(isOpen);
         }
 
-        function openContactMenu(options = {}) {
+        function openFAQBot(options = {}) {
+            const widget = document.getElementById('faqBotWidget');
+            const isOpen = widget && widget.style.display !== 'none';
+            if (isOpen) return true;
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
-                window.NavHistory.open('contact');
+                window.NavHistory.open('faqbot');
                 return true;
             }
-            closeInternalChat({ skipHistory: true });
-            return setContactMenuState(true);
-        }
-
-        function closeContactMenu(options = {}) {
-            const overlay = document.getElementById('contactMenuOverlay');
-            const panel = document.getElementById('contactMenu');
-            const isOpen = overlay?.classList.contains('active') || panel?.classList.contains('active');
-            if (!isOpen) {
-                setContactMenuState(false);
-                return false;
-            }
-            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
-                window.NavHistory.close('contact');
-                return true;
-            }
-            return setContactMenuState(false);
-        }
-
-        function setChatPanelState(isOpen) {
-            const box = document.getElementById('chatBox');
-            const backdrop = document.getElementById('chatPanelBackdrop');
-            if (!box) return false;
-            box.classList.toggle('active', Boolean(isOpen));
-            if (backdrop) backdrop.classList.toggle('active', Boolean(isOpen));
-            setMobileBottomNavActive(Boolean(isOpen) ? 'contact' : (document.getElementById('contactMenu')?.classList.contains('active') ? 'contact' : 'home'));
-            syncSidePanelScrollLock();
-            return Boolean(isOpen);
-        }
-
-        function openInternalChat(options = {}) {
-            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
-                window.NavHistory.open('chat');
-                return true;
-            }
-
-            closeContactMenu({ skipHistory: true });
-            const opened = setChatPanelState(true);
+            closeCart({ skipHistory: true });
+            closeWishlist({ skipHistory: true });
+            const opened = setFAQBotState(true);
             if (!opened) return false;
-
-            if (currentUser) {
-                switchChatMode('support');
-            } else {
-                fallbackSupportChatToFaq('تعذر فتح وضع المحادثة المباشرة حالياً. سنبقيك داخل وضع FAQ مؤقتاً.');
-                showNotification('info', 'الدردشة الداخلية', 'تم فتح المحادثة في وضع FAQ حتى يصبح الدعم المباشر متاحاً.');
+            const messages = document.getElementById('faqBotMessages');
+            if (messages && messages.children.length === 0) {
+                addBotMessage('\u0623\u0647\u0644\u0627\u064b \u0648\u0633\u0647\u0644\u0627\u064b! \uD83D\uDC4B\n\u0623\u0646\u0627 \u0645\u0633\u0627\u0639\u062F Sale Zone \u0627\u0644\u0630\u0643\u064A\n\u0643\u064A\u0641 \u0623\u0642\u062F\u0631 \u0623\u0633\u0627\u0639\u062F\u0643 \u0627\u0644\u064A\u0648\u0645\u061F');
             }
+            const input = document.getElementById('faqBotInput');
+            if (input) setTimeout(() => input.focus(), 60);
             return true;
         }
 
-        function closeInternalChat(options = {}) {
-            const box = document.getElementById('chatBox');
-            const isOpen = box?.classList.contains('active') === true;
+        function closeFAQBot(options = {}) {
+            const widget = document.getElementById('faqBotWidget');
+            const overlay = document.getElementById('faqBotOverlay');
+            const isOpen = widget && widget.style.display !== 'none';
             if (!isOpen) {
-                setChatPanelState(false);
+                setFAQBotState(false);
                 return false;
             }
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
-                window.NavHistory.close('chat');
+                window.NavHistory.close('faqbot');
                 return true;
             }
-            return setChatPanelState(false);
+            if (widget) widget.style.display = 'none';
+            if (overlay) overlay.style.display = 'none';
+            syncSidePanelScrollLock();
+            return true;
+        }
+
+        function addBotMessage(text) {
+            const msgs = document.getElementById('faqBotMessages');
+            if (!msgs) return;
+            const el = document.createElement('div');
+            el.style.cssText = [
+                'background:var(--color-background-secondary)',
+                'border-radius:12px 12px 12px 0',
+                'padding:10px 14px',
+                'max-width:85%',
+                'font-size:0.88rem',
+                'white-space:pre-line',
+                'align-self:flex-start',
+                'line-height:1.5'
+            ].join(';');
+            el.innerHTML = '\uD83E\uDD16 ' + String(text || '');
+            msgs.appendChild(el);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        function addUserMessage(text) {
+            const msgs = document.getElementById('faqBotMessages');
+            if (!msgs) return;
+            const el = document.createElement('div');
+            el.style.cssText = [
+                'background:var(--color-text-info,#0ea5e9)',
+                'color:#fff',
+                'border-radius:12px 12px 0 12px',
+                'padding:10px 14px',
+                'max-width:85%',
+                'font-size:0.88rem',
+                'align-self:flex-end'
+            ].join(';');
+            el.textContent = String(text || '');
+            msgs.appendChild(el);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        function sendFAQMessage() {
+            const input = document.getElementById('faqBotInput');
+            if (!input || !input.value.trim()) return;
+            const msg = input.value.trim();
+            input.value = '';
+            askFAQ(msg);
+        }
+
+        function askFAQ(question) {
+            const cleanQuestion = String(question || '').trim();
+            if (!cleanQuestion) return;
+            addUserMessage(cleanQuestion);
+            window.setTimeout(function() {
+                const reply = window.FAQBot ? window.FAQBot.respond(cleanQuestion) : null;
+                if (reply && reply.source !== 'escalate') {
+                    addBotMessage(reply.text);
+                    return;
+                }
+                addBotMessage('\u0633\u0624\u0627\u0644\u0643 \u0648\u0635\u0644\u0646\u0627! \uD83D\uDE0A\n\u0633\u0623\u062D\u0648\u0644\u0643 \u0644\u0645\u0648\u0638\u0641 \u062E\u062F\u0645\u0629 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0622\u0646...');
+                window.setTimeout(function() {
+                    openTawkChat();
+                    closeFAQBot({ skipHistory: true });
+                }, 1500);
+            }, 600);
         }
 
         function openStoreWhatsApp() {
-            closeContactMenu({ skipHistory: true });
-            const message = encodeURIComponent('مرحباً، أريد الاستفسار عن طلب');
-            window.open('https://wa.me/' + getStoreWhatsappNumber() + '?text=' + message, '_blank');
+            closeFAQBot({ skipHistory: true });
+            const message = encodeURIComponent('\u0645\u0631\u062D\u0628\u0627\u060C \u0623\u0631\u064A\u062F \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0639\u0646 \u0637\u0644\u0628');
+            window.open('https://wa.me/201018108979?text=' + message, '_blank');
         }
 
-        function openTawkSupport() {
-            closeContactMenu({ skipHistory: true });
-            maybeLoadTawkWidget();
-            if (window.Toast && typeof window.Toast.info === 'function') {
-                window.Toast.info('جارٍ فتح دعم العملاء...');
-            }
-            window.setTimeout(function() {
-                if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
-                    window.Tawk_API.maximize();
-                    return;
-                }
-                openStoreWhatsApp();
-            }, 180);
-        }
-
-        function registerSupportPanelsWithNavHistory() {
+        function registerFaqBotWithNavHistory() {
             if (!window.NavHistory || typeof window.NavHistory.register !== 'function') return;
-            window.NavHistory.register('contact', function() { openContactMenu({ skipHistory: true, fromNavHistory: true }); }, function() { closeContactMenu({ skipHistory: true, fromNavHistory: true }); });
-            window.NavHistory.register('chat', function() { openInternalChat({ skipHistory: true, fromNavHistory: true }); }, function() { closeInternalChat({ skipHistory: true, fromNavHistory: true }); });
+            window.NavHistory.register('faqbot', function() { openFAQBot({ skipHistory: true, fromNavHistory: true }); }, function() { closeFAQBot({ skipHistory: true, fromNavHistory: true }); });
         }
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', registerSupportPanelsWithNavHistory);
+            document.addEventListener('DOMContentLoaded', registerFaqBotWithNavHistory);
         } else {
-            registerSupportPanelsWithNavHistory();
+            registerFaqBotWithNavHistory();
         }
 
         function setMobileBottomNavActive(target = 'home') {
@@ -6231,9 +5693,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function syncSidePanelScrollLock() {
             const cartOpen = document.getElementById('cartSidebar')?.classList.contains('active') === true;
             const favOpen = document.getElementById('favSidebar')?.classList.contains('active') === true;
-            const contactOpen = document.getElementById('contactMenu')?.classList.contains('active') === true;
-            const chatOpen = document.getElementById('chatBox')?.classList.contains('active') === true;
-            const anyPanelOpen = cartOpen || favOpen || contactOpen || chatOpen;
+            const faqWidget = document.getElementById('faqBotWidget');
+            const faqOpen = faqWidget ? faqWidget.style.display !== 'none' && faqWidget.style.display !== '' : false;
+            const anyPanelOpen = cartOpen || favOpen || faqOpen;
             document.body.classList.toggle('panel-open', anyPanelOpen);
             if (anyPanelOpen) lockBodyScroll();
             else unlockBodyScroll();
@@ -6369,8 +5831,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function openSearch() {
-            closeContactMenu({ skipHistory: true });
-            closeInternalChat({ skipHistory: true });
+            closeFAQBot({ skipHistory: true });
             const input = document.getElementById('searchInput');
             const navbar = document.querySelector('.navbar');
             if (navbar && typeof navbar.scrollIntoView === 'function') {
@@ -6391,8 +5852,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function openAuth() {
-            closeContactMenu({ skipHistory: true });
-            closeInternalChat({ skipHistory: true });
+            closeFAQBot({ skipHistory: true });
             const dropdown = document.querySelector('.user-dropdown');
             const trigger = document.getElementById('userBtn');
             if (currentUser && dropdown && trigger) {
@@ -6434,8 +5894,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
                 closeCart({ skipHistory: true });
                 closeWishlist({ skipHistory: true });
-                closeContactMenu({ skipHistory: true });
-                closeInternalChat({ skipHistory: true });
+            closeFAQBot({ skipHistory: true });
                 syncSidePanelScrollLock();
             }
         });
@@ -6452,75 +5911,120 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
     <script src="assets/js/toast.js"></script>
     <script src="assets/js/faq-bot.js"></script>
     <script src="assets/js/product-router.js"></script>
-    <style>
-        #tawkchat-container,
+        <style>
+      @media (max-width: 768px) {
+        #tawkchat-minified-wrapper,
         .tawk-min-container,
-        iframe[title*="chat"] {
-            right: 16px !important;
-            left: auto !important;
-            bottom: 80px !important;
-            z-index: 9985 !important;
+        iframe[title*="chat widget"] {
+          display: none !important;
         }
+      }
 
-        @media (max-width: 768px) {
-            #tawkchat-container,
-            iframe[title*="chat"] {
-                bottom: 70px !important;
-            }
-
-            #tawkchat-minified-wrapper,
-            .tawk-min-container {
-                display: none !important;
-            }
-        }
+      #tawkchat-container * {
+        touch-action: pan-y !important;
+      }
     </style>
     <script>
-        ;(function() {
-            'use strict';
-            if (window.__SALEZONE_TAWK_BOOTSTRAPPED__ === true) return;
-            window.__SALEZONE_TAWK_BOOTSTRAPPED__ = true;
-            window.Tawk_API = window.Tawk_API || {};
-            window.Tawk_LoadStart = new Date();
+      ;(function() {
+        'use strict';
 
-            window.Tawk_API.onLoad = function() {
-                var authUser = null;
-                try {
-                    authUser = window.firebase && firebase.auth ? firebase.auth().currentUser : null;
-                } catch (_) {}
+        /**
+         * TAWK.TO SETUP CHECKLIST - يدوي في Dashboard
+         * https://dashboard.tawk.to
+         *
+         * 1. Appearance:
+         *    Color - #D4AF37 (ذهبي = لون المتجر)
+         *    Position - Bottom Right
+         *    Label - "تحدث معنا"
+         *
+         * 2. Agent Profile:
+         *    Name - فريق Sale Zone
+         *    Title - خدمة العملاء
+         *    Photo - شعار المتجر
+         *
+         * 3. Messages:
+         *    Welcome - "أهلاً بك في Sale Zone! 👋 كيف أقدر أساعدك اليوم؟"
+         *    Offline - "شكراً لتواصلك! سنرد قريباً 🌟"
+         *
+         * 4. Triggers:
+         *    - وقت > 30s: "محتاج مساعدة؟ 😊"
+         *    - زيارة > 2: "مرحباً بعودتك! عندنا عروض 🎁"
+         *
+         * 5. Shortcuts:
+         *    /اهلا /توصيل /دفع /اصلي /ارجاع /سعر
+         *
+         * 6. Hours - حدد ساعات عملك
+         *
+         * 7. Email Notifications - فعّل كلها
+         */
 
-                if (authUser && typeof window.Tawk_API.setAttributes === 'function') {
-                    window.Tawk_API.setAttributes({
-                        name: authUser.displayName || authUser.email || 'عميل Sale Zone',
-                        email: authUser.email || '',
-                        id: authUser.uid || ''
-                    }, function() {});
-                }
+        var _tawkLoaded = false;
 
-                try {
-                    window.Tawk_API.customStyle = { zIndex: 9985 };
-                } catch (_) {}
-            };
+        function loadTawk() {
+          if (_tawkLoaded) return;
+          _tawkLoaded = true;
 
-            window.Tawk_API.onChatStarted = function() {
-                if (window.Toast && typeof window.Toast.info === 'function') {
-                    window.Toast.info('تم الاتصال بفريق الدعم 💬');
-                }
-            };
+          window.Tawk_API = window.Tawk_API || {};
+          window.Tawk_LoadStart = new Date();
 
-            window.Tawk_API.onChatEnded = function() {
-                if (window.Toast && typeof window.Toast.success === 'function') {
-                    window.Toast.success('شكراً لتواصلك معنا ✅');
-                }
-            };
+          window.Tawk_API.onLoad = function() {
+            console.log('[tawk.to] \u2705 Loaded');
+            try {
+              var user = firebase && firebase.auth ? firebase.auth().currentUser : null;
+              if (user && typeof window.Tawk_API.setAttributes === 'function') {
+                window.Tawk_API.setAttributes({
+                  name: user.displayName || user.email || '\u0632\u0628\u0648\u0646',
+                  email: user.email || '',
+                  id: user.uid
+                }, function() {});
+              }
+            } catch (_) {}
+          };
 
-            var s1 = document.createElement('script');
-            var s0 = document.getElementsByTagName('script')[0];
-            s1.async = true;
-            s1.src = 'https://embed.tawk.to/69bddad6b97d9f1c3c8b0224/1jk6ptm80';
-            s1.charset = 'UTF-8';
-            s1.setAttribute('crossorigin', '*');
-            s0.parentNode.insertBefore(s1, s0);
-        })();
+          window.Tawk_API.onChatStarted = function() {
+            typeof Toast !== 'undefined' && Toast.info('\u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0641\u0631\u064A\u0642 \u0627\u0644\u062F\u0639\u0645 \uD83D\uDCAC');
+          };
+
+          window.Tawk_API.onChatEnded = function() {
+            typeof Toast !== 'undefined' && Toast.success('\u0634\u0643\u0631\u0627\u064B \u0644\u062A\u0648\u0627\u0635\u0644\u0643 \u0645\u0639\u0646\u0627 \u2705');
+          };
+
+          var s1 = document.createElement('script');
+          var s0 = document.getElementsByTagName('script')[0];
+          s1.async = true;
+          s1.src = 'https://embed.tawk.to/69bddad6b97d9f1c3c8b0224/1jk6ptm80';
+          s1.charset = 'UTF-8';
+          s1.setAttribute('crossorigin', '*');
+          s0.parentNode.insertBefore(s1, s0);
+        }
+
+        var _timer = setTimeout(loadTawk, 3000);
+        ['mousemove', 'touchstart', 'keydown', 'scroll'].forEach(function(evt) {
+          document.addEventListener(evt, function handler() {
+            clearTimeout(_timer);
+            loadTawk();
+            document.removeEventListener(evt, handler);
+          }, { once: true, passive: true });
+        });
+
+        window.openTawkChat = function() {
+          if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
+            window.Tawk_API.maximize();
+            return;
+          }
+          loadTawk();
+          var tries = 0;
+          var wait = setInterval(function() {
+            if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
+              window.Tawk_API.maximize();
+              clearInterval(wait);
+              return;
+            }
+            tries += 1;
+            if (tries > 20) clearInterval(wait);
+          }, 300);
+        };
+      })();
     </script>
 </body>
 </html>
