@@ -5731,6 +5731,18 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             else addBotMessage(text);
         }
 
+        function setChatStatus(text, isOnline = true) {
+            const statusEl = document.getElementById('chatStatusText');
+            if (!statusEl) return;
+            const dotColor = isOnline ? 'var(--success)' : 'var(--warning)';
+            statusEl.innerHTML = '';
+            const dot = document.createElement('span');
+            dot.className = 'online-dot';
+            dot.style.background = dotColor;
+            statusEl.appendChild(dot);
+            statusEl.appendChild(document.createTextNode(` ${String(text || '')}`));
+        }
+
         function switchChatMode() {
             return 'bot';
         }

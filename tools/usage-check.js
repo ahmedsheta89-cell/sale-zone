@@ -15,6 +15,7 @@ const FILES = [
 ];
 
 const CRITICAL_FUNCTIONS = [
+  'setChatStatus',
   'setupAutoTooltips',
   'loadProducts',
   'renderProducts',
