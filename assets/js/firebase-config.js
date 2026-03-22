@@ -101,196 +101,38 @@ try {
 } catch (_) {}
 
 // ════════════════════════════════════════
-// APP CHECK — SECURITY LAYER
-// WHY: Protects Firestore from unauthorized access and scripted abuse.
-// STATUS: ACTIVE — reCAPTCHA v3 site key configured on 2026-03-06.
-//
-// ACTIVATION / ROTATION STEPS:
-// 1. Go to: https://www.google.com/recaptcha/admin
-// 2. Register: ahmedsheta89-cell.github.io
-// 3. Choose: reCAPTCHA v3
-// 4. Copy the generated site key
-// 5. Go to: https://console.firebase.google.com/project/sale-zone-601f0/appcheck
-// 6. Register the web app and paste the site key
-// 7. Set or rotate the key in either:
-//    - <meta name="firebase-app-check-site-key" content="...">
-//    - window.FIREBASE_APP_CHECK_SITE_KEY
-//    - DEFAULT_FIREBASE_APP_CHECK_SITE_KEY below
-// 8. Reload the app and verify __FIREBASE_APP_CHECK_ACTIVE__ === true
+// APP CHECK — DISABLED
+// SECURITY NOW RELIES ON: Firebase Auth + Firestore Rules
 // ════════════════════════════════════════
-const DEFAULT_FIREBASE_APP_CHECK_SITE_KEY = '6Lf0koQsAAAAAOx8NJIJXxMaAmL97DLwQwDMDUzN';
-const APP_CHECK_MAX_RETRIES = 3;
-const APP_CHECK_RETRY_DELAY_MS = 3000;
+window._appCheckThrottled = false;
+window._appCheckReady = false;
+window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+window.__FIREBASE_APP_CHECK_REASON__ = 'disabled';
 
-function isAppCheckThrottleError(error) {
-    const code = String(error && (error.code || error.message || error.reason) || '').trim();
-    const message = String(error && error.message || '').trim();
-    return code === 'appCheck/throttled'
-        || message.includes('appCheck/throttled')
-        || message.includes('Too many attempts');
-}
-
-function markAppCheckThrottled(error) {
-    const reason = String(error && (error.code || error.message || error.reason) || 'appCheck/throttled').trim();
-    if (window._appCheckThrottled !== true) {
-        console.warn('[App Check] Throttled - stopping all retries');
-    }
-    window._appCheckThrottled = true;
+async function initAppCheck() {
+    console.log('[App Check] Disabled — Firestore Rules active');
+    window._appCheckReady = false;
     window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-    window.__FIREBASE_APP_CHECK_REASON__ = reason || 'appCheck/throttled';
-    if (window.__FIREBASE_APP_CHECK_RETRY_TIMER__) {
-        window.clearTimeout(window.__FIREBASE_APP_CHECK_RETRY_TIMER__);
-        window.__FIREBASE_APP_CHECK_RETRY_TIMER__ = null;
-    }
+    window.__FIREBASE_APP_CHECK_REASON__ = 'disabled';
+    return null;
 }
 
-function resolveAppCheckSiteKey() {
-    if (typeof window.FIREBASE_APP_CHECK_SITE_KEY === 'string' && window.FIREBASE_APP_CHECK_SITE_KEY.trim()) {
-        return window.FIREBASE_APP_CHECK_SITE_KEY.trim();
-    }
-
-    const meta = document.querySelector('meta[name="firebase-app-check-site-key"]');
-    const keyFromMeta = meta && meta.getAttribute('content') ? String(meta.getAttribute('content')).trim() : '';
-    if (keyFromMeta) return keyFromMeta;
-
-    return DEFAULT_FIREBASE_APP_CHECK_SITE_KEY;
-}
-
-async function waitForAppCheck(maxWaitMs = 3000) {
-    if (window._appCheckThrottled) {
-        return Promise.resolve(null);
-    }
-    if (!(firebase && typeof firebase.appCheck === 'function')) return false;
-
-    const start = Date.now();
-    while ((Date.now() - start) < maxWaitMs) {
-        try {
-            const tokenResult = await firebase.appCheck().getToken(false);
-            if (tokenResult && tokenResult.token) {
-                console.log('[App Check] Token ready ✅');
-                return true;
-            }
-        } catch (error) {
-            if (window._appCheckThrottled || isAppCheckThrottleError(error)) {
-                markAppCheckThrottled(error);
-                return null;
-            }
-            // WHY: token not ready yet. Keep waiting until timeout expires.
-        }
-        await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-
-    // WHY: App Check is optional at runtime. Do not block Auth or Firestore forever.
-    console.warn('[App Check] Continuing without token');
-    return false;
+function waitForAppCheck() {
+    return Promise.resolve(null);
 }
 
 window.waitForAppCheck = waitForAppCheck;
 
-function enableAppCheckDebugTokenForLocalhost() {
-    const shouldUseDebugToken = parseOptionalBooleanFlag(urlParams.get('appcheckdebug')) === true
-        || window.FORCE_FIREBASE_APPCHECK_DEBUG_TOKEN === true;
-    if (!shouldUseDebugToken || typeof self === 'undefined') return;
-    if (typeof self.FIREBASE_APPCHECK_DEBUG_TOKEN === 'undefined') {
-        self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-    }
-}
+function markAppCheckThrottled() {}
 
-function scheduleAppCheckRetry() {
-    // PERMANENTLY DISABLED
-    // Each retry resets Firebase 24h throttle timer
-    // Detect once -> stop forever
-    console.warn('[App Check] Retry disabled - throttle loop prevented');
-    return;
-}
-
-
-function initAppCheck() {
-    if (window._appCheckThrottled) {
-        console.warn('[App Check] Skipping - already throttled');
-        return Promise.resolve(null);
-    }
-    if (window.__FIREBASE_APP_CHECK_ACTIVE__ === true) return;
-    if (window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ === true) return;
-
-    window.__FIREBASE_APP_CHECK_INIT_ATTEMPTED__ = true;
-    window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ = true;
-    window.__FIREBASE_APP_CHECK_RETRY_COUNT__ = Number(window.__FIREBASE_APP_CHECK_RETRY_COUNT__ || 0) + 1;
-
-    try {
-        if (!(firebase && typeof firebase.appCheck === 'function')) {
-            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-            window.__FIREBASE_APP_CHECK_REASON__ = 'sdk-missing';
-            console.warn('[App Check] Not available in this SDK version');
-            return;
-        }
-
-        const appCheckKey = resolveAppCheckSiteKey();
-        if (!appCheckKey) {
-            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-            window.__FIREBASE_APP_CHECK_REASON__ = 'site-key-missing';
-            silentProductionInfo('[INFO] Firebase App Check not activated (missing site key).');
-            return;
-        }
-
-        enableAppCheckDebugTokenForLocalhost();
-        firebase.appCheck().activate(appCheckKey, true);
-        window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-        window.__FIREBASE_APP_CHECK_REASON__ = 'activating';
-        waitForAppCheck(1500).then((ready) => {
-            if (ready) {
-                window.__FIREBASE_APP_CHECK_ACTIVE__ = true;
-                window.__FIREBASE_APP_CHECK_REASON__ = 'active';
-                console.log('[App Check] Token ready and active');
-                return;
-            }
-            if (window._appCheckThrottled) {
-                window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-                return;
-            }
-            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-            window.__FIREBASE_APP_CHECK_REASON__ = 'token-timeout';
-            scheduleAppCheckRetry('token-timeout');
-        }).catch((error) => {
-            if (window._appCheckThrottled || isAppCheckThrottleError(error)) {
-                markAppCheckThrottled(error);
-                return null;
-            }
-            window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-            window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'token-error';
-            scheduleAppCheckRetry(window.__FIREBASE_APP_CHECK_REASON__);
-        }).finally(() => {
-            window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ = false;
-        });
-        return;
-    } catch (error) {
-        if (window._appCheckThrottled || isAppCheckThrottleError(error)) {
-            markAppCheckThrottled(error);
-            return null;
-        }
-        window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-        window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';
-        console.warn('[App Check] Activation warning:', window.__FIREBASE_APP_CHECK_REASON__);
-        scheduleAppCheckRetry(window.__FIREBASE_APP_CHECK_REASON__);
-    } finally {
-        if (window.__FIREBASE_APP_CHECK_REASON__ !== 'activating') {
-            window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ = false;
-        }
-    }
-}
+function scheduleAppCheckRetry() {}
 
 function setupFirebaseAppCheck() {
-    window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
-    window.__FIREBASE_APP_CHECK_REASON__ = 'waiting-for-window-load';
     window._appCheckThrottled = false;
-
-    // WHY: compat SDK needs full DOM + window.load before it injects the reCAPTCHA script safely.
-    if (document.readyState === 'complete') {
-        initAppCheck();
-        return;
-    }
-
-    window.addEventListener('load', initAppCheck, { once: true });
+    window._appCheckReady = false;
+    window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
+    window.__FIREBASE_APP_CHECK_REASON__ = 'disabled';
+    return null;
 }
 
 function setupFirestoreAutoReconnect() {
