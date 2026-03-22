@@ -1435,13 +1435,18 @@
         color:#128C7E;font-size:0.85rem;cursor:pointer;
         display:flex;align-items:center;
         justify-content:center;gap:8px;
+<<<<<<< HEAD
         text-decoration:none;">📱 تواصل عبر واتساب</a>
+=======
+        text-decoration:none;">?? ????? ??? ??????</a>
+>>>>>>> origin/main
     </div>
 
     <div id="faqBotOverlay"
       onclick="closeFAQBot()"
       style="display:none;position:fixed;inset:0;
       background:rgba(0,0,0,0.3);z-index:9974"></div>
+<<<<<<< HEAD
     <div class="chat-widget chat-widget-panel feature-hidden" id="internalChatPanel" aria-live="polite">
         <div class="chat-panel-backdrop" id="chatPanelBackdrop" onclick="closeInternalChat()" data-action="close-chat"></div>
         <div class="chat-box" id="chatBox" role="dialog" aria-modal="true" aria-label="الدردشة الداخلية">
@@ -1465,6 +1470,11 @@
                 <button class="chat-send" type="button" aria-label="إرسال الرسالة" onclick="sendInternalMessage()">إرسال</button>
             </div>
         </div>
+=======
+    <div hidden aria-hidden="true" style="display:none">
+      <button id="chatModeBotBtn" type="button" tabindex="-1">FAQ</button>
+      <button id="chatModeSupportBtn" type="button" tabindex="-1">Support</button>
+>>>>>>> origin/main
     </div>
     <div hidden aria-hidden="true" style="display:none">
       <button id="chatModeBotBtnFallback" type="button" tabindex="-1">FAQ</button>
@@ -5729,6 +5739,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function addChatMessage(text, sender = 'bot') {
             if (sender === 'user') addUserMessage(text);
             else addBotMessage(text);
+<<<<<<< HEAD
         }
 
         function switchChatMode() {
@@ -5763,11 +5774,34 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             panel.classList.toggle('active', Boolean(isOpen));
             box?.classList.toggle('active', Boolean(isOpen));
             backdrop?.classList.toggle('active', Boolean(isOpen));
+=======
+        }
+
+        function switchChatMode() {
+            return 'bot';
+        }
+
+        function sendChatMessage() {
+            sendFAQMessage();
+        }
+
+        function toggleChat(options = {}) {
+            return openFAQBot(options);
+        }
+
+        function setFAQBotState(isOpen) {
+            const widget = document.getElementById('faqBotWidget');
+            const overlay = document.getElementById('faqBotOverlay');
+            if (!widget || !overlay) return false;
+            widget.style.display = isOpen ? 'flex' : 'none';
+            overlay.style.display = isOpen ? 'block' : 'none';
+>>>>>>> origin/main
             setMobileBottomNavActive(isOpen ? 'contact' : 'home');
             syncSidePanelScrollLock();
             return Boolean(isOpen);
         }
 
+<<<<<<< HEAD
         function openInternalChat(options = {}) {
             const panel = document.getElementById('internalChatPanel');
             if (!panel || panel.classList.contains('feature-hidden')) {
@@ -5778,10 +5812,19 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
                 window.NavHistory.open('chat');
+=======
+        function openFAQBot(options = {}) {
+            const widget = document.getElementById('faqBotWidget');
+            const isOpen = widget && widget.style.display !== 'none';
+            if (isOpen) return true;
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
+                window.NavHistory.open('faqbot');
+>>>>>>> origin/main
                 return true;
             }
             closeCart({ skipHistory: true });
             closeWishlist({ skipHistory: true });
+<<<<<<< HEAD
             closeFAQBot({ skipHistory: true });
             seedInternalChatWelcome();
             const opened = setInternalChatPanelState(true);
@@ -5796,12 +5839,32 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const isOpen = panel?.classList.contains('active') === true || box?.classList.contains('active') === true;
             if (!isOpen) {
                 setInternalChatPanelState(false);
+=======
+            const opened = setFAQBotState(true);
+            if (!opened) return false;
+            const messages = document.getElementById('faqBotMessages');
+            if (messages && messages.children.length === 0) {
+                addBotMessage('\u0623\u0647\u0644\u0627\u064b \u0648\u0633\u0647\u0644\u0627\u064b! \uD83D\uDC4B\n\u0623\u0646\u0627 \u0645\u0633\u0627\u0639\u062F Sale Zone \u0627\u0644\u0630\u0643\u064A\n\u0643\u064A\u0641 \u0623\u0642\u062F\u0631 \u0623\u0633\u0627\u0639\u062F\u0643 \u0627\u0644\u064A\u0648\u0645\u061F');
+            }
+            const input = document.getElementById('faqBotInput');
+            if (input) setTimeout(() => input.focus(), 60);
+            return true;
+        }
+
+        function closeFAQBot(options = {}) {
+            const widget = document.getElementById('faqBotWidget');
+            const overlay = document.getElementById('faqBotOverlay');
+            const isOpen = widget && widget.style.display !== 'none';
+            if (!isOpen) {
+                setFAQBotState(false);
+>>>>>>> origin/main
                 return false;
             }
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
-                window.NavHistory.close('chat');
+                window.NavHistory.close('faqbot');
                 return true;
             }
+<<<<<<< HEAD
             return setInternalChatPanelState(false);
         }
 
@@ -5882,6 +5945,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 window.NavHistory.close('faqbot');
                 return true;
             }
+=======
+>>>>>>> origin/main
             if (widget) widget.style.display = 'none';
             if (overlay) overlay.style.display = 'none';
             syncSidePanelScrollLock();
@@ -5954,6 +6019,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function openStoreWhatsApp() {
             closeFAQBot({ skipHistory: true });
             const message = encodeURIComponent('\u0645\u0631\u062D\u0628\u0627\u060C \u0623\u0631\u064A\u062F \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0639\u0646 \u0637\u0644\u0628');
+<<<<<<< HEAD
             window.open('https://wa.me/' + getStoreWhatsappNumber() + '?text=' + message, '_blank');
         }
 
@@ -5965,14 +6031,27 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function registerInternalChatWithNavHistory() {
             if (!window.NavHistory || typeof window.NavHistory.register !== 'function') return;
             window.NavHistory.register('chat', function() { openInternalChat({ skipHistory: true, fromNavHistory: true, silent: true }); }, function() { closeInternalChat({ skipHistory: true, fromNavHistory: true }); });
+=======
+            window.open('https://wa.me/201018108979?text=' + message, '_blank');
+        }
+
+        function registerFaqBotWithNavHistory() {
+            if (!window.NavHistory || typeof window.NavHistory.register !== 'function') return;
+            window.NavHistory.register('faqbot', function() { openFAQBot({ skipHistory: true, fromNavHistory: true }); }, function() { closeFAQBot({ skipHistory: true, fromNavHistory: true }); });
+>>>>>>> origin/main
         }
 
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', registerFaqBotWithNavHistory);
+<<<<<<< HEAD
             document.addEventListener('DOMContentLoaded', registerInternalChatWithNavHistory);
         } else {
             registerFaqBotWithNavHistory();
             registerInternalChatWithNavHistory();
+=======
+        } else {
+            registerFaqBotWithNavHistory();
+>>>>>>> origin/main
         }
 
         function setMobileBottomNavActive(target = 'home') {
@@ -6050,8 +6129,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const favOpen = document.getElementById('favSidebar')?.classList.contains('active') === true;
             const faqWidget = document.getElementById('faqBotWidget');
             const faqOpen = faqWidget ? faqWidget.style.display !== 'none' && faqWidget.style.display !== '' : false;
+<<<<<<< HEAD
             const chatOpen = document.getElementById('internalChatPanel')?.classList.contains('active') === true;
             const anyPanelOpen = cartOpen || favOpen || faqOpen || chatOpen;
+=======
+            const anyPanelOpen = cartOpen || favOpen || faqOpen;
+>>>>>>> origin/main
             document.body.classList.toggle('panel-open', anyPanelOpen);
             if (anyPanelOpen) lockBodyScroll();
             else unlockBodyScroll();
@@ -6346,7 +6429,10 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         var _tawkLoaded = false;
 
         function loadTawk() {
+<<<<<<< HEAD
           if (window.__STORE_TAWK_ENABLED__ === false) return;
+=======
+>>>>>>> origin/main
           if (_tawkLoaded) return;
           _tawkLoaded = true;
 
@@ -6394,10 +6480,13 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         });
 
         window.openTawkChat = function() {
+<<<<<<< HEAD
           if (window.__STORE_TAWK_ENABLED__ === false) {
             openStoreWhatsApp();
             return;
           }
+=======
+>>>>>>> origin/main
           if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
             window.Tawk_API.maximize();
             return;
