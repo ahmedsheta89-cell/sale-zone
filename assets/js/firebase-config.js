@@ -1,6 +1,10 @@
 function silentProductionLog() {}
 function silentProductionInfo() {}
 
+// App Check throttle guard
+// Once throttled -> never retry (prevents 24h reset loop)
+window._appCheckThrottled = false;
+
 // firebase-config.js - Firebase Configuration
 // ==========================================
 
@@ -167,7 +171,7 @@ async function waitForAppCheck(maxWaitMs = 3000) {
                 return true;
             }
         } catch (error) {
-            if (isAppCheckThrottleError(error)) {
+            if (window._appCheckThrottled || isAppCheckThrottleError(error)) {
                 markAppCheckThrottled(error);
                 return null;
             }
@@ -192,23 +196,20 @@ function enableAppCheckDebugTokenForLocalhost() {
     }
 }
 
-function scheduleAppCheckRetry(reason) {
-    const currentAttempts = Number(window.__FIREBASE_APP_CHECK_RETRY_COUNT__ || 0);
-    if (window._appCheckThrottled) return;
-    if (window.__FIREBASE_APP_CHECK_ACTIVE__ === true) return;
-    if (currentAttempts >= APP_CHECK_MAX_RETRIES) return;
-    if (window.__FIREBASE_APP_CHECK_RETRY_TIMER__) return;
-
-    window.__FIREBASE_APP_CHECK_RETRY_TIMER__ = window.setTimeout(() => {
-        window.__FIREBASE_APP_CHECK_RETRY_TIMER__ = null;
-        initAppCheck();
-    }, APP_CHECK_RETRY_DELAY_MS);
-
-    silentProductionInfo(`[App Check] retry scheduled (${currentAttempts + 1}/${APP_CHECK_MAX_RETRIES}) reason=${String(reason || 'unknown')}`);
+function scheduleAppCheckRetry() {
+    // PERMANENTLY DISABLED
+    // Each retry resets Firebase 24h throttle timer
+    // Detect once -> stop forever
+    console.warn('[App Check] Retry disabled - throttle loop prevented');
+    return;
 }
 
+
 function initAppCheck() {
-    if (window._appCheckThrottled) return;
+    if (window._appCheckThrottled) {
+        console.warn('[App Check] Skipping - already throttled');
+        return Promise.resolve(null);
+    }
     if (window.__FIREBASE_APP_CHECK_ACTIVE__ === true) return;
     if (window.__FIREBASE_APP_CHECK_INIT_IN_FLIGHT__ === true) return;
 
@@ -251,9 +252,9 @@ function initAppCheck() {
             window.__FIREBASE_APP_CHECK_REASON__ = 'token-timeout';
             scheduleAppCheckRetry('token-timeout');
         }).catch((error) => {
-            if (isAppCheckThrottleError(error)) {
+            if (window._appCheckThrottled || isAppCheckThrottleError(error)) {
                 markAppCheckThrottled(error);
-                return;
+                return null;
             }
             window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
             window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'token-error';
@@ -263,9 +264,9 @@ function initAppCheck() {
         });
         return;
     } catch (error) {
-        if (isAppCheckThrottleError(error)) {
+        if (window._appCheckThrottled || isAppCheckThrottleError(error)) {
             markAppCheckThrottled(error);
-            return;
+            return null;
         }
         window.__FIREBASE_APP_CHECK_ACTIVE__ = false;
         window.__FIREBASE_APP_CHECK_REASON__ = error && error.message ? String(error.message) : 'unknown';

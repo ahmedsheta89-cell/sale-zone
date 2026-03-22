@@ -173,12 +173,12 @@
   }
 
   function maybeEscalate() {
-    if (global.Tawk_API && typeof global.Tawk_API.maximize === 'function') {
+    if (typeof global.openTawkChat === 'function') {
       global.setTimeout(function() {
         try {
-          global.Tawk_API.maximize();
+          global.openTawkChat();
         } catch (_) {}
-      }, 600);
+      }, 1500);
     }
   }
 
