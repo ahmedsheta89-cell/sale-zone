@@ -569,6 +569,7 @@
         .contact-action--chat .contact-action__icon { background: #ede9fe; color: #6d28d9; }
         .contact-action--support .contact-action__icon { background: #dbeafe; color: #2563eb; }
         .contact-action--whatsapp .contact-action__icon { background: #dcfce7; color: #16a34a; }
+        .feature-hidden { display: none !important; visibility: hidden !important; pointer-events: none !important; }
 
         /* Floating Buttons */
         .floating-buttons { position: fixed; bottom: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; }
@@ -1434,16 +1435,50 @@
         color:#128C7E;font-size:0.85rem;cursor:pointer;
         display:flex;align-items:center;
         justify-content:center;gap:8px;
+<<<<<<< HEAD
+        text-decoration:none;">📱 تواصل عبر واتساب</a>
+=======
         text-decoration:none;">?? ????? ??? ??????</a>
+>>>>>>> origin/main
     </div>
 
     <div id="faqBotOverlay"
       onclick="closeFAQBot()"
       style="display:none;position:fixed;inset:0;
       background:rgba(0,0,0,0.3);z-index:9974"></div>
+<<<<<<< HEAD
+    <div class="chat-widget chat-widget-panel feature-hidden" id="internalChatPanel" aria-live="polite">
+        <div class="chat-panel-backdrop" id="chatPanelBackdrop" onclick="closeInternalChat()" data-action="close-chat"></div>
+        <div class="chat-box" id="chatBox" role="dialog" aria-modal="true" aria-label="الدردشة الداخلية">
+            <div class="chat-box-header">
+                <div class="chat-avatar">💬</div>
+                <div class="chat-bot-info">
+                    <h4 data-i18n="assistantTitle">مساعد Sale Zone</h4>
+                    <span id="chatStatusText"><span class="online-dot"></span> <span data-i18n="faqMode">وضع FAQ</span></span>
+                </div>
+                <div class="chat-mode-toggle">
+                    <button type="button" class="chat-mode-btn active" id="chatModeBotBtn" aria-label="التبديل إلى وضع الأسئلة الشائعة" onclick="switchChatMode('bot')">FAQ</button>
+                    <button type="button" class="chat-mode-btn" id="chatModeSupportBtn" aria-label="التبديل إلى وضع الدعم" onclick="switchChatMode('support')">دعم</button>
+                </div>
+                <button type="button" class="contact-sheet-close" aria-label="إغلاق الدردشة" onclick="closeInternalChat()">&times;</button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-message bot" data-i18n="chatWelcome">مرحباً! كيف أساعدك؟</div>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب رسالتك..." data-i18n-placeholder="typeMessage" onkeypress="if(event.key==='Enter')sendInternalMessage()" autocomplete="off">
+                <button class="chat-send" type="button" aria-label="إرسال الرسالة" onclick="sendInternalMessage()">إرسال</button>
+            </div>
+        </div>
+=======
     <div hidden aria-hidden="true" style="display:none">
       <button id="chatModeBotBtn" type="button" tabindex="-1">FAQ</button>
       <button id="chatModeSupportBtn" type="button" tabindex="-1">Support</button>
+>>>>>>> origin/main
+    </div>
+    <div hidden aria-hidden="true" style="display:none">
+      <button id="chatModeBotBtnFallback" type="button" tabindex="-1">FAQ</button>
+      <button id="chatModeSupportBtnFallback" type="button" tabindex="-1">Support</button>
     </div>
 
 <nav class="mobile-bottom-nav" role="navigation" aria-label="التنقل الرئيسي">
@@ -1612,8 +1647,37 @@
             loyalty: { rate: 5, pointValue: 0.1 },
             customCategories: [],
             faqIntents: [],
-            chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' }
+            chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' },
+            featureFlags: {
+                tawktoEnabled: true,
+                internalChatEnabled: false,
+                whatsappEnabled: true,
+                faqBotEnabled: true,
+                pullToRefreshEnabled: true,
+                infiniteScrollEnabled: true,
+                announcementBarEnabled: false,
+                flashSaleEnabled: false,
+                bottomNavEnabled: true
+            },
+            content: {
+                announcementText: '',
+                announcementColor: '#D4AF37',
+                welcomeMessage: 'أهلاً بك في Sale Zone',
+                whatsappNumber: '201018108979',
+                flashSaleEndTime: null,
+                flashSaleText: 'عرض محدود'
+            },
+            appearance: {
+                primaryColor: '#D4AF37',
+                logoUrl: '',
+                storeName: 'Sale Zone',
+                storeNameAr: 'سيل زون'
+            }
         };
+        window._pullToRefreshEnabled = true;
+        window._infiniteScrollEnabled = true;
+        window.__STORE_TAWK_ENABLED__ = true;
+        window._welcomeMessage = 'أهلاً بك في Sale Zone';
 
         const defaultProducts = [
             { id: 1, name: 'شامبو كيراتين فاخر', desc: 'شامبو احترافي بالكيراتين لتنعيم الشعر', price: 189, oldPrice: 249, image: './assets/placeholder.svg', category: 'hair-care', rating: 4.8, ratingCount: 124, ratings: [] },
@@ -2656,6 +2720,10 @@
             setConnectionBanner('', false);
         }
 
+        async function loadProducts() {
+            return loadDataWithTimeout(20000);
+        }
+
         function saveCart() { setStorageData('CART', cart); }
         function saveFavorites() { setStorageData('WISHLIST', favorites); }
         function saveOrders() { orders = []; try { removeStorageData('ORDERS'); } catch (_) {} }
@@ -2708,15 +2776,17 @@
         // 🎨 Apply Store Settings
         // ============================================
         function applyStoreSettings() {
+            const appearance = storeSettings.appearance || {};
+            const contentSettings = storeSettings.content || {};
             document.getElementById('loadingStoreName').textContent = storeSettings.name || 'Sale Zone Store';
-            document.getElementById('storeLogo').textContent = storeSettings.name || 'Sale Zone Store';
+            document.getElementById('storeLogo').textContent = appearance.storeName || storeSettings.name || 'Sale Zone Store';
             document.getElementById('storeTagline').textContent = resolveLocalizedSettingValue(
                 storeSettings.tagline,
                 'tagline',
                 'التسوق الفاخر الذكي',
                 'Smart Luxury Shopping'
             );
-            document.title = storeSettings.name || 'Sale Zone Store';
+            document.title = appearance.storeName || storeSettings.name || 'Sale Zone Store';
 
             const topBar = document.getElementById('topBar');
             if (storeSettings.topBar?.enabled === false) {
@@ -2768,10 +2838,191 @@
                 '🔔 24/7 service'
             );
             document.getElementById('footerCopyright').textContent = storeSettings.footer?.copyright || '';
-                        if (!Array.isArray(storeSettings.customCategories)) {
+            if (appearance.primaryColor) {
+                document.documentElement.style.setProperty('--gold', appearance.primaryColor);
+                document.documentElement.style.setProperty('--color-primary', appearance.primaryColor);
+            }
+            if (contentSettings.welcomeMessage) {
+                window._welcomeMessage = String(contentSettings.welcomeMessage);
+            }
+            if (!Array.isArray(storeSettings.customCategories)) {
                 storeSettings.customCategories = [];
             }
             renderDynamicCategoryCards();
+            Promise.resolve(applyFeatureFlags(storeSettings)).catch(() => null);
+        }
+
+        async function applyFeatureFlags(settingsOverride) {
+            let settings = settingsOverride;
+            try {
+                if (!settings && typeof getStoreSettings === 'function') {
+                    settings = await getStoreSettings();
+                }
+            } catch (_) {}
+
+            if (settings && typeof settings === 'object') {
+                storeSettings = {
+                    ...storeSettings,
+                    ...settings,
+                    featureFlags: { ...(storeSettings.featureFlags || {}), ...((settings && settings.featureFlags) || {}) },
+                    content: { ...(storeSettings.content || {}), ...((settings && settings.content) || {}) },
+                    appearance: { ...(storeSettings.appearance || {}), ...((settings && settings.appearance) || {}) }
+                };
+            }
+
+            const flags = storeSettings.featureFlags || {};
+            const content = storeSettings.content || {};
+            const appearance = storeSettings.appearance || {};
+            const bottomNav = document.querySelector('.mobile-bottom-nav');
+            const chatPanel = document.getElementById('internalChatPanel');
+            const faqWidget = document.getElementById('faqBotWidget');
+
+            window.__STORE_TAWK_ENABLED__ = flags.tawktoEnabled !== false;
+            window._pullToRefreshEnabled = flags.pullToRefreshEnabled !== false;
+            window._infiniteScrollEnabled = flags.infiniteScrollEnabled !== false;
+            window._welcomeMessage = content.welcomeMessage || window._welcomeMessage || 'أهلاً بك في Sale Zone';
+
+            if (appearance.primaryColor) {
+                document.documentElement.style.setProperty('--gold', appearance.primaryColor);
+                document.documentElement.style.setProperty('--color-primary', appearance.primaryColor);
+            }
+
+            if (content.whatsappNumber) {
+                const normalizedWhatsApp = normalizeWhatsAppNumber(content.whatsappNumber);
+                storeSettings.contact = {
+                    ...(storeSettings.contact || {}),
+                    whatsapp: content.whatsappNumber,
+                    phone: storeSettings.contact?.phone || content.whatsappNumber
+                };
+                document.querySelectorAll('[href*="wa.me"]').forEach((el) => {
+                    el.href = el.href.replace(/wa\.me\/\d+/i, 'wa.me/' + normalizedWhatsApp);
+                });
+            }
+
+            if (bottomNav) {
+                bottomNav.style.display = flags.bottomNavEnabled === false ? 'none' : '';
+            }
+
+            if (chatPanel) {
+                chatPanel.classList.toggle('feature-hidden', flags.internalChatEnabled !== true);
+                if (flags.internalChatEnabled !== true) {
+                    setInternalChatPanelState(false);
+                }
+            }
+
+            if (faqWidget) {
+                faqWidget.classList.toggle('feature-hidden', flags.faqBotEnabled === false);
+                if (flags.faqBotEnabled === false) {
+                    closeFAQBot({ skipHistory: true });
+                }
+            }
+
+            document.querySelectorAll('[href*="wa.me"]').forEach((el) => {
+                el.style.display = flags.whatsappEnabled === false ? 'none' : '';
+            });
+
+            document.querySelectorAll('#tawkchat-container, .tawk-min-container, #tawkchat-minified-wrapper').forEach((el) => {
+                el.style.display = flags.tawktoEnabled === false ? 'none' : '';
+            });
+
+            if (flags.announcementBarEnabled && content.announcementText) {
+                showAnnouncementBar(content.announcementText, content.announcementColor || '#D4AF37');
+            } else {
+                document.getElementById('announcementBar')?.remove();
+            }
+
+            if (flags.flashSaleEnabled && content.flashSaleEndTime) {
+                startFlashSaleTimer(content.flashSaleEndTime, content.flashSaleText || 'عرض محدود');
+            } else {
+                document.getElementById('flashSaleTimer')?.remove();
+                if (window.__FLASH_SALE_INTERVAL__) {
+                    clearInterval(window.__FLASH_SALE_INTERVAL__);
+                    window.__FLASH_SALE_INTERVAL__ = null;
+                }
+            }
+
+            syncInfiniteScrollState(lastSearchResult || { page: productViewState.page || 1, totalPages: lastSearchResult?.totalPages || 1 });
+            return true;
+        }
+
+        function showAnnouncementBar(text, color) {
+            let bar = document.getElementById('announcementBar');
+            if (!text) {
+                if (bar) bar.remove();
+                return null;
+            }
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'announcementBar';
+                document.body.prepend(bar);
+            }
+            bar.setAttribute('style', [
+                'position:fixed',
+                'top:0',
+                'left:0',
+                'right:0',
+                'background:' + (color || '#D4AF37'),
+                'color:#fff',
+                'text-align:center',
+                'padding:8px 40px',
+                'font-size:0.85rem',
+                'z-index:99999',
+                'direction:rtl'
+            ].join(';'));
+            bar.innerHTML = escapeHtml(text)
+                + '<button onclick="this.parentElement.remove()" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer">✕</button>';
+            return bar;
+        }
+
+        function startFlashSaleTimer(endTime, labelText) {
+            let timer = document.getElementById('flashSaleTimer');
+            if (!timer) {
+                timer = document.createElement('div');
+                timer.id = 'flashSaleTimer';
+                document.body.prepend(timer);
+            }
+            timer.setAttribute('style', [
+                'position:fixed',
+                'top:' + (document.getElementById('announcementBar') ? '40px' : '0'),
+                'left:0',
+                'right:0',
+                'background:#ef4444',
+                'color:#fff',
+                'text-align:center',
+                'padding:6px',
+                'font-size:0.85rem',
+                'z-index:99998',
+                'direction:rtl'
+            ].join(';'));
+            if (window.__FLASH_SALE_INTERVAL__) {
+                clearInterval(window.__FLASH_SALE_INTERVAL__);
+            }
+            window.__FLASH_SALE_INTERVAL__ = setInterval(function() {
+                const now = Date.now();
+                const end = new Date(endTime).getTime();
+                const diff = end - now;
+                if (diff <= 0) {
+                    clearInterval(window.__FLASH_SALE_INTERVAL__);
+                    window.__FLASH_SALE_INTERVAL__ = null;
+                    timer.remove();
+                    return;
+                }
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                timer.textContent = (labelText || '⚡ عرض محدود') + ' ينتهي خلال: '
+                    + h + ':'
+                    + String(m).padStart(2, '0') + ':'
+                    + String(s).padStart(2, '0');
+            }, 1000);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                applyFeatureFlags(storeSettings).catch(() => null);
+            });
+        } else {
+            applyFeatureFlags(storeSettings).catch(() => null);
         }
 
         function escapeHtml(value) {
@@ -2984,7 +3235,9 @@
         };
 
         function shouldUseInfiniteScroll() {
-            return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+            return window._infiniteScrollEnabled !== false
+                && window.matchMedia
+                && window.matchMedia('(max-width: 768px)').matches;
         }
 
         function ensureInfiniteScrollElements() {
@@ -3042,7 +3295,17 @@
             }
 
             if (!_infiniteScroll.enabled) {
+                _infiniteScroll.hasMore = false;
+                if (_infiniteScroll.observer && ui.sentinel) {
+                    _infiniteScroll.observer.unobserve(ui.sentinel);
+                }
+                ui.sentinel.style.display = 'none';
                 hideLoadingSpinner();
+                return;
+            }
+
+            if (_infiniteScroll.observer && ui.sentinel) {
+                _infiniteScroll.observer.observe(ui.sentinel);
             }
         }
 
@@ -5476,6 +5739,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function addChatMessage(text, sender = 'bot') {
             if (sender === 'user') addUserMessage(text);
             else addBotMessage(text);
+<<<<<<< HEAD
         }
 
         function switchChatMode() {
@@ -5484,6 +5748,152 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         function sendChatMessage() {
             sendFAQMessage();
+        }
+
+        function appendInternalChatMessage(text, sender = 'bot') {
+            const container = document.getElementById('chatMessages');
+            if (!container) return;
+            const el = document.createElement('div');
+            el.className = 'chat-message ' + (sender === 'user' ? 'user' : 'bot');
+            el.textContent = String(text || '').trim();
+            container.appendChild(el);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function seedInternalChatWelcome() {
+            const container = document.getElementById('chatMessages');
+            if (!container || container.children.length > 0) return;
+            appendInternalChatMessage(window._welcomeMessage || 'أهلاً بك في Sale Zone! كيف أساعدك؟', 'bot');
+        }
+
+        function setInternalChatPanelState(isOpen) {
+            const panel = document.getElementById('internalChatPanel');
+            const box = document.getElementById('chatBox');
+            const backdrop = document.getElementById('chatPanelBackdrop');
+            if (!panel || panel.classList.contains('feature-hidden')) return false;
+            panel.classList.toggle('active', Boolean(isOpen));
+            box?.classList.toggle('active', Boolean(isOpen));
+            backdrop?.classList.toggle('active', Boolean(isOpen));
+=======
+        }
+
+        function switchChatMode() {
+            return 'bot';
+        }
+
+        function sendChatMessage() {
+            sendFAQMessage();
+        }
+
+        function toggleChat(options = {}) {
+            return openFAQBot(options);
+        }
+
+        function setFAQBotState(isOpen) {
+            const widget = document.getElementById('faqBotWidget');
+            const overlay = document.getElementById('faqBotOverlay');
+            if (!widget || !overlay) return false;
+            widget.style.display = isOpen ? 'flex' : 'none';
+            overlay.style.display = isOpen ? 'block' : 'none';
+>>>>>>> origin/main
+            setMobileBottomNavActive(isOpen ? 'contact' : 'home');
+            syncSidePanelScrollLock();
+            return Boolean(isOpen);
+        }
+
+<<<<<<< HEAD
+        function openInternalChat(options = {}) {
+            const panel = document.getElementById('internalChatPanel');
+            if (!panel || panel.classList.contains('feature-hidden')) {
+                if (!options.silent && window.Toast && typeof window.Toast.info === 'function') {
+                    window.Toast.info('الدردشة الداخلية غير مفعلة حالياً');
+                }
+                return false;
+            }
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
+                window.NavHistory.open('chat');
+=======
+        function openFAQBot(options = {}) {
+            const widget = document.getElementById('faqBotWidget');
+            const isOpen = widget && widget.style.display !== 'none';
+            if (isOpen) return true;
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
+                window.NavHistory.open('faqbot');
+>>>>>>> origin/main
+                return true;
+            }
+            closeCart({ skipHistory: true });
+            closeWishlist({ skipHistory: true });
+<<<<<<< HEAD
+            closeFAQBot({ skipHistory: true });
+            seedInternalChatWelcome();
+            const opened = setInternalChatPanelState(true);
+            const input = document.getElementById('chatInput');
+            if (opened && input) setTimeout(() => input.focus(), 60);
+            return opened;
+        }
+
+        function closeInternalChat(options = {}) {
+            const panel = document.getElementById('internalChatPanel');
+            const box = document.getElementById('chatBox');
+            const isOpen = panel?.classList.contains('active') === true || box?.classList.contains('active') === true;
+            if (!isOpen) {
+                setInternalChatPanelState(false);
+=======
+            const opened = setFAQBotState(true);
+            if (!opened) return false;
+            const messages = document.getElementById('faqBotMessages');
+            if (messages && messages.children.length === 0) {
+                addBotMessage('\u0623\u0647\u0644\u0627\u064b \u0648\u0633\u0647\u0644\u0627\u064b! \uD83D\uDC4B\n\u0623\u0646\u0627 \u0645\u0633\u0627\u0639\u062F Sale Zone \u0627\u0644\u0630\u0643\u064A\n\u0643\u064A\u0641 \u0623\u0642\u062F\u0631 \u0623\u0633\u0627\u0639\u062F\u0643 \u0627\u0644\u064A\u0648\u0645\u061F');
+            }
+            const input = document.getElementById('faqBotInput');
+            if (input) setTimeout(() => input.focus(), 60);
+            return true;
+        }
+
+        function closeFAQBot(options = {}) {
+            const widget = document.getElementById('faqBotWidget');
+            const overlay = document.getElementById('faqBotOverlay');
+            const isOpen = widget && widget.style.display !== 'none';
+            if (!isOpen) {
+                setFAQBotState(false);
+>>>>>>> origin/main
+                return false;
+            }
+            if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
+                window.NavHistory.close('faqbot');
+                return true;
+            }
+<<<<<<< HEAD
+            return setInternalChatPanelState(false);
+        }
+
+        function sendInternalMessage() {
+            const input = document.getElementById('chatInput');
+            const text = String(input && input.value || '').trim();
+            if (!text) return false;
+            if (input) input.value = '';
+            appendInternalChatMessage(text, 'user');
+
+            const reply = window.FAQBot ? window.FAQBot.respond(text) : null;
+            window.setTimeout(function() {
+                if (reply && reply.source !== 'escalate') {
+                    appendInternalChatMessage(reply.text, 'bot');
+                    return;
+                }
+                appendInternalChatMessage('سأحوّلك إلى خدمة العملاء الآن...', 'bot');
+                if (typeof openTawkChat === 'function') {
+                    window.setTimeout(function() {
+                        openTawkChat();
+                        closeInternalChat({ skipHistory: true });
+                    }, 1200);
+                }
+            }, 250);
+            return true;
+        }
+
+        function sendSupportMessage() {
+            return sendInternalMessage();
         }
 
         function toggleChat(options = {}) {
@@ -5511,11 +5921,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
             closeCart({ skipHistory: true });
             closeWishlist({ skipHistory: true });
+            closeInternalChat({ skipHistory: true, silent: true });
             const opened = setFAQBotState(true);
             if (!opened) return false;
             const messages = document.getElementById('faqBotMessages');
             if (messages && messages.children.length === 0) {
-                addBotMessage('\u0623\u0647\u0644\u0627\u064b \u0648\u0633\u0647\u0644\u0627\u064b! \uD83D\uDC4B\n\u0623\u0646\u0627 \u0645\u0633\u0627\u0639\u062F Sale Zone \u0627\u0644\u0630\u0643\u064A\n\u0643\u064A\u0641 \u0623\u0642\u062F\u0631 \u0623\u0633\u0627\u0639\u062F\u0643 \u0627\u0644\u064A\u0648\u0645\u061F');
+                addBotMessage(window._welcomeMessage || '\u0623\u0647\u0644\u0627\u064b \u0648\u0633\u0647\u0644\u0627\u064b! \uD83D\uDC4B\n\u0623\u0646\u0627 \u0645\u0633\u0627\u0639\u062F Sale Zone \u0627\u0644\u0630\u0643\u064A\n\u0643\u064A\u0641 \u0623\u0642\u062F\u0631 \u0623\u0633\u0627\u0639\u062F\u0643 \u0627\u0644\u064A\u0648\u0645\u061F');
             }
             const input = document.getElementById('faqBotInput');
             if (input) setTimeout(() => input.focus(), 60);
@@ -5534,6 +5945,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 window.NavHistory.close('faqbot');
                 return true;
             }
+=======
+>>>>>>> origin/main
             if (widget) widget.style.display = 'none';
             if (overlay) overlay.style.display = 'none';
             syncSidePanelScrollLock();
@@ -5606,7 +6019,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function openStoreWhatsApp() {
             closeFAQBot({ skipHistory: true });
             const message = encodeURIComponent('\u0645\u0631\u062D\u0628\u0627\u060C \u0623\u0631\u064A\u062F \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0639\u0646 \u0637\u0644\u0628');
-            window.open('https://wa.me/201018108979?text=' + message, '_blank');
+<<<<<<< HEAD
+            window.open('https://wa.me/' + getStoreWhatsappNumber() + '?text=' + message, '_blank');
         }
 
         function registerFaqBotWithNavHistory() {
@@ -5614,10 +6028,30 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             window.NavHistory.register('faqbot', function() { openFAQBot({ skipHistory: true, fromNavHistory: true }); }, function() { closeFAQBot({ skipHistory: true, fromNavHistory: true }); });
         }
 
+        function registerInternalChatWithNavHistory() {
+            if (!window.NavHistory || typeof window.NavHistory.register !== 'function') return;
+            window.NavHistory.register('chat', function() { openInternalChat({ skipHistory: true, fromNavHistory: true, silent: true }); }, function() { closeInternalChat({ skipHistory: true, fromNavHistory: true }); });
+=======
+            window.open('https://wa.me/201018108979?text=' + message, '_blank');
+        }
+
+        function registerFaqBotWithNavHistory() {
+            if (!window.NavHistory || typeof window.NavHistory.register !== 'function') return;
+            window.NavHistory.register('faqbot', function() { openFAQBot({ skipHistory: true, fromNavHistory: true }); }, function() { closeFAQBot({ skipHistory: true, fromNavHistory: true }); });
+>>>>>>> origin/main
+        }
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', registerFaqBotWithNavHistory);
+<<<<<<< HEAD
+            document.addEventListener('DOMContentLoaded', registerInternalChatWithNavHistory);
         } else {
             registerFaqBotWithNavHistory();
+            registerInternalChatWithNavHistory();
+=======
+        } else {
+            registerFaqBotWithNavHistory();
+>>>>>>> origin/main
         }
 
         function setMobileBottomNavActive(target = 'home') {
@@ -5695,7 +6129,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const favOpen = document.getElementById('favSidebar')?.classList.contains('active') === true;
             const faqWidget = document.getElementById('faqBotWidget');
             const faqOpen = faqWidget ? faqWidget.style.display !== 'none' && faqWidget.style.display !== '' : false;
+<<<<<<< HEAD
+            const chatOpen = document.getElementById('internalChatPanel')?.classList.contains('active') === true;
+            const anyPanelOpen = cartOpen || favOpen || faqOpen || chatOpen;
+=======
             const anyPanelOpen = cartOpen || favOpen || faqOpen;
+>>>>>>> origin/main
             document.body.classList.toggle('panel-open', anyPanelOpen);
             if (anyPanelOpen) lockBodyScroll();
             else unlockBodyScroll();
@@ -5775,6 +6214,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const indicator = ensurePullToRefreshIndicator();
 
             document.addEventListener('touchstart', function(event) {
+                if (window._pullToRefreshEnabled === false) return;
                 if (document.body.classList.contains('panel-open')) return;
                 if (document.querySelector('.modal-overlay.active')) return;
                 if (window.scrollY === 0) {
@@ -5783,6 +6223,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }, { passive: true });
 
             document.addEventListener('touchmove', function(event) {
+                if (window._pullToRefreshEnabled === false) return;
                 if (_ptr.loading || window.scrollY > 0 || !_ptr.startY) return;
                 if (document.body.classList.contains('panel-open')) return;
                 const diff = event.touches[0].clientY - _ptr.startY;
@@ -5794,6 +6235,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }, { passive: true });
 
             document.addEventListener('touchend', function(event) {
+                if (window._pullToRefreshEnabled === false) return;
                 if (_ptr.loading || !_ptr.startY) return;
                 const diff = event.changedTouches[0].clientY - _ptr.startY;
                 _ptr.startY = 0;
@@ -5865,6 +6307,32 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             if (trigger) trigger.setAttribute('aria-expanded', 'false');
             showAuthModal('magic');
             setMobileBottomNavActive('home');
+        }
+
+        function applyAutoTooltips(root = document) {
+            const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+            const elements = scope.querySelectorAll('button, .btn, .action-btn, .category-card, [role="button"], a[onclick]');
+            elements.forEach((el) => {
+                if (!el || el.dataset.tooltipBound === '1') return;
+                if (el.getAttribute('title')) {
+                    el.dataset.tooltipBound = '1';
+                    return;
+                }
+                const label = String(el.getAttribute('aria-label') || el.textContent || '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                if (!label) return;
+                el.setAttribute('title', label.slice(0, 120));
+                el.dataset.tooltipBound = '1';
+            });
+        }
+
+        function setupAutoTooltips() {
+            applyAutoTooltips(document);
+            if (window.__STORE_TOOLTIP_OBSERVER__) return;
+            const observer = new MutationObserver(() => applyAutoTooltips(document));
+            observer.observe(document.body, { childList: true, subtree: true });
+            window.__STORE_TOOLTIP_OBSERVER__ = observer;
         }
 
         function openModal(id) { document.getElementById(id).classList.add('active'); }
@@ -5961,6 +6429,10 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         var _tawkLoaded = false;
 
         function loadTawk() {
+<<<<<<< HEAD
+          if (window.__STORE_TAWK_ENABLED__ === false) return;
+=======
+>>>>>>> origin/main
           if (_tawkLoaded) return;
           _tawkLoaded = true;
 
@@ -6008,6 +6480,13 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         });
 
         window.openTawkChat = function() {
+<<<<<<< HEAD
+          if (window.__STORE_TAWK_ENABLED__ === false) {
+            openStoreWhatsApp();
+            return;
+          }
+=======
+>>>>>>> origin/main
           if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
             window.Tawk_API.maximize();
             return;

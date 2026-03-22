@@ -637,6 +637,57 @@
             transition: var(--transition);
         }
         .tab-btn.active { background: var(--gold); color: var(--white); }
+        .control-card {
+            background: var(--color-background-secondary, #f8fafc);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            direction: rtl;
+        }
+        .control-card h3 {
+            margin: 0 0 16px;
+            font-size: 1rem;
+            color: var(--color-text-primary, #0f172a);
+        }
+        .feature-toggles { display: grid; gap: 0; }
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--color-border-tertiary, #e2e8f0);
+        }
+        .toggle-row:last-child { border-bottom: none; }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #ccc;
+            border-radius: 26px;
+            transition: 0.3s;
+        }
+        .slider:before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            left: 3px;
+            top: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        .switch input:checked + .slider { background: #22c55e; }
+        .switch input:checked + .slider:before { transform: translateX(22px); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
@@ -1725,6 +1776,7 @@
             <section class="content-section" id="storeSettingsSection">
                 <div class="tabs">
                     <button class="tab-btn active" onclick="switchTab('general')">⚙️ عام</button>
+                    <button class="tab-btn" onclick="switchTab('control')">🎛️ التحكم</button>
                     <button class="tab-btn" onclick="switchTab('topbar')">📢 الشريط</button>
                     <button class="tab-btn" onclick="switchTab('footer')">🦶 الفوتر</button>
                     <button class="tab-btn" onclick="switchTab('contact')">📞 التواصل</button>
@@ -1815,6 +1867,129 @@
                                 </div>
                                 <button type="submit" class="submit-btn">💾 حفظ</button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="controlTab">
+                    <div id="adminControlCenter" class="admin-section">
+                        <h2 style="direction:rtl;margin-bottom:20px">🎛️ مركز التحكم</h2>
+
+                        <div class="control-card">
+                            <h3>⚡ تفعيل/إيقاف الميزات</h3>
+                            <div class="feature-toggles">
+                                <div class="toggle-row">
+                                    <label>💬 tawk.to (دعم العملاء)</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_tawktoEnabled" onchange="saveFeatureFlag('tawktoEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <label>🗨️ الدردشة الداخلية</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_internalChatEnabled" onchange="saveFeatureFlag('internalChatEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <label>📱 واتساب</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_whatsappEnabled" onchange="saveFeatureFlag('whatsappEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <label>🤖 FAQ Bot الذكي</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_faqBotEnabled" onchange="saveFeatureFlag('faqBotEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <label>📲 Bottom Navigation</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_bottomNavEnabled" onchange="saveFeatureFlag('bottomNavEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <label>🔄 Pull to Refresh</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_pullToRefreshEnabled" onchange="saveFeatureFlag('pullToRefreshEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <label>♾️ Infinite Scroll</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_infiniteScrollEnabled" onchange="saveFeatureFlag('infiniteScrollEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <label>📢 شريط الإعلانات</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_announcementBarEnabled" onchange="saveFeatureFlag('announcementBarEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-row">
+                                    <label>⚡ Flash Sale</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="flag_flashSaleEnabled" onchange="saveFeatureFlag('flashSaleEnabled', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="control-card">
+                            <h3>📝 التحكم في المحتوى</h3>
+                            <label>نص شريط الإعلانات</label>
+                            <input type="text" id="content_announcementText" placeholder="مثال: شحن مجاني على الطلبات فوق 500 جنيه" style="width:100%;margin-bottom:8px" onchange="saveContent('announcementText', this.value)">
+
+                            <label>لون شريط الإعلانات</label>
+                            <input type="color" id="content_announcementColor" value="#D4AF37" onchange="saveContent('announcementColor', this.value)" style="margin-bottom:12px">
+
+                            <label>وقت انتهاء Flash Sale</label>
+                            <input type="datetime-local" id="content_flashSaleEndTime" style="width:100%;margin-bottom:8px" onchange="saveContent('flashSaleEndTime', this.value)">
+
+                            <label>نص Flash Sale</label>
+                            <input type="text" id="content_flashSaleText" placeholder="⚡ عرض محدود" style="width:100%;margin-bottom:8px" onchange="saveContent('flashSaleText', this.value)">
+
+                            <label>رقم واتساب المتجر</label>
+                            <input type="text" id="content_whatsappNumber" placeholder="201018108979" style="width:100%;margin-bottom:8px" onchange="saveContent('whatsappNumber', this.value)">
+
+                            <label>رسالة الترحيب</label>
+                            <input type="text" id="content_welcomeMessage" placeholder="أهلاً بك في Sale Zone!" style="width:100%;margin-bottom:8px" onchange="saveContent('welcomeMessage', this.value)">
+
+                            <button onclick="saveAllContent()" type="button" style="background:#22c55e;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;width:100%">
+                                💾 حفظ المحتوى
+                            </button>
+                        </div>
+
+                        <div class="control-card">
+                            <h3>🎨 التحكم في المظهر</h3>
+                            <label>اللون الرئيسي</label>
+                            <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+                                <input type="color" id="appearance_primaryColor" value="#D4AF37" onchange="previewColor(this.value)">
+                                <span id="colorPreview" style="padding:6px 16px;border-radius:6px;background:#D4AF37;color:#fff;font-size:0.85rem">#D4AF37</span>
+                            </div>
+
+                            <label>اسم المتجر (عربي)</label>
+                            <input type="text" id="appearance_storeNameAr" placeholder="سيل زون" style="width:100%;margin-bottom:8px" onchange="saveAppearance('storeNameAr', this.value)">
+
+                            <label>اسم المتجر (إنجليزي)</label>
+                            <input type="text" id="appearance_storeName" placeholder="Sale Zone" style="width:100%;margin-bottom:8px" onchange="saveAppearance('storeName', this.value)">
+
+                            <button onclick="saveAllAppearance()" type="button" style="background:var(--color-text-info);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;width:100%;margin-bottom:8px">
+                                💾 حفظ المظهر
+                            </button>
+
+                            <button onclick="previewStore()" type="button" style="background:none;border:1px solid var(--color-border);padding:10px 20px;border-radius:8px;cursor:pointer;width:100%">
+                                👁️ معاينة المتجر
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2468,7 +2643,32 @@
             loyalty: { rate: 5, pointValue: 0.1 },
             customCategories: [],
             faqIntents: [],
-            chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' }
+            chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' },
+            featureFlags: {
+                tawktoEnabled: true,
+                internalChatEnabled: false,
+                whatsappEnabled: true,
+                faqBotEnabled: true,
+                pullToRefreshEnabled: true,
+                infiniteScrollEnabled: true,
+                announcementBarEnabled: false,
+                flashSaleEnabled: false,
+                bottomNavEnabled: true
+            },
+            content: {
+                announcementText: '',
+                announcementColor: '#D4AF37',
+                welcomeMessage: 'أهلاً بك في Sale Zone',
+                whatsappNumber: '201018108979',
+                flashSaleEndTime: '',
+                flashSaleText: 'عرض محدود'
+            },
+            appearance: {
+                primaryColor: '#D4AF37',
+                logoUrl: '',
+                storeName: 'Sale Zone',
+                storeNameAr: 'سيل زون'
+            }
         };
         let salesChart, categoriesChart;
         const PENDING_PRODUCT_OPS_KEY = 'sale_zone_pending_ops';
@@ -6595,7 +6795,39 @@ function adminLogout(){
         // ============================================
         // Store Settings
         // ============================================
+        function ensureControlCenterDefaults() {
+            storeSettings.featureFlags = {
+                tawktoEnabled: true,
+                internalChatEnabled: false,
+                whatsappEnabled: true,
+                faqBotEnabled: true,
+                pullToRefreshEnabled: true,
+                infiniteScrollEnabled: true,
+                announcementBarEnabled: false,
+                flashSaleEnabled: false,
+                bottomNavEnabled: true,
+                ...(storeSettings.featureFlags || {})
+            };
+            storeSettings.content = {
+                announcementText: '',
+                announcementColor: '#D4AF37',
+                welcomeMessage: 'أهلاً بك في Sale Zone',
+                whatsappNumber: storeSettings.contact?.whatsapp || '201018108979',
+                flashSaleEndTime: '',
+                flashSaleText: 'عرض محدود',
+                ...(storeSettings.content || {})
+            };
+            storeSettings.appearance = {
+                primaryColor: '#D4AF37',
+                logoUrl: '',
+                storeName: storeSettings.name || 'Sale Zone',
+                storeNameAr: 'سيل زون',
+                ...(storeSettings.appearance || {})
+            };
+        }
+
         function loadSettingsToForms() {
+            ensureControlCenterDefaults();
             document.getElementById('storeName').value = storeSettings.name || '';
             document.getElementById('storeTagline').value = storeSettings.tagline || '';
             document.getElementById('storeDescription').value = storeSettings.description || '';
@@ -6618,6 +6850,7 @@ function adminLogout(){
             document.getElementById('workingHoursFriday').value = storeSettings.footer?.workingHoursFriday || '';
             document.getElementById('workingHoursNote').value = storeSettings.footer?.workingHoursNote || '';
             document.getElementById('copyrightText').value = storeSettings.footer?.copyright || '';
+            loadControlCenter();
         }
 
         function saveGeneralSettings(e) {
@@ -6634,6 +6867,7 @@ function adminLogout(){
                 tawkWidgetId: document.getElementById('tawkWidgetId').value.trim()
             };
             saveStoreSettings();
+            loadControlCenter();
             showNotification('success', 'تم الحفظ');
         }
 
@@ -6671,8 +6905,148 @@ function adminLogout(){
                 address: document.getElementById('contactAddress').value.trim()
             };
             saveStoreSettings();
+            loadControlCenter();
             showNotification('success', 'تم الحفظ');
         }
+
+        function loadControlCenter() {
+            ensureControlCenterDefaults();
+            const flags = storeSettings.featureFlags || {};
+            const content = storeSettings.content || {};
+            const appearance = storeSettings.appearance || {};
+
+            [
+                'tawktoEnabled',
+                'internalChatEnabled',
+                'whatsappEnabled',
+                'faqBotEnabled',
+                'bottomNavEnabled',
+                'pullToRefreshEnabled',
+                'infiniteScrollEnabled',
+                'announcementBarEnabled',
+                'flashSaleEnabled'
+            ].forEach(function(key) {
+                const el = document.getElementById('flag_' + key);
+                if (el) el.checked = flags[key] !== false;
+            });
+
+            [
+                'announcementText',
+                'announcementColor',
+                'flashSaleEndTime',
+                'flashSaleText',
+                'whatsappNumber',
+                'welcomeMessage'
+            ].forEach(function(key) {
+                const el = document.getElementById('content_' + key);
+                if (el) el.value = content[key] || '';
+            });
+
+            [
+                'primaryColor',
+                'storeName',
+                'storeNameAr'
+            ].forEach(function(key) {
+                const el = document.getElementById('appearance_' + key);
+                if (el) el.value = appearance[key] || '';
+            });
+
+            previewColor(appearance.primaryColor || '#D4AF37');
+        }
+
+        function saveFeatureFlag(flagName, value) {
+            ensureControlCenterDefaults();
+            storeSettings.featureFlags = {
+                ...(storeSettings.featureFlags || {}),
+                [flagName]: Boolean(value)
+            };
+            saveStoreSettings();
+            showNotification('success', Boolean(value) ? 'تم تفعيل الميزة' : 'تم إيقاف الميزة');
+        }
+
+        function saveContent(key, value) {
+            ensureControlCenterDefaults();
+            storeSettings.content = {
+                ...(storeSettings.content || {}),
+                [key]: value
+            };
+            if (key === 'whatsappNumber' && value) {
+                storeSettings.contact = {
+                    ...(storeSettings.contact || {}),
+                    whatsapp: value,
+                    phone: storeSettings.contact?.phone || value
+                };
+            }
+            saveStoreSettings();
+        }
+
+        function saveAppearance(key, value) {
+            ensureControlCenterDefaults();
+            storeSettings.appearance = {
+                ...(storeSettings.appearance || {}),
+                [key]: value
+            };
+            if (key === 'storeName' && value) {
+                storeSettings.name = value;
+            }
+            saveStoreSettings();
+        }
+
+        function saveAllContent() {
+            ensureControlCenterDefaults();
+            const data = {};
+            ['announcementText', 'announcementColor', 'flashSaleEndTime', 'flashSaleText', 'whatsappNumber', 'welcomeMessage'].forEach(function(key) {
+                const el = document.getElementById('content_' + key);
+                data[key] = el ? el.value : '';
+            });
+            storeSettings.content = {
+                ...(storeSettings.content || {}),
+                ...data
+            };
+            if (data.whatsappNumber) {
+                storeSettings.contact = {
+                    ...(storeSettings.contact || {}),
+                    whatsapp: data.whatsappNumber,
+                    phone: storeSettings.contact?.phone || data.whatsappNumber
+                };
+            }
+            saveStoreSettings();
+            showNotification('success', 'تم حفظ المحتوى ✅');
+        }
+
+        function saveAllAppearance() {
+            ensureControlCenterDefaults();
+            const data = {};
+            ['primaryColor', 'storeName', 'storeNameAr'].forEach(function(key) {
+                const el = document.getElementById('appearance_' + key);
+                data[key] = el ? el.value : '';
+            });
+            storeSettings.appearance = {
+                ...(storeSettings.appearance || {}),
+                ...data
+            };
+            if (data.storeName) {
+                storeSettings.name = data.storeName;
+            }
+            saveStoreSettings();
+            showNotification('success', 'تم حفظ المظهر ✅');
+        }
+
+        function previewColor(color) {
+            const preview = document.getElementById('colorPreview');
+            if (!preview) return;
+            preview.style.background = color || '#D4AF37';
+            preview.textContent = color || '#D4AF37';
+        }
+
+        function previewStore() {
+            window.open('https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML', '_blank');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            ensureControlCenterDefaults();
+            loadControlCenter();
+        });
 
         function switchTab(name) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

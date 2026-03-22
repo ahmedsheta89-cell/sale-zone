@@ -293,6 +293,13 @@ if (errors.length) {
   process.exit(1);
 }
 
+try {
+  execSync('node tools/usage-check.js', { cwd: root, stdio: 'inherit' });
+} catch (e) {
+  console.error('❌ Usage check failed — contracts FAIL');
+  process.exit(1);
+}
+
 console.log('✅ Contracts check passed');
 console.log(`   IDs verified: ${verifiedIds}`);
 console.log(`   Definitions verified: ${verifiedDefinitions}`);

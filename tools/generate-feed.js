@@ -186,6 +186,33 @@ function normalizePrice(value) {
     return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function resolveFeedPrice(product) {
+    return normalizePrice(
+        product && (
+            product.price ??
+            product.sellPrice ??
+            product.salePrice ??
+            product.retailPrice ??
+            product.listPrice ??
+            product.costPrice
+        )
+    );
+}
+
+function resolveFeedTitle(product) {
+    return String(
+        (product && (product.nameAr || product.name || product.title || product.productName))
+        || ''
+    ).trim();
+}
+
+function resolveFeedDescription(product) {
+    return String(
+        (product && (product.descriptionAr || product.description || product.desc || product.details))
+        || ''
+    ).trim();
+}
+
 function resolveAvailability(stockValue) {
     const numeric = Number(stockValue);
     if (!Number.isFinite(numeric)) return 'in stock';
@@ -195,15 +222,16 @@ function resolveAvailability(stockValue) {
 
 function buildFeedXml(products, enhanceProductImageUrl) {
     const eligibleProducts = (Array.isArray(products) ? products : []).filter((product) => {
-        const price = normalizePrice(product && product.price);
-        return Boolean(product && product.isPublished !== false && String(product.nameAr || product.name || '').trim() && price > 0);
+        const price = resolveFeedPrice(product);
+        const title = resolveFeedTitle(product);
+        return Boolean(product && product.isPublished !== false && title && price > 0);
     });
 
     const items = eligibleProducts.map((product) => {
         const imageUrl = enhanceProductImageUrl(product.imageUrl || product.image || '', 'feed');
-        const price = normalizePrice(product.price).toFixed(2);
-        const title = product.nameAr || product.name || '';
-        const description = product.descriptionAr || product.description || product.desc || '';
+        const price = resolveFeedPrice(product).toFixed(2);
+        const title = resolveFeedTitle(product);
+        const description = resolveFeedDescription(product);
         return `
   <item>
     <title>${escapeXml(title)}</title>
@@ -249,8 +277,29 @@ async function main() {
     try {
         const enhanceProductImageUrl = loadCloudinaryEnhancer();
         const products = await fetchAllProductsForTools();
+        console.log(`Fetched products for feed: ${Array.isArray(products) ? products.length : 0}`);
+        if (!Array.isArray(products) || products.length === 0) {
+            if (fs.existsSync(OUTPUT_FILE)) {
+                const existingXml = fs.readFileSync(OUTPUT_FILE, 'utf8');
+                const existingItemCount = (existingXml.match(/<item>/g) || []).length;
+                validateFeed(existingXml, existingItemCount);
+                console.warn('Feed source returned zero products. Keeping existing feed.xml as a safe fallback.');
+                console.log(`Products in feed: ${existingItemCount}`);
+                console.log('feed.xml kept from previous successful generation');
+                return;
+            }
+        }
         const xml = buildFeedXml(products, enhanceProductImageUrl);
         const itemCount = (xml.match(/<item>/g) || []).length;
+        if (itemCount <= 0 && fs.existsSync(OUTPUT_FILE)) {
+            const existingXml = fs.readFileSync(OUTPUT_FILE, 'utf8');
+            const existingItemCount = (existingXml.match(/<item>/g) || []).length;
+            validateFeed(existingXml, existingItemCount);
+            console.warn('Feed build produced zero valid items. Keeping existing feed.xml as a safe fallback.');
+            console.log(`Products in feed: ${existingItemCount}`);
+            console.log('feed.xml kept from previous successful generation');
+            return;
+        }
         validateFeed(xml, itemCount);
         fs.writeFileSync(OUTPUT_FILE, xml, 'utf8');
         console.log(`Products in feed: ${itemCount}`);
@@ -264,3 +313,4 @@ main().catch((error) => {
     console.error('Feed generation failed:', error && error.stack ? error.stack : error);
     process.exit(1);
 });
+

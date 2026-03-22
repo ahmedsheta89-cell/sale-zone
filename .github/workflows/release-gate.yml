@@ -107,6 +107,8 @@ jobs:
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Contracts Check (definitions + calls)
         run: node tools/contracts-check.js
+      - name: Usage Check (Critical Functions)
+        run: node tools/usage-check.js
       - name: Snapshot Check
         run: node tools/snapshot-check.js --check
       - name: Update Function Snapshot
