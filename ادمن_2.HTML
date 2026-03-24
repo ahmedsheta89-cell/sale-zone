@@ -2821,6 +2821,7 @@
         let ordersTotalLoaded = 0;
         let ordersPageSize = 50;
         let ordersLoading = false;
+        let ordersIndexFallbackNoticeShown = false;
         let filteredOrders = [];
         const ordersFilters = {
             status: '',
@@ -5205,11 +5206,12 @@ function adminLogout(){
             const statusText = String(options.statusText || '').trim();
             const displayToken = value ? (cleanImageField(value) || value) : '';
             const safePreview = previewSrc ? escapeProductImageText(previewSrc) : '';
+            const safeFallbackPreview = escapeProductImageText(sanitizeImageUrl(''));
 
             if (safePreview) {
                 ui.preview.innerHTML = `
                     <div style="display:inline-flex;align-items:center;justify-content:center;width:150px;height:150px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;overflow:hidden;">
-                        <img src="${safePreview}" alt="معاينة صورة المنتج" style="max-width:100%;max-height:100%;object-fit:contain;" onerror="this.style.display='none';this.parentElement.innerHTML='🖼️';this.parentElement.style.fontSize='36px';this.parentElement.style.color='#94a3b8';">
+                        <img src="${safePreview}" alt="معاينة صورة المنتج" style="max-width:100%;max-height:100%;object-fit:contain;" onerror="if(this.dataset.fallbackApplied==='true'){this.onerror=null;this.style.display='none';this.parentElement.innerHTML='🖼️';this.parentElement.style.fontSize='36px';this.parentElement.style.color='#94a3b8';return;}this.dataset.fallbackApplied='true';this.src='${safeFallbackPreview}';">
                     </div>
                 `;
             } else {
@@ -6710,6 +6712,13 @@ function adminLogout(){
                     dateToIso: ordersFilters.dateToIso,
                     searchText: ordersFilters.searchText
                 });
+                const usedIndexFallback = response && response.indexFallbackUsed === true;
+                if (usedIndexFallback && !ordersIndexFallbackNoticeShown) {
+                    ordersIndexFallbackNoticeShown = true;
+                    showNotification('warning', 'فلترة الطلبات تعمل محليًا مؤقتًا لأن فهرس Firestore (status + createdAt) غير جاهز بعد.');
+                } else if (!usedIndexFallback) {
+                    ordersIndexFallbackNoticeShown = false;
+                }
                 const pageRows = Array.isArray(response && response.items) ? response.items : [];
                 const normalizedRows = pageRows.map((row) => ({ id: String(row && row.id || ''), ...row }));
 
@@ -6872,19 +6881,37 @@ function adminLogout(){
             if (!nextStatus || nextStatus === previousStatus) return;
 
             try {
+                await requireAdminPermission();
                 if (typeof window.__firebaseApiUpdateOrderStatus === 'function') {
                     await window.__firebaseApiUpdateOrderStatus(String(id), nextStatus);
+                } else {
+                    throw new Error('firebase-order-status-api-unavailable');
                 }
             } catch (error) {
                 console.error('updateOrderStatus sync error:', error);
-                showNotification('error', 'فشل تحديث الحالة', 'تعذر مزامنة الحالة مع Firebase. حاول مرة أخرى.');
+                const code = String(error && error.code || '').toLowerCase();
+                const message = String(error && error.message || error || '').toLowerCase();
+                let adminMessage = 'تعذر مزامنة الحالة مع Firebase. حاول مرة أخرى.';
+                if (code === 'auth/not-authenticated' || message.includes('not-authenticated')) {
+                    adminMessage = 'يلزم تسجيل الدخول بحساب الأدمن أولاً.';
+                } else if (code === 'auth/email-not-verified' || message.includes('email-not-verified')) {
+                    adminMessage = 'فعّل بريد حساب الأدمن ثم أعد المحاولة.';
+                } else if (code === 'auth/not-admin' || message.includes('not-admin')) {
+                    adminMessage = 'صلاحية الأدمن غير مفعلة أو انتهت. أعد تسجيل الدخول ثم حاول مرة أخرى.';
+                } else if (code === 'permission-denied' || code === 'permission_denied' || message.includes('permission-denied') || message.includes('missing or insufficient permissions')) {
+                    adminMessage = 'رفضت Firebase تحديث الحالة. تأكد من مزامنة مطالبة الأدمن ونشر قواعد Firestore الحالية.';
+                }
+                showNotification('error', adminMessage);
                 renderOrdersTable();
                 return;
             }
 
+            const nowIso = new Date().toISOString();
             o.status = nextStatus;
             if (!o.statusHistory) o.statusHistory = [];
-            o.statusHistory.push({ status: nextStatus, date: new Date().toISOString() });
+            o.statusHistory.push({ status: nextStatus, date: nowIso });
+            o.updatedAt = nowIso;
+            o.version = Math.max(0, Number(o.version || 0)) + 1;
             saveOrders();
             invalidateAnalyticsOrdersCache();
             renderOrdersTable();
@@ -13934,12 +13961,14 @@ function renderAIVisionResults(analyzed) {
 
     successful.forEach((item, idx) => {
         const result = item.result || {};
+        const safeResultImage = escapeUploadHtml(sanitizeImageUrl(String(item.product && (item.product.imageUrl || item.product.image) || '')));
+        const safeResultFallbackImage = escapeUploadHtml(sanitizeImageUrl(''));
         html += `
             <div id="aiResult_${idx}" style="border:1px solid var(--color-border-tertiary);border-radius:10px;padding:14px;margin-bottom:12px">
               <div style="display:flex;gap:12px;align-items:flex-start">
-                <img src="${escapeUploadHtml(String(item.product && (item.product.imageUrl || item.product.image) || ''))}"
+                <img src="${safeResultImage}"
                   style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0"
-                  onerror="this.style.display='none'">
+                  onerror="if(this.dataset.fallbackApplied==='true'){this.onerror=null;this.style.display='none';return;}this.dataset.fallbackApplied='true';this.src='${safeResultFallbackImage}';">
                 <div style="flex:1">
                   <strong>${escapeUploadHtml(String(result.nameAr || item.product.name || ''))}</strong>
                   <span style="font-size:0.75rem;color:var(--color-text-tertiary);margin-right:8px">${escapeUploadHtml(String(result.nameEn || ''))}</span>
