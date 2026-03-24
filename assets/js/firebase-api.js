@@ -81,6 +81,19 @@ function isBackendApiUnavailableError(error) {
     );
 }
 
+function isFirestoreIndexError(error) {
+    if (!error) return false;
+    const code = String(error.code || '').toLowerCase();
+    const message = String(error.message || '').toLowerCase();
+    return (
+        code === 'failed-precondition' ||
+        code === 'failed_precondition' ||
+        message.includes('requires an index') ||
+        message.includes('create_composite') ||
+        (message.includes('index') && message.includes('createdat'))
+    );
+}
+
 // WHY: release-gate checks require a one-time backend warning noise guard marker.
 let backendUnavailableNoticePrinted = false;
 
@@ -1256,6 +1269,7 @@ async function listOrdersPage(options = {}) {
 
     let query = buildQuery(hasAnyFilter ? Math.max(safeLimit, 500) : (safeLimit + 1));
     let fallbackToLocalFiltering = false;
+    let indexFallbackUsed = false;
 
     if (cursorId) {
         const cursorSnapshot = await db.collection('orders').doc(cursorId).get();
@@ -1269,7 +1283,12 @@ async function listOrdersPage(options = {}) {
         snapshot = await query.get();
     } catch (error) {
         if (!hasAnyFilter) throw error;
-        console.warn('[WARN] listOrdersPage filter query fallback to local filtering:', error && error.message ? error.message : error);
+        indexFallbackUsed = isFirestoreIndexError(error);
+        if (indexFallbackUsed) {
+            console.warn('[WARN] listOrdersPage orders filter index unavailable (status + createdAt). Falling back to local filtering:', error && error.message ? error.message : error);
+        } else {
+            console.warn('[WARN] listOrdersPage filter query fallback to local filtering:', error && error.message ? error.message : error);
+        }
         fallbackToLocalFiltering = true;
         let fallbackQuery = db.collection('orders').orderBy('createdAt', 'desc').limit(Math.max(safeLimit, 500));
         if (cursorId) {
@@ -1290,7 +1309,9 @@ async function listOrdersPage(options = {}) {
         return {
             items,
             hasMore: false,
-            nextCursor: ''
+            nextCursor: '',
+            indexFallbackUsed,
+            fallbackReason: indexFallbackUsed ? 'orders-status-createdAt-index-unavailable' : (fallbackToLocalFiltering ? 'local-filter-fallback' : '')
         };
     }
 
@@ -1301,7 +1322,9 @@ async function listOrdersPage(options = {}) {
     return {
         items: pageRows,
         hasMore,
-        nextCursor
+        nextCursor,
+        indexFallbackUsed: false,
+        fallbackReason: ''
     };
 }
 
@@ -1374,11 +1397,45 @@ async function addOrder(order, options = {}) {
     }
 }
 
+async function ensureAdminSessionForOrderWrite() {
+    const auth = getFirebaseAuth();
+    const user = auth && auth.currentUser ? auth.currentUser : null;
+    if (!user) {
+        const notAuthError = new Error('User is not authenticated.');
+        notAuthError.code = 'auth/not-authenticated';
+        throw notAuthError;
+    }
+    if (typeof user.reload === 'function') {
+        await user.reload().catch(() => null);
+    }
+    if (typeof user.getIdToken === 'function') {
+        await user.getIdToken(true).catch(() => null);
+    }
+    const tokenResult = typeof user.getIdTokenResult === 'function'
+        ? await user.getIdTokenResult(true).catch(() => null)
+        : null;
+    if (user.emailVerified !== true) {
+        const verifyError = new Error('Please verify your email first.');
+        verifyError.code = 'auth/email-not-verified';
+        throw verifyError;
+    }
+    const isAdmin = Boolean(tokenResult && tokenResult.claims && (
+        tokenResult.claims.admin === true || tokenResult.claims.role === 'admin'
+    ));
+    if (!isAdmin) {
+        const adminError = new Error('Admin claim is missing or stale.');
+        adminError.code = 'auth/not-admin';
+        throw adminError;
+    }
+    return { user, tokenResult };
+}
+
 async function updateOrderStatus(id, status) {
     try {
         const orderId = String(id || '').trim();
         const nextStatus = String(status || '').trim().toLowerCase();
         if (!orderId || !nextStatus) throw new Error('order id and status are required');
+        await ensureAdminSessionForOrderWrite();
         // WHY: update order status directly in Firestore to remove backend dependency.
         const dbRef = getFirebaseDB();
         const docRef = dbRef.collection('orders').doc(orderId);
@@ -1386,30 +1443,41 @@ async function updateOrderStatus(id, status) {
         if (!snapshot.exists) throw new Error('order not found');
         const current = snapshot.data() || {};
         const nowIso = new Date().toISOString();
+        const currentVersion = Number(current.version || 0);
+        const nextVersion = Number.isFinite(currentVersion) && currentVersion > 0 ? currentVersion + 1 : 1;
         const statusHistory = Array.isArray(current.statusHistory) ? [...current.statusHistory] : [];
         statusHistory.push({ status: nextStatus, date: nowIso, note: 'تم تحديث حالة الطلب' });
 
         await docRef.set({
             status: nextStatus,
             updatedAt: nowIso,
-            statusHistory
+            statusHistory,
+            version: nextVersion
         }, { merge: true });
 
-        await appendOrderEvent(dbRef, 'ORDER_STATUS_UPDATED', {
-            id: orderId,
-            uid: String(current.uid || ''),
-            idempotencyKey: String(current.idempotencyKey || ''),
-            source: String(current.source || 'admin-panel')
-        }, {
-            source: 'admin:status-update',
-            payload: { from: String(current.status || ''), to: nextStatus }
-        });
-        await appendAuditLog(dbRef, 'ORDER_STATUS_UPDATED', {
-            targetId: orderId,
-            scope: 'orders',
-            uid: String(current.uid || ''),
-            details: { from: String(current.status || ''), to: nextStatus }
-        });
+        try {
+            await appendOrderEvent(dbRef, 'ORDER_STATUS_UPDATED', {
+                id: orderId,
+                uid: String(current.uid || ''),
+                idempotencyKey: String(current.idempotencyKey || ''),
+                source: String(current.source || 'admin-panel')
+            }, {
+                source: 'admin:status-update',
+                payload: { from: String(current.status || ''), to: nextStatus }
+            });
+        } catch (eventError) {
+            console.warn('updateOrderStatus order event log warning:', eventError && eventError.message ? eventError.message : eventError);
+        }
+        try {
+            await appendAuditLog(dbRef, 'ORDER_STATUS_UPDATED', {
+                targetId: orderId,
+                scope: 'orders',
+                uid: String(current.uid || ''),
+                details: { from: String(current.status || ''), to: nextStatus }
+            });
+        } catch (auditError) {
+            console.warn('updateOrderStatus audit log warning:', auditError && auditError.message ? auditError.message : auditError);
+        }
 
     } catch (e) {
         console.error('updateOrderStatus error:', e);
