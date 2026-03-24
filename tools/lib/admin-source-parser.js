@@ -223,6 +223,12 @@ function maskCommentsAndLiterals(code) {
         i += 2;
         continue;
       }
+      if (ch === '/' && isRegexLiteralStart(source, i)) {
+        state = 'regex';
+        chars[i] = ' ';
+        i += 1;
+        continue;
+      }
       i += 1;
       continue;
     }
@@ -257,6 +263,40 @@ function maskCommentsAndLiterals(code) {
       continue;
     }
 
+    if (state === 'regex' && ch === '\\') {
+      if (i + 1 < source.length) {
+        chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+      }
+      i += 2;
+      continue;
+    }
+
+    if (state === 'regex' && ch === '[') {
+      state = 'regex-class';
+      i += 1;
+      continue;
+    }
+
+    if (state === 'regex' && ch === '/') {
+      state = 'normal';
+      i += 1;
+      continue;
+    }
+
+    if (state === 'regex-class' && ch === '\\') {
+      if (i + 1 < source.length) {
+        chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+      }
+      i += 2;
+      continue;
+    }
+
+    if (state === 'regex-class' && ch === ']') {
+      state = 'regex';
+      i += 1;
+      continue;
+    }
+
     i += 1;
   }
 
@@ -282,6 +322,43 @@ function previousSignificantChar(text, index) {
   return '';
 }
 
+function previousSignificantToken(text, index) {
+  for (let i = index - 1; i >= 0; i -= 1) {
+    const ch = text[i];
+    if (/\s/.test(ch)) continue;
+    if (/[A-Za-z0-9_$]/.test(ch)) {
+      let start = i;
+      while (start - 1 >= 0 && /[A-Za-z0-9_$]/.test(text[start - 1])) {
+        start -= 1;
+      }
+      return text.slice(start, i + 1);
+    }
+    return ch;
+  }
+  return '';
+}
+
+function isRegexLiteralStart(text, index) {
+  const token = previousSignificantToken(text, index);
+  if (!token) return true;
+  if (/^[([{,;:?=!&|^~+\-*%<>]$/.test(token)) return true;
+  return /^(return|case|throw|delete|typeof|instanceof|in|of|new|void|do|else|yield|await)$/.test(token);
+}
+
+function buildBraceDepthMap(maskedCode) {
+  const depthMap = new Array(maskedCode.length);
+  let depth = 0;
+  for (let i = 0; i < maskedCode.length; i += 1) {
+    depthMap[i] = depth;
+    if (maskedCode[i] === '{') {
+      depth += 1;
+    } else if (maskedCode[i] === '}') {
+      depth = Math.max(0, depth - 1);
+    }
+  }
+  return depthMap;
+}
+
 function parseFunctionsFromScriptFallback(script) {
   const source = normalizeNewlines(script && script.content || '');
   if (!source.trim()) return [];
@@ -289,33 +366,46 @@ function parseFunctionsFromScriptFallback(script) {
   const masked = maskCommentsAndLiterals(source);
   const lineStarts = buildLineStarts(masked);
   const rows = [];
-  const regex = /\b(async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+  const seenStarts = new Set();
   let match;
 
-  while ((match = regex.exec(masked)) !== null) {
-    const start = match.index;
-    const prev = previousSignificantChar(masked, start);
-    if (/[\w$.=:[(]/.test(prev)) {
-      continue;
-    }
-
-    const braceStart = masked.indexOf('{', regex.lastIndex);
-    if (braceStart < 0) continue;
+  function pushRow(name, start, braceStart, isAsync) {
+    if (!name || start < 0 || braceStart < 0 || seenStarts.has(start)) return;
     const braceEnd = findMatchingBrace(masked, braceStart);
-    if (braceEnd < 0) continue;
-
-    const name = String(match[2] || '').trim();
-    if (!name) continue;
-
+    if (braceEnd < 0) return;
     const rawBody = source.slice(start, braceEnd + 1);
+    seenStarts.add(start);
     rows.push({
-      name,
-      isAsync: Boolean(match[1]),
+      name: String(name).trim(),
+      isAsync: Boolean(isAsync),
       line: Number(script.startLine + lineForIndex(lineStarts, start) - 1),
       scriptIndex: Number(script.scriptIndex || 0),
       canonicalBody: normalizeWhitespace(rawBody),
       rawBody: normalizeNewlines(rawBody).trim()
     });
+  }
+
+  const declarationRegex = /\b(async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+  while ((match = declarationRegex.exec(masked)) !== null) {
+    const start = match.index;
+    const prev = previousSignificantChar(masked, start);
+    if (/[\w$.=:[(]/.test(prev)) continue;
+    const braceStart = masked.indexOf('{', declarationRegex.lastIndex);
+    pushRow(match[2], start, braceStart, Boolean(match[1]));
+  }
+
+  const assignedFunctionRegex = /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(async\s+)?function\b/g;
+  while ((match = assignedFunctionRegex.exec(masked)) !== null) {
+    const start = match.index;
+    const braceStart = masked.indexOf('{', assignedFunctionRegex.lastIndex);
+    pushRow(match[1], start, braceStart, Boolean(match[2]));
+  }
+
+  const assignedArrowRegex = /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(async\s+)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*=>\s*\{/g;
+  while ((match = assignedArrowRegex.exec(masked)) !== null) {
+    const start = match.index;
+    const braceStart = masked.indexOf('{', assignedArrowRegex.lastIndex - 1);
+    pushRow(match[1], start, braceStart, Boolean(match[2]));
   }
 
   return rows;

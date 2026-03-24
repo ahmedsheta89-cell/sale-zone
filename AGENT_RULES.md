@@ -60,3 +60,12 @@ node tools/smoke-check.js      ← MUST PASS
 المتجر يقرأ الـ flags عند التحميل
 الأدمن يغيرها من لوحة التحكم
 ```
+
+### ?? Governance Tools � SACRED RULES
+```
+1. NEVER modify governance tools unless explicitly asked
+2. ALWAYS run npm ci before running tools
+3. NEVER commit a registry with fewer functions
+4. If governance fails, fix YOUR code, not the tools
+5. Protected files: tools/*.js, .github/workflows/*.yml
+```
