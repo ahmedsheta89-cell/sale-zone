@@ -1634,6 +1634,8 @@ function normalizeSupplierPayload(payload, defaults = {}) {
         code: String(source.code || base.code || '').trim().toUpperCase(),
         contactName: String(source.contactName || base.contactName || '').trim(),
         phone: String(source.phone || base.phone || '').trim(),
+        email: String(source.email || base.email || '').trim(),
+        address: String(source.address || base.address || '').trim(),
         notes: String(source.notes || base.notes || '').trim(),
         defaultMarginPercent: roundMoney(Math.max(0, Math.min(1000, toFiniteNumber(source.defaultMarginPercent, base.defaultMarginPercent || 0)))),
         active: source.active !== false,
@@ -1688,6 +1690,16 @@ async function archiveSupplier(id) {
         }, { merge: true });
     } catch (e) {
         console.error('archiveSupplier error:', e);
+        throw e;
+    }
+}
+
+async function deleteSupplier(id) {
+    try {
+        const db = getFirebaseDB();
+        await db.collection('suppliers').doc(String(id)).delete();
+    } catch (e) {
+        console.error('deleteSupplier error:', e);
         throw e;
     }
 }
