@@ -307,14 +307,13 @@ function parseFunctionsFromScriptFallback(script) {
     const name = String(match[2] || '').trim();
     if (!name) continue;
 
-    const maskedBody = masked.slice(start, braceEnd + 1);
     const rawBody = source.slice(start, braceEnd + 1);
     rows.push({
       name,
       isAsync: Boolean(match[1]),
       line: Number(script.startLine + lineForIndex(lineStarts, start) - 1),
       scriptIndex: Number(script.scriptIndex || 0),
-      canonicalBody: normalizeWhitespace(maskedBody),
+      canonicalBody: normalizeWhitespace(rawBody),
       rawBody: normalizeNewlines(rawBody).trim()
     });
   }
