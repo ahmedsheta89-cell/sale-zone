@@ -40,6 +40,16 @@ function readJson(root, relPath) {
   return { raw, data: JSON.parse(raw) };
 }
 
+function readExistingRegistry(root, relPath) {
+  const absolute = path.join(root, relPath);
+  if (!fs.existsSync(absolute)) return null;
+  try {
+    return readJson(root, relPath).data;
+  } catch (_) {
+    return null;
+  }
+}
+
 function compileGroupRules(policy) {
   const rules = ensureArray(policy && policy.groupRules);
   return rules.map((rule, idx) => {
@@ -166,12 +176,32 @@ function writeArtifact(root, relPath, artifact) {
   fs.writeFileSync(absolute, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
 }
 
+function assertRegistryRegressionGuard(root, relPath, artifact) {
+  const existing = readExistingRegistry(root, relPath);
+  if (!existing) return;
+
+  const previousCount = ensureArray(existing.functions).length;
+  const nextCount = ensureArray(artifact && artifact.functions).length;
+  if (previousCount <= 0) return;
+
+  const minimumAllowed = previousCount * 0.9;
+  if (nextCount < minimumAllowed) {
+    const minimumRounded = Math.ceil(minimumAllowed);
+    throw new Error(
+      `Registry regression blocked: new function count ${nextCount} is below previous ${previousCount} `
+      + `(minimum allowed ${minimumRounded}). Likely cause: parser regression or missing root dependencies. `
+      + `Run npm ci before regenerating and fix the parser/output instead of committing a shrunken registry.`
+    );
+  }
+}
+
 function generateRegistryArtifact(options = {}) {
   const root = options.root || process.cwd();
   const outFile = options.outFile || DEFAULT_REGISTRY_FILE;
   const result = buildArtifact(options);
 
   if (options.writeFile !== false) {
+    assertRegistryRegressionGuard(root, outFile, result.artifact);
     writeArtifact(root, outFile, result.artifact);
   }
 
