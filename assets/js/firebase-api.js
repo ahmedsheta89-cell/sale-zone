@@ -530,19 +530,63 @@ function cleanImageField(value) {
     return cleaned;
 }
 
-async function triggerFeedRegenerationAfterProductChange() {
-    if (typeof window === 'undefined') return;
+let feedRegenerationTimer = null;
+let pendingFeedProducts = null;
+const FEED_REGEN_DEBOUNCE_MS = 3000;
+
+function clearPendingFeedRegeneration() {
+    if (feedRegenerationTimer) {
+        clearTimeout(feedRegenerationTimer);
+        feedRegenerationTimer = null;
+    }
+    pendingFeedProducts = null;
+}
+
+async function runFeedRegeneration(products = null) {
+    if (typeof window === 'undefined') return false;
     try {
         if (typeof window.regenerateFeed === 'function') {
-            await window.regenerateFeed();
-            return;
+            await window.regenerateFeed(Array.isArray(products) ? products : null);
+            return true;
         }
         if (typeof window.triggerFeedRegeneration === 'function') {
-            await window.triggerFeedRegeneration();
+            await window.triggerFeedRegeneration(Array.isArray(products) ? products : null);
+            return true;
         }
     } catch (_) {
         // WHY: product persistence must not fail because feed caching failed.
     }
+    return false;
+}
+
+async function triggerFeedRegenerationAfterProductChange(options = {}) {
+    const settings = options && typeof options === 'object' ? options : {};
+    if (typeof window === 'undefined') return false;
+    if (settings.cancelPending === true) {
+        clearPendingFeedRegeneration();
+        return false;
+    }
+    if (settings.suppressFeedRegen === true) return false;
+
+    const explicitProducts = Array.isArray(settings.products) ? settings.products : null;
+
+    if (settings.immediate === true) {
+        clearPendingFeedRegeneration();
+        return runFeedRegeneration(explicitProducts);
+    }
+
+    if (explicitProducts) {
+        pendingFeedProducts = explicitProducts;
+    }
+
+    if (feedRegenerationTimer) clearTimeout(feedRegenerationTimer);
+    feedRegenerationTimer = setTimeout(() => {
+        const queuedProducts = Array.isArray(pendingFeedProducts) ? pendingFeedProducts : null;
+        feedRegenerationTimer = null;
+        pendingFeedProducts = null;
+        runFeedRegeneration(queuedProducts).catch(() => false);
+    }, FEED_REGEN_DEBOUNCE_MS);
+    return true;
 }
 
 function normalizeProductPayloadForWrite(product, options = {}) {
@@ -650,13 +694,13 @@ async function getPublishedProducts() {
     }
 }
 
-async function addProduct(product) {
+async function addProduct(product, options = {}) {
     try {
         const payload = normalizeProductPayloadForWrite(product, { defaults: { isPublished: true } });
         // WHY: create products directly in Firestore to remove backend dependency.
         const db = getFirebaseDB();
         const docRef = await db.collection('products').add(payload);
-        await triggerFeedRegenerationAfterProductChange();
+        await triggerFeedRegenerationAfterProductChange(options);
         return docRef.id;
     } catch (e) {
         console.error('addProduct error:', e);
@@ -664,7 +708,7 @@ async function addProduct(product) {
     }
 }
 
-async function updateProduct(id, data) {
+async function updateProduct(id, data, options = {}) {
     try {
         const payload = data && typeof data === 'object' ? data : {};
         const normalizedPayload = normalizeProductPayloadForWrite(payload, {
@@ -675,7 +719,7 @@ async function updateProduct(id, data) {
         const docId = String(id || '').trim();
         if (!docId) throw new Error('product id is required');
         await db.collection('products').doc(docId).set(normalizedPayload, { merge: true });
-        await triggerFeedRegenerationAfterProductChange();
+        await triggerFeedRegenerationAfterProductChange(options);
     } catch (e) {
         console.error('updateProduct error:', e);
         throw e;
@@ -686,6 +730,7 @@ async function addProductsBatch(productsArray, options = {}) {
     try {
         const items = Array.isArray(productsArray) ? productsArray : [];
         if (items.length === 0) return [];
+        const shouldRegenerateFeed = options.suppressFeedRegen !== true;
 
         const chunkSize = Math.max(1, Math.min(200, Number(options.chunkSize) || 100));
         const defaults = {
@@ -695,16 +740,22 @@ async function addProductsBatch(productsArray, options = {}) {
         };
 
         const createdIds = [];
+        if (shouldRegenerateFeed) {
+            await triggerFeedRegenerationAfterProductChange({ cancelPending: true });
+        }
 
         for (let offset = 0; offset < items.length; offset += chunkSize) {
             const chunk = items.slice(offset, offset + chunkSize);
             for (const item of chunk) {
                 const payload = normalizeProductPayloadForWrite(item, { defaults });
-                const createdId = await addProduct(payload);
+                const createdId = await addProduct(payload, { suppressFeedRegen: true });
                 if (createdId) createdIds.push(String(createdId));
             }
         }
 
+        if (shouldRegenerateFeed) {
+            await triggerFeedRegenerationAfterProductChange({ immediate: true });
+        }
         return createdIds;
     } catch (e) {
         console.error('addProductsBatch error:', e);
@@ -729,10 +780,15 @@ async function updateProductsVisibilityBatch(ids, isPublished, options = {}) {
     try {
         const list = Array.isArray(ids) ? ids.map((x) => String(x || '').trim()).filter(Boolean) : [];
         if (list.length === 0) return 0;
+        const shouldRegenerateFeed = options.suppressFeedRegen !== true;
 
         const published = isPublished !== false;
         const chunkSize = Math.max(1, Math.min(200, Number(options.chunkSize) || 100));
         let updatedCount = 0;
+
+        if (shouldRegenerateFeed) {
+            await triggerFeedRegenerationAfterProductChange({ cancelPending: true });
+        }
 
         for (let offset = 0; offset < list.length; offset += chunkSize) {
             const chunk = list.slice(offset, offset + chunkSize);
@@ -740,11 +796,14 @@ async function updateProductsVisibilityBatch(ids, isPublished, options = {}) {
                 await updateProduct(String(productId), {
                     isPublished: published,
                     visibilityState: published ? 'published' : 'hidden'
-                });
+                }, { suppressFeedRegen: true });
                 updatedCount += 1;
             }
         }
 
+        if (shouldRegenerateFeed) {
+            await triggerFeedRegenerationAfterProductChange({ immediate: true });
+        }
         return updatedCount;
     } catch (e) {
         console.error('updateProductsVisibilityBatch error:', e);
@@ -756,18 +815,26 @@ async function deleteProductsBatch(ids, options = {}) {
     try {
         const list = Array.isArray(ids) ? ids.map((x) => String(x || '').trim()).filter(Boolean) : [];
         if (list.length === 0) return 0;
+        const shouldRegenerateFeed = options.suppressFeedRegen !== true;
 
         const chunkSize = Math.max(1, Math.min(200, Number(options.chunkSize) || 100));
         let deletedCount = 0;
 
+        if (shouldRegenerateFeed) {
+            await triggerFeedRegenerationAfterProductChange({ cancelPending: true });
+        }
+
         for (let offset = 0; offset < list.length; offset += chunkSize) {
             const chunk = list.slice(offset, offset + chunkSize);
             for (const productId of chunk) {
-                await deleteProductFromFirebase(productId);
+                await deleteProductFromFirebase(productId, { suppressFeedRegen: true });
                 deletedCount += 1;
             }
         }
 
+        if (shouldRegenerateFeed) {
+            await triggerFeedRegenerationAfterProductChange({ immediate: true });
+        }
         return deletedCount;
     } catch (e) {
         console.error('deleteProductsBatch error:', e);
@@ -775,13 +842,14 @@ async function deleteProductsBatch(ids, options = {}) {
     }
 }
 
-async function deleteProductFromFirebase(id) {
+async function deleteProductFromFirebase(id, options = {}) {
     try {
         // WHY: delete products directly from Firestore.
         const db = getFirebaseDB();
         const docId = String(id || '').trim();
         if (!docId) throw new Error('product id is required');
         await db.collection('products').doc(docId).delete();
+        await triggerFeedRegenerationAfterProductChange(options);
     } catch (e) {
         console.error('deleteProduct error:', e);
         throw e;
