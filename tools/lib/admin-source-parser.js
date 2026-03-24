@@ -341,7 +341,18 @@ function sortFunctions(rows) {
 
 function parseAdminFunctions(htmlSource) {
   if (!parse5 || !acorn || !astring) {
-    throw new Error('AST parser dependencies are missing. Install parse5, acorn, and astring in sale-zone/package.json.');
+    const fallbackSource = normalizeNewlines(htmlSource);
+    const fallbackScripts = collectInlineScriptsFallback(fallbackSource);
+    const fallbackFunctions = [];
+    for (const script of fallbackScripts) {
+      const parsed = parseFunctionsFromScriptFallback(script);
+      fallbackFunctions.push(...parsed);
+    }
+    return {
+      parserMode: 'fallback',
+      scriptsCount: fallbackScripts.length,
+      functions: sortFunctions(fallbackFunctions)
+    };
   }
 
   const source = normalizeNewlines(htmlSource);

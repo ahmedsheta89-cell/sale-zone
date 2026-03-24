@@ -1214,6 +1214,7 @@
                             <button class="btn btn-success" onclick="exportProductsExcel()">📤 Excel</button>
                             <button class="btn btn-info" onclick="openImportWizard()">📥 استيراد مرن</button>
                             <button id="excelImagesUploaderBtn" class="btn btn-success btn-lg" aria-label="رفع الصور المطلوبة من الإكسل إلى Cloudinary" title="رفع الصور المطلوبة من الإكسل إلى Cloudinary" onclick="openExcelImagesOnlyUploader()">📁 رفع الصور اللي في الإكسل فقط (Cloudinary)</button>
+                            <button id="productBulkImagesUploaderBtn" class="btn btn-gold" aria-label="رفع صور متعددة إلى Cloudinary" title="رفع صور متعددة إلى Cloudinary" onclick="openBulkProductImageUploader()">📸 رفع صور بالجملة</button>
                             <button class="btn btn-navy" onclick="publishBatchPrompt()">🚀 نشر دفعة</button>
                             <button class="btn btn-warning" onclick="setAllProductsVisibility(false)">🙈 إخفاء الكل</button>
                             <button class="btn btn-danger" onclick="deleteAllProducts()">🧨 مسح الكل</button>
@@ -2332,7 +2333,7 @@
     </div>
 
     <div class="modal-body">
-      <form onsubmit="saveProduct(event)">
+      <form id="productForm" onsubmit="saveProduct(event)">
         <input type="hidden" id="productId">
 
         <div class="form-group">
@@ -2421,18 +2422,29 @@
           <label>🖼️ صورة المنتج</label>
 
           <!-- رفع من الجهاز -->
-          <input type="file" id="imgFile" accept="image/*" style="display:none" onchange="uploadAndPreview(this)">
-          <button type="button"
+          <input type="file" id="imgFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="uploadAndPreview(this)">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button type="button" id="productImageUploadBtn"
                   onclick="document.getElementById('imgFile').click()"
-                  style="background:#D4AF37;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;">
+                  style="background:#D4AF37;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;"
+                  aria-label="رفع صورة جديدة من الجهاز">
             📁 رفع من الجهاز
           </button>
+          <button type="button" id="productImageRemoveBtn"
+                  onclick="removeSelectedProductImage()"
+                  style="background:#fff;color:#b91c1c;padding:10px 16px;border:1px solid #fecaca;border-radius:8px;cursor:pointer;"
+                  aria-label="إزالة صورة المنتج">
+            🗑️ إزالة الصورة
+          </button>
+          </div>
 
+          <div id="productImageUploadStatus" style="margin-top:10px;font-size:12px;color:#64748b;"></div>
           <div id="imgPreview" style="margin-top:10px;"></div>
+          <div id="productImageMeta" style="margin-top:8px;font-size:12px;color:#475569;line-height:1.7;word-break:break-word;"></div>
 
           <!-- أو رابط -->
           <div style="margin:10px 0;color:#999;text-align:center;">— أو أدخل رابط —</div>
-          <input type="url" id="manualImg" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;direction:ltr;">
+          <input type="url" id="manualImg" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;direction:ltr;" oninput="syncManualImagePreviewFromInput()" onchange="syncManualImagePreviewFromInput()">
 
           <!-- رابط نهائي (يتم تعبئته تلقائياً بعد الرفع) -->
           <input type="hidden" id="finalImg">
@@ -2449,7 +2461,7 @@
 
         <!-- زر حفظ المنتج (اللي كان ناقص) -->
         <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #eee; text-align: center;">
-          <button type="submit" class="submit-btn" style="min-width: 220px; font-size: 16px; font-weight: bold;">
+          <button type="submit" id="productSaveBtn" class="submit-btn" style="min-width: 220px; font-size: 16px; font-weight: bold;">
             💾 حفظ المنتج
           </button>
         </div>
@@ -4405,7 +4417,7 @@ function adminLogout(){
                 return `
                 <tr>
                     <td><input type="checkbox" class="product-checkbox" data-id="${safeProductId}" style="width:18px;height:18px;cursor:pointer;" aria-label="تحديد المنتج ${safeName}"></td>
-                    <td><div class="product-cell"><img src="${safeImageSrc}" class="product-img" alt="${safeName}" onerror="this.src='${safeFallbackImage}'"><div><strong>${safeName}</strong>${safeBrand ? `<div style="font-size:11px;color:#64748b;">${safeBrand}</div>` : ''}</div></div></td>
+                    <td><div class="product-cell"><img src="${safeImageSrc}" class="product-img" alt="${safeName}" loading="lazy" decoding="async" onerror="this.src='${safeFallbackImage}'"><div><strong>${safeName}</strong>${safeBrand ? `<div style="font-size:11px;color:#64748b;">${safeBrand}</div>` : ''}</div></div></td>
                     <td>${safeCategory}</td>
                     <td>${safeSupplier}</td>
                     <td><strong>${safeCost} ج.م</strong></td>
@@ -4982,9 +4994,150 @@ function adminLogout(){
             }
         }
 
+        const productImageUploadState = {
+            uploading: false,
+            previewObjectUrl: '',
+            selectedFileName: ''
+        };
+
+        function getProductImageUiElements() {
+            return {
+                preview: document.getElementById('imgPreview'),
+                meta: document.getElementById('productImageMeta'),
+                status: document.getElementById('productImageUploadStatus'),
+                manualInput: document.getElementById('manualImg'),
+                finalInput: document.getElementById('finalImg'),
+                fileInput: document.getElementById('imgFile'),
+                saveButton: document.getElementById('productSaveBtn'),
+                uploadButton: document.getElementById('productImageUploadBtn'),
+                removeButton: document.getElementById('productImageRemoveBtn')
+            };
+        }
+
+        function clearProductImagePreviewObjectUrl() {
+            if (!productImageUploadState.previewObjectUrl) return;
+            try { URL.revokeObjectURL(productImageUploadState.previewObjectUrl); } catch (_) {}
+            productImageUploadState.previewObjectUrl = '';
+        }
+
+        function sanitizeProductImagePreviewValue(value, size = 'thumbnail') {
+            const rawValue = String(value || '').trim();
+            if (!rawValue) return '';
+            if (typeof window.enhanceProductImageUrl === 'function') {
+                return window.enhanceProductImageUrl(rawValue, size);
+            }
+            return sanitizeImageUrl(rawValue);
+        }
+
+        function escapeProductImageText(value) {
+            return typeof escapeHtml === 'function' ? escapeHtml(String(value || '')) : String(value || '');
+        }
+
+        function renderProductImagePreview(options = {}) {
+            const ui = getProductImageUiElements();
+            if (!ui.preview || !ui.meta) return;
+
+            const previewSrc = String(options.previewSrc || '').trim();
+            const value = String(options.value || '').trim();
+            const sourceLabel = String(options.sourceLabel || (value ? 'الصورة الحالية' : 'بدون صورة')).trim();
+            const selectedFileName = String(options.selectedFileName || '').trim();
+            const statusText = String(options.statusText || '').trim();
+            const displayToken = value ? (cleanImageField(value) || value) : '';
+            const safePreview = previewSrc ? escapeProductImageText(previewSrc) : '';
+
+            if (safePreview) {
+                ui.preview.innerHTML = `
+                    <div style="display:inline-flex;align-items:center;justify-content:center;width:150px;height:150px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;overflow:hidden;">
+                        <img src="${safePreview}" alt="معاينة صورة المنتج" style="max-width:100%;max-height:100%;object-fit:contain;" onerror="this.style.display='none';this.parentElement.innerHTML='🖼️';this.parentElement.style.fontSize='36px';this.parentElement.style.color='#94a3b8';">
+                    </div>
+                `;
+            } else {
+                ui.preview.innerHTML = `
+                    <div style="display:inline-flex;align-items:center;justify-content:center;width:150px;height:150px;border-radius:12px;border:1px dashed #cbd5e1;background:#f8fafc;color:#94a3b8;font-size:36px;">
+                        🖼️
+                    </div>
+                `;
+            }
+
+            ui.meta.innerHTML = [
+                `<div><strong>المصدر:</strong> ${escapeProductImageText(sourceLabel)}</div>`,
+                selectedFileName ? `<div><strong>الملف المحدد:</strong> ${escapeProductImageText(selectedFileName)}</div>` : '',
+                displayToken ? `<div style="direction:ltr;"><strong>الرابط / المفتاح:</strong> ${escapeProductImageText(displayToken)}</div>` : '<div>لا توجد صورة محفوظة في النموذج حالياً.</div>'
+            ].filter(Boolean).join('');
+
+            if (ui.status) {
+                ui.status.textContent = statusText;
+                ui.status.style.color = productImageUploadState.uploading ? '#0f766e' : '#64748b';
+            }
+        }
+
+        function setProductImageUploadBusy(isBusy, statusText = '') {
+            const ui = getProductImageUiElements();
+            productImageUploadState.uploading = isBusy === true;
+            if (ui.saveButton) {
+                if (!ui.saveButton.dataset.originalLabel) {
+                    ui.saveButton.dataset.originalLabel = ui.saveButton.textContent || '💾 حفظ المنتج';
+                }
+                ui.saveButton.disabled = productImageUploadState.uploading;
+                ui.saveButton.textContent = productImageUploadState.uploading
+                    ? '⏳ جارٍ رفع الصورة...'
+                    : ui.saveButton.dataset.originalLabel;
+            }
+            if (ui.uploadButton) ui.uploadButton.disabled = productImageUploadState.uploading;
+            if (ui.removeButton) ui.removeButton.disabled = productImageUploadState.uploading;
+            if (ui.fileInput) ui.fileInput.disabled = productImageUploadState.uploading;
+            if (ui.status) {
+                ui.status.textContent = statusText;
+                ui.status.style.color = productImageUploadState.uploading ? '#0f766e' : '#64748b';
+            }
+        }
+
+        function syncManualImagePreviewFromInput() {
+            if (productImageUploadState.uploading) return;
+            const ui = getProductImageUiElements();
+            const manualValue = String(ui.manualInput?.value || '').trim();
+            const finalValue = String(ui.finalInput?.value || '').trim();
+            if (!manualValue && finalValue) {
+                renderProductImagePreview({
+                    previewSrc: sanitizeProductImagePreviewValue(finalValue, 'thumbnail'),
+                    value: finalValue,
+                    sourceLabel: 'صورة مرفوعة',
+                    selectedFileName: productImageUploadState.selectedFileName
+                });
+                return;
+            }
+            clearProductImagePreviewObjectUrl();
+            renderProductImagePreview({
+                previewSrc: sanitizeProductImagePreviewValue(manualValue, 'thumbnail'),
+                value: manualValue,
+                sourceLabel: manualValue ? 'رابط يدوي' : 'بدون صورة',
+                statusText: manualValue ? 'سيتم استخدام الرابط اليدوي عند حفظ المنتج.' : ''
+            });
+        }
+
+        function removeSelectedProductImage() {
+            if (productImageUploadState.uploading) {
+                showNotification('warning', 'انتظر حتى يكتمل رفع الصورة أولاً.');
+                return;
+            }
+            const ui = getProductImageUiElements();
+            clearProductImagePreviewObjectUrl();
+            productImageUploadState.selectedFileName = '';
+            if (ui.fileInput) ui.fileInput.value = '';
+            if (ui.finalInput) ui.finalInput.value = '';
+            if (ui.manualInput) ui.manualInput.value = '';
+            renderProductImagePreview({
+                previewSrc: '',
+                value: '',
+                sourceLabel: 'بدون صورة',
+                statusText: 'تمت إزالة الصورة من النموذج. سيُستخدم العنصر الافتراضي عند الحفظ.'
+            });
+            showNotification('info', 'تمت إزالة الصورة من النموذج.');
+        }
+
         function buildProductPayloadFromForm() {
-            const imageFromUpload = document.getElementById('finalImg').value;
-            const imageFromManual = document.getElementById('manualImg').value;
+            const imageFromUpload = String(document.getElementById('finalImg').value || '').trim();
+            const imageFromManual = String(document.getElementById('manualImg').value || '').trim();
             const selectedCategory = document.getElementById('productCategory').value;
             const productIsPublished = document.getElementById('productIsPublished').checked;
             const supplierId = String(document.getElementById('productSupplierId')?.value || '').trim();
@@ -5024,7 +5177,7 @@ function adminLogout(){
                 manualPriceOverride,
                 manualPriceReason,
                 oldPrice: Number.isFinite(rawOldPrice) && rawOldPrice > 0 ? rawOldPrice : null,
-                image: imageFromUpload || imageFromManual || DEFAULT_PRODUCT_IMAGE,
+                image: imageFromManual || imageFromUpload || DEFAULT_PRODUCT_IMAGE,
                 rating: 4.5,
                 ratingCount: 0,
                 code: String(document.getElementById('productCode')?.value || '').trim(),
@@ -5316,6 +5469,10 @@ function adminLogout(){
 
         async function saveProduct(e) {
             e.preventDefault();
+            if (productImageUploadState.uploading) {
+                showNotification('warning', 'انتظر حتى يكتمل رفع الصورة أولاً.');
+                return;
+            }
             const id = document.getElementById('productId').value.trim();
             let payload;
             try {
@@ -5459,14 +5616,14 @@ function adminLogout(){
             const img = p.image || '';
             document.getElementById('finalImg').value = img;
             document.getElementById('manualImg').value = img;
-
-            const preview = document.getElementById('imgPreview');
-            if (preview) {
-                const safeImg = img ? sanitizeImageUrl(img) : '';
-                preview.innerHTML = safeImg
-                    ? `<img src="${safeImg}" alt="معاينة المنتج الحالية" style="max-width:150px;border-radius:8px;border:2px solid #D4AF37;margin-top:10px;" onerror="this.style.display='none'">`
-                    : '';
-            }
+            productImageUploadState.selectedFileName = '';
+            clearProductImagePreviewObjectUrl();
+            renderProductImagePreview({
+                previewSrc: img ? sanitizeProductImagePreviewValue(img, 'thumbnail') : '',
+                value: img,
+                sourceLabel: img ? 'الصورة الحالية' : 'بدون صورة'
+            });
+            setProductImageUploadBusy(false);
 
             const fileInput = document.getElementById('imgFile');
             if (fileInput) fileInput.value = '';
@@ -5542,8 +5699,14 @@ function adminLogout(){
                 else el.value = '';
             });
 
-            const preview = document.getElementById('imgPreview');
-            if (preview) preview.innerHTML = '';
+            productImageUploadState.selectedFileName = '';
+            clearProductImagePreviewObjectUrl();
+            setProductImageUploadBusy(false);
+            renderProductImagePreview({
+                previewSrc: '',
+                value: '',
+                sourceLabel: 'بدون صورة'
+            });
 
             const legacy = ['productImage', 'productImageUrl', 'imagePreviewContainer', 'uploadStatus'];
             legacy.forEach((id) => {
@@ -10208,6 +10371,10 @@ function adminLogout(){
             openModal('productModal');
         }
 function closeModal(modalId) {
+  if (modalId === 'productModal' && typeof productImageUploadState !== 'undefined' && productImageUploadState.uploading) {
+    showNotification('warning', 'انتظر حتى يكتمل رفع الصورة أولاً.');
+    return;
+  }
   document.getElementById(modalId)?.classList.remove('active');
   if (modalId === 'productModal') resetProductForm();
   if (modalId === 'supplierModal') resetSupplierForm();
@@ -10495,7 +10662,8 @@ function closeModal(modalId) {
     <script>
 const EXCEL_IMAGE_UPLOAD_MODAL_ID = 'excelCloudinaryUploadModal';
 const EXCEL_UPLOADER_BUTTON_ID = 'excelImagesUploaderBtn';
-const EXCEL_UPLOAD_DELAY_MS = 300;
+const BULK_IMAGE_UPLOADER_BUTTON_ID = 'productBulkImagesUploaderBtn';
+const EXCEL_UPLOAD_DELAY_MS = 120;
 const EXCEL_PREVIEW_LIMIT = 400;
 const EXCEL_PREVIEW_RENDER_BATCH = 80;
 const EXCEL_LARGE_SELECTION_WARN = 500;
@@ -10515,6 +10683,23 @@ const EXCEL_EXT_PRIORITY = {
     svg: 10
 };
 
+const IMAGE_UPLOADER_MODES = {
+    excel: {
+        title: '📁 رفع صور المنتجات المطلوبة',
+        buttonId: EXCEL_UPLOADER_BUTTON_ID,
+        initialSummary: 'جارٍ تجهيز صور المنتجات المطلوبة من بيانات الأدمن...'
+    },
+    generic: {
+        title: '📸 رفع صور بالجملة',
+        buttonId: BULK_IMAGE_UPLOADER_BUTTON_ID,
+        initialSummary: 'اختر الصور التي تريد رفعها إلى Cloudinary. لن يتم ربطها بالمنتجات تلقائيًا.'
+    }
+};
+
+function getImageUploaderModeConfig(mode = 'excel') {
+    return IMAGE_UPLOADER_MODES[String(mode || 'excel')] || IMAGE_UPLOADER_MODES.excel;
+}
+
 function getExcelImageUploaderRuntime() {
     if (!window.__excelImageUploaderRuntime) {
         window.__excelImageUploaderRuntime = {
@@ -10530,7 +10715,9 @@ function getExcelImageUploaderRuntime() {
             lastFailedItems: [],
             uploadSessionId: null,
             retryTimerId: null,
-            lastLiveUpdateAt: 0
+            lastLiveUpdateAt: 0,
+            mode: 'excel',
+            triggerButtonId: EXCEL_UPLOADER_BUTTON_ID
         };
     }
     return window.__excelImageUploaderRuntime;
@@ -10626,12 +10813,14 @@ function createPreviewObjectUrl(file) {
 }
 
 function toggleExcelUploaderButtonLoading(isLoading) {
-    const button = document.getElementById(EXCEL_UPLOADER_BUTTON_ID);
+    const runtime = getExcelImageUploaderRuntime();
+    const config = getImageUploaderModeConfig(runtime.mode);
+    const button = document.getElementById(runtime.triggerButtonId || config.buttonId || EXCEL_UPLOADER_BUTTON_ID);
     if (!button) return;
 
     if (isLoading) {
         if (!button.dataset.originalLabel) {
-            button.dataset.originalLabel = button.textContent || '📁 رفع الصور اللي في الإكسل فقط (Cloudinary)';
+            button.dataset.originalLabel = button.textContent || config.title;
         }
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
@@ -10642,6 +10831,28 @@ function toggleExcelUploaderButtonLoading(isLoading) {
     button.disabled = false;
     button.removeAttribute('aria-busy');
     if (button.dataset.originalLabel) button.textContent = button.dataset.originalLabel;
+}
+
+function configureImageUploaderMode(mode = 'excel') {
+    const runtime = getExcelImageUploaderRuntime();
+    const config = getImageUploaderModeConfig(mode);
+    runtime.mode = String(mode || 'excel');
+    runtime.triggerButtonId = config.buttonId;
+    ensureExcelImageUploadModal();
+    const titleNode = document.getElementById('excelImageUploadModalTitle');
+    if (titleNode) titleNode.textContent = config.title;
+    const ui = getExcelImageUploadElements();
+    if (ui.summary) ui.summary.textContent = config.initialSummary;
+    if (ui.previewTitle) {
+        ui.previewTitle.textContent = runtime.mode === 'generic'
+            ? 'سيتم رفع الصور التالية:'
+            : 'سيتم رفع الملفات المطابقة التالية:';
+    }
+    if (ui.previewSearch) {
+        ui.previewSearch.placeholder = runtime.mode === 'generic'
+            ? 'ابحث داخل أسماء الصور المحددة...'
+            : 'ابحث داخل أسماء الصور المطابقة...';
+    }
 }
 
 function isCloudinaryReadyForExcelUpload() {
@@ -10706,7 +10917,7 @@ function ensureExcelImageUploadModal() {
                 <div id="excelImageUploadCounter" style="font-size:13px;font-weight:700;color:#0A1128;margin-top:10px;">جاري رفع 0 من 0</div>
                 <div id="excelImageUploadCurrentFile" style="font-size:12px;color:#475569;margin-top:4px;">الملف الحالي: -</div>
                 <div id="excelImageUploadPreviewWrap" style="display:none;margin-top:12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:10px;">
-                    <div style="font-weight:700;color:#0A1128;margin-bottom:6px;">سيتم رفع الملفات المطابقة التالية:</div>
+                    <div id="excelImageUploadPreviewTitle" style="font-weight:700;color:#0A1128;margin-bottom:6px;">سيتم رفع الملفات المطابقة التالية:</div>
                     <div id="excelImageUploadPreviewMeta" style="font-size:12px;color:#475569;margin-bottom:8px;"></div>
                     <input id="excelImageUploadPreviewSearch" type="text" placeholder="ابحث داخل أسماء الصور المطابقة..." aria-label="بحث داخل قائمة الصور المطابقة" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;">
                     <ul id="excelImageUploadPreviewList" style="margin:0;padding:0;list-style:none;max-height:220px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;background:#fff;"></ul>
@@ -10803,6 +11014,7 @@ function getExcelImageUploadElements() {
         counter: root.querySelector('#excelImageUploadCounter'),
         currentFile: root.querySelector('#excelImageUploadCurrentFile'),
         previewWrap: root.querySelector('#excelImageUploadPreviewWrap'),
+        previewTitle: root.querySelector('#excelImageUploadPreviewTitle'),
         previewMeta: root.querySelector('#excelImageUploadPreviewMeta'),
         previewSearch: root.querySelector('#excelImageUploadPreviewSearch'),
         previewList: root.querySelector('#excelImageUploadPreviewList'),
@@ -10821,6 +11033,7 @@ function getExcelImageUploadElements() {
 function resetExcelImageUploadModalState() {
     const runtime = getExcelImageUploaderRuntime();
     const ui = getExcelImageUploadElements();
+    const config = getImageUploaderModeConfig(runtime.mode);
     revokeExcelPreviewObjectUrls();
     if (runtime.retryTimerId) {
         clearTimeout(runtime.retryTimerId);
@@ -10834,8 +11047,9 @@ function resetExcelImageUploadModalState() {
     runtime.cancelRequested = false;
     runtime.inFlight = false;
     runtime.controller = null;
+    runtime.previewResolver = null;
     runtime.lastLiveUpdateAt = 0;
-    if (ui.summary) ui.summary.textContent = 'جارٍ تجهيز العملية...';
+    if (ui.summary) ui.summary.textContent = config.initialSummary;
     if (ui.live) ui.live.textContent = '';
     if (ui.progressFill) ui.progressFill.style.width = '0%';
     if (ui.progressPercent) ui.progressPercent.textContent = '0%';
@@ -10893,21 +11107,23 @@ function setExcelImageUploadProgress(payload = {}) {
 
 function renderUploadSummary(results) {
     const ui = getExcelImageUploadElements();
+    const runtime = getExcelImageUploaderRuntime();
     if (!ui.summaryContainer) return;
 
     const items = Array.isArray(results) ? results : [];
     const matched = items.filter((item) => item && item.matched);
     const unmatched = items.filter((item) => !item || item.matched !== true);
+    const isGenericMode = runtime.mode === 'generic';
 
     let html = `
         <div class="upload-summary" style="text-align:right;padding:16px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;line-height:1.8;">
             <h3 style="margin:0 0 10px;font-size:16px;">نتيجة الرفع</h3>
-            <p style="margin:0;">✅ تم التوافق: <strong>${matched.length}</strong> منتج</p>
-            <p style="margin:0;">❌ لم يتم التوافق: <strong>${unmatched.length}</strong> صورة</p>
+            <p style="margin:0;">✅ ${isGenericMode ? 'جاهز للرفع' : 'تم التوافق'}: <strong>${matched.length}</strong> ${isGenericMode ? 'صورة' : 'منتج'}</p>
+            <p style="margin:0;">❌ ${isGenericMode ? 'تم تجاهله' : 'لم يتم التوافق'}: <strong>${unmatched.length}</strong> صورة</p>
     `;
 
     if (unmatched.length > 0) {
-        html += '<details style="margin-top:10px;"><summary>الصور غير المتوافقة</summary><ul style="margin:8px 0 0;padding-inline-start:18px;">';
+        html += `<details style="margin-top:10px;"><summary>${isGenericMode ? 'الصور التي تم تجاوزها' : 'الصور غير المتوافقة'}</summary><ul style="margin:8px 0 0;padding-inline-start:18px;">`;
         unmatched.forEach((item) => {
             html += `<li>${escapeUploadHtml(item && item.filename || '')}</li>`;
         });
@@ -10922,6 +11138,7 @@ function renderUploadSummary(results) {
 function finalizeExcelImageUploadModal(reportPayload = {}) {
     const runtime = getExcelImageUploaderRuntime();
     const ui = getExcelImageUploadElements();
+    const isGenericMode = runtime.mode === 'generic';
     const uploaded = Array.isArray(reportPayload.uploaded)
         ? reportPayload.uploaded
         : (Array.isArray(reportPayload.success) ? reportPayload.success : []);
@@ -10953,6 +11170,9 @@ function finalizeExcelImageUploadModal(reportPayload = {}) {
 
     const duplicateHtml = duplicates.length
         ? `<div style="margin-top:8px;color:#7c2d12;">⚠️ تم تجاهل نسخ مكررة: ${duplicates.length}</div>`
+        : '';
+    const uploadedAssetsHtml = uploaded.length
+        ? `<details style="margin-top:12px;"><summary>الملفات المرفوعة (${uploaded.length})</summary><ul style="margin:8px 0 0;padding-inline-start:18px;max-height:240px;overflow:auto;">${uploaded.slice(0, 120).map((item) => `<li style="margin-bottom:8px;"><div><strong>${escapeUploadHtml(item && item.file || '-')}</strong></div><div style="direction:ltr;font-size:12px;color:#475569;">${escapeUploadHtml(item && (item.publicId || item.public_id) || '-')}</div><div style="direction:ltr;font-size:12px;color:#0f172a;word-break:break-all;">${escapeUploadHtml(item && (item.secureUrl || item.url || item.secure_url) || '-')}</div></li>`).join('')}</ul></details>`
         : '';
 
     const manualFailed = failed.filter((item) => item && item.transient !== true);
@@ -10987,9 +11207,8 @@ function finalizeExcelImageUploadModal(reportPayload = {}) {
         ui.report.innerHTML = `
             <div style="line-height:1.9;">
                 <div>✅ نجح: <strong>${uploaded.length}</strong></div>
-                <div>🔗 تم ربطها بمنتجات: <strong>${linkedProducts.length}</strong></div>
-                <div>⚠️ ناقص في الفولدر: <strong>${missing.length}</strong></div>
-                ${missingHtml}
+                ${isGenericMode ? `<div>🔗 ربط تلقائي: <strong>غير مفعّل في هذا الوضع</strong></div>` : `<div>🔗 تم ربطها بمنتجات: <strong>${linkedProducts.length}</strong></div>`}
+                ${isGenericMode ? '' : `<div>⚠️ ناقص في الفولدر: <strong>${missing.length}</strong></div>${missingHtml}`}
                 <hr style="margin:10px 0;border:none;border-top:1px solid #ddd;">
                 <div>❌ فشل الرفع: <strong>${failed.length}</strong></div>
                 ${failedHtml}
@@ -10998,6 +11217,7 @@ function finalizeExcelImageUploadModal(reportPayload = {}) {
                 <div style="margin-top:8px;color:#7c2d12;">ℹ️ مكرر: ${duplicates.length}</div>
                 ${duplicateHtml}
                 <div style="margin-top:8px;color:#475569;">ℹ️ غير مطابق: ${skipped}</div>
+                ${uploadedAssetsHtml}
             </div>
         `;
     }
@@ -11005,7 +11225,7 @@ function finalizeExcelImageUploadModal(reportPayload = {}) {
     if (ui.previewWrap) ui.previewWrap.style.display = 'none';
     if (ui.startBtn) ui.startBtn.style.display = 'none';
     if (ui.cancelBtn) ui.cancelBtn.style.display = 'none';
-    if (ui.copyMissingBtn) ui.copyMissingBtn.style.display = missing.length ? 'inline-flex' : 'none';
+    if (ui.copyMissingBtn) ui.copyMissingBtn.style.display = (!isGenericMode && missing.length) ? 'inline-flex' : 'none';
     if (ui.retryFailedBtn) ui.retryFailedBtn.style.display = failed.length ? 'inline-flex' : 'none';
     if (ui.closeBtn) ui.closeBtn.style.display = 'inline-flex';
     if (ui.reloadBtn) ui.reloadBtn.style.display = 'inline-flex';
@@ -11310,8 +11530,9 @@ async function fetchAllProductsForImageUpload() {
 }
 function isImageFileCandidate(file) {
     if (!file || !file.name) return false;
-    const byType = typeof file.type === 'string' && file.type.toLowerCase().startsWith('image/');
-    const byExt = /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)$/i.test(file.name);
+    const mimeType = String(file.type || '').toLowerCase();
+    const byType = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(mimeType);
+    const byExt = /\.(jpg|jpeg|png|webp)$/i.test(file.name);
     return byType || byExt;
 }
 
@@ -11335,7 +11556,7 @@ function pickImageFilesFromInput(options = {}) {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.accept = 'image/*';
+    input.accept = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
     if (options.directory === true) {
         input.setAttribute('webkitdirectory', '');
     }
@@ -11508,6 +11729,43 @@ function filterMatchingFiles(selectedFiles, requiredMap, productsList = []) {
         duplicates: result.duplicatesSkipped,
         skippedCount: result.nonMatchedSelectedCount,
         unmatchedSelected: result.unmatchedSelected
+    };
+}
+
+function buildGenericUploadSelection(selectedFiles) {
+    const selectedIndex = buildSelectedFileIndex(selectedFiles);
+    const matchedFiles = [];
+    const duplicatesSkipped = [];
+
+    selectedIndex.forEach((item, key) => {
+        if (!item || !item.primary) return;
+        if (Array.isArray(item.duplicates) && item.duplicates.length) {
+            item.duplicates.forEach((dup) => {
+                if (typeof dup === 'string') duplicatesSkipped.push({ name: dup, reason: 'ملف مكرر' });
+                else duplicatesSkipped.push(dup);
+            });
+        }
+        matchedFiles.push({
+            file: item.primary,
+            key,
+            requiredDisplay: [String(item.primary.name || key).trim()].filter(Boolean),
+            rawValues: [],
+            productIds: [],
+            productNames: [],
+            matched: true,
+            matchScore: 100,
+            matchLevel: 1,
+            filename: String(item.primary.name || '')
+        });
+    });
+
+    matchedFiles.sort((a, b) => String(a.filename || '').localeCompare(String(b.filename || ''), 'ar'));
+    return {
+        matchedFiles,
+        missingRequired: [],
+        duplicatesSkipped,
+        nonMatchedSelectedCount: duplicatesSkipped.length,
+        unmatchedSelected: []
     };
 }
 
@@ -11753,10 +12011,13 @@ function renderPreUploadPreview(matchResult) {
         : previewRows;
     const limitedRows = filteredRows.slice(0, EXCEL_PREVIEW_LIMIT);
     const extraCount = Math.max(0, filteredRows.length - EXCEL_PREVIEW_LIMIT);
+    const isGenericMode = runtime.mode === 'generic';
 
     if (ui.previewWrap) ui.previewWrap.style.display = 'block';
     if (ui.previewMeta) {
-        ui.previewMeta.textContent = `مطابق: ${previewRows.length} | ناقص: ${missingCount} | مكرر: ${duplicateCount} | غير مطابق: ${skippedCount}`;
+        ui.previewMeta.textContent = isGenericMode
+            ? `جاهز للرفع: ${previewRows.length} | مكرر: ${duplicateCount} | متجاوز: ${skippedCount}`
+            : `مطابق: ${previewRows.length} | ناقص: ${missingCount} | مكرر: ${duplicateCount} | غير مطابق: ${skippedCount}`;
     }
     if (ui.previewList) {
         ui.previewList.innerHTML = '';
@@ -11944,6 +12205,157 @@ function renderCloudinaryConfigError() {
     if (ui.closeBtn) ui.closeBtn.style.display = 'inline-flex';
 }
 
+async function openBulkProductImageUploader() {
+    const runtime = getExcelImageUploaderRuntime();
+    if (runtime.inFlight) {
+        showNotification('warning', 'هناك عملية رفع جارية بالفعل.');
+        return;
+    }
+
+    runtime.focusReturnEl = document.activeElement;
+    configureImageUploaderMode('generic');
+    openModal(EXCEL_IMAGE_UPLOAD_MODAL_ID);
+    resetExcelImageUploadModalState();
+
+    const ui = getExcelImageUploadElements();
+    setTimeout(() => {
+        if (ui.modal && typeof ui.modal.focus === 'function') ui.modal.focus();
+    }, 0);
+
+    try {
+        if (!isCloudinaryReadyForExcelUpload()) {
+            renderCloudinaryConfigError();
+            showNotification('error', 'إعدادات Cloudinary غير مكتملة.');
+            return;
+        }
+
+        toggleExcelUploaderButtonLoading(true);
+        setExcelImageUploadProgress({
+            summary: 'اختر الصور التي تريد رفعها إلى Cloudinary ثم راجع القائمة قبل البدء.',
+            percent: 0,
+            completed: 0,
+            total: 0,
+            currentFile: '-'
+        });
+
+        const selectedFiles = await pickImageFilesFromInput();
+        toggleExcelUploaderButtonLoading(false);
+        if (!Array.isArray(selectedFiles) || selectedFiles.length === 0) {
+            showNotification('info', 'تم إلغاء اختيار الملفات.');
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                failed: [],
+                duplicatesSkipped: [],
+                nonMatchedSelectedCount: 0,
+                matchedFiles: [],
+                canceled: true
+            });
+            return;
+        }
+
+        if (selectedFiles.length > EXCEL_HARD_LIMIT_FILES) {
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                failed: [{ file: 'selection', error: `تم اختيار ${selectedFiles.length} ملفًا، والحد الأقصى الموصى به هو ${EXCEL_HARD_LIMIT_FILES} ملف.` }],
+                duplicatesSkipped: [],
+                nonMatchedSelectedCount: 0,
+                matchedFiles: [],
+                canceled: true
+            });
+            showNotification('error', `عدد الملفات المحدد كبير جدًا (${selectedFiles.length}). يُرجى التقسيم إلى دفعات أصغر.`);
+            return;
+        }
+
+        if (selectedFiles.length > EXCEL_LARGE_SELECTION_WARN) {
+            const shouldContinue = confirm(`تم اختيار ${selectedFiles.length} ملفًا. قد تستغرق المعالجة وقتًا أطول. هل تريد المتابعة؟`);
+            if (!shouldContinue) {
+                showNotification('info', 'تم إيقاف العملية بناءً على طلبك.');
+                return;
+            }
+        }
+
+        const selectionResult = buildGenericUploadSelection(selectedFiles);
+        if (!selectionResult.matchedFiles.length) {
+            finalizeExcelImageUploadModal({
+                uploaded: [],
+                failed: [],
+                duplicatesSkipped: selectionResult.duplicatesSkipped,
+                nonMatchedSelectedCount: selectionResult.nonMatchedSelectedCount,
+                matchedFiles: [],
+                canceled: false
+            });
+            showNotification('warning', 'لا توجد ملفات صالحة للرفع.');
+            return;
+        }
+
+        renderPreUploadPreview(selectionResult);
+        setExcelImageUploadProgress({
+            summary: `سيتم رفع ${selectionResult.matchedFiles.length} صورة. راجع القائمة ثم اضغط "بدء الرفع".`,
+            percent: 0,
+            completed: 0,
+            total: selectionResult.matchedFiles.length,
+            currentFile: '-'
+        });
+
+        const previewDecision = await waitForUploadPreviewDecision();
+        if (previewDecision !== 'start') {
+            finalizeExcelImageUploadModal({
+                matchedFiles: selectionResult.matchedFiles,
+                uploaded: [],
+                failed: [],
+                duplicatesSkipped: selectionResult.duplicatesSkipped,
+                nonMatchedSelectedCount: selectionResult.nonMatchedSelectedCount,
+                canceled: true
+            });
+            showNotification('warning', 'تم إلغاء العملية قبل بدء الرفع.');
+            return;
+        }
+
+        if (ui.previewWrap) ui.previewWrap.style.display = 'none';
+        revokeExcelPreviewObjectUrls();
+        if (ui.startBtn) ui.startBtn.style.display = 'none';
+        if (ui.cancelBtn) {
+            ui.cancelBtn.style.display = 'inline-flex';
+            ui.cancelBtn.disabled = false;
+            ui.cancelBtn.textContent = 'إلغاء';
+            ui.cancelBtn.focus();
+        }
+
+        showNotification('info', `بدء رفع ${selectionResult.matchedFiles.length} صورة إلى Cloudinary.`);
+        const uploadResult = await runCloudinaryUploadQueue(selectionResult.matchedFiles, { mode: 'generic' });
+        finalizeExcelImageUploadModal({
+            matchedFiles: selectionResult.matchedFiles,
+            uploaded: uploadResult.uploaded,
+            failed: uploadResult.failed,
+            duplicatesSkipped: selectionResult.duplicatesSkipped,
+            nonMatchedSelectedCount: selectionResult.nonMatchedSelectedCount,
+            canceled: uploadResult.canceled,
+            linkedProducts: []
+        });
+
+        if (uploadResult.canceled) {
+            showNotification('warning', `تم إلغاء العملية بعد رفع ${uploadResult.uploaded.length} صورة.`);
+        } else if (uploadResult.failed.length) {
+            showNotification('warning', `تم رفع ${uploadResult.uploaded.length} صورة وفشل ${uploadResult.failed.length} ملف.`);
+        } else {
+            showNotification('success', `تم رفع ${uploadResult.uploaded.length} صورة بنجاح.`);
+        }
+    } catch (error) {
+        console.error('[BULK_IMAGE_UPLOAD] generic upload failed:', error);
+        finalizeExcelImageUploadModal({
+            uploaded: [],
+            failed: [{ file: 'upload', error: String(error && error.message || 'خطأ غير معروف') }],
+            duplicatesSkipped: [],
+            nonMatchedSelectedCount: 0,
+            matchedFiles: [],
+            canceled: false
+        });
+        showNotification('error', `فشل رفع الصور: ${String(error && error.message || 'خطأ غير معروف')}`);
+    } finally {
+        toggleExcelUploaderButtonLoading(false);
+    }
+}
+
 async function openExcelImagesOnlyUploader() {
     const runtime = getExcelImageUploaderRuntime();
     if (runtime.inFlight) {
@@ -11952,7 +12364,7 @@ async function openExcelImagesOnlyUploader() {
     }
 
     runtime.focusReturnEl = document.activeElement;
-    ensureExcelImageUploadModal();
+    configureImageUploaderMode('excel');
     openModal(EXCEL_IMAGE_UPLOAD_MODAL_ID);
     resetExcelImageUploadModalState();
 
@@ -12604,22 +13016,65 @@ window.addEventListener('beforeunload', () => {
 });
 
 async function uploadAndPreview(input) {
-    if(!input.files[0]) return;
-    // معاينة
-    const reader = new FileReader();
-    reader.onload = (e) => document.getElementById('imgPreview').innerHTML = `<img src="${e.target.result}" alt="معاينة الصورة المرفوعة" style="max-width:150px;border-radius:5px;margin:5px 0;">`;
-    reader.readAsDataURL(input.files[0]);
-    
-    // رفع
+    const file = input && input.files ? input.files[0] : null;
+    const ui = getProductImageUiElements();
+    const currentStoredValue = String(ui.finalInput?.value || ui.manualInput?.value || '').trim();
+    if (!file) return;
+
     try {
-        const res = await uploadToCloudinary(input.files[0]);
-        if(res) {
-            document.getElementById('finalImg').value = res.url;
-            document.getElementById('manualImg').value = res.url;
-            alert('✅ تم رفع الصورة');
+        if (typeof validateCloudinaryUploadFile === 'function') {
+            validateCloudinaryUploadFile(file);
         }
-    } catch(err) {
-        alert('❌ فشل الرفع: ' + err.message);
+
+        clearProductImagePreviewObjectUrl();
+        productImageUploadState.previewObjectUrl = URL.createObjectURL(file);
+        productImageUploadState.selectedFileName = String(file.name || '').trim();
+
+        renderProductImagePreview({
+            previewSrc: productImageUploadState.previewObjectUrl,
+            value: currentStoredValue,
+            sourceLabel: 'معاينة قبل الرفع',
+            selectedFileName: productImageUploadState.selectedFileName,
+            statusText: 'سيتم ضغط الصورة ورفعها إلى Cloudinary...'
+        });
+        setProductImageUploadBusy(true, 'جارٍ ضغط الصورة ورفعها إلى Cloudinary...');
+
+        const publicId = basenameWithoutExt(file.name)
+            .replace(/\s+/g, '-')
+            .replace(/[^a-zA-Z0-9_-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+        const res = await uploadToCloudinary(file, {
+            folder: 'salezone_products',
+            publicId
+        });
+        const secureUrl = String(res && (res.url || res.secure_url) || '').trim();
+        if (!secureUrl) throw new Error('لم يرجع Cloudinary رابطًا صالحًا للصورة.');
+
+        if (ui.finalInput) ui.finalInput.value = secureUrl;
+        if (ui.manualInput) ui.manualInput.value = secureUrl;
+        clearProductImagePreviewObjectUrl();
+        renderProductImagePreview({
+            previewSrc: sanitizeProductImagePreviewValue(secureUrl, 'thumbnail'),
+            value: secureUrl,
+            sourceLabel: 'تم الرفع إلى Cloudinary',
+            selectedFileName: productImageUploadState.selectedFileName,
+            statusText: 'تم رفع الصورة ويمكنك الآن حفظ المنتج.'
+        });
+        showNotification('success', 'تم رفع الصورة بنجاح.');
+    } catch (err) {
+        console.error('[PRODUCT_IMAGE_UPLOAD] failed:', err);
+        renderProductImagePreview({
+            previewSrc: productImageUploadState.previewObjectUrl || sanitizeProductImagePreviewValue(currentStoredValue, 'thumbnail'),
+            value: currentStoredValue,
+            sourceLabel: currentStoredValue ? 'آخر صورة محفوظة' : 'لم يكتمل الرفع',
+            selectedFileName: productImageUploadState.selectedFileName,
+            statusText: `فشل الرفع: ${String(err && err.message || 'خطأ غير معروف')}`
+        });
+        showNotification('error', `فشل رفع الصورة: ${String(err && err.message || 'خطأ غير معروف')}`);
+    } finally {
+        if (input) input.value = '';
+        setProductImageUploadBusy(false, document.getElementById('productImageUploadStatus')?.textContent || '');
     }
 }
 </script>
