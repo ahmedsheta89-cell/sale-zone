@@ -19,6 +19,16 @@
     cloudName: CLOUD_NAME,
     uploadPreset: UPLOAD_PRESET
   };
+  var MAX_RAW_UPLOAD_BYTES = 5 * 1024 * 1024;
+  var MAX_COMPRESSED_DIMENSION = 1200;
+  var DEFAULT_UPLOAD_QUALITY = 0.85;
+  var ALLOWED_UPLOAD_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+  var ALLOWED_UPLOAD_MIME_TYPES = {
+    'image/jpeg': true,
+    'image/jpg': true,
+    'image/png': true,
+    'image/webp': true
+  };
 
   var TRANSFORMS = {
     card: 'f_auto,q_auto:best,w_800,h_800,c_pad,b_white,e_sharpen:50',
@@ -87,8 +97,52 @@
   function isLikelyImageUploadFile(file) {
     if (!file || typeof file !== 'object') return false;
     var type = String(file.type || '').toLowerCase();
-    if (type.indexOf('image/') === 0) return true;
-    return /\.(jpg|jpeg|png|webp|gif|bmp|avif|svg)$/i.test(String(file.name || ''));
+    var ext = getUploadFileExtension(file);
+    if (ALLOWED_UPLOAD_MIME_TYPES[type] === true) return true;
+    return ALLOWED_UPLOAD_EXTENSIONS.indexOf(ext) !== -1;
+  }
+
+  function getUploadFileExtension(file) {
+    var name = String(file && file.name || '').trim();
+    var match = name.match(/\.([a-z0-9]+)$/i);
+    return match ? String(match[1] || '').toLowerCase() : '';
+  }
+
+  function validateUploadFile(file) {
+    var type;
+    var ext;
+    var size;
+
+    if (!file || typeof file !== 'object') {
+      throw buildCloudinaryUploadError('لم يتم اختيار صورة للرفع.', {
+        code: 'CLOUDINARY_NO_FILE',
+        transient: false
+      });
+    }
+
+    type = String(file.type || '').toLowerCase();
+    ext = getUploadFileExtension(file);
+    size = Number(file.size || 0);
+
+    if (!(ALLOWED_UPLOAD_MIME_TYPES[type] === true || ALLOWED_UPLOAD_EXTENSIONS.indexOf(ext) !== -1)) {
+      throw buildCloudinaryUploadError('صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP فقط.', {
+        code: 'CLOUDINARY_INVALID_FILE',
+        transient: false
+      });
+    }
+
+    if (size > MAX_RAW_UPLOAD_BYTES) {
+      throw buildCloudinaryUploadError('حجم الصورة قبل الضغط أكبر من 5MB. اختر ملفًا أصغر أو اضغطه أولاً.', {
+        code: 'CLOUDINARY_FILE_TOO_LARGE',
+        transient: false
+      });
+    }
+
+    return {
+      type: type,
+      ext: ext,
+      size: size
+    };
   }
 
   function isCloudinaryTransformSegment(segment) {
@@ -244,9 +298,21 @@
   }
 
   function compressImageBeforeUpload(file, maxSizeKB) {
-    var limit = Number(maxSizeKB || 500);
+    var settings = (maxSizeKB && typeof maxSizeKB === 'object') ? maxSizeKB : {};
+    var maxDimension = Math.max(120, Number(settings.maxDimension || MAX_COMPRESSED_DIMENSION));
+    var quality = Math.max(0.5, Math.min(0.95, Number(settings.quality || DEFAULT_UPLOAD_QUALITY)));
+    var validated;
     if (!file || typeof document === 'undefined') return Promise.resolve(file);
-    if (Number(file.size || 0) <= limit * 1024) return Promise.resolve(file);
+
+    try {
+      validated = validateUploadFile(file);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+
+    if (!(ALLOWED_UPLOAD_MIME_TYPES[validated.type] === true || ALLOWED_UPLOAD_EXTENSIONS.indexOf(validated.ext) !== -1)) {
+      return Promise.resolve(file);
+    }
 
     return new Promise(function (resolve) {
       var canvas = document.createElement('canvas');
@@ -271,8 +337,9 @@
       };
 
       img.onload = function () {
-        var maxWidth = 1200;
-        var scale = img.width > maxWidth ? (maxWidth / img.width) : 1;
+        var widthScale = img.width > maxDimension ? (maxDimension / img.width) : 1;
+        var heightScale = img.height > maxDimension ? (maxDimension / img.height) : 1;
+        var scale = Math.min(widthScale, heightScale, 1);
         canvas.width = Math.max(1, Math.round(img.width * scale));
         canvas.height = Math.max(1, Math.round(img.height * scale));
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -288,7 +355,7 @@
             type: 'image/jpeg',
             lastModified: Date.now()
           }));
-        }, 'image/jpeg', 0.85);
+        }, 'image/jpeg', quality);
       };
 
       img.src = objectUrl;
@@ -297,16 +364,10 @@
 
   function uploadToCloudinary(file, options) {
     var settings = options && typeof options === 'object' ? options : {};
-    if (!file) {
-      return Promise.reject(buildCloudinaryUploadError('لم يتم اختيار صورة للرفع.', {
-        code: 'CLOUDINARY_NO_FILE'
-      }));
-    }
-    if (!isLikelyImageUploadFile(file)) {
-      return Promise.reject(buildCloudinaryUploadError('الملف المحدد ليس صورة مدعومة.', {
-        code: 'CLOUDINARY_INVALID_FILE',
-        transient: false
-      }));
+    try {
+      validateUploadFile(file);
+    } catch (validationError) {
+      return Promise.reject(validationError);
     }
     if (!isCloudinaryConfigured()) {
       return Promise.reject(buildCloudinaryUploadError('إعدادات Cloudinary غير مكتملة.', {
@@ -539,10 +600,17 @@
     enhance: enhanceProductImageUrl,
     getOptimized: getOptimizedImageUrl,
     getSafe: getSafeImageUrl,
+    validateUpload: validateUploadFile,
     compressBeforeUpload: compressImageBeforeUpload,
     upload: uploadToCloudinary,
     isConfigured: isCloudinaryConfigured,
-    buildUploadError: buildCloudinaryUploadError
+    buildUploadError: buildCloudinaryUploadError,
+    uploadRules: {
+      maxBytes: MAX_RAW_UPLOAD_BYTES,
+      maxDimension: MAX_COMPRESSED_DIMENSION,
+      quality: DEFAULT_UPLOAD_QUALITY,
+      allowedExtensions: ALLOWED_UPLOAD_EXTENSIONS.slice()
+    }
   };
 
   global.CloudinaryService = CloudinaryService;
@@ -551,6 +619,7 @@
   global.enhanceProductImageUrl = enhanceProductImageUrl;
   global.getOptimizedImageUrl = getOptimizedImageUrl;
   global.getSafeImageUrl = getSafeImageUrl;
+  global.validateCloudinaryUploadFile = validateUploadFile;
   global.compressImageBeforeUpload = compressImageBeforeUpload;
   global.uploadToCloudinary = uploadToCloudinary;
   global.isCloudinaryConfigured = isCloudinaryConfigured;
