@@ -1319,22 +1319,17 @@
                     <div class="section-header">
                         <h3 class="section-title">🛍️ الطلبات</h3>
                         <div class="header-actions">
-                            <button class="btn btn-success" onclick="exportOrdersExcel()">📤 Excel</button>
+                            <button class="btn btn-success" id="ordersExportBtn" onclick="exportOrdersExcel()">📤 Excel</button>
                         </div>
                     </div>
                     <div class="section-body">
+                        <p id="ordersExportHint" style="margin:0 0 12px;color:#64748b;font-size:13px;">تصدير الطلبات المعروضة حالياً</p>
+                        <div id="ordersStatsCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;"></div>
                         <div class="form-row" style="margin-bottom:12px;">
                             <div class="form-group">
                                 <label>الحالة</label>
                                 <select id="ordersStatusFilter" onchange="applyOrdersFilters({ reset: true })">
                                     <option value="">الكل</option>
-                                    <option value="pending">جديد</option>
-                                    <option value="confirmed">مؤكد</option>
-                                    <option value="processing">تجهيز</option>
-                                    <option value="shipped">شحن</option>
-                                    <option value="delivered">توصيل</option>
-                                    <option value="completed">مكتمل</option>
-                                    <option value="cancelled">ملغي</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -1342,10 +1337,20 @@
                                 <input type="text" id="ordersSearchInput" placeholder="مثال: SZ-123 أو اسم عميل" oninput="applyOrdersFilters({ reset: true })" autocomplete="off">
                             </div>
                             <div class="form-group">
+                                <label>الفترة</label>
+                                <select id="ordersQuickDateFilter" onchange="handleOrdersQuickDateChange()">
+                                    <option value="">كل الفترات</option>
+                                    <option value="today">اليوم</option>
+                                    <option value="week">آخر 7 أيام</option>
+                                    <option value="month">هذا الشهر</option>
+                                    <option value="custom">تاريخ مخصص</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="ordersCustomDateRange" style="display:none;">
                                 <label>من تاريخ</label>
                                 <input type="date" id="ordersDateFrom" onchange="applyOrdersFilters({ reset: true })">
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" id="ordersCustomDateRangeTo" style="display:none;">
                                 <label>إلى تاريخ</label>
                                 <input type="date" id="ordersDateTo" onchange="applyOrdersFilters({ reset: true })">
                             </div>
@@ -1366,6 +1371,7 @@
                                 <button type="button" class="btn btn-navy" id="ordersLoadMoreBtn" onclick="loadOrdersPage({ reset: false, showToast: false })" disabled>تحميل المزيد</button>
                             </div>
                         </div>
+                        <div id="ordersFilterStats" style="margin-top:10px;font-size:12px;color:#64748b;"></div>
                     </div>
                 </div>
             </section>
@@ -1539,8 +1545,8 @@
                     <div class="section-card">
                         <div class="section-header"><h3 class="section-title">🛍️ الطلبات</h3></div>
                         <div class="section-body">
-                            <p style="color: #666; margin-bottom: 12px; font-size: 13px;">تصدير جميع الطلبات</p>
-                            <button class="btn btn-success" onclick="exportOrdersExcel()" style="width: 100%;">📤 Excel</button>
+                            <p id="ordersReportExportHint" style="color: #666; margin-bottom: 12px; font-size: 13px;">تصدير الطلبات المعروضة حالياً</p>
+                            <button class="btn btn-success" id="ordersReportExportBtn" onclick="exportOrdersExcel()" style="width: 100%;">📤 Excel</button>
                         </div>
                     </div>
                     <div class="section-card">
@@ -2668,6 +2674,7 @@
         const ordersFilters = {
             status: '',
             searchText: '',
+            datePreset: '',
             dateFromIso: '',
             dateToIso: ''
         };
@@ -4585,6 +4592,33 @@ function adminLogout(){
             }
         }
 
+        async function cancelPendingFeedRegenerationOnAdmin() {
+            if (typeof triggerFeedRegenerationAfterProductChange !== 'function') return false;
+            try {
+                await triggerFeedRegenerationAfterProductChange({ cancelPending: true });
+                return true;
+            } catch (error) {
+                console.warn('cancelPendingFeedRegenerationOnAdmin error:', error);
+                return false;
+            }
+        }
+
+        async function flushFeedRegenerationAfterBulk(sourceProducts = null) {
+            if (navigator.onLine !== true) return false;
+            if (typeof triggerFeedRegenerationAfterProductChange !== 'function') return false;
+            const feedProducts = Array.isArray(sourceProducts) ? sourceProducts : (Array.isArray(products) ? products : []);
+            try {
+                await triggerFeedRegenerationAfterProductChange({
+                    immediate: true,
+                    products: feedProducts
+                });
+                return true;
+            } catch (error) {
+                console.error('flushFeedRegenerationAfterBulk error:', error);
+                return false;
+            }
+        }
+
         async function applyBulkPrice() {
             const input = document.getElementById('bulkPriceVal');
             const value = parseFloat(input?.value || '');
@@ -4636,6 +4670,9 @@ function adminLogout(){
             const total = ids.length;
             let completed = 0;
 
+            if (online) {
+                await cancelPendingFeedRegenerationOnAdmin();
+            }
             showBulkProgress(`جاري التنفيذ... 0/${total}`);
 
             for (let batchStart = 0; batchStart < ids.length; batchStart += 50) {
@@ -4654,7 +4691,7 @@ function adminLogout(){
                         if (action === 'delete') {
                             if (online && !String(id).startsWith('tmp_')) {
                                 if (typeof deleteProductFromFirebase !== 'function') throw new Error('deleteProductFromFirebase unavailable');
-                                await deleteProductFromFirebase(String(id));
+                                await deleteProductFromFirebase(String(id), { suppressFeedRegen: true });
                             } else if (String(id).startsWith('tmp_')) {
                                 removeQueuedOpsForProduct(String(id));
                             } else {
@@ -4677,7 +4714,7 @@ function adminLogout(){
 
                             if (online && !String(id).startsWith('tmp_')) {
                                 if (typeof updateProduct !== 'function') throw new Error('updateProduct unavailable');
-                                await updateProduct(String(id), updatePayload);
+                                await updateProduct(String(id), updatePayload, { suppressFeedRegen: true });
                             } else if (String(id).startsWith('tmp_')) {
                                 patchPendingAddByTempId(String(id), (draft) => ({ ...draft, ...updatePayload }));
                             } else {
@@ -4709,6 +4746,9 @@ function adminLogout(){
 
             if (typeof loadAllData === 'function') {
                 await loadAllData();
+            }
+            if (online) {
+                await flushFeedRegenerationAfterBulk(products);
             }
             renderProductsTable(null, { force: true });
             updateStats();
@@ -5978,6 +6018,16 @@ function adminLogout(){
         // ============================================
         // Orders
         // ============================================
+        const ORDER_STATUS_LABELS = {
+            pending: 'جديد',
+            confirmed: 'مؤكد',
+            processing: 'تجهيز',
+            shipped: 'شحن',
+            delivered: 'توصيل',
+            completed: 'مكتمل',
+            cancelled: 'ملغي'
+        };
+
         function normalizeDateInputToIsoRange(dateValue, endOfDay = false) {
             const raw = String(dateValue || '').trim();
             if (!raw) return '';
@@ -5986,12 +6036,74 @@ function adminLogout(){
             return Number.isFinite(date.getTime()) ? date.toISOString() : '';
         }
 
+        function resolveQuickOrdersDateRange(preset) {
+            const value = String(preset || '').trim().toLowerCase();
+            const now = new Date();
+            if (value === 'today') {
+                const start = new Date(now);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(now);
+                end.setHours(23, 59, 59, 999);
+                return { dateFromIso: start.toISOString(), dateToIso: end.toISOString() };
+            }
+            if (value === 'week') {
+                const start = new Date(now);
+                start.setDate(start.getDate() - 6);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(now);
+                end.setHours(23, 59, 59, 999);
+                return { dateFromIso: start.toISOString(), dateToIso: end.toISOString() };
+            }
+            if (value === 'month') {
+                const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(now);
+                end.setHours(23, 59, 59, 999);
+                return { dateFromIso: start.toISOString(), dateToIso: end.toISOString() };
+            }
+            return { dateFromIso: '', dateToIso: '' };
+        }
+
+        function updateOrdersDateControls() {
+            const quickDateEl = document.getElementById('ordersQuickDateFilter');
+            const fromWrap = document.getElementById('ordersCustomDateRange');
+            const toWrap = document.getElementById('ordersCustomDateRangeTo');
+            const showCustom = String(quickDateEl?.value || '').trim().toLowerCase() === 'custom';
+            if (fromWrap) fromWrap.style.display = showCustom ? '' : 'none';
+            if (toWrap) toWrap.style.display = showCustom ? '' : 'none';
+        }
+
+        function handleOrdersQuickDateChange() {
+            const quickDateEl = document.getElementById('ordersQuickDateFilter');
+            const preset = String(quickDateEl?.value || '').trim().toLowerCase();
+            if (preset !== 'custom') {
+                const dateFromEl = document.getElementById('ordersDateFrom');
+                const dateToEl = document.getElementById('ordersDateTo');
+                if (dateFromEl) dateFromEl.value = '';
+                if (dateToEl) dateToEl.value = '';
+            }
+            updateOrdersDateControls();
+            applyOrdersFilters({ reset: true });
+        }
+
         function readOrdersFiltersFromUi() {
+            const datePreset = String(document.getElementById('ordersQuickDateFilter')?.value || '').trim().toLowerCase();
+            let dateFromIso = '';
+            let dateToIso = '';
+            if (datePreset && datePreset !== 'custom') {
+                const range = resolveQuickOrdersDateRange(datePreset);
+                dateFromIso = range.dateFromIso;
+                dateToIso = range.dateToIso;
+            } else {
+                dateFromIso = normalizeDateInputToIsoRange(document.getElementById('ordersDateFrom')?.value || '', false);
+                dateToIso = normalizeDateInputToIsoRange(document.getElementById('ordersDateTo')?.value || '', true);
+            }
             return {
                 status: String(document.getElementById('ordersStatusFilter')?.value || '').trim().toLowerCase(),
                 searchText: String(document.getElementById('ordersSearchInput')?.value || '').trim().toLowerCase(),
-                dateFromIso: normalizeDateInputToIsoRange(document.getElementById('ordersDateFrom')?.value || '', false),
-                dateToIso: normalizeDateInputToIsoRange(document.getElementById('ordersDateTo')?.value || '', true)
+                datePreset,
+                dateFromIso,
+                dateToIso
             };
         }
 
@@ -6026,6 +6138,133 @@ function adminLogout(){
             return Array.isArray(filteredOrders) ? filteredOrders : [];
         }
 
+        function hasActiveOrdersFilters() {
+            const hasQuickPreset = Boolean(ordersFilters.datePreset && ordersFilters.datePreset !== 'custom');
+            const hasCustomRange = ordersFilters.datePreset === 'custom'
+                && Boolean(ordersFilters.dateFromIso || ordersFilters.dateToIso);
+            return Boolean(
+                ordersFilters.status
+                || ordersFilters.searchText
+                || hasQuickPreset
+                || hasCustomRange
+            );
+        }
+
+        function rebuildOrdersStatusFilterOptions(sourceRows = []) {
+            const statusEl = document.getElementById('ordersStatusFilter');
+            if (!statusEl) return;
+            const current = String(statusEl.value || ordersFilters.status || '').trim().toLowerCase();
+            const statusSet = new Set();
+            (Array.isArray(sourceRows) ? sourceRows : []).forEach((order) => {
+                const status = String(order && order.status || '').trim().toLowerCase();
+                if (status) statusSet.add(status);
+            });
+            if (current) statusSet.add(current);
+
+            const orderedStatuses = Object.keys(ORDER_STATUS_LABELS).filter((status) => statusSet.has(status));
+            const customStatuses = [...statusSet].filter((status) => !Object.prototype.hasOwnProperty.call(ORDER_STATUS_LABELS, status));
+            statusEl.innerHTML = '<option value="">الكل</option>';
+            [...orderedStatuses, ...customStatuses].forEach((status) => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = getStatusName(status);
+                statusEl.appendChild(option);
+            });
+            if (current && [...statusEl.options].some((option) => option.value === current)) {
+                statusEl.value = current;
+            } else {
+                statusEl.value = '';
+            }
+        }
+
+        function updateOrdersStatsCards() {
+            const cards = document.getElementById('ordersStatsCards');
+            if (!cards) return;
+            const rows = getOrdersForRender();
+            const pendingCount = rows.filter((order) => String(order && order.status || '').toLowerCase() === 'pending').length;
+            const completedCount = rows.filter((order) => {
+                const status = String(order && order.status || '').toLowerCase();
+                return status === 'delivered' || status === 'completed';
+            }).length;
+            const revenue = rows
+                .filter((order) => String(order && order.status || '').toLowerCase() !== 'cancelled')
+                .reduce((sum, order) => sum + Number(order && order.total || 0), 0);
+            const todayCount = rows.filter((order) => {
+                const createdAt = Date.parse(String(order && order.createdAt || ''));
+                if (!createdAt) return false;
+                const orderDate = new Date(createdAt);
+                const today = new Date();
+                return orderDate.toDateString() === today.toDateString();
+            }).length;
+
+            cards.innerHTML = [
+                { value: rows.length, label: 'المعروض حالياً', bg: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' },
+                { value: pendingCount, label: 'قيد الانتظار', bg: '#fef3c7', color: '#92400e' },
+                { value: completedCount, label: 'تم التسليم/الاكتمال', bg: '#dcfce7', color: '#166534' },
+                { value: `${revenue.toFixed(0)} ج.م`, label: 'إيراد المعروض', bg: '#dbeafe', color: '#1d4ed8' },
+                { value: todayCount, label: 'طلبات اليوم', bg: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }
+            ].map((card) => `
+                <div style="padding:14px;border-radius:12px;background:${card.bg};color:${card.color};text-align:center;border:1px solid rgba(148,163,184,0.18);">
+                    <div style="font-size:1.45rem;font-weight:700;margin-bottom:4px;">${escapeHtml(card.value)}</div>
+                    <div style="font-size:0.78rem;">${escapeHtml(card.label)}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateOrdersFilterStats() {
+            const statsEl = document.getElementById('ordersFilterStats');
+            if (!statsEl) return;
+            const rows = getOrdersForRender();
+            const revenue = rows
+                .filter((order) => String(order && order.status || '').toLowerCase() !== 'cancelled')
+                .reduce((sum, order) => sum + Number(order && order.total || 0), 0);
+            const prefix = hasActiveOrdersFilters() ? 'المعروض بعد التصفية' : (ordersHasMore ? 'المعروض من البيانات المحمّلة' : 'المعروض حالياً');
+            statsEl.innerHTML = `${prefix}: <b>${rows.length}</b> من <b>${ordersTotalLoaded}</b> طلب | 💰 الإيراد: <b>${revenue.toFixed(0)} ج.م</b>${ordersHasMore ? ' | يوجد المزيد غير المحمّل' : ''}`;
+        }
+
+        function updateOrdersExportUi() {
+            const rows = getOrdersForRender();
+            const buttons = [
+                document.getElementById('ordersExportBtn'),
+                document.getElementById('ordersReportExportBtn')
+            ].filter(Boolean);
+            const hints = [
+                document.getElementById('ordersExportHint'),
+                document.getElementById('ordersReportExportHint')
+            ].filter(Boolean);
+
+            let buttonLabel = '📤 Excel';
+            let hintText = 'لا توجد طلبات للتصدير حالياً';
+            if (rows.length > 0) {
+                if (hasActiveOrdersFilters()) {
+                    buttonLabel = `📤 تصدير المعروض (${rows.length} طلب)`;
+                    hintText = `سيتم تصدير ${rows.length} طلب من النتائج المعروضة حالياً.`;
+                } else if (ordersHasMore) {
+                    buttonLabel = `📤 تصدير المحمّل (${rows.length} طلب)`;
+                    hintText = `سيتم تصدير ${rows.length} طلب من البيانات المحمّلة حالياً. حمّل المزيد قبل التصدير للحصول على نطاق أوسع.`;
+                } else {
+                    buttonLabel = `📤 تصدير الطلبات (${rows.length} طلب)`;
+                    hintText = `سيتم تصدير جميع الطلبات المحمّلة حالياً (${rows.length}).`;
+                }
+            }
+
+            buttons.forEach((button) => {
+                button.textContent = buttonLabel;
+                button.disabled = rows.length === 0;
+            });
+            hints.forEach((hint) => {
+                hint.textContent = hintText;
+            });
+        }
+
+        function syncOrdersDashboardUi() {
+            updateOrdersPaginationUi();
+            updateOrdersStatsCards();
+            updateOrdersFilterStats();
+            updateOrdersExportUi();
+            updateBadges();
+        }
+
         function updateOrdersPaginationUi() {
             const metaEl = document.getElementById('ordersPaginationMeta');
             const loadMoreBtn = document.getElementById('ordersLoadMoreBtn');
@@ -6050,7 +6289,7 @@ function adminLogout(){
             if (ordersBadge) ordersBadge.textContent = String(rows.length);
             if (rows.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🛍️</div><p>لا توجد طلبات</p></div></td></tr>';
-                updateOrdersPaginationUi();
+                syncOrdersDashboardUi();
                 return;
             }
             tbody.innerHTML = rows.map((o) => {
@@ -6080,12 +6319,13 @@ function adminLogout(){
                 </tr>
             `;
             }).join('');
-            updateOrdersPaginationUi();
+            syncOrdersDashboardUi();
         }
 
         function applyOrdersFilters(options = {}) {
             const settings = options && typeof options === 'object' ? options : {};
             const reset = settings.reset === true;
+            updateOrdersDateControls();
             Object.assign(ordersFilters, readOrdersFiltersFromUi());
             if (reset) {
                 loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
@@ -6098,13 +6338,16 @@ function adminLogout(){
         function clearOrdersFilters() {
             const statusEl = document.getElementById('ordersStatusFilter');
             const searchEl = document.getElementById('ordersSearchInput');
+            const quickDateEl = document.getElementById('ordersQuickDateFilter');
             const dateFromEl = document.getElementById('ordersDateFrom');
             const dateToEl = document.getElementById('ordersDateTo');
             if (statusEl) statusEl.value = '';
             if (searchEl) searchEl.value = '';
+            if (quickDateEl) quickDateEl.value = '';
             if (dateFromEl) dateFromEl.value = '';
             if (dateToEl) dateToEl.value = '';
-            Object.assign(ordersFilters, { status: '', searchText: '', dateFromIso: '', dateToIso: '' });
+            Object.assign(ordersFilters, { status: '', searchText: '', datePreset: '', dateFromIso: '', dateToIso: '' });
+            updateOrdersDateControls();
             loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
         }
 
@@ -6157,12 +6400,12 @@ function adminLogout(){
                 ordersHasMore = response && response.hasMore === true;
                 ordersPageCursor = String(response && response.nextCursor || '').trim();
                 ordersTotalLoaded = Array.isArray(orders) ? orders.length : 0;
+                rebuildOrdersStatusFilterOptions(orders);
                 filteredOrders = applyOrdersFilterLocal(orders, ordersFilters);
 
                 saveOrders();
                 renderOrdersTable();
                 renderRecentOrders();
-                updateBadges();
                 updateStats();
                 if (showToastMessage) showNotification('success', 'تم تحديث الطلبات');
             } catch (error) {
@@ -6202,8 +6445,8 @@ function adminLogout(){
         }
 
         function getStatusName(s) {
-            const names = { pending: 'جديد', confirmed: 'مؤكد', processing: 'تجهيز', shipped: 'شحن', delivered: 'توصيل', completed: 'مكتمل', cancelled: 'ملغي' };
-            return names[s] || s;
+            const key = String(s || '').trim().toLowerCase();
+            return ORDER_STATUS_LABELS[key] || key || 'غير معروف';
         }
 
         function formatDate(d) {
@@ -8383,6 +8626,22 @@ function adminLogout(){
             }));
         }
 
+        function buildOrderExportRows(sourceRows = []) {
+            return (Array.isArray(sourceRows) ? sourceRows : []).map((order) => ({
+                'رقم الطلب': order && (order.orderNumber || order.id) || '',
+                'اسم العميل': order && order.customer && order.customer.name || '',
+                'الهاتف': order && order.customer && order.customer.phone || '',
+                'البريد': order && order.customer && order.customer.email || '',
+                'العنوان': order && order.customer && order.customer.address || '',
+                'عدد المنتجات': Array.isArray(order && order.items) ? order.items.length : 0,
+                'المبلغ': Number(order && order.total || 0),
+                'الكوبون': order && order.couponCode || '',
+                'الخصم': Number(order && order.discount || 0),
+                'الحالة': getStatusName(order && order.status || ''),
+                'التاريخ': formatDateTime(order && order.createdAt || '')
+            }));
+        }
+
         async function writeWorkbookFile(rows, sheetName, filename, columns = []) {
             await ensureXlsxLoaded();
             const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -8446,9 +8705,32 @@ function adminLogout(){
             }
         }
 
-        function exportOrdersExcel() {
-            const data = orders.map(o => ({ 'رقم': o.orderNumber, 'العميل': o.customer?.name, 'الهاتف': o.customer?.phone, 'العنوان': o.customer?.address, 'المبلغ': o.total, 'الكوبون': o.couponCode || '', 'الخصم': o.discount || 0, 'الحالة': getStatusName(o.status), 'التاريخ': formatDateTime(o.createdAt) }));
-            exportToExcel(data, 'orders');
+        async function exportOrdersExcel() {
+            const rows = getOrdersForRender();
+            if (!Array.isArray(rows) || rows.length === 0) {
+                showNotification('warning', 'لا توجد طلبات مطابقة للتصدير');
+                return;
+            }
+
+            const confirmMessage = hasActiveOrdersFilters()
+                ? `تصدير ${rows.length} طلب من النتائج المعروضة حالياً؟`
+                : (ordersHasMore
+                    ? `سيتم تصدير ${rows.length} طلب من البيانات المحمّلة حالياً فقط. هل تريد المتابعة؟`
+                    : `تصدير ${rows.length} طلب إلى Excel؟`);
+            if (!confirm(confirmMessage)) return;
+
+            try {
+                const data = buildOrderExportRows(rows);
+                const filenamePrefix = hasActiveOrdersFilters() ? 'orders_filtered' : (ordersHasMore ? 'orders_loaded' : 'orders');
+                await writeWorkbookFile(data, 'الطلبات', `${filenamePrefix}_${makeExportTimestamp()}.xlsx`, [
+                    { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 24 }, { wch: 34 },
+                    { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 24 }
+                ]);
+                showNotification('success', `تم تصدير ${rows.length} طلب`);
+            } catch (error) {
+                console.error('exportOrdersExcel error:', error);
+                showNotification('error', 'فشل تصدير الطلبات');
+            }
         }
 
         function exportUsersExcel() {
