@@ -26,6 +26,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run preflight
@@ -41,6 +43,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Debug paths
@@ -66,6 +70,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Debug paths
@@ -93,6 +99,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Debug paths
@@ -132,6 +140,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Run security regression check
@@ -166,6 +176,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Debug paths
@@ -191,6 +203,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Debug paths

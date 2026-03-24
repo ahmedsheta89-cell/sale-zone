@@ -169,6 +169,9 @@ jobs:
         with:
           node-version: 20.17.0
 
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
+
       - name: Install tooling dependencies
         run: npm ci --prefix sale-zone --no-audit --no-fund
 
@@ -245,4 +248,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
