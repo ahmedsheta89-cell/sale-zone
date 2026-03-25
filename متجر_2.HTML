@@ -404,6 +404,363 @@
         .modal { background: var(--white); border-radius: 18px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; transform: scale(0.9); transition: var(--transition); overscroll-behavior: contain; }
         .modal-overlay.active .modal { transform: scale(1); }
         .modal.large { max-width: 700px; }
+        .modal.my-account-modal {
+            max-width: 1080px;
+            width: min(1080px, 100%);
+            max-height: 92vh;
+            direction: rtl;
+            display: flex;
+            flex-direction: column;
+        }
+        .my-account-layout {
+            display: grid;
+            grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+            min-height: 0;
+        }
+        .my-account-sidebar {
+            background: linear-gradient(180deg, rgba(10, 17, 40, 0.98), rgba(17, 24, 39, 0.96));
+            color: var(--white);
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .my-account-avatar {
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--navy);
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-gold);
+        }
+        .my-account-sidebar h3 {
+            font-size: 1.35rem;
+            margin: 0;
+            color: var(--white);
+        }
+        .my-account-sidebar p {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 0.92rem;
+            line-height: 1.7;
+        }
+        .my-account-header-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .my-account-header-btn,
+        .my-account-ghost-btn,
+        .my-account-primary-btn,
+        .my-account-danger-btn,
+        .my-account-tab {
+            min-height: 44px;
+            border-radius: 12px;
+            transition: var(--transition);
+        }
+        .my-account-header-btn,
+        .my-account-ghost-btn,
+        .my-account-tab {
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--white);
+            padding: 10px 14px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .my-account-ghost-btn {
+            color: var(--navy);
+            background: #f8fafc;
+            border-color: #d7dee8;
+        }
+        .my-account-primary-btn {
+            border: none;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--navy);
+            padding: 11px 16px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: var(--shadow-gold);
+        }
+        .my-account-danger-btn {
+            border: none;
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 11px 16px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .my-account-header-btn:hover,
+        .my-account-ghost-btn:hover,
+        .my-account-tab:hover,
+        .my-account-primary-btn:hover,
+        .my-account-danger-btn:hover {
+            transform: translateY(-1px);
+        }
+        .my-account-body {
+            background: #fffdf9;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .my-account-tabs {
+            display: flex;
+            gap: 10px;
+            padding: 18px 18px 0;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+        .my-account-tab {
+            white-space: nowrap;
+            color: #475569;
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            font-size: 0.88rem;
+        }
+        .my-account-tab.active {
+            background: var(--navy);
+            border-color: var(--navy);
+            color: var(--white);
+            box-shadow: 0 14px 30px rgba(10, 17, 40, 0.16);
+        }
+        .my-account-scroll {
+            padding: 18px;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .my-account-stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .my-account-stat-card {
+            background: var(--white);
+            border: 1px solid #edf2f7;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+        .my-account-stat-card small {
+            display: block;
+            color: #64748b;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+        }
+        .my-account-stat-card strong {
+            font-size: 1.45rem;
+            color: var(--navy);
+        }
+        .my-account-panel {
+            background: var(--white);
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid #edf2f7;
+        }
+        .my-account-grid {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .my-account-field {
+            display: grid;
+            gap: 8px;
+        }
+        .my-account-field label {
+            font-size: 0.88rem;
+            color: #475569;
+            font-weight: 700;
+        }
+        .my-account-field input,
+        .my-account-field textarea {
+            width: 100%;
+            min-height: 48px;
+            border: 1px solid #d8dee9;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 0.95rem;
+            background: #fff;
+            color: #0f172a;
+        }
+        .my-account-field textarea {
+            min-height: 104px;
+            resize: vertical;
+        }
+        .my-account-readonly {
+            min-height: 48px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 12px 14px;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            line-height: 1.7;
+        }
+        .my-account-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .my-account-products {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 14px;
+        }
+        .my-account-product-card {
+            background: var(--white);
+            border: 1px solid #edf2f7;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+        }
+        .my-account-product-card img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            background: #f8fafc;
+        }
+        .my-account-product-card .content {
+            padding: 14px;
+            display: grid;
+            gap: 8px;
+        }
+        .my-account-thread-card,
+        .my-account-order-card,
+        .my-account-points-card,
+        .my-account-settings-card {
+            border: 1px solid #edf2f7;
+            border-radius: 16px;
+            padding: 16px;
+            background: #fff;
+        }
+        .my-account-order-card + .my-account-order-card,
+        .my-account-points-card + .my-account-points-card {
+            margin-top: 12px;
+        }
+        .my-account-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .my-account-pill.info { background: #dbeafe; color: #1d4ed8; }
+        .my-account-pill.success { background: #dcfce7; color: #15803d; }
+        .my-account-pill.warning { background: #fef3c7; color: #b45309; }
+        .my-account-pill.muted { background: #e2e8f0; color: #475569; }
+        .my-account-timeline {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .my-account-timeline-step {
+            flex: 1 1 110px;
+            min-width: 90px;
+            border-radius: 14px;
+            padding: 10px 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            text-align: center;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .my-account-timeline-step.active {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.18), rgba(212, 175, 55, 0.08));
+            border-color: rgba(212, 175, 55, 0.55);
+            color: var(--gold-dark);
+        }
+        .my-account-points-progress {
+            width: 100%;
+            height: 12px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+        .my-account-points-progress > span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--gold), var(--gold-dark));
+        }
+        .my-account-settings-list {
+            display: grid;
+            gap: 12px;
+        }
+        .my-account-setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: 1px solid #edf2f7;
+            border-radius: 16px;
+            padding: 14px 16px;
+            background: #fff;
+        }
+        .my-account-setting-row small {
+            display: block;
+            color: #64748b;
+            margin-top: 4px;
+            line-height: 1.6;
+        }
+        .my-account-switch {
+            width: 52px;
+            height: 30px;
+            border-radius: 999px;
+            background: #cbd5e1;
+            position: relative;
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+        .my-account-switch::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #fff;
+            transition: var(--transition);
+        }
+        .my-account-switch.active {
+            background: #16a34a;
+        }
+        .my-account-switch.active::after {
+            transform: translateX(-22px);
+        }
+        .my-account-muted-note {
+            color: #64748b;
+            font-size: 0.85rem;
+            line-height: 1.7;
+        }
+        .my-account-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #64748b;
+        }
+        .my-account-empty .icon {
+            font-size: 2.4rem;
+            margin-bottom: 10px;
+        }
         .modal-header { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: var(--white); padding: 20px; text-align: center; position: relative; border-radius: 18px 18px 0 0; }
         .modal-header h2 { font-family: var(--font-display); font-size: var(--font-xl); margin-bottom: 4px; font-weight: 700; }
         .modal-header p { color: var(--gold-light); font-size: 12px; }
@@ -636,6 +993,15 @@
             .modal-overlay { align-items: flex-end; padding: 10px; }
             .modal { max-width: 100%; max-height: 92dvh; border-radius: 16px; }
             .modal-body { padding: 16px; }
+            .modal.my-account-modal { max-height: 94dvh; }
+            .my-account-layout { grid-template-columns: 1fr; }
+            .my-account-sidebar { padding: 18px 16px; gap: 16px; }
+            .my-account-tabs { padding: 14px 14px 0; }
+            .my-account-scroll { padding: 14px; }
+            .my-account-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .my-account-grid { grid-template-columns: 1fr; }
+            .my-account-products { grid-template-columns: 1fr; }
+            .my-account-setting-row { align-items: flex-start; flex-direction: column; }
             .close-modal { top: 10px; left: 10px; }
             .connection-banner { width: calc(100% - 20px); margin-top: 8px; border-radius: 12px; padding: 10px 12px; font-size: 12px; }
             .product-modal-content { grid-template-columns: 1fr; padding: 16px; gap: 18px; }
@@ -794,11 +1160,13 @@
                     <div id="guestMenu">
                         <button type="button" onclick="showAuthModal('login')">🔐 <span data-i18n="login">تسجيل الدخول</span></button>
                         <button type="button" onclick="showAuthModal('register')">📝 <span data-i18n="register">إنشاء حساب</span></button>
+                        <button type="button" onclick="openFAQBot()">🤖 <span>الأسئلة الشائعة</span></button>
                     </div>
                     <div id="userMenu" class="hidden">
                         <a href="#" onclick="showProfile()">👤 <span data-i18n="account">حسابي</span></a>
                         <a href="#" onclick="showMyOrders()">📦 <span data-i18n="myOrders">طلباتي</span></a>
                         <a href="#" onclick="showOrderTracking()">🚚 <span data-i18n="orderTracking">تتبع الطلب</span></a>
+                        <a href="#" onclick="openFAQBot()">🤖 <span>الأسئلة الشائعة</span></a>
                         <a href="#" onclick="showChangePassword()">🔑 <span data-i18n="changePasswordLabel">تغيير كلمة المرور</span></a>
                         <button onclick="logout()">🚪 <span data-i18n="logout">تسجيل الخروج</span></button>
                     </div>
@@ -1314,6 +1682,26 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="myAccountModal" aria-hidden="true">
+        <div class="modal my-account-modal">
+            <div class="modal-header">
+                <button class="close-modal" type="button" aria-label="إغلاق حسابي" onclick="closeMyAccount()">✕</button>
+                <h2>👤 <span data-i18n="account">حسابي</span></h2>
+                <p id="myAccountSubtitle">كل بياناتك وطلباتك ومحادثاتك في مكان واحد</p>
+            </div>
+            <div class="my-account-layout">
+                <aside class="my-account-sidebar">
+                    <div id="myAccountHeader"></div>
+                    <div id="myAccountStats" class="my-account-stats"></div>
+                </aside>
+                <section class="my-account-body">
+                    <div id="myAccountTabs" class="my-account-tabs" role="tablist" aria-label="تبويبات حسابي"></div>
+                    <div id="myAccountContent" class="my-account-scroll"></div>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <!-- Rating Modal -->
     <div class="modal-overlay" id="ratingModal">
         <div class="modal">
@@ -1416,7 +1804,7 @@
           font-size:1rem;flex-shrink:0">➤</button>
       </div>
 
-      <button onclick="openTawkChat();closeFAQBot()"
+      <button onclick="if(currentUser){closeFAQBot();openMySupportConversation();}else{openTawkChat();closeFAQBot();}"
         style="width:100%;padding:13px;
         background:var(--color-background-secondary);
         border:none;
@@ -1488,7 +1876,7 @@
             <span>❤️</span>
             <span data-i18n="favorites">المفضلة</span>
         </button>
-        <button type="button" class="nav-item" data-mobile-nav="contact" onclick="openFAQBot()" data-action="open-faq-bot">
+        <button type="button" class="nav-item" data-mobile-nav="contact" onclick="toggleChat()" data-action="open-chat">
             <span>💬</span>
             <span data-i18n="contactUs">تواصل معنا</span>
         </button>
@@ -1610,6 +1998,24 @@
             notifiedReason: ''
         };
         const SUPPORT_CHAT_MESSAGES_LIMIT = 150;
+        const MY_ACCOUNT_NOTIFICATION_PREF_KEY = 'sale_zone_account_notifications_enabled';
+        const MY_ACCOUNT_TABS = ['data', 'orders', 'favorites', 'points', 'messages', 'settings'];
+        const ORDER_TIMELINE_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed'];
+        let myAccountState = {
+            activeTab: 'data',
+            loadedTabs: new Set(),
+            pendingOpenAfterAuth: false,
+            pendingTab: 'data',
+            profile: null,
+            profileEditMode: false,
+            emailEditMode: false,
+            orders: null,
+            supportThread: null,
+            supportMessages: [],
+            supportMessagesCount: 0
+        };
+        let storeAuthListenerBound = false;
+        let tawkDesiredVisibility = null;
         const recentStoreEventLog = Object.create(null);
         const STORE_EVENT_THROTTLE_MS = {
             STORE_BOOT: 30000,
@@ -1640,7 +2046,7 @@
             chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' },
             featureFlags: {
                 tawktoEnabled: true,
-                internalChatEnabled: false,
+                internalChatEnabled: true,
                 whatsappEnabled: true,
                 faqBotEnabled: true,
                 pullToRefreshEnabled: true,
@@ -2348,6 +2754,7 @@
             safeRun('initPullToRefresh', initPullToRefresh);
             safeRun('initInfiniteScroll', initInfiniteScroll);
             safeRun('checkLoggedInUser', checkLoggedInUser);
+            safeRun('ensureStoreAuthListener', ensureStoreAuthListener);
             completeMagicLinkSignInIfNeeded().catch((error) => {
                 console.error('completeMagicLinkSignInIfNeeded bootstrap error:', error);
             });
@@ -2629,11 +3036,25 @@
                 banners = resolveList(bannersResult, 'BANNERS', localBanners, 'Banners');
 
                 if (settingsResult.status === 'fulfilled' && settingsResult.value && typeof settingsResult.value === 'object') {
-                    storeSettings = { ...storeSettings, ...settingsResult.value };
+                    storeSettings = {
+                        ...storeSettings,
+                        ...settingsResult.value,
+                        featureFlags: { ...(storeSettings.featureFlags || {}), ...((settingsResult.value && settingsResult.value.featureFlags) || {}) },
+                        content: { ...(storeSettings.content || {}), ...((settingsResult.value && settingsResult.value.content) || {}) },
+                        appearance: { ...(storeSettings.appearance || {}), ...((settingsResult.value && settingsResult.value.appearance) || {}) },
+                        chatSupport: { ...(storeSettings.chatSupport || {}), ...((settingsResult.value && settingsResult.value.chatSupport) || {}) }
+                    };
                     setStorageData('SETTINGS', storeSettings);
                     logStore('info', 'STORE_SETTINGS_REMOTE_OK', 'Settings loaded from Firebase', { source: 'firebase' });
                 } else if (localSettings && typeof localSettings === 'object') {
-                    storeSettings = { ...storeSettings, ...localSettings };
+                    storeSettings = {
+                        ...storeSettings,
+                        ...localSettings,
+                        featureFlags: { ...(storeSettings.featureFlags || {}), ...((localSettings && localSettings.featureFlags) || {}) },
+                        content: { ...(storeSettings.content || {}), ...((localSettings && localSettings.content) || {}) },
+                        appearance: { ...(storeSettings.appearance || {}), ...((localSettings && localSettings.appearance) || {}) },
+                        chatSupport: { ...(storeSettings.chatSupport || {}), ...((localSettings && localSettings.chatSupport) || {}) }
+                    };
                     logStore('info', 'STORE_SETTINGS_LOCAL_FALLBACK', 'Settings loaded from localStorage', { source: 'localStorage' });
                 }
 
@@ -2647,7 +3068,14 @@
                 coupons = [];
                 banners = [];
                 if (localSettings && typeof localSettings === 'object') {
-                    storeSettings = { ...storeSettings, ...localSettings };
+                    storeSettings = {
+                        ...storeSettings,
+                        ...localSettings,
+                        featureFlags: { ...(storeSettings.featureFlags || {}), ...((localSettings && localSettings.featureFlags) || {}) },
+                        content: { ...(storeSettings.content || {}), ...((localSettings && localSettings.content) || {}) },
+                        appearance: { ...(storeSettings.appearance || {}), ...((localSettings && localSettings.appearance) || {}) },
+                        chatSupport: { ...(storeSettings.chatSupport || {}), ...((localSettings && localSettings.chatSupport) || {}) }
+                    };
                 }
                 users = [];
             }
@@ -2931,6 +3359,7 @@
                 }
             }
 
+            Promise.resolve(syncChatRouting({ source: 'feature-flags', silent: true })).catch(() => null);
             syncInfiniteScrollState(lastSearchResult || { page: productViewState.page || 1, totalPages: lastSearchResult?.totalPages || 1 });
             return true;
         }
@@ -4683,6 +5112,8 @@
                 phone: toText(pick('phone', normalizedPhone), 50),
                 phoneNormalized: normalizedPhone,
                 email: toText(pick('email', ''), 200),
+                authMethod: toText(pick('authMethod', ''), 40),
+                photoURL: toText(pick('photoURL', ''), 500),
                 address: toText(pick('address', ''), 500),
                 loyaltyPoints: Number.isFinite(Number(pick('loyaltyPoints', 0))) ? Number(pick('loyaltyPoints', 0)) : 0,
                 role: toText(pick('role', 'customer'), 20) || 'customer',
@@ -4816,6 +5247,47 @@
             switchAuthTab(tab);
         }
 
+        function ensureStoreAuthListener() {
+            if (storeAuthListenerBound) return;
+            const auth = getFirebaseAuthInstance();
+            if (!auth || typeof auth.onAuthStateChanged !== 'function') return;
+            storeAuthListenerBound = true;
+            auth.onAuthStateChanged((authUser) => {
+                if (!authUser) {
+                    currentUser = null;
+                    localStorage.removeItem('currentUser');
+                    invalidateMyAccountCache('all');
+                    stopSupportChatRealtime();
+                    updateUserUI();
+                    updateLiveSessionState({ customerId: '', customerPhone: '' });
+                    if (isMyAccountOpen()) closeMyAccount();
+                    syncChatRouting({ source: 'auth-state-signout', silent: true }).catch(() => null);
+                    return;
+                }
+
+                currentUser = sanitizeCustomerRecord({
+                    ...(currentUser || {}),
+                    id: String(currentUser && currentUser.id || authUser.uid),
+                    uid: String(authUser.uid || ''),
+                    name: String(currentUser && currentUser.name || authUser.displayName || authUser.email && String(authUser.email).split('@')[0] || ''),
+                    email: String(authUser.email || currentUser && currentUser.email || '').trim().toLowerCase(),
+                    emailVerified: authUser.emailVerified === true,
+                    authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
+                    photoURL: String(authUser.photoURL || currentUser && currentUser.photoURL || '')
+                });
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                updateUserUI();
+                updateLiveSessionState({
+                    customerId: String(currentUser.id || currentUser.uid || ''),
+                    customerPhone: String(currentUser.phone || '')
+                });
+                syncChatRouting({ source: 'auth-state-change', silent: true }).catch(() => null);
+                if (myAccountState.pendingOpenAfterAuth) {
+                    consumeMyAccountOpenAfterAuth();
+                }
+            });
+        }
+
         async function finalizeAuthenticatedCustomer(authUser, options = {}) {
             try {
                 const config = options && typeof options === 'object' ? options : {};
@@ -4856,6 +5328,8 @@
                     name: String(profile && (profile.displayName || profile.name) || authUser.displayName || (authUser.email ? String(authUser.email).split('@')[0] : 'عميل')),
                     phone: String(profile && profile.phone || config.phone || ''),
                     email: String(profile && profile.email || authUser.email || config.email || '').trim().toLowerCase(),
+                    authMethod: String(config.provider || inferAuthMethodFromAuthUser(authUser) || 'password'),
+                    photoURL: String(authUser.photoURL || ''),
                     address: String(profile && profile.address || config.address || ''),
                     loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
                     createdAt: String(profile && profile.createdAt || new Date().toISOString()),
@@ -4865,6 +5339,9 @@
                 });
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 updateUserUI();
+                invalidateMyAccountCache('all');
+                myAccountState.profile = currentUser;
+                syncChatRouting({ source: 'finalize-auth', silent: true }).catch(() => null);
                 if (chatMode === 'support') {
                     ensureSupportChatReady().catch(() => null);
                 }
@@ -4887,6 +5364,10 @@
                     } else {
                         showNotification('success', config.successTitle || 'مرحباً', config.successMessage || `أهلاً ${currentUser.name}!`);
                     }
+                }
+
+                if (config.openMyAccount === true || myAccountState.pendingOpenAfterAuth) {
+                    consumeMyAccountOpenAfterAuth();
                 }
 
                 return currentUser;
@@ -5128,6 +5609,8 @@
                 name: String(profile && (profile.displayName || profile.name) || name),
                 phone: String(profile && profile.phone || phone),
                 email: String(profile && profile.email || emailNormalized),
+                authMethod: 'password',
+                photoURL: String(authUser && authUser.photoURL || ''),
                 address: String(profile && profile.address || address),
                 loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
                 createdAt: String(profile && profile.createdAt || new Date().toISOString()),
@@ -5139,12 +5622,18 @@
             users = [];
             saveUsers();
             updateUserUI();
+            invalidateMyAccountCache('all');
+            myAccountState.profile = currentUser;
+            syncChatRouting({ source: 'register-success', silent: true }).catch(() => null);
             closeModal('authModal');
             showNotification('success', 'تم إنشاء الحساب', 'تحقق من بريدك الإلكتروني لتفعيل الحساب قبل الشراء أو الدعم.');
             updateLiveSessionState({
                 customerId: String(currentUser.id || currentUser.uid || ''),
                 customerPhone: String(currentUser.phone || '')
             });
+            if (myAccountState.pendingOpenAfterAuth) {
+                consumeMyAccountOpenAfterAuth();
+            }
             trackStoreEvent('REGISTER_SUCCESS', 'Customer registered successfully', 'info', {
                 customerId: String(currentUser.id || currentUser.uid || ''),
                 email: emailNormalized
@@ -5182,7 +5671,9 @@
                     uid: String(authUser.uid || ''),
                     name: String(currentUser && currentUser.name || authUser.displayName || ''),
                     email: String(authUser.email || currentUser && currentUser.email || '').toLowerCase(),
-                    emailVerified: authUser.emailVerified === true
+                    emailVerified: authUser.emailVerified === true,
+                    authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
+                    photoURL: String(authUser.photoURL || currentUser && currentUser.photoURL || '')
                 });
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
@@ -5202,10 +5693,15 @@
                                 createdAt: String(profile.createdAt || currentUser.createdAt || ''),
                                 updatedAt: String(profile.updatedAt || currentUser.updatedAt || ''),
                                 role: String(profile.role || currentUser.role || 'customer'),
-                                emailVerified: authUser.emailVerified === true
+                                emailVerified: authUser.emailVerified === true,
+                                authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
+                                photoURL: String(authUser.photoURL || currentUser && currentUser.photoURL || '')
                             });
                             localStorage.setItem('currentUser', JSON.stringify(currentUser));
                             updateUserUI();
+                            if (isMyAccountOpen()) {
+                                loadProfileData(true).then(() => renderMyAccountActiveTab({ force: true })).catch(() => null);
+                            }
                         })
                         .catch(() => null);
                 }
@@ -5222,17 +5718,25 @@
                 });
             }
             updateLoyaltyDisplay();
+            syncChatRouting({ source: 'check-logged-in-user', silent: true }).catch(() => null);
         }
 
         function updateUserUI() {
             document.getElementById('guestMenu').classList.toggle('hidden', !!currentUser);
             document.getElementById('userMenu').classList.toggle('hidden', !currentUser);
-            document.getElementById('userBtn').textContent = currentUser ? currentUser.name.charAt(0) : '👤';
+            document.getElementById('userBtn').textContent = currentUser && currentUser.name ? currentUser.name.charAt(0) : '👤';
+            document.getElementById('userBtn').setAttribute('aria-label', currentUser ? `فتح حساب ${currentUser.name || ''}` : 'فتح قائمة الحساب');
             updateLoyaltyDisplay();
+            if (isMyAccountOpen()) {
+                renderMyAccountChrome();
+            }
         }
 
         function updateLoyaltyDisplay() {
             document.getElementById('loyaltyPoints').textContent = currentUser?.loyaltyPoints || 0;
+            if (isMyAccountOpen()) {
+                renderMyAccountChrome();
+            }
         }
 
         function logout() {
@@ -5247,11 +5751,16 @@
                 firebase.auth().signOut().catch(() => null);
             }
             stopSupportChatRealtime();
+            invalidateMyAccountCache('all');
             if (chatMode === 'support') {
                 switchChatMode('bot');
             }
             updateUserUI();
             updateLiveSessionState({ customerId: '', customerPhone: '' });
+            syncChatRouting({ source: 'logout', silent: true }).catch(() => null);
+            if (isMyAccountOpen()) {
+                closeMyAccount();
+            }
             showNotification('info', 'تم', 'تسجيل الخروج');
         }
 
@@ -5293,9 +5802,953 @@
             }
         }
 
+        function inferAuthMethodFromAuthUser(authUser) {
+            const providerIds = Array.isArray(authUser && authUser.providerData)
+                ? authUser.providerData.map((item) => String(item && item.providerId || '').trim()).filter(Boolean)
+                : [];
+            if (providerIds.includes('google.com')) return 'google';
+            if (providerIds.includes('password')) return 'password';
+            return providerIds[0] || '';
+        }
+
+        function getCurrentAuthMethod() {
+            const stored = String(currentUser && currentUser.authMethod || '').trim();
+            if (stored) return stored;
+            return inferAuthMethodFromAuthUser(getFirebaseCurrentUserSafe());
+        }
+
+        function isPasswordAccount() {
+            return getCurrentAuthMethod() === 'password';
+        }
+
+        function isMyAccountOpen() {
+            const modal = document.getElementById('myAccountModal');
+            return modal ? modal.classList.contains('active') : false;
+        }
+
+        function queueMyAccountOpenAfterAuth(tab = 'data') {
+            myAccountState.pendingOpenAfterAuth = true;
+            myAccountState.pendingTab = MY_ACCOUNT_TABS.includes(String(tab || '').trim()) ? String(tab || '').trim() : 'data';
+        }
+
+        function consumeMyAccountOpenAfterAuth() {
+            if (!myAccountState.pendingOpenAfterAuth) return false;
+            const nextTab = myAccountState.pendingTab || 'data';
+            myAccountState.pendingOpenAfterAuth = false;
+            myAccountState.pendingTab = 'data';
+            setTimeout(() => {
+                openMyAccount({ tab: nextTab }).catch(() => null);
+            }, 60);
+            return true;
+        }
+
+        function invalidateMyAccountCache(scope = 'all') {
+            const target = String(scope || 'all').trim().toLowerCase();
+            if (target === 'all' || target === 'profile') {
+                myAccountState.profile = null;
+                myAccountState.profileEditMode = false;
+                myAccountState.emailEditMode = false;
+                myAccountState.loadedTabs.delete('data');
+                myAccountState.loadedTabs.delete('settings');
+            }
+            if (target === 'all' || target === 'orders') {
+                myAccountState.orders = null;
+                myAccountState.loadedTabs.delete('orders');
+                myAccountState.loadedTabs.delete('points');
+            }
+            if (target === 'all' || target === 'favorites') {
+                myAccountState.loadedTabs.delete('favorites');
+            }
+            if (target === 'all' || target === 'messages') {
+                myAccountState.supportThread = null;
+                myAccountState.supportMessages = [];
+                myAccountState.supportMessagesCount = 0;
+                myAccountState.loadedTabs.delete('messages');
+            }
+        }
+
+        function getMyAccountNotificationEnabled() {
+            try {
+                return localStorage.getItem(MY_ACCOUNT_NOTIFICATION_PREF_KEY) !== '0';
+            } catch (_) {
+                return true;
+            }
+        }
+
+        async function setMyAccountNotificationPreference(enabled) {
+            const nextValue = enabled !== false;
+            try {
+                if (nextValue && 'Notification' in window && Notification.permission === 'default') {
+                    await Notification.requestPermission().catch(() => 'default');
+                }
+            } catch (_) {}
+
+            try {
+                localStorage.setItem(MY_ACCOUNT_NOTIFICATION_PREF_KEY, nextValue ? '1' : '0');
+            } catch (_) {}
+
+            if (isMyAccountOpen() && myAccountState.activeTab === 'settings') {
+                renderMyAccountSettingsTab(document.getElementById('myAccountContent'));
+            }
+        }
+
+        async function loadProfileData(force = false) {
+            if (!currentUser) return null;
+            if (!force && myAccountState.profile) return myAccountState.profile;
+
+            const authUser = getFirebaseCurrentUserSafe();
+            const uid = String(currentUser.uid || currentUser.id || authUser && authUser.uid || '').trim();
+            let profile = null;
+
+            if (uid && typeof getMyCustomerProfile === 'function') {
+                profile = await getMyCustomerProfile(uid).catch(() => null);
+            }
+
+            const merged = sanitizeCustomerRecord({
+                ...(currentUser || {}),
+                ...(profile || {}),
+                id: String(profile && profile.id || currentUser && currentUser.id || uid),
+                uid: String(profile && profile.uid || currentUser && currentUser.uid || uid),
+                name: String(profile && (profile.displayName || profile.name) || currentUser && currentUser.name || authUser && (authUser.displayName || authUser.email && String(authUser.email).split('@')[0]) || 'عميل'),
+                phone: String(profile && profile.phone || currentUser && currentUser.phone || ''),
+                email: String(profile && profile.email || authUser && authUser.email || currentUser && currentUser.email || '').trim().toLowerCase(),
+                address: String(profile && profile.address || currentUser && currentUser.address || ''),
+                loyaltyPoints: Number(profile && profile.loyaltyPoints != null ? profile.loyaltyPoints : currentUser && currentUser.loyaltyPoints || 0),
+                role: String(profile && profile.role || currentUser && currentUser.role || 'customer'),
+                createdAt: String(profile && profile.createdAt || currentUser && currentUser.createdAt || new Date().toISOString()),
+                updatedAt: String(profile && profile.updatedAt || currentUser && currentUser.updatedAt || new Date().toISOString()),
+                emailVerified: authUser ? authUser.emailVerified === true : currentUser && currentUser.emailVerified === true,
+                authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
+                photoURL: String(authUser && authUser.photoURL || currentUser && currentUser.photoURL || '')
+            });
+
+            currentUser = merged;
+            myAccountState.profile = merged;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            updateUserUI();
+            return merged;
+        }
+
         function showProfile() {
+            if (!currentUser) {
+                queueMyAccountOpenAfterAuth('data');
+                showAuthModal('magic');
+                return;
+            }
+            openMyAccount({ tab: 'data' }).catch(() => null);
+        }
+
+        function getMyAccountActiveMessagesCount() {
+            const unread = Number(myAccountState.supportThread && myAccountState.supportThread.unreadForCustomer || 0);
+            if (unread > 0) return unread;
+            return Number(myAccountState.supportMessagesCount || 0);
+        }
+
+        function buildMyAccountTabLabel(tab) {
+            const labels = {
+                data: 'بياناتي',
+                orders: 'طلباتي',
+                favorites: 'مفضلتي',
+                points: 'نقاطي',
+                messages: 'رسائلي',
+                settings: 'الإعدادات'
+            };
+            return labels[tab] || tab;
+        }
+
+        function buildMyAccountHeaderMarkup() {
+            const profile = myAccountState.profile || currentUser || {};
+            const firstLetter = escapeHtml(String(profile && profile.name || 'ع').trim().charAt(0) || 'ع');
+            const safeName = escapeHtml(String(profile && profile.name || 'عميل'));
+            const safeEmail = escapeHtml(String(profile && profile.email || ''));
+            const safePhone = escapeHtml(String(profile && profile.phone || 'غير مضاف'));
+            const points = Number(profile && profile.loyaltyPoints || 0);
+            const unreadMessages = Number(myAccountState.supportThread && myAccountState.supportThread.unreadForCustomer || 0);
+            return `
+                <div class="my-account-avatar" aria-hidden="true">${firstLetter}</div>
+                <div style="display:grid;gap:8px;">
+                    <div>
+                        <h3>${safeName}</h3>
+                        <p>${safeEmail || 'بدون بريد إلكتروني'}</p>
+                    </div>
+                    <p>📱 ${safePhone}</p>
+                    <p>⭐ ${escapeHtml(String(points))} نقطة${unreadMessages > 0 ? ` • 💬 ${escapeHtml(String(unreadMessages))} غير مقروءة` : ''}</p>
+                </div>
+                <div class="my-account-header-actions">
+                    <button type="button" class="my-account-header-btn" onclick="showEditProfileForm()" aria-label="تعديل بيانات الحساب">✏️ تعديل البيانات</button>
+                    <button type="button" class="my-account-header-btn" onclick="openMySupportConversation()" aria-label="فتح محادثة الدعم">💬 افتح الدعم</button>
+                </div>
+            `;
+        }
+
+        function buildMyAccountStatsMarkup() {
+            const orderCount = Array.isArray(myAccountState.orders) ? myAccountState.orders.length : '—';
+            const favoritesCount = Array.isArray(favorites) ? favorites.length : 0;
+            const pointsBalance = Number(currentUser && currentUser.loyaltyPoints || 0);
+            const messagesCount = getMyAccountActiveMessagesCount();
+            const stats = [
+                { label: 'الطلبات', value: orderCount, icon: '🛒' },
+                { label: 'المفضلة', value: favoritesCount, icon: '❤️' },
+                { label: 'النقاط', value: pointsBalance, icon: '⭐' },
+                { label: 'الرسائل', value: messagesCount, icon: '💬' }
+            ];
+            return stats.map((item) => `
+                <div class="my-account-stat-card">
+                    <small>${item.icon} ${item.label}</small>
+                    <strong>${escapeHtml(String(item.value))}</strong>
+                </div>
+            `).join('');
+        }
+
+        function renderMyAccountChrome() {
+            const header = document.getElementById('myAccountHeader');
+            const stats = document.getElementById('myAccountStats');
+            const tabs = document.getElementById('myAccountTabs');
+            if (!header || !stats || !tabs) return;
+
+            header.innerHTML = buildMyAccountHeaderMarkup();
+            stats.innerHTML = buildMyAccountStatsMarkup();
+            tabs.innerHTML = MY_ACCOUNT_TABS.map((tab) => `
+                <button
+                    type="button"
+                    class="my-account-tab ${myAccountState.activeTab === tab ? 'active' : ''}"
+                    role="tab"
+                    aria-selected="${myAccountState.activeTab === tab ? 'true' : 'false'}"
+                    aria-label="${escapeHtml(buildMyAccountTabLabel(tab))}"
+                    onclick="setMyAccountTab(this.dataset.accountTab)"
+                    data-account-tab="${tab}"
+                >${escapeHtml(buildMyAccountTabLabel(tab))}</button>
+            `).join('');
+        }
+
+        function refreshMyAccountChrome() {
+            const header = document.getElementById('myAccountHeader');
+            const stats = document.getElementById('myAccountStats');
+            const tabs = document.getElementById('myAccountTabs');
+            if (!header || !stats || !tabs) return false;
+            renderMyAccountChrome();
+            return true;
+        }
+
+        function renderMyAccountLoading(message = 'جاري التحميل...') {
+            const container = document.getElementById('myAccountContent');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="my-account-panel my-account-empty">
+                    <div class="icon">⏳</div>
+                    <p>${escapeHtml(message)}</p>
+                </div>
+            `;
+        }
+
+        function closeMyAccount() {
+            const modal = document.getElementById('myAccountModal');
+            if (modal) modal.setAttribute('aria-hidden', 'true');
+            myAccountState.profileEditMode = false;
+            myAccountState.emailEditMode = false;
+            closeModal('myAccountModal');
+            return true;
+        }
+
+        async function openMyAccount(options = {}) {
+            if (!currentUser) {
+                queueMyAccountOpenAfterAuth(options && options.tab || 'data');
+                showAuthModal('magic');
+                return false;
+            }
+
+            closeCart({ skipHistory: true });
+            closeWishlist({ skipHistory: true });
+            closeFAQBot({ skipHistory: true });
+            closeInternalChat({ skipHistory: true, silent: true });
+
+            const dropdown = document.querySelector('.user-dropdown');
+            const trigger = document.getElementById('userBtn');
+            if (dropdown) dropdown.classList.remove('force-open');
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+
+            const modal = document.getElementById('myAccountModal');
+            if (modal) modal.setAttribute('aria-hidden', 'false');
+            openModal('myAccountModal');
+            await loadProfileData();
+            renderMyAccountChrome();
+            await setMyAccountTab(options && options.tab || myAccountState.activeTab || 'data', { force: true });
+            return true;
+        }
+
+        async function setMyAccountTab(tab = 'data', options = {}) {
+            const normalizedTab = MY_ACCOUNT_TABS.includes(String(tab || '').trim()) ? String(tab || '').trim() : 'data';
+            myAccountState.activeTab = normalizedTab;
+            renderMyAccountChrome();
+            await renderMyAccountActiveTab(options);
+        }
+
+        function showEditProfileForm() {
+            if (!currentUser) {
+                queueMyAccountOpenAfterAuth('data');
+                showAuthModal('magic');
+                return;
+            }
+            myAccountState.profileEditMode = true;
+            myAccountState.emailEditMode = false;
+            if (isMyAccountOpen()) {
+                setMyAccountTab('data', { force: true }).catch(() => null);
+            } else {
+                openMyAccount({ tab: 'data' }).catch(() => null);
+            }
+        }
+
+        function cancelEditProfile() {
+            myAccountState.profileEditMode = false;
+            myAccountState.emailEditMode = false;
+            renderMyAccountDataTab(document.getElementById('myAccountContent'));
+        }
+
+        function toggleEmailEditMode(force) {
+            if (!isPasswordAccount()) return;
+            myAccountState.emailEditMode = typeof force === 'boolean' ? force : !myAccountState.emailEditMode;
+            renderMyAccountDataTab(document.getElementById('myAccountContent'));
+        }
+
+        function buildProfileReadonlyRow(label, value) {
+            return `
+                <div class="my-account-field">
+                    <label>${escapeHtml(label)}</label>
+                    <div class="my-account-readonly">${escapeHtml(String(value || 'غير مضاف'))}</div>
+                </div>
+            `;
+        }
+
+        function renderMyAccountDataTab(container) {
+            if (!container) return;
+            const profile = myAccountState.profile || currentUser || {};
+            const canChangeEmail = isPasswordAccount();
+            container.innerHTML = `
+                <div class="my-account-panel">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+                        <div>
+                            <h3 style="margin:0;color:var(--navy);">بياناتي</h3>
+                            <p class="my-account-muted-note">${myAccountState.profileEditMode ? 'يمكنك تعديل الاسم والهاتف والعنوان ثم الحفظ.' : 'هذه هي البيانات المرتبطة بحسابك الحالي.'}</p>
+                        </div>
+                        ${myAccountState.profileEditMode ? '' : '<button type="button" class="my-account-primary-btn" onclick="showEditProfileForm()">✏️ تعديل البيانات</button>'}
+                    </div>
+                    ${myAccountState.profileEditMode ? `
+                        <form onsubmit="submitMyAccountProfile(event)">
+                            <div class="my-account-grid">
+                                <div class="my-account-field">
+                                    <label for="accountNameInput">الاسم</label>
+                                    <input id="accountNameInput" type="text" value="${escapeHtml(String(profile.name || ''))}" required autocomplete="name">
+                                </div>
+                                <div class="my-account-field">
+                                    <label for="accountPhoneInput">الهاتف</label>
+                                    <input id="accountPhoneInput" type="tel" value="${escapeHtml(String(profile.phone || ''))}" autocomplete="tel">
+                                </div>
+                                <div class="my-account-field" style="grid-column:1 / -1;">
+                                    <label for="accountAddressInput">العنوان</label>
+                                    <textarea id="accountAddressInput" autocomplete="street-address">${escapeHtml(String(profile.address || ''))}</textarea>
+                                </div>
+                                <div class="my-account-field" style="grid-column:1 / -1;">
+                                    <label>البريد الإلكتروني</label>
+                                    <div class="my-account-readonly">${escapeHtml(String(profile.email || 'غير متاح'))}</div>
+                                </div>
+                            </div>
+                            <div class="my-account-actions">
+                                <button type="submit" class="my-account-primary-btn">💾 حفظ التغييرات</button>
+                                <button type="button" class="my-account-ghost-btn" onclick="cancelEditProfile()">إلغاء</button>
+                            </div>
+                        </form>
+                    ` : `
+                        <div class="my-account-grid">
+                            ${buildProfileReadonlyRow('الاسم', profile.name || '')}
+                            ${buildProfileReadonlyRow('الهاتف', profile.phone || '')}
+                            ${buildProfileReadonlyRow('البريد الإلكتروني', profile.email || '')}
+                            ${buildProfileReadonlyRow('العنوان', profile.address || '')}
+                        </div>
+                    `}
+                </div>
+                <div class="my-account-panel" style="margin-top:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <h3 style="margin:0;color:var(--navy);">أمان الحساب</h3>
+                            <p class="my-account-muted-note">${canChangeEmail ? 'يمكنك تغيير البريد الإلكتروني بعد إدخال كلمة المرور الحالية.' : 'حسابك الحالي يستخدم Google أو Magic Link، لذلك يبقى البريد للعرض فقط في هذا الإصدار.'}</p>
+                        </div>
+                        ${canChangeEmail ? `<button type="button" class="my-account-ghost-btn" onclick="toggleEmailEditMode()">${myAccountState.emailEditMode ? 'إخفاء تغيير البريد' : 'تغيير البريد'}</button>` : ''}
+                    </div>
+                    ${canChangeEmail && myAccountState.emailEditMode ? `
+                        <form onsubmit="submitMyAccountEmailChange(event)" style="margin-top:16px;display:grid;gap:12px;">
+                            <div class="my-account-field">
+                                <label for="accountEmailNextInput">البريد الإلكتروني الجديد</label>
+                                <input id="accountEmailNextInput" type="email" value="${escapeHtml(String(profile.email || ''))}" autocomplete="email" required>
+                            </div>
+                            <div class="my-account-field">
+                                <label for="accountEmailPasswordInput">كلمة المرور الحالية</label>
+                                <input id="accountEmailPasswordInput" type="password" autocomplete="current-password" required>
+                            </div>
+                            <div class="my-account-actions">
+                                <button type="submit" class="my-account-primary-btn">📧 حفظ البريد الجديد</button>
+                                <button type="button" class="my-account-ghost-btn" onclick="toggleEmailEditMode(false)">إلغاء</button>
+                            </div>
+                        </form>
+                    ` : `
+                        <div class="my-account-muted-note" style="margin-top:14px;">
+                            ${canChangeEmail ? 'البريد الحالي سيبقى كما هو حتى تؤكد تغييره من خلال كلمة المرور.' : 'تغيير البريد للحسابات غير المعتمدة على كلمة مرور سيتم تأجيله لدفعة لاحقة حتى نحافظ على أمان الجلسة الحالية.'}
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        async function submitMyAccountProfile(event) {
+            event.preventDefault();
             if (!currentUser) return;
-            showNotification('info', 'حسابي', `${currentUser.name}\n${currentUser.phone}\nنقاط: ${currentUser.loyaltyPoints || 0}`);
+
+            const name = String(document.getElementById('accountNameInput') && document.getElementById('accountNameInput').value || '').trim();
+            const phone = String(document.getElementById('accountPhoneInput') && document.getElementById('accountPhoneInput').value || '').trim();
+            const normalizedPhone = normalizePhone(phone);
+            const address = String(document.getElementById('accountAddressInput') && document.getElementById('accountAddressInput').value || '').trim();
+
+            if (!name) {
+                showNotification('error', 'خطأ', 'الاسم مطلوب');
+                return;
+            }
+            if (phone && !isValidCustomerPhone(normalizedPhone)) {
+                showNotification('error', 'خطأ', 'رقم الهاتف غير صالح');
+                return;
+            }
+
+            try {
+                const authUser = getFirebaseCurrentUserSafe();
+                if (authUser && typeof authUser.updateProfile === 'function') {
+                    await authUser.updateProfile({ displayName: name }).catch(() => null);
+                }
+
+                const uid = String(currentUser.uid || currentUser.id || authUser && authUser.uid || '').trim();
+                if (uid && typeof upsertMyCustomerProfile === 'function') {
+                    await upsertMyCustomerProfile(uid, {
+                        displayName: name,
+                        phone,
+                        address,
+                        email: String(currentUser.email || '')
+                    });
+                }
+
+                currentUser = sanitizeCustomerRecord({
+                    ...(currentUser || {}),
+                    uid,
+                    id: String(currentUser.id || uid),
+                    name,
+                    phone,
+                    address,
+                    email: String(currentUser.email || '').toLowerCase(),
+                    authMethod: getCurrentAuthMethod(),
+                    photoURL: String(authUser && authUser.photoURL || currentUser.photoURL || '')
+                });
+                myAccountState.profile = currentUser;
+                myAccountState.profileEditMode = false;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                updateUserUI();
+                renderMyAccountChrome();
+                renderMyAccountDataTab(document.getElementById('myAccountContent'));
+                showNotification('success', 'تم الحفظ', 'تم تحديث بيانات الحساب بنجاح');
+            } catch (error) {
+                console.error('submitMyAccountProfile error:', error);
+                showNotification('error', 'تعذر الحفظ', 'حدث خطأ أثناء تحديث بيانات الحساب');
+            }
+        }
+
+        async function submitMyAccountEmailChange(event) {
+            event.preventDefault();
+            if (!currentUser || !isPasswordAccount()) return;
+
+            const authUser = getFirebaseCurrentUserSafe();
+            const nextEmail = String(document.getElementById('accountEmailNextInput') && document.getElementById('accountEmailNextInput').value || '').trim().toLowerCase();
+            const currentPassword = String(document.getElementById('accountEmailPasswordInput') && document.getElementById('accountEmailPasswordInput').value || '');
+
+            if (!authUser || !authUser.email) {
+                showNotification('error', 'تعذر التحديث', 'لا توجد جلسة Firebase صالحة');
+                return;
+            }
+            if (!isEmailIdentifier(nextEmail)) {
+                showNotification('error', 'خطأ', 'البريد الإلكتروني غير صالح');
+                return;
+            }
+            if (nextEmail === String(authUser.email || '').trim().toLowerCase()) {
+                showNotification('info', 'بدون تغيير', 'أدخل بريداً مختلفاً عن الحالي');
+                return;
+            }
+            if (!currentPassword) {
+                showNotification('error', 'خطأ', 'أدخل كلمة المرور الحالية لتأكيد التغيير');
+                return;
+            }
+
+            try {
+                const credential = firebase.auth.EmailAuthProvider.credential(String(authUser.email || '').trim().toLowerCase(), currentPassword);
+                await authUser.reauthenticateWithCredential(credential);
+                await authUser.updateEmail(nextEmail);
+                if (typeof authUser.sendEmailVerification === 'function') {
+                    await authUser.sendEmailVerification().catch(() => null);
+                }
+
+                const uid = String(currentUser.uid || currentUser.id || authUser.uid || '').trim();
+                if (uid && typeof upsertMyCustomerProfile === 'function') {
+                    await upsertMyCustomerProfile(uid, {
+                        email: nextEmail,
+                        displayName: String(currentUser.name || ''),
+                        phone: String(currentUser.phone || ''),
+                        address: String(currentUser.address || '')
+                    });
+                }
+
+                currentUser = sanitizeCustomerRecord({
+                    ...(currentUser || {}),
+                    uid,
+                    id: String(currentUser.id || uid),
+                    email: nextEmail,
+                    emailVerified: false,
+                    authMethod: 'password',
+                    photoURL: String(authUser.photoURL || currentUser.photoURL || '')
+                });
+                myAccountState.profile = currentUser;
+                myAccountState.emailEditMode = false;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                updateUserUI();
+                renderMyAccountChrome();
+                renderMyAccountDataTab(document.getElementById('myAccountContent'));
+                showNotification('success', 'تم تحديث البريد', 'تم تغيير البريد الإلكتروني. يرجى تفعيل البريد الجديد.');
+            } catch (error) {
+                console.error('submitMyAccountEmailChange error:', error);
+                showNotification('error', 'فشل التحديث', 'تعذر تحديث البريد. تحقق من كلمة المرور الحالية وحاول مرة أخرى.');
+            }
+        }
+
+        async function ensureMyOrdersLoaded(force = false) {
+            if (!currentUser) return [];
+            if (!force && Array.isArray(myAccountState.orders)) return myAccountState.orders;
+            let myOrders = await loadMyOrdersFromFirebase();
+            if (!Array.isArray(myOrders) || myOrders.length === 0) {
+                const normalizedUid = String(currentUser.uid || currentUser.id || '').trim();
+                myOrders = orders.filter((order) => String(order && order.uid || '').trim() === normalizedUid);
+            }
+            myAccountState.orders = Array.isArray(myOrders) ? [...myOrders].sort((a, b) => {
+                const aTime = Date.parse(String(a && a.createdAt || '')) || 0;
+                const bTime = Date.parse(String(b && b.createdAt || '')) || 0;
+                return bTime - aTime;
+            }) : [];
+            return myAccountState.orders;
+        }
+
+        function buildOrderTimelineMarkup(order) {
+            const status = String(order && order.status || 'pending').trim().toLowerCase();
+            if (status === 'cancelled') {
+                return '<div class="my-account-pill warning">❌ ملغي</div>';
+            }
+            const currentIndex = ORDER_TIMELINE_STEPS.indexOf(status);
+            return `
+                <div class="my-account-timeline">
+                    ${ORDER_TIMELINE_STEPS.map((step, index) => `
+                        <div class="my-account-timeline-step ${currentIndex >= index ? 'active' : ''}">
+                            ${escapeHtml(getStatusName(step))}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function openAccountOrderTracking(orderNumber) {
+            closeMyAccount();
+            showOrderTracking();
+            trackOrderById(orderNumber, { refreshRemote: true }).catch(() => null);
+        }
+
+        async function renderMyAccountOrdersTab(container) {
+            if (!container) return;
+            renderMyAccountLoading('جاري تحميل طلباتك...');
+            const myOrders = await ensureMyOrdersLoaded();
+            renderMyAccountChrome();
+            if (!Array.isArray(myOrders) || myOrders.length === 0) {
+                container.innerHTML = `
+                    <div class="my-account-panel my-account-empty">
+                        <div class="icon">📦</div>
+                        <h3>لا توجد طلبات بعد</h3>
+                        <p>أول طلب تقوم به سيظهر هنا مع حالة التتبع.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="my-account-panel">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+                        <div>
+                            <h3 style="margin:0;color:var(--navy);">طلباتي</h3>
+                            <p class="my-account-muted-note">يمكنك متابعة الحالة التفصيلية لكل طلب من نفس القسم.</p>
+                        </div>
+                        <button type="button" class="my-account-ghost-btn" onclick="showMyOrders()">فتح العرض التقليدي</button>
+                    </div>
+                    ${myOrders.map((order) => {
+                        const orderNumber = String(order && (order.orderNumber || order.id) || '');
+                        const total = formatPrice(Number(order && order.total || 0));
+                        return `
+                            <div class="my-account-order-card">
+                                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                                    <div style="display:grid;gap:6px;">
+                                        <strong style="font-size:1rem;color:var(--navy);">${escapeHtml(orderNumber)}</strong>
+                                        <span class="my-account-muted-note">${escapeHtml(formatDate(order && order.createdAt || ''))}</span>
+                                    </div>
+                                    <div style="display:grid;gap:8px;justify-items:end;">
+                                        <span class="my-account-pill ${String(order && order.status || '') === 'completed' || String(order && order.status || '') === 'delivered' ? 'success' : String(order && order.status || '') === 'cancelled' ? 'warning' : 'info'}">${escapeHtml(getStatusName(order && order.status || 'pending'))}</span>
+                                        <strong style="color:var(--gold-dark);">${escapeHtml(total)}</strong>
+                                    </div>
+                                </div>
+                                ${buildOrderTimelineMarkup(order)}
+                                <div class="my-account-actions" style="margin-top:14px;">
+                                    <button type="button" class="my-account-primary-btn" data-order-id="${escapeHtml(orderNumber)}" onclick="openAccountOrderTracking(this.dataset.orderId)">🚚 تتبع الطلب</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function buildFavoritesProductsList() {
+            const sourceProducts = Array.isArray(products) && products.length > 0 ? products : getVisibleProductsList();
+            return favorites
+                .map((favId) => sourceProducts.find((product) => String(product && product.id || '') === String(favId)))
+                .filter(Boolean);
+        }
+
+        function removeFavoriteFromAccount(productId) {
+            toggleFav(productId);
+            renderMyAccountChrome();
+            if (myAccountState.activeTab === 'favorites') {
+                renderMyAccountFavoritesTab(document.getElementById('myAccountContent'));
+            }
+        }
+
+        function renderMyAccountFavoritesTab(container) {
+            if (!container) return;
+            const favoriteProducts = buildFavoritesProductsList();
+            renderMyAccountChrome();
+            if (!favoriteProducts.length) {
+                container.innerHTML = `
+                    <div class="my-account-panel my-account-empty">
+                        <div class="icon">❤️</div>
+                        <h3>مفضلتك فارغة</h3>
+                        <p>أضف المنتجات التي تحبها للمفضلة لتعود إليها بسرعة لاحقاً.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="my-account-panel">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+                        <div>
+                            <h3 style="margin:0;color:var(--navy);">مفضلتي</h3>
+                            <p class="my-account-muted-note">نفس المنتجات المخزنة في القائمة الجانبية، لكن بطريقة أسهل داخل حسابك.</p>
+                        </div>
+                        <button type="button" class="my-account-ghost-btn" onclick="toggleFavorites()">فتح القائمة الجانبية</button>
+                    </div>
+                    <div class="my-account-products">
+                        ${favoriteProducts.map((product) => `
+                            <div class="my-account-product-card">
+                                <img src="${escapeHtml(getSafeImageUrl(product, 360))}" alt="${escapeHtml(product && product.name || '')}" onerror="handleStoreImageError(this)" loading="lazy">
+                                <div class="content">
+                                    <strong style="color:var(--navy);line-height:1.6;">${escapeHtml(product && product.name || '')}</strong>
+                                    <span style="color:var(--gold-dark);font-weight:700;">${escapeHtml(formatPrice(Number(product && product.price || 0)))}</span>
+                                    <div class="my-account-actions" style="margin-top:0;">
+                                        <button type="button" class="my-account-primary-btn" data-product-id="${escapeHtml(String(product && product.id || ''))}" onclick="addToCart(this.dataset.productId)">🛒 أضف للسلة</button>
+                                        <button type="button" class="my-account-ghost-btn" data-product-id="${escapeHtml(String(product && product.id || ''))}" onclick="showProductDetails(this.dataset.productId)">👁️ التفاصيل</button>
+                                        <button type="button" class="my-account-danger-btn" data-product-id="${escapeHtml(String(product && product.id || ''))}" onclick="removeFavoriteFromAccount(this.dataset.productId)">🗑️ إزالة</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildPointsHistoryFromOrders(orderList) {
+            const history = [];
+            (Array.isArray(orderList) ? orderList : []).forEach((order) => {
+                const createdAt = String(order && order.createdAt || '');
+                const safeNumber = String(order && (order.orderNumber || order.id) || '');
+                const earned = Number(order && order.earnedPoints || 0);
+                const used = Number(order && order.usedPoints || 0);
+                if (earned > 0) {
+                    history.push({
+                        type: 'earned',
+                        amount: earned,
+                        label: `تم إضافة ${earned} نقطة من الطلب ${safeNumber}`,
+                        createdAt
+                    });
+                }
+                if (used > 0) {
+                    history.push({
+                        type: 'used',
+                        amount: used,
+                        label: `تم استخدام ${used} نقطة في الطلب ${safeNumber}`,
+                        createdAt
+                    });
+                }
+            });
+            return history.sort((a, b) => {
+                const aTime = Date.parse(String(a && a.createdAt || '')) || 0;
+                const bTime = Date.parse(String(b && b.createdAt || '')) || 0;
+                return bTime - aTime;
+            });
+        }
+
+        function openCartFromPointsTab() {
+            closeMyAccount();
+            openCart({ skipHistory: true });
+        }
+
+        async function renderMyAccountPointsTab(container) {
+            if (!container) return;
+            renderMyAccountLoading('جاري تجهيز نقاط الولاء...');
+            const myOrders = await ensureMyOrdersLoaded();
+            const balance = Number(currentUser && currentUser.loyaltyPoints || 0);
+            const baseMilestone = Math.floor(balance / 100) * 100;
+            const nextMilestone = baseMilestone + 100;
+            const progress = nextMilestone > 0 ? Math.max(0, Math.min(100, ((balance - baseMilestone) / 100) * 100)) : 0;
+            const history = buildPointsHistoryFromOrders(myOrders);
+
+            container.innerHTML = `
+                <div class="my-account-panel">
+                    <h3 style="margin:0 0 6px;color:var(--navy);">نقاطي</h3>
+                    <p class="my-account-muted-note">الاستبدال ما زال يتم أثناء الـ checkout، لكن هنا ستجد الرصيد والحركة بالكامل.</p>
+                    <div style="display:grid;gap:10px;margin:18px 0;">
+                        <div style="font-size:2rem;font-weight:800;color:var(--gold-dark);">${escapeHtml(String(balance))} نقطة</div>
+                        <div class="my-account-points-progress"><span style="width:${progress.toFixed(0)}%;"></span></div>
+                        <div class="my-account-muted-note">المستوى التالي عند ${escapeHtml(String(nextMilestone))} نقطة</div>
+                    </div>
+                    <div class="my-account-actions">
+                        <button type="button" class="my-account-primary-btn" onclick="openCartFromPointsTab()">💳 استخدم النقاط في الطلب الحالي</button>
+                    </div>
+                </div>
+                <div class="my-account-panel" style="margin-top:16px;">
+                    <h3 style="margin:0 0 14px;color:var(--navy);">سجل النقاط</h3>
+                    ${history.length === 0 ? `
+                        <div class="my-account-empty" style="padding:20px 0;">
+                            <div class="icon">⭐</div>
+                            <p>لا توجد حركات نقاط بعد.</p>
+                        </div>
+                    ` : history.map((entry) => `
+                        <div class="my-account-points-card">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                                <div>
+                                    <strong style="color:${entry.type === 'earned' ? '#15803d' : '#b45309'};">
+                                        ${entry.type === 'earned' ? '➕ نقاط مكتسبة' : '➖ نقاط مستخدمة'}
+                                    </strong>
+                                    <div class="my-account-muted-note" style="margin-top:6px;">${escapeHtml(entry.label)}</div>
+                                </div>
+                                <div style="text-align:left;">
+                                    <div style="font-weight:800;color:${entry.type === 'earned' ? '#15803d' : '#b45309'};">${escapeHtml(String(entry.amount))}</div>
+                                    <div class="my-account-muted-note">${escapeHtml(formatDateTime(entry.createdAt))}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        async function loadSupportThreadSummary(force = false) {
+            if (!currentUser) return null;
+            if (!force && myAccountState.supportThread) return myAccountState.supportThread;
+            const uid = String(currentUser.uid || currentUser.id || '').trim();
+            if (!uid || typeof getSupportThread !== 'function') {
+                myAccountState.supportThread = activeSupportThread || null;
+                return myAccountState.supportThread;
+            }
+            const thread = await getSupportThread(uid).catch(() => null);
+            myAccountState.supportThread = thread || activeSupportThread || null;
+            return myAccountState.supportThread;
+        }
+
+        function openMySupportConversation() {
+            if (!currentUser) {
+                queueMyAccountOpenAfterAuth('messages');
+                showAuthModal('magic');
+                return false;
+            }
+            closeMyAccount();
+            Promise.resolve(ensureSupportChatReady({ silent: false }))
+                .then((ready) => {
+                    if (!ready) return false;
+                    return Promise.resolve(switchChatMode('support', { silent: true }))
+                        .then(() => openInternalChat({ skipHistory: true, silent: true }));
+                })
+                .catch(() => null);
+            return true;
+        }
+
+        async function renderMyAccountMessagesTab(container) {
+            if (!container) return;
+            renderMyAccountLoading('جاري تحميل الرسائل...');
+            const thread = await loadSupportThreadSummary();
+            renderMyAccountChrome();
+
+            if (supportAccess.denied) {
+                container.innerHTML = `
+                    <div class="my-account-panel">
+                        <h3 style="margin:0 0 8px;color:var(--navy);">رسائلي</h3>
+                        <p class="my-account-muted-note">تعذر فتح الدردشة الداخلية من هذه الجلسة حالياً. سنحوّلك مباشرة إلى خدمة العملاء أو واتساب عند الحاجة.</p>
+                        <div class="my-account-actions">
+                            <button type="button" class="my-account-primary-btn" onclick="openTawkChat()">🎧 فتح Tawk.to</button>
+                            <button type="button" class="my-account-ghost-btn" onclick="openStoreWhatsApp()">💬 واتساب</button>
+                            <button type="button" class="my-account-ghost-btn" onclick="openFAQBot()">🤖 FAQ</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!thread) {
+                container.innerHTML = `
+                    <div class="my-account-panel my-account-empty">
+                        <div class="icon">💬</div>
+                        <h3>لا توجد محادثات بعد</h3>
+                        <p>ابدأ أول رسالة دعم من هنا، أو استخدم FAQ وواتساب كبدائل سريعة.</p>
+                        <div class="my-account-actions" style="justify-content:center;">
+                            <button type="button" class="my-account-primary-btn" onclick="openMySupportConversation()">💬 ابدأ محادثة</button>
+                            <button type="button" class="my-account-ghost-btn" onclick="openFAQBot()">🤖 FAQ</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const unread = Number(thread && thread.unreadForCustomer || 0);
+            const status = String(thread && thread.status || 'open').trim().toLowerCase();
+            container.innerHTML = `
+                <div class="my-account-panel">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <h3 style="margin:0;color:var(--navy);">رسائلي</h3>
+                            <p class="my-account-muted-note">يوجد حالياً thread واحد مرتبط بحسابك، ويمكنك متابعته في أي وقت.</p>
+                        </div>
+                        <span class="my-account-pill ${status === 'closed' ? 'muted' : 'success'}">${status === 'closed' ? 'مغلقة' : 'نشطة'}</span>
+                    </div>
+                    <div class="my-account-thread-card" style="margin-top:16px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                            <div style="display:grid;gap:8px;">
+                                <strong style="color:var(--navy);">محادثة الدعم</strong>
+                                <span class="my-account-muted-note">${escapeHtml(String(thread && thread.lastMessage || 'ابدأ أول رسالة ليظهر الملخص هنا.'))}</span>
+                                <span class="my-account-muted-note">آخر تحديث: ${escapeHtml(formatDateTime(thread && (thread.lastMessageAt || thread.updatedAt) || ''))}</span>
+                            </div>
+                            <div style="display:grid;gap:8px;justify-items:end;">
+                                <span class="my-account-pill ${unread > 0 ? 'warning' : 'success'}">${unread > 0 ? `${escapeHtml(String(unread))} غير مقروءة` : 'مقروءة'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="my-account-actions">
+                        <button type="button" class="my-account-primary-btn" onclick="openMySupportConversation()">💬 فتح المحادثة</button>
+                        <button type="button" class="my-account-ghost-btn" onclick="openFAQBot()">🤖 FAQ</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openPasswordSettings() {
+            closeMyAccount();
+            showChangePassword();
+        }
+
+        function toggleMyAccountNotificationSetting() {
+            setMyAccountNotificationPreference(!getMyAccountNotificationEnabled()).catch(() => null);
+        }
+
+        function renderMyAccountSettingsTab(container) {
+            if (!container) return;
+            const notificationsEnabled = getMyAccountNotificationEnabled();
+            const canChangePassword = isPasswordAccount();
+            container.innerHTML = `
+                <div class="my-account-panel">
+                    <h3 style="margin:0 0 14px;color:var(--navy);">الإعدادات</h3>
+                    <div class="my-account-settings-list">
+                        <div class="my-account-setting-row">
+                            <div>
+                                <strong>🔔 إشعارات المتصفح</strong>
+                                <small>تفضيل محلي على هذا الجهاز فقط. سنطلب صلاحية المتصفح عند التفعيل.</small>
+                            </div>
+                            <button type="button" class="my-account-switch ${notificationsEnabled ? 'active' : ''}" onclick="toggleMyAccountNotificationSetting()" aria-label="تبديل إشعارات المتصفح"></button>
+                        </div>
+                        <div class="my-account-setting-row">
+                            <div>
+                                <strong>🔒 تغيير كلمة المرور</strong>
+                                <small>${canChangePassword ? 'مُتاح لحسابات البريد + كلمة المرور فقط.' : 'غير متاح حالياً لحسابات Google أو Magic Link.'}</small>
+                            </div>
+                            <button type="button" class="my-account-ghost-btn" ${canChangePassword ? 'onclick="openPasswordSettings()"' : 'disabled'}>تغيير كلمة المرور</button>
+                        </div>
+                        <div class="my-account-setting-row">
+                            <div>
+                                <strong>🌙 الوضع الليلي</strong>
+                                <small>سيتم تأجيله لدفعة لاحقة لأن نظام الـ theme غير موجود فعلياً على origin/main.</small>
+                            </div>
+                            <button type="button" class="my-account-ghost-btn" disabled>قريباً</button>
+                        </div>
+                        <div class="my-account-setting-row">
+                            <div>
+                                <strong>🗑️ حذف الحساب</strong>
+                                <small>الحذف الذاتي مؤجل حالياً لأن قواعد Firestore الحالية لا تسمح بحذف customer document إلا للإدمن.</small>
+                            </div>
+                            <button type="button" class="my-account-danger-btn" disabled>غير متاح الآن</button>
+                        </div>
+                        <div class="my-account-setting-row">
+                            <div>
+                                <strong>🚪 تسجيل الخروج</strong>
+                                <small>سيتم إنهاء الجلسة الحالية وإرجاعك إلى وضع الضيف.</small>
+                            </div>
+                            <button type="button" class="my-account-primary-btn" onclick="logout();closeMyAccount();">تسجيل الخروج</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function renderMyAccountActiveTab(options = {}) {
+            const container = document.getElementById('myAccountContent');
+            if (!container) return;
+            const activeTab = MY_ACCOUNT_TABS.includes(myAccountState.activeTab) ? myAccountState.activeTab : 'data';
+            myAccountState.loadedTabs.add(activeTab);
+
+            if (!currentUser) {
+                container.innerHTML = `
+                    <div class="my-account-panel my-account-empty">
+                        <div class="icon">🔐</div>
+                        <p>سجل دخولك أولاً لعرض حسابك.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (activeTab === 'data') {
+                await loadProfileData(options.force === true);
+                renderMyAccountChrome();
+                renderMyAccountDataTab(container);
+                return;
+            }
+            if (activeTab === 'orders') {
+                await renderMyAccountOrdersTab(container);
+                return;
+            }
+            if (activeTab === 'favorites') {
+                renderMyAccountFavoritesTab(container);
+                return;
+            }
+            if (activeTab === 'points') {
+                await renderMyAccountPointsTab(container);
+                return;
+            }
+            if (activeTab === 'messages') {
+                await renderMyAccountMessagesTab(container);
+                return;
+            }
+            renderMyAccountSettingsTab(container);
         }
 
         // ============================================
@@ -5705,7 +7158,19 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function stopSupportChatRealtime() {
-            return false;
+            if (typeof supportThreadUnsubscribe === 'function') {
+                try { supportThreadUnsubscribe(); } catch (_) {}
+            }
+            if (typeof supportMessagesUnsubscribe === 'function') {
+                try { supportMessagesUnsubscribe(); } catch (_) {}
+            }
+            supportThreadUnsubscribe = null;
+            supportMessagesUnsubscribe = null;
+            supportRealtimeConnected = false;
+            activeSupportThread = null;
+            myAccountState.supportMessages = [];
+            myAccountState.supportMessagesCount = 0;
+            return true;
         }
 
         function fallbackSupportChatToFaq(message = 'تم التحويل إلى FAQ.') {
@@ -5713,17 +7178,246 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             return false;
         }
 
-        function handleSupportAccessError() {
-            fallbackSupportChatToFaq('سيتم تحويلك إلى FAQ وخدمة العملاء المباشرة.');
+        function handleSupportAccessError(error, source = 'support') {
+            const normalizedSource = String(source || 'support');
+            const code = getSupportErrorCode(error);
+            const reason = code || String(error && error.message || error || 'support-unavailable');
+            supportAccess.denied = true;
+            supportAccess.reason = reason;
+            supportAccess.source = normalizedSource;
+            stopSupportChatRealtime();
+            chatMode = 'bot';
+            setChatStatus(t('faqMode'), true);
+            setInternalChatPanelState(false);
+            if (supportAccess.notifiedReason !== reason) {
+                supportAccess.notifiedReason = reason;
+                const readableMessage = code === 'email-not-verified'
+                    ? 'يرجى تفعيل بريدك الإلكتروني أولاً لاستخدام الدردشة الداخلية.'
+                    : code === 'not-authenticated'
+                        ? 'سجّل دخولك أولاً لاستخدام الدردشة الداخلية.'
+                        : 'تعذر تشغيل الدردشة الداخلية الآن، سيتم تحويلك إلى خدمة العملاء المباشرة.';
+                showNotification('warning', 'الدعم المباشر', readableMessage);
+            }
+            if (window.__STORE_TAWK_ENABLED__ !== false) {
+                openTawkChat();
+            } else {
+                openStoreWhatsApp();
+            }
+            refreshMyAccountChrome();
+            if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
+                renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
+            }
             return true;
         }
 
-        function ensureSupportAuthSession() {
-            return Promise.resolve(null);
+        function applyTawkWidgetVisibility() {
+            if (!window.Tawk_API || tawkDesiredVisibility == null) return false;
+            try {
+                if (tawkDesiredVisibility) {
+                    if (typeof window.Tawk_API.showWidget === 'function') {
+                        window.Tawk_API.showWidget();
+                    } else if (typeof window.Tawk_API.show === 'function') {
+                        window.Tawk_API.show();
+                    }
+                } else {
+                    if (typeof window.Tawk_API.hideWidget === 'function') {
+                        window.Tawk_API.hideWidget();
+                    } else if (typeof window.Tawk_API.hide === 'function') {
+                        window.Tawk_API.hide();
+                    }
+                    if (typeof window.Tawk_API.minimize === 'function') {
+                        window.Tawk_API.minimize();
+                    }
+                }
+                return true;
+            } catch (_) {
+                return false;
+            }
         }
 
-        function ensureSupportChatReady() {
-            return Promise.resolve(false);
+        function syncTawkIdentity() {
+            try {
+                const authUser = getFirebaseCurrentUserSafe();
+                if (!authUser || !window.Tawk_API || typeof window.Tawk_API.setAttributes !== 'function') return false;
+                window.Tawk_API.setAttributes({
+                    name: authUser.displayName || authUser.email || 'Customer',
+                    email: authUser.email || '',
+                    id: authUser.uid || ''
+                }, function() {});
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function showTawkWidget() {
+            tawkDesiredVisibility = true;
+            if (window.__STORE_TAWK_ENABLED__ === false) return false;
+            loadTawk();
+            return applyTawkWidgetVisibility();
+        }
+
+        function hideTawkWidget() {
+            tawkDesiredVisibility = false;
+            return applyTawkWidgetVisibility();
+        }
+
+        function applyInternalChatAvailability() {
+            const panel = document.getElementById('internalChatPanel');
+            if (!panel) return false;
+            const flags = storeSettings.featureFlags || {};
+            const enabled = flags.internalChatEnabled !== false && !!currentUser;
+            panel.classList.toggle('feature-hidden', !enabled);
+            const supportBtn = document.getElementById('chatModeSupportBtn');
+            if (supportBtn) supportBtn.disabled = !enabled;
+            if (!enabled) {
+                setInternalChatPanelState(false);
+            }
+            return enabled;
+        }
+
+        async function syncChatRouting(options = {}) {
+            const flags = storeSettings.featureFlags || {};
+            const loggedIn = !!(currentUser && (currentUser.uid || currentUser.id));
+            const internalAllowed = applyInternalChatAvailability();
+
+            if (loggedIn) {
+                syncTawkIdentity();
+                hideTawkWidget();
+            } else {
+                stopSupportChatRealtime();
+                if (chatMode === 'support') {
+                    chatMode = 'bot';
+                    setChatStatus(t('faqMode'), true);
+                }
+                if (flags.tawktoEnabled !== false) {
+                    showTawkWidget();
+                }
+            }
+
+            if (!internalAllowed && chatMode === 'support') {
+                chatMode = 'bot';
+                setChatStatus(t('faqMode'), true);
+            }
+
+            refreshMyAccountChrome();
+            return loggedIn;
+        }
+
+        function ensureSupportAuthSession() {
+            return Promise.resolve().then(async () => {
+                if (!currentUser) {
+                    const loginError = new Error('login required');
+                    loginError.code = 'auth/not-authenticated';
+                    throw loginError;
+                }
+                const authUser = getFirebaseCurrentUserSafe();
+                if (!authUser || !authUser.uid) {
+                    const authError = new Error('missing auth session');
+                    authError.code = 'auth/not-authenticated';
+                    throw authError;
+                }
+                if (typeof authUser.reload === 'function') {
+                    await authUser.reload().catch(() => null);
+                }
+                if (authUser.emailVerified !== true) {
+                    const verifyError = new Error('email not verified');
+                    verifyError.code = 'auth/email-not-verified';
+                    throw verifyError;
+                }
+                const profile = await loadProfileData().catch(() => currentUser);
+                supportAccess.denied = false;
+                supportAccess.reason = '';
+                supportAccess.source = '';
+                supportAccess.notifiedReason = '';
+                return { authUser, profile, uid: String(authUser.uid || currentUser && (currentUser.uid || currentUser.id) || '').trim() };
+            });
+        }
+
+        function renderSupportMessages(rows = []) {
+            const container = document.getElementById('chatMessages');
+            if (!container) return;
+            const items = Array.isArray(rows) ? rows : [];
+            myAccountState.supportMessages = items;
+            myAccountState.supportMessagesCount = items.length;
+            if (!items.length) {
+                container.innerHTML = `<div class="chat-message bot">${escapeHtml(window._welcomeMessage || 'أهلاً بك في دعم Sale Zone')}</div>`;
+                return;
+            }
+            container.innerHTML = items.map((message) => {
+                const isCustomerMessage = String(message && message.senderRole || '').trim() === 'customer';
+                const senderClass = isCustomerMessage ? 'user' : 'bot';
+                const safeText = escapeHtml(String(message && message.message || '')).replace(/\n/g, '<br>');
+                const safeTime = escapeHtml(formatDateTime(message && (message.createdAt || message.createdAtMs) || ''));
+                return `
+                    <div class="chat-message ${senderClass}">
+                        <div>${safeText}</div>
+                        <div style="margin-top:6px;font-size:11px;opacity:0.7;">${safeTime}</div>
+                    </div>
+                `;
+            }).join('');
+            container.scrollTop = container.scrollHeight;
+            refreshMyAccountChrome();
+        }
+
+        function bindSupportRealtime(threadId) {
+            stopSupportChatRealtime();
+            supportThreadUnsubscribe = typeof subscribeSupportThread === 'function'
+                ? subscribeSupportThread(
+                    threadId,
+                    (thread) => {
+                        activeSupportThread = thread;
+                        myAccountState.supportThread = thread;
+                        refreshMyAccountChrome();
+                        if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
+                            renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
+                        }
+                    },
+                    (error) => handleSupportAccessError(error, 'support-thread-listener')
+                )
+                : null;
+            supportMessagesUnsubscribe = typeof subscribeSupportMessages === 'function'
+                ? subscribeSupportMessages(
+                    threadId,
+                    (messages) => {
+                        renderSupportMessages(messages);
+                        if (typeof markSupportThreadReadByCustomer === 'function') {
+                            markSupportThreadReadByCustomer(threadId).catch(() => null);
+                        }
+                    },
+                    (error) => handleSupportAccessError(error, 'support-messages-listener'),
+                    SUPPORT_CHAT_MESSAGES_LIMIT
+                )
+                : null;
+            supportRealtimeConnected = true;
+        }
+
+        function ensureSupportChatReady(options = {}) {
+            return Promise.resolve().then(async () => {
+                const session = await ensureSupportAuthSession();
+                if (!session || !session.uid) return false;
+                const thread = await ensureSupportThreadByUid(session.uid, {
+                    name: session.profile && session.profile.name,
+                    displayName: session.profile && session.profile.name,
+                    email: session.profile && session.profile.email,
+                    phone: session.profile && session.profile.phone
+                });
+                activeSupportThread = thread;
+                myAccountState.supportThread = thread;
+                bindSupportRealtime(String(thread && (thread.id || thread.uid) || session.uid));
+                if (typeof markSupportThreadReadByCustomer === 'function') {
+                    await markSupportThreadReadByCustomer(String(thread && (thread.id || thread.uid) || session.uid)).catch(() => null);
+                }
+                return true;
+            }).catch((error) => {
+                if (options.silent !== true) {
+                    handleSupportAccessError(error, 'ensure-support-chat-ready');
+                } else {
+                    supportAccess.denied = true;
+                    supportAccess.reason = getSupportErrorCode(error) || String(error && error.message || error || '');
+                }
+                return false;
+            });
         }
 
         function addChatMessage(text, sender = 'bot') {
@@ -5743,12 +7437,46 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             statusEl.appendChild(document.createTextNode(` ${String(text || '')}`));
         }
 
-        function switchChatMode() {
+        async function switchChatMode(mode = 'bot', options = {}) {
+            const requestedMode = String(mode || 'bot').trim().toLowerCase() === 'support' ? 'support' : 'bot';
+            const botBtn = document.getElementById('chatModeBotBtn');
+            const supportBtn = document.getElementById('chatModeSupportBtn');
+
+            if (requestedMode === 'support') {
+                if (!currentUser) {
+                    openTawkChat();
+                    return 'bot';
+                }
+                setChatStatus('جاري الاتصال بالدعم...', false);
+                const ready = await ensureSupportChatReady({ silent: options.silent === true });
+                if (!ready) {
+                    if (!options.silent) {
+                        openTawkChat();
+                    }
+                    chatMode = 'bot';
+                    botBtn && botBtn.classList.add('active');
+                    supportBtn && supportBtn.classList.remove('active');
+                    setChatStatus(t('faqMode'), true);
+                    return 'bot';
+                }
+                chatMode = 'support';
+                botBtn && botBtn.classList.remove('active');
+                supportBtn && supportBtn.classList.add('active');
+                setChatStatus('الدعم المباشر متصل', true);
+                renderSupportMessages(myAccountState.supportMessages);
+                return 'support';
+            }
+
+            chatMode = 'bot';
+            botBtn && botBtn.classList.add('active');
+            supportBtn && supportBtn.classList.remove('active');
+            setChatStatus(t('faqMode'), true);
+            seedInternalChatWelcome();
             return 'bot';
         }
 
         function sendChatMessage() {
-            sendFAQMessage();
+            return chatMode === 'support' ? sendSupportMessage() : sendFAQMessage();
         }
 
         function appendInternalChatMessage(text, sender = 'bot') {
@@ -5818,6 +7546,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function sendInternalMessage() {
+            if (chatMode === 'support') {
+                return sendSupportMessage();
+            }
             const input = document.getElementById('chatInput');
             const text = String(input && input.value || '').trim();
             if (!text) return false;
@@ -5831,6 +7562,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                     return;
                 }
                 appendInternalChatMessage('سأحوّلك إلى خدمة العملاء الآن...', 'bot');
+                if (currentUser) {
+                    window.setTimeout(function() {
+                        switchChatMode('support', { silent: true }).catch(() => null);
+                    }, 1200);
+                    return;
+                }
                 if (typeof openTawkChat === 'function') {
                     window.setTimeout(function() {
                         openTawkChat();
@@ -5841,12 +7578,54 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             return true;
         }
 
-        function sendSupportMessage() {
-            return sendInternalMessage();
+        async function sendSupportMessage() {
+            const input = document.getElementById('chatInput');
+            const text = String(input && input.value || '').trim();
+            if (!text) return false;
+            if (!currentUser) {
+                openTawkChat();
+                return false;
+            }
+            const ready = await ensureSupportChatReady({ silent: false });
+            if (!ready) return false;
+            if (input) input.value = '';
+            try {
+                await sendSupportMessageByUid(String(currentUser.uid || currentUser.id || '').trim(), text, {
+                    senderRole: 'customer',
+                    senderUid: String(currentUser.uid || currentUser.id || '').trim(),
+                    senderName: String(currentUser.name || ''),
+                    profile: {
+                        name: String(currentUser.name || ''),
+                        displayName: String(currentUser.name || ''),
+                        email: String(currentUser.email || ''),
+                        phone: String(currentUser.phone || '')
+                    }
+                });
+                return true;
+            } catch (error) {
+                console.error('sendSupportMessage error:', error);
+                handleSupportAccessError(error, 'send-support-message');
+                return false;
+            }
         }
 
         function toggleChat(options = {}) {
-            return openFAQBot(options);
+            if (currentUser) {
+                Promise.resolve(ensureSupportChatReady({ silent: false }))
+                    .then((ready) => {
+                        if (!ready) return false;
+                        return Promise.resolve(switchChatMode('support', { silent: true }))
+                            .then(() => openInternalChat(options));
+                    })
+                    .catch(() => null);
+                return true;
+            }
+            if (window.__STORE_TAWK_ENABLED__ !== false) {
+                openTawkChat();
+                return true;
+            }
+            openStoreWhatsApp();
+            return true;
         }
 
         function setFAQBotState(isOpen) {
@@ -5957,6 +7736,11 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 }
                 addBotMessage('\u0633\u0624\u0627\u0644\u0643 \u0648\u0635\u0644\u0646\u0627! \uD83D\uDE0A\n\u0633\u0623\u062D\u0648\u0644\u0643 \u0644\u0645\u0648\u0638\u0641 \u062E\u062F\u0645\u0629 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0622\u0646...');
                 window.setTimeout(function() {
+                    if (currentUser) {
+                        closeFAQBot({ skipHistory: true });
+                        openMySupportConversation();
+                        return;
+                    }
                     openTawkChat();
                     closeFAQBot({ skipHistory: true });
                 }, 1500);
@@ -6226,14 +8010,16 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             closeFAQBot({ skipHistory: true });
             const dropdown = document.querySelector('.user-dropdown');
             const trigger = document.getElementById('userBtn');
-            if (currentUser && dropdown && trigger) {
-                const isOpen = dropdown.classList.toggle('force-open');
-                trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            if (currentUser) {
+                if (dropdown) dropdown.classList.remove('force-open');
+                if (trigger) trigger.setAttribute('aria-expanded', 'false');
+                openMyAccount({ tab: 'data' }).catch(() => null);
                 setMobileBottomNavActive('home');
                 return;
             }
             if (dropdown) dropdown.classList.remove('force-open');
             if (trigger) trigger.setAttribute('aria-expanded', 'false');
+            queueMyAccountOpenAfterAuth('data');
             showAuthModal('magic');
             setMobileBottomNavActive('home');
         }
@@ -6270,10 +8056,20 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             if (id === 'authModal') {
                 setMobileBottomNavActive('home');
             }
+            if (id === 'myAccountModal') {
+                const modal = document.getElementById('myAccountModal');
+                if (modal) modal.setAttribute('aria-hidden', 'true');
+                myAccountState.profileEditMode = false;
+                myAccountState.emailEditMode = false;
+            }
         }
 
         document.querySelectorAll('.modal-overlay').forEach(o => {
-            o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
+            o.addEventListener('click', e => {
+                if (e.target === o && o.id) {
+                    closeModal(o.id);
+                }
+            });
         });
 
         document.addEventListener('click', (event) => {
@@ -6288,10 +8084,14 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
-                document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+                document.querySelectorAll('.modal-overlay.active').forEach(m => {
+                    if (m && m.id) {
+                        closeModal(m.id);
+                    }
+                });
                 closeCart({ skipHistory: true });
                 closeWishlist({ skipHistory: true });
-            closeFAQBot({ skipHistory: true });
+                closeFAQBot({ skipHistory: true });
                 syncSidePanelScrollLock();
             }
         });
@@ -6368,14 +8168,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
           window.Tawk_API.onLoad = function() {
             console.log('[tawk.to] \u2705 Loaded');
             try {
-              var user = firebase && firebase.auth ? firebase.auth().currentUser : null;
-              if (user && typeof window.Tawk_API.setAttributes === 'function') {
-                window.Tawk_API.setAttributes({
-                  name: user.displayName || user.email || '\u0632\u0628\u0648\u0646',
-                  email: user.email || '',
-                  id: user.uid
-                }, function() {});
-              }
+              syncTawkIdentity();
+              applyTawkWidgetVisibility();
             } catch (_) {}
           };
 
@@ -6410,6 +8204,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             openStoreWhatsApp();
             return;
           }
+          tawkDesiredVisibility = true;
           if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
             window.Tawk_API.maximize();
             return;
