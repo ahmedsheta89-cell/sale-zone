@@ -33,3 +33,40 @@ Admin notifications require a refreshed Firebase ID token with an admin claim.
 - Firestore rules allow notification reads for admins only.
 
 If notifications still show a permissions warning after setting the claim, deploy the latest `firestore.rules` and `firestore.indexes.json`, then log out and log back in again.
+
+## Quick Setup Commands
+
+### 1. Deploy Firebase Rules + Indexes
+
+```bash
+bash scripts/deploy-firebase.sh
+```
+
+### 2. Set Admin Claims
+
+1. Download a service account key from Firebase Console -> Project Settings -> Service Accounts.
+2. Save it as `scripts/service-account-key.json` or set `GOOGLE_APPLICATION_CREDENTIALS`.
+3. Run:
+
+```bash
+node scripts/set-admin-claim.js your-admin@email.com
+```
+
+You can also pass a UID instead of an email.
+
+### 3. Verify Setup
+
+```bash
+node scripts/verify-setup.js your-admin@email.com
+```
+
+### 4. After Setting Claims
+
+- Log out from the admin panel.
+- Log back in so the browser refreshes the ID token.
+- Verify claims in the browser console:
+
+```javascript
+firebase.auth().currentUser.getIdTokenResult(true)
+  .then((result) => console.log('Claims:', result.claims));
+```

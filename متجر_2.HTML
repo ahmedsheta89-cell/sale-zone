@@ -64,6 +64,7 @@
     <!-- Firebase Configuration -->
     <script src="assets/js/firebase-config.js"></script>
     <script src="assets/js/firebase-api.js"></script>
+    <script src="assets/js/cloudinary-service.js"></script>
     <script src="assets/js/firebase-data.js"></script>
     <script src="assets/js/feed-generator.js"></script>
     <script src="assets/js/auth-utils.js"></script>
@@ -1931,8 +1932,13 @@
             <div class="chat-messages" id="chatMessages">
                 <div class="chat-message bot" data-i18n="chatWelcome">مرحباً! كيف أساعدك؟</div>
             </div>
+            <div id="chatThreadBanner" style="display:none;padding:10px 14px;border-top:1px solid var(--color-border-tertiary);background:rgba(10,17,40,0.03);"></div>
+            <div id="chatTypingIndicator" style="display:none;padding:0 14px 10px;color:var(--color-text-secondary);font-size:12px;"></div>
+            <div id="chatUploadProgress" style="display:none;padding:0 14px 10px;color:var(--navy);font-size:12px;font-weight:700;"></div>
             <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب رسالتك..." data-i18n-placeholder="typeMessage" onkeypress="if(event.key==='Enter')sendInternalMessage()" autocomplete="off">
+                <button class="chat-send" type="button" id="chatAttachBtn" aria-label="إرفاق ملف" onclick="triggerSupportAttachmentPicker()" style="display:none;min-width:44px;padding:0 14px;">📎</button>
+                <input type="file" id="chatAttachmentInput" accept="image/*,.pdf,.doc,.docx" style="display:none" onchange="handleSupportAttachmentSelection(event)">
+                <input type="text" class="chat-input" id="chatInput" placeholder="اكتب رسالتك..." data-i18n-placeholder="typeMessage" onkeypress="if(event.key==='Enter')sendInternalMessage()" oninput="handleSupportInputChange()" onfocus="handleSupportInputFocus()" onblur="handleSupportInputBlur()" autocomplete="off">
                 <button class="chat-send" type="button" aria-label="إرسال الرسالة" onclick="sendInternalMessage()">إرسال</button>
             </div>
         </div>
@@ -2080,7 +2086,17 @@
             source: '',
             notifiedReason: ''
         };
-        const SUPPORT_CHAT_MESSAGES_LIMIT = 150;
+        const SUPPORT_CHAT_MESSAGES_LIMIT = 50;
+        const SUPPORT_TYPING_DEBOUNCE_MS = 500;
+        const SUPPORT_TYPING_STALE_MS = 5000;
+        const SUPPORT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+        let supportMessagesCursor = null;
+        let supportHasMoreMessages = false;
+        let supportTypingDebounceTimer = null;
+        let supportTypingClearTimer = null;
+        let supportTypingRenderTimer = null;
+        let supportUploadInFlight = false;
+        let lastSupportMessageSeenId = '';
         const MY_ACCOUNT_NOTIFICATION_PREF_KEY = 'sale_zone_account_notifications_enabled';
         const MY_ACCOUNT_TABS = ['data', 'orders', 'favorites', 'points', 'messages', 'notifications', 'settings'];
         const ORDER_TIMELINE_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed'];
@@ -6662,6 +6678,395 @@
             `;
         }
 
+        function ensureSupportEnhancementStyles() {
+            if (document.getElementById('supportEnhancementStyles')) return;
+            const style = document.createElement('style');
+            style.id = 'supportEnhancementStyles';
+            style.textContent = `
+                .support-typing-dots{display:inline-flex;gap:4px;align-items:center}
+                .support-typing-dots span{width:7px;height:7px;border-radius:50%;background:var(--navy);opacity:.35;animation:supportTypingPulse 1.1s infinite ease-in-out}
+                .support-typing-dots span:nth-child(2){animation-delay:.15s}
+                .support-typing-dots span:nth-child(3){animation-delay:.3s}
+                .support-action-card,.support-file-card{margin-top:8px;border-radius:14px;border:1px solid rgba(10,17,40,0.08);background:rgba(255,255,255,.9);padding:12px;display:grid;gap:6px}
+                .support-attachment-image{max-width:300px;width:100%;border-radius:14px;display:block}
+                .support-rating-stars{display:flex;gap:6px;direction:ltr}
+                .support-rating-stars button{border:none;background:#fff7d6;border-radius:999px;padding:8px 10px;cursor:pointer;font-size:18px}
+                .support-rating-stars button.active{background:#facc15}
+                @keyframes supportTypingPulse{0%,80%,100%{transform:scale(.85);opacity:.3}40%{transform:scale(1);opacity:1}}
+            `;
+            document.head.appendChild(style);
+        }
+
+        function formatSupportFileSize(bytes) {
+            const value = Number(bytes || 0);
+            if (!Number.isFinite(value) || value <= 0) return '';
+            if (value < 1024) return `${Math.round(value)} B`;
+            if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+            return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        function getReadableSupportStatus(status) {
+            const normalized = String(status || 'active').trim().toLowerCase();
+            if (normalized === 'closed') return { key: 'closed', label: 'مغلقة', tone: 'muted' };
+            if (normalized === 'waiting') return { key: 'waiting', label: 'في انتظار رد الأدمن', tone: 'warning' };
+            if (normalized === 'pending') return { key: 'pending', label: 'في انتظار ردك', tone: 'success' };
+            return { key: 'active', label: 'نشطة', tone: 'success' };
+        }
+
+        function isSupportTypingVisible(thread) {
+            const typing = thread && thread.typing;
+            if (!typing || typing.isTyping !== true) return false;
+            const typingUid = String(typing.uid || '').trim();
+            const selfUid = String(currentUser && (currentUser.uid || currentUser.id) || '').trim();
+            if (!typingUid || typingUid === selfUid) return false;
+            const timestampMs = Number(typing.timestampMs || 0);
+            return timestampMs > 0 && (Date.now() - timestampMs) < SUPPORT_TYPING_STALE_MS;
+        }
+
+        function renderSupportActionCard(action) {
+            if (!action || typeof action !== 'object') return '';
+            if (String(action.kind || '') === 'order') {
+                const orderNumber = escapeHtml(String(action.orderNumber || action.orderId || ''));
+                const orderTotal = Number(action.orderTotal || 0);
+                const orderStatus = escapeHtml(String(action.orderStatus || ''));
+                const actionTarget = escapeHtml(String(action.orderNumber || action.orderId || ''));
+                return `
+                    <div class="support-action-card">
+                        <strong>🛒 طلب ${orderNumber}</strong>
+                        ${orderTotal > 0 ? `<div class="my-account-muted-note">المبلغ: ${escapeHtml(formatCurrency(orderTotal))}</div>` : ''}
+                        ${orderStatus ? `<div class="my-account-muted-note">الحالة: ${orderStatus}</div>` : ''}
+                        <button type="button" class="my-account-ghost-btn" data-order-id="${actionTarget}" onclick="trackOrderById(this.dataset.orderId, { refreshRemote: true })">عرض الطلب</button>
+                    </div>
+                `;
+            }
+            const productId = escapeHtml(String(action.productId || ''));
+            const productTitle = escapeHtml(String(action.productName || action.code || action.sku || 'منتج'));
+            const productPrice = Number(action.price || 0);
+            return `
+                <div class="support-action-card">
+                    <strong>📦 ${productTitle}</strong>
+                    ${(action.code || action.sku) ? `<div class="my-account-muted-note">الكود: ${escapeHtml(String(action.code || action.sku || ''))}</div>` : ''}
+                    ${productPrice > 0 ? `<div class="my-account-muted-note">السعر: ${escapeHtml(formatCurrency(productPrice))}</div>` : ''}
+                    <button type="button" class="my-account-ghost-btn" data-product-id="${productId}" onclick="showProductDetails(this.dataset.productId)">عرض المنتج</button>
+                </div>
+            `;
+        }
+
+        function renderSupportAttachment(message) {
+            const attachment = message && message.attachment;
+            if (!attachment || !attachment.url) return '';
+            const safeUrl = escapeHtml(String(attachment.url || ''));
+            const safeName = escapeHtml(String(attachment.name || 'attachment'));
+            const safeSize = escapeHtml(formatSupportFileSize(attachment.size));
+            if (String(message && message.type || '') === 'image') {
+                return `
+                    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="display:block;margin-top:8px;">
+                        <img src="${safeUrl}" alt="${safeName}" class="support-attachment-image" loading="lazy" onerror="this.style.display='none'">
+                    </a>
+                `;
+            }
+            return `
+                <div class="support-file-card">
+                    <strong>📎 ${safeName}</strong>
+                    ${safeSize ? `<div class="my-account-muted-note">${safeSize}</div>` : ''}
+                    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="my-account-ghost-btn" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">تحميل الملف</a>
+                </div>
+            `;
+        }
+
+        function updateSupportTypingIndicator(thread = activeSupportThread) {
+            const indicator = document.getElementById('chatTypingIndicator');
+            if (!indicator) return;
+            clearTimeout(supportTypingRenderTimer);
+            if (!isSupportTypingVisible(thread)) {
+                indicator.style.display = 'none';
+                indicator.innerHTML = '';
+                return;
+            }
+            const role = String(thread && thread.typing && thread.typing.role || '').trim();
+            const label = role === 'admin' ? 'الدعم يكتب الآن' : 'العميل يكتب الآن';
+            indicator.style.display = 'block';
+            indicator.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span>${escapeHtml(label)}</span>
+                    <span class="support-typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                </div>
+            `;
+            supportTypingRenderTimer = window.setTimeout(() => updateSupportTypingIndicator(thread), SUPPORT_TYPING_STALE_MS + 100);
+        }
+
+        function updateSupportUploadProgress(percent = 0, label = '') {
+            const el = document.getElementById('chatUploadProgress');
+            if (!el) return;
+            if (!label) {
+                el.style.display = 'none';
+                el.textContent = '';
+                return;
+            }
+            el.style.display = 'block';
+            el.textContent = `${label}${Number.isFinite(Number(percent)) ? ` (${Math.max(0, Math.min(100, Math.round(Number(percent))))}%)` : ''}`;
+        }
+
+        function updateSupportComposerState() {
+            const attachBtn = document.getElementById('chatAttachBtn');
+            const input = document.getElementById('chatInput');
+            const sendBtn = document.querySelector('#chatBox .chat-send[aria-label="إرسال الرسالة"]');
+            const thread = activeSupportThread || myAccountState.supportThread;
+            const closed = String(thread && thread.status || '').trim().toLowerCase() === 'closed';
+            const supportMode = chatMode === 'support' && !!currentUser;
+            if (attachBtn) attachBtn.style.display = supportMode ? '' : 'none';
+            if (input) input.disabled = supportUploadInFlight || (supportMode && closed);
+            if (sendBtn) sendBtn.disabled = supportUploadInFlight || (supportMode && closed);
+        }
+
+        function renderSupportThreadBanner(thread = activeSupportThread) {
+            const banner = document.getElementById('chatThreadBanner');
+            if (!banner) return;
+            const currentThread = thread || null;
+            const statusMeta = getReadableSupportStatus(currentThread && currentThread.status || 'active');
+            const hasRating = !!(currentThread && currentThread.rating && Number(currentThread.rating.score || 0) > 0);
+            if (!currentThread) {
+                banner.style.display = 'none';
+                banner.innerHTML = '';
+                return;
+            }
+            if (statusMeta.key !== 'closed' && !hasRating) {
+                banner.style.display = 'none';
+                banner.innerHTML = '';
+                updateSupportComposerState();
+                return;
+            }
+            banner.style.display = 'block';
+            banner.innerHTML = `
+                <div style="display:grid;gap:10px;">
+                    ${statusMeta.key === 'closed' ? `
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <strong style="color:var(--navy);">المحادثة مغلقة حالياً</strong>
+                            <button type="button" class="my-account-ghost-btn" onclick="reopenMySupportThread()">إعادة فتح المحادثة</button>
+                        </div>
+                    ` : ''}
+                    ${hasRating ? `
+                        <div class="my-account-muted-note">التقييم الحالي: ${'⭐'.repeat(Math.max(1, Math.min(5, Number(currentThread.rating.score || 0))))}${currentThread.rating.comment ? ` — ${escapeHtml(String(currentThread.rating.comment || ''))}` : ''}</div>
+                    ` : statusMeta.key === 'closed' ? `
+                        <div style="display:grid;gap:8px;">
+                            <strong style="color:var(--navy);">كيف تقيّم تجربة الدعم؟</strong>
+                            <div class="support-rating-stars">
+                                ${[1,2,3,4,5].map((score) => `<button type="button" aria-label="تقييم ${score}" onclick="selectSupportRatingScore(${score})">⭐</button>`).join('')}
+                            </div>
+                            <textarea id="supportRatingComment" placeholder="تعليق اختياري" style="min-height:74px;border:1px solid var(--color-border-tertiary);border-radius:12px;padding:10px;background:#fff;"></textarea>
+                            <button type="button" class="my-account-primary-btn" onclick="submitSupportRating()">إرسال التقييم</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            updateSupportComposerState();
+        }
+
+        function selectSupportRatingScore(score) {
+            const banner = document.getElementById('chatThreadBanner');
+            if (!banner) return;
+            banner.dataset.ratingScore = String(score);
+            banner.querySelectorAll('.support-rating-stars button').forEach((button, index) => {
+                button.classList.toggle('active', index < Number(score));
+            });
+        }
+
+        async function submitSupportRating() {
+            const thread = activeSupportThread || myAccountState.supportThread;
+            const banner = document.getElementById('chatThreadBanner');
+            const commentEl = document.getElementById('supportRatingComment');
+            if (!thread || !banner || !currentUser) return false;
+            const score = Number(banner.dataset.ratingScore || 0);
+            if (!score) {
+                showNotification('warning', 'اختر تقييمًا من 1 إلى 5 نجوم.');
+                return false;
+            }
+            try {
+                await saveSupportThreadRating(String(thread.id || thread.uid || ''), {
+                    score,
+                    comment: String(commentEl && commentEl.value || '').trim(),
+                    createdByUid: String(currentUser.uid || currentUser.id || '').trim(),
+                    createdAt: new Date().toISOString()
+                });
+                activeSupportThread = { ...(activeSupportThread || thread), rating: { score, comment: String(commentEl && commentEl.value || '').trim() } };
+                myAccountState.supportThread = activeSupportThread;
+                renderSupportThreadBanner(activeSupportThread);
+                if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
+                    renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
+                }
+                showNotification('success', 'شكرًا لتقييمك.');
+                return true;
+            } catch (error) {
+                console.error('submitSupportRating error:', error);
+                showNotification('error', 'تعذر حفظ التقييم حالياً.');
+                return false;
+            }
+        }
+
+        async function reopenMySupportThread() {
+            const thread = activeSupportThread || myAccountState.supportThread;
+            if (!thread || typeof reopenSupportThread !== 'function') return false;
+            try {
+                await reopenSupportThread(String(thread.id || thread.uid || ''));
+                activeSupportThread = { ...thread, status: 'active' };
+                myAccountState.supportThread = activeSupportThread;
+                renderSupportThreadBanner(activeSupportThread);
+                if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
+                    renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
+                }
+                showNotification('success', 'تمت إعادة فتح المحادثة.');
+                return true;
+            } catch (error) {
+                console.error('reopenMySupportThread error:', error);
+                showNotification('error', 'تعذر إعادة فتح المحادثة.');
+                return false;
+            }
+        }
+
+        function queueCustomerTypingState(isTyping) {
+            if (chatMode !== 'support' || !currentUser || !activeSupportThread || typeof setSupportThreadTyping !== 'function') return;
+            const threadId = String(activeSupportThread.id || activeSupportThread.uid || '').trim();
+            if (!threadId) return;
+            clearTimeout(supportTypingDebounceTimer);
+            supportTypingDebounceTimer = window.setTimeout(() => {
+                setSupportThreadTyping(threadId, {
+                    uid: String(currentUser.uid || currentUser.id || '').trim(),
+                    displayName: String(currentUser.name || currentUser.email || 'العميل'),
+                    role: 'customer',
+                    isTyping: isTyping === true,
+                    timestampMs: Date.now()
+                }).catch(() => null);
+            }, SUPPORT_TYPING_DEBOUNCE_MS);
+            clearTimeout(supportTypingClearTimer);
+            if (isTyping === true) {
+                supportTypingClearTimer = window.setTimeout(() => queueCustomerTypingState(false), SUPPORT_TYPING_STALE_MS);
+            }
+        }
+
+        function handleSupportInputFocus() {
+            const input = document.getElementById('chatInput');
+            if (chatMode === 'support' && input && String(input.value || '').trim()) {
+                queueCustomerTypingState(true);
+            }
+        }
+
+        function handleSupportInputChange() {
+            const input = document.getElementById('chatInput');
+            if (!input || chatMode !== 'support') return;
+            queueCustomerTypingState(String(input.value || '').trim().length > 0);
+        }
+
+        function handleSupportInputBlur() {
+            if (chatMode === 'support') {
+                queueCustomerTypingState(false);
+            }
+        }
+
+        async function loadOlderSupportMessages() {
+            const thread = activeSupportThread || myAccountState.supportThread;
+            if (!thread || !supportHasMoreMessages || !supportMessagesCursor || typeof listSupportMessagesPage !== 'function') return false;
+            try {
+                const result = await listSupportMessagesPage(String(thread.id || thread.uid || ''), {
+                    beforeCreatedAtMs: supportMessagesCursor,
+                    limit: SUPPORT_CHAT_MESSAGES_LIMIT
+                });
+                const older = Array.isArray(result && result.items) ? result.items : [];
+                if (!older.length) {
+                    supportHasMoreMessages = false;
+                    renderSupportMessages(myAccountState.supportMessages);
+                    return false;
+                }
+                const mergedMap = new Map();
+                [...older, ...(Array.isArray(myAccountState.supportMessages) ? myAccountState.supportMessages : [])].forEach((item) => {
+                    if (item && item.id) mergedMap.set(String(item.id), item);
+                });
+                const merged = Array.from(mergedMap.values()).sort((a, b) => Number(a && a.createdAtMs || 0) - Number(b && b.createdAtMs || 0));
+                supportMessagesCursor = older.length ? Number(older[0].createdAtMs || supportMessagesCursor || 0) : supportMessagesCursor;
+                supportHasMoreMessages = result && result.hasMore === true;
+                renderSupportMessages(merged);
+                return true;
+            } catch (error) {
+                console.error('loadOlderSupportMessages error:', error);
+                showNotification('error', 'تعذر تحميل الرسائل الأقدم.');
+                return false;
+            }
+        }
+
+        function triggerSupportAttachmentPicker() {
+            if (chatMode !== 'support') return false;
+            document.getElementById('chatAttachmentInput')?.click();
+            return true;
+        }
+
+        async function handleSupportAttachmentSelection(event) {
+            const input = event && event.target;
+            const file = input && input.files && input.files[0];
+            if (!file) return false;
+            if (!currentUser) {
+                showAuthModal('magic');
+                input.value = '';
+                return false;
+            }
+            if (Number(file.size || 0) > SUPPORT_ATTACHMENT_MAX_BYTES) {
+                showNotification('warning', 'الملف يجب أن يكون أقل من 5MB.');
+                input.value = '';
+                return false;
+            }
+            try {
+                if (typeof validateCloudinaryUploadFile === 'function') {
+                    validateCloudinaryUploadFile(file);
+                }
+                const ready = await ensureSupportChatReady({ silent: false });
+                if (!ready || typeof uploadToCloudinary !== 'function') {
+                    input.value = '';
+                    return false;
+                }
+                supportUploadInFlight = true;
+                updateSupportComposerState();
+                updateSupportUploadProgress(0, 'جاري رفع المرفق');
+                const uploaded = await uploadToCloudinary(file, {
+                    folder: 'salezone_support',
+                    onProgress: (percent) => updateSupportUploadProgress(percent, 'جاري رفع المرفق')
+                });
+                const captionInput = document.getElementById('chatInput');
+                const caption = String(captionInput && captionInput.value || '').trim();
+                if (captionInput) captionInput.value = '';
+                await sendSupportMessageByUid(String(currentUser.uid || currentUser.id || '').trim(), caption, {
+                    senderRole: 'customer',
+                    senderUid: String(currentUser.uid || currentUser.id || '').trim(),
+                    senderName: String(currentUser.name || currentUser.email || 'العميل'),
+                    messageType: String(file.type || '').startsWith('image/') ? 'image' : 'file',
+                    attachment: {
+                        url: uploaded && (uploaded.secure_url || uploaded.url) || '',
+                        publicId: uploaded && (uploaded.public_id || uploaded.publicId) || '',
+                        name: file.name,
+                        size: Number(file.size || 0),
+                        mimeType: String(file.type || ''),
+                        width: Number(uploaded && uploaded.width || 0),
+                        height: Number(uploaded && uploaded.height || 0)
+                    },
+                    profile: {
+                        name: String(currentUser.name || ''),
+                        displayName: String(currentUser.name || ''),
+                        email: String(currentUser.email || ''),
+                        phone: String(currentUser.phone || '')
+                    }
+                });
+                updateSupportUploadProgress(100, 'تم رفع المرفق');
+                window.setTimeout(() => updateSupportUploadProgress(0, ''), 800);
+                showNotification('success', 'تم إرسال المرفق.');
+            } catch (error) {
+                console.error('handleSupportAttachmentSelection error:', error);
+                updateSupportUploadProgress(0, '');
+                showNotification('error', error && error.message ? error.message : 'تعذر رفع المرفق.');
+            } finally {
+                supportUploadInFlight = false;
+                updateSupportComposerState();
+                if (input) input.value = '';
+            }
+            return true;
+        }
+
         async function loadSupportThreadSummary(force = false) {
             if (!currentUser) return null;
             if (!force && myAccountState.supportThread) return myAccountState.supportThread;
@@ -6694,6 +7099,7 @@
 
         async function renderMyAccountMessagesTab(container) {
             if (!container) return;
+            ensureSupportEnhancementStyles();
             renderMyAccountLoading('جاري تحميل الرسائل...');
             const thread = await loadSupportThreadSummary();
             renderMyAccountChrome();
@@ -6729,7 +7135,8 @@
             }
 
             const unread = Number(thread && thread.unreadForCustomer || 0);
-            const status = String(thread && thread.status || 'open').trim().toLowerCase();
+            const statusMeta = getReadableSupportStatus(thread && thread.status || 'active');
+            const rating = thread && thread.rating && Number(thread.rating.score || 0) > 0 ? thread.rating : null;
             container.innerHTML = `
                 <div class="my-account-panel">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
@@ -6737,7 +7144,7 @@
                             <h3 style="margin:0;color:var(--navy);">رسائلي</h3>
                             <p class="my-account-muted-note">يوجد حالياً thread واحد مرتبط بحسابك، ويمكنك متابعته في أي وقت.</p>
                         </div>
-                        <span class="my-account-pill ${status === 'closed' ? 'muted' : 'success'}">${status === 'closed' ? 'مغلقة' : 'نشطة'}</span>
+                        <span class="my-account-pill ${statusMeta.tone}">${statusMeta.label}</span>
                     </div>
                     <div class="my-account-thread-card" style="margin-top:16px;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
@@ -6745,6 +7152,7 @@
                                 <strong style="color:var(--navy);">محادثة الدعم</strong>
                                 <span class="my-account-muted-note">${escapeHtml(String(thread && thread.lastMessage || 'ابدأ أول رسالة ليظهر الملخص هنا.'))}</span>
                                 <span class="my-account-muted-note">آخر تحديث: ${escapeHtml(formatDateTime(thread && (thread.lastMessageAt || thread.updatedAt) || ''))}</span>
+                                ${rating ? `<span class="my-account-muted-note">التقييم: ${'⭐'.repeat(Math.max(1, Math.min(5, Number(rating.score || 0))))}${rating.comment ? ` — ${escapeHtml(String(rating.comment || ''))}` : ''}</span>` : ''}
                             </div>
                             <div style="display:grid;gap:8px;justify-items:end;">
                                 <span class="my-account-pill ${unread > 0 ? 'warning' : 'success'}">${unread > 0 ? `${escapeHtml(String(unread))} غير مقروءة` : 'مقروءة'}</span>
@@ -6753,6 +7161,7 @@
                     </div>
                     <div class="my-account-actions">
                         <button type="button" class="my-account-primary-btn" onclick="openMySupportConversation()">💬 فتح المحادثة</button>
+                        ${statusMeta.key === 'closed' ? `<button type="button" class="my-account-ghost-btn" onclick="reopenMySupportThread()">🔄 إعادة فتح المحادثة</button>` : ''}
                         <button type="button" class="my-account-ghost-btn" onclick="openFAQBot()">🤖 FAQ</button>
                     </div>
                 </div>
@@ -7543,6 +7952,16 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             activeSupportThread = null;
             myAccountState.supportMessages = [];
             myAccountState.supportMessagesCount = 0;
+            supportMessagesCursor = null;
+            supportHasMoreMessages = false;
+            clearTimeout(supportTypingDebounceTimer);
+            clearTimeout(supportTypingClearTimer);
+            clearTimeout(supportTypingRenderTimer);
+            updateSupportTypingIndicator(null);
+            renderSupportThreadBanner(null);
+            updateSupportUploadProgress(0, '');
+            supportUploadInFlight = false;
+            updateSupportComposerState();
             return true;
         }
 
@@ -7712,11 +8131,17 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function renderSupportMessages(rows = []) {
             const container = document.getElementById('chatMessages');
             if (!container) return;
+            ensureSupportEnhancementStyles();
             const items = Array.isArray(rows) ? rows : [];
             myAccountState.supportMessages = items;
             myAccountState.supportMessagesCount = items.length;
+            supportMessagesCursor = items.length ? Number(items[0] && items[0].createdAtMs || 0) : null;
+            supportHasMoreMessages = items.length >= SUPPORT_CHAT_MESSAGES_LIMIT;
             if (!items.length) {
                 container.innerHTML = `<div class="chat-message bot">${escapeHtml(window._welcomeMessage || 'أهلاً بك في دعم Sale Zone')}</div>`;
+                renderSupportThreadBanner(activeSupportThread);
+                updateSupportTypingIndicator(activeSupportThread);
+                updateSupportComposerState();
                 return;
             }
             container.innerHTML = items.map((message) => {
@@ -7724,25 +8149,45 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 const senderClass = isCustomerMessage ? 'user' : 'bot';
                 const safeText = escapeHtml(String(message && message.message || '')).replace(/\n/g, '<br>');
                 const safeTime = escapeHtml(formatDateTime(message && (message.createdAt || message.createdAtMs) || ''));
+                const actionCard = message && message.action ? renderSupportActionCard(message.action) : '';
+                const attachmentMarkup = renderSupportAttachment(message);
                 return `
                     <div class="chat-message ${senderClass}">
-                        <div>${safeText}</div>
+                        ${safeText ? `<div>${safeText}</div>` : ''}
+                        ${actionCard}
+                        ${attachmentMarkup}
                         <div style="margin-top:6px;font-size:11px;opacity:0.7;">${safeTime}</div>
                     </div>
                 `;
             }).join('');
+            if (supportHasMoreMessages && typeof listSupportMessagesPage === 'function') {
+                container.insertAdjacentHTML('afterbegin', `
+                    <div style="display:flex;justify-content:center;margin-bottom:10px;">
+                        <button type="button" class="my-account-ghost-btn" onclick="loadOlderSupportMessages()">تحميل رسائل أقدم</button>
+                    </div>
+                `);
+            }
             container.scrollTop = container.scrollHeight;
+            renderSupportThreadBanner(activeSupportThread);
+            updateSupportTypingIndicator(activeSupportThread);
+            updateSupportComposerState();
             refreshMyAccountChrome();
         }
 
         function bindSupportRealtime(threadId) {
             stopSupportChatRealtime();
+            myAccountState.supportMessages = [];
+            supportMessagesCursor = null;
+            supportHasMoreMessages = false;
             supportThreadUnsubscribe = typeof subscribeSupportThread === 'function'
                 ? subscribeSupportThread(
                     threadId,
                     (thread) => {
                         activeSupportThread = thread;
                         myAccountState.supportThread = thread;
+                        updateSupportTypingIndicator(thread);
+                        renderSupportThreadBanner(thread);
+                        updateSupportComposerState();
                         refreshMyAccountChrome();
                         if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
                             renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
@@ -7755,7 +8200,26 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 ? subscribeSupportMessages(
                     threadId,
                     (messages) => {
-                        renderSupportMessages(messages);
+                        const latest = Array.isArray(messages) && messages.length ? messages[messages.length - 1] : null;
+                        const latestId = String(latest && latest.id || '').trim();
+                        const panelOpen = document.getElementById('internalChatPanel')?.classList.contains('active') === true;
+                        const chatFocused = document.activeElement && document.activeElement.id === 'chatInput';
+                        const mergedMap = new Map();
+                        const currentRows = Array.isArray(myAccountState.supportMessages) ? myAccountState.supportMessages : [];
+                        currentRows.forEach((item) => {
+                            if (item && item.id) mergedMap.set(String(item.id), item);
+                        });
+                        (Array.isArray(messages) ? messages : []).forEach((item) => {
+                            if (item && item.id) mergedMap.set(String(item.id), item);
+                        });
+                        const merged = Array.from(mergedMap.values()).sort((a, b) => Number(a && a.createdAtMs || 0) - Number(b && b.createdAtMs || 0));
+                        renderSupportMessages(merged);
+                        if (latestId && latestId !== lastSupportMessageSeenId) {
+                            lastSupportMessageSeenId = latestId;
+                            if (latest && latest.senderRole === 'admin' && getMyAccountNotificationEnabled() && (!panelOpen || !chatFocused)) {
+                                playNotificationChime();
+                            }
+                        }
                         if (typeof markSupportThreadReadByCustomer === 'function') {
                             markSupportThreadReadByCustomer(threadId).catch(() => null);
                         }
@@ -7783,6 +8247,8 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 if (typeof markSupportThreadReadByCustomer === 'function') {
                     await markSupportThreadReadByCustomer(String(thread && (thread.id || thread.uid) || session.uid)).catch(() => null);
                 }
+                renderSupportThreadBanner(thread);
+                updateSupportComposerState();
                 return true;
             }).catch((error) => {
                 if (options.silent !== true) {
@@ -7839,6 +8305,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 supportBtn && supportBtn.classList.add('active');
                 setChatStatus('الدعم المباشر متصل', true);
                 renderSupportMessages(myAccountState.supportMessages);
+                updateSupportComposerState();
                 return 'support';
             }
 
@@ -7846,6 +8313,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             botBtn && botBtn.classList.add('active');
             supportBtn && supportBtn.classList.remove('active');
             setChatStatus(t('faqMode'), true);
+            renderSupportThreadBanner(null);
+            updateSupportTypingIndicator(null);
+            updateSupportComposerState();
             seedInternalChatWelcome();
             return 'bot';
         }
@@ -7880,6 +8350,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             backdrop?.classList.toggle('active', Boolean(isOpen));
             setMobileBottomNavActive(isOpen ? 'contact' : 'home');
             syncSidePanelScrollLock();
+            updateSupportComposerState();
             return Boolean(isOpen);
         }
 
@@ -7913,6 +8384,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 setInternalChatPanelState(false);
                 return false;
             }
+            queueCustomerTypingState(false);
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
                 window.NavHistory.close('faqbot');
                 return true;
@@ -7956,7 +8428,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         async function sendSupportMessage() {
             const input = document.getElementById('chatInput');
             const text = String(input && input.value || '').trim();
-            if (!text) return false;
+            if (!text || supportUploadInFlight) return false;
             if (!currentUser) {
                 openTawkChat();
                 return false;
@@ -7964,11 +8436,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const ready = await ensureSupportChatReady({ silent: false });
             if (!ready) return false;
             if (input) input.value = '';
+            queueCustomerTypingState(false);
             try {
                 await sendSupportMessageByUid(String(currentUser.uid || currentUser.id || '').trim(), text, {
                     senderRole: 'customer',
                     senderUid: String(currentUser.uid || currentUser.id || '').trim(),
-                    senderName: String(currentUser.name || ''),
+                    senderName: String(currentUser.name || currentUser.email || 'العميل'),
                     profile: {
                         name: String(currentUser.name || ''),
                         displayName: String(currentUser.name || ''),

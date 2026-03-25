@@ -1604,6 +1604,7 @@
                         <h3 class="section-title">💬 الدردشة الداخلية</h3>
                         <div class="header-actions">
                             <button class="btn btn-gold" onclick="refreshSupportThreads()" id="refreshSupportThreadsBtn">🔄 تحديث</button>
+                            <button class="btn btn-info" onclick="bulkCloseInactiveSupportThreads()">🧹 إغلاق الأقدم من 7 أيام</button>
                             <button class="btn btn-danger" onclick="closeActiveSupportThread()" id="closeSupportThreadBtn" disabled>🔒 إغلاق المحادثة</button>
                         </div>
                     </div>
@@ -1613,7 +1614,16 @@
                             <div class="support-threads-panel">
                                 <div class="support-panel-header">
                                     <strong>المحادثات</strong>
-                                    <span id="supportThreadsMeta" style="font-size:11px;color:#666;">0 محادثة</span>
+                                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                        <span id="supportThreadsMeta" style="font-size:11px;color:#666;">0 محادثة</span>
+                                        <select id="supportStatusFilter" onchange="setSupportStatusFilter(this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--color-border,#d1d5db);">
+                                            <option value="">كل الحالات</option>
+                                            <option value="active">نشطة</option>
+                                            <option value="waiting">في انتظار الأدمن</option>
+                                            <option value="pending">في انتظار العميل</option>
+                                            <option value="closed">مغلقة</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div class="support-thread-list" id="supportThreadsList">
                                     <div class="empty-state">
@@ -1624,7 +1634,10 @@
                             </div>
                             <div class="support-messages-panel">
                                 <div class="support-panel-header">
-                                    <strong id="supportActiveThreadTitle">اختر محادثة</strong>
+                                    <div style="display:grid;gap:6px;">
+                                        <strong id="supportActiveThreadTitle">اختر محادثة</strong>
+                                        <span id="supportActiveThreadRating" style="font-size:12px;color:#666;">بدون تقييم</span>
+                                    </div>
                                     <span id="supportActiveThreadStatus" class="status-badge status-pending">-</span>
                                 </div>
                                 <div class="support-messages-list" id="supportMessagesList">
@@ -1633,9 +1646,22 @@
                                         <p>اختر محادثة من القائمة</p>
                                     </div>
                                 </div>
+                                <div id="supportTypingIndicator" style="display:none;padding:0 4px 10px;color:#666;font-size:12px;"></div>
+                                <div id="supportUploadProgress" style="display:none;padding:0 4px 10px;color:var(--navy);font-size:12px;font-weight:700;"></div>
                                 <div class="support-composer">
-                                    <textarea id="supportReplyInput" placeholder="اكتب ردك هنا..." disabled></textarea>
+                                    <input type="file" id="supportAttachmentInput" accept="image/*,.pdf,.doc,.docx" style="display:none" onchange="handleAdminSupportAttachment(event)">
+                                    <button class="btn btn-light" type="button" onclick="toggleSupportQuickRepliesPanel()" id="supportQuickRepliesToggleBtn">⚡ الردود الجاهزة</button>
+                                    <button class="btn btn-light" type="button" onclick="triggerAdminSupportAttachmentPicker()" id="supportAttachBtn" disabled>📎 مرفق</button>
+                                    <textarea id="supportReplyInput" placeholder="اكتب ردك هنا..." disabled oninput="handleAdminSupportInputChange()" onfocus="handleAdminSupportInputFocus()" onblur="handleAdminSupportInputBlur()"></textarea>
                                     <button class="btn btn-navy" onclick="sendSupportReply()" id="supportReplyBtn" disabled>إرسال</button>
+                                </div>
+                                <div id="supportQuickRepliesPanel" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--color-border,#d1d5db);border-radius:12px;background:#faf7ef;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                                        <strong>الردود الجاهزة</strong>
+                                        <button class="btn btn-gold" type="button" onclick="openSupportCannedResponseEditor()">✏️ إدارة الردود</button>
+                                    </div>
+                                    <input type="text" id="supportQuickRepliesSearch" placeholder="بحث في الردود..." oninput="renderSupportQuickReplies()" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--color-border,#d1d5db);margin-bottom:10px;">
+                                    <div id="supportQuickRepliesList" style="display:grid;gap:8px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -2947,6 +2973,13 @@
         let supportMessages = [];
         let activeSupportThreadId = '';
         let supportThreadsUnsubscribe = null;
+        let supportMessagesUnsubscribe = null;
+        let supportStatusFilter = '';
+        let supportUploadInFlight = false;
+        let supportTypingDebounceTimer = null;
+        let supportTypingClearTimer = null;
+        let supportTypingRenderTimer = null;
+        let lastAdminSupportMessageSeenId = '';
         let adminNotifications = [];
         let adminNotificationsUnsubscribe = null;
         let adminNotificationSnapshotReady = false;
@@ -2954,6 +2987,16 @@
         let adminNotificationTypeFilter = '';
         let lowStockNotificationSyncTimer = null;
         const ADMIN_NOTIFICATION_SOUND_PREF_KEY = 'sale_zone_admin_notifications_sound_enabled';
+        const SUPPORT_TYPING_DEBOUNCE_MS = 500;
+        const SUPPORT_TYPING_STALE_MS = 5000;
+        const SUPPORT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+        const DEFAULT_SUPPORT_CANNED_RESPONSES = [
+            { id: 'greeting', title: 'ترحيب', text: 'أهلاً وسهلاً! كيف أقدر أساعدك؟', category: 'general', shortcut: '/hi' },
+            { id: 'order_status', title: 'حالة الطلب', text: 'يمكنك تتبع طلبك من صفحة \"حسابي\" ثم \"طلباتي\"، ولو تريد سأربط لك الطلب هنا فورًا.', category: 'orders', shortcut: '/track' },
+            { id: 'shipping', title: 'الشحن', text: 'الشحن يستغرق من 2 إلى 5 أيام عمل حسب المنطقة.', category: 'shipping', shortcut: '/ship' },
+            { id: 'thanks', title: 'شكر', text: 'شكراً لتواصلك معنا. لو احتجت أي شيء إضافي نحن معك.', category: 'general', shortcut: '/thanks' },
+            { id: 'return', title: 'استرجاع', text: 'يمكنك طلب استرجاع خلال 14 يوم من الاستلام، فقط أرسل لنا تفاصيل الطلب.', category: 'returns', shortcut: '/return' }
+        ];
         const ANALYTICS_LOW_STOCK_THRESHOLD = 10;
         const ANALYTICS_CRITICAL_STOCK_THRESHOLD = 3;
         let analyticsPeriod = 'month';
@@ -2965,7 +3008,6 @@
         let analyticsOrdersLoadPromise = null;
         let analyticsDataCache = new Map();
         let analyticsRevenueChart = null;
-        let supportMessagesUnsubscribe = null;
         let supportAccess = {
             denied: false,
             reason: '',
@@ -3000,6 +3042,7 @@
             loyalty: { rate: 5, pointValue: 0.1 },
             customCategories: [],
             faqIntents: [],
+            cannedResponses: DEFAULT_SUPPORT_CANNED_RESPONSES.slice(),
             chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' },
             featureFlags: {
                 tawktoEnabled: true,
@@ -8045,6 +8088,8 @@ function adminLogout(){
             const replyInput = document.getElementById('supportReplyInput');
             const replyBtn = document.getElementById('supportReplyBtn');
             const closeBtn = document.getElementById('closeSupportThreadBtn');
+            const attachBtn = document.getElementById('supportAttachBtn');
+            const quickRepliesBtn = document.getElementById('supportQuickRepliesToggleBtn');
 
             if (noticeEl) {
                 if (supportAccess.denied) {
@@ -8061,7 +8106,18 @@ function adminLogout(){
                 if (replyInput) replyInput.disabled = true;
                 if (replyBtn) replyBtn.disabled = true;
                 if (closeBtn) closeBtn.disabled = true;
+                if (attachBtn) attachBtn.disabled = true;
+                if (quickRepliesBtn) quickRepliesBtn.disabled = true;
+                return;
             }
+
+            const thread = getSupportThreadById(activeSupportThreadId);
+            const isClosed = String(thread && thread.status || '').trim().toLowerCase() === 'closed';
+            if (replyInput) replyInput.disabled = !thread || isClosed || supportUploadInFlight;
+            if (replyBtn) replyBtn.disabled = !thread || isClosed || supportUploadInFlight;
+            if (closeBtn) closeBtn.disabled = !thread || isClosed;
+            if (attachBtn) attachBtn.disabled = !thread || isClosed || supportUploadInFlight;
+            if (quickRepliesBtn) quickRepliesBtn.disabled = supportAccess.denied;
         }
 
         function clearSupportAccessState() {
@@ -8115,21 +8171,445 @@ function adminLogout(){
         }
 
         function getSupportThreadStatusLabel(status) {
-            return status === 'closed' ? 'مغلقة' : 'مفتوحة';
+            const normalized = String(status || 'active').trim().toLowerCase();
+            if (normalized === 'closed') return 'مغلقة';
+            if (normalized === 'waiting') return 'في انتظار الأدمن';
+            if (normalized === 'pending') return 'في انتظار العميل';
+            return 'نشطة';
         }
 
         function getSupportThreadStatusClass(status) {
-            return status === 'closed' ? 'status-cancelled' : 'status-confirmed';
+            const normalized = String(status || 'active').trim().toLowerCase();
+            if (normalized === 'closed') return 'status-cancelled';
+            if (normalized === 'waiting') return 'status-pending';
+            return 'status-confirmed';
         }
 
         function safeSupportTime(iso) {
             return formatDateTime(iso || '');
         }
 
+        function ensureAdminSupportStyles() {
+            if (document.getElementById('adminSupportEnhancementStyles')) return;
+            const style = document.createElement('style');
+            style.id = 'adminSupportEnhancementStyles';
+            style.textContent = `
+                .admin-support-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;background:rgba(10,17,40,.06);font-size:12px}
+                .admin-support-card{margin-top:8px;border:1px solid rgba(10,17,40,.08);border-radius:14px;background:#fff;padding:12px;display:grid;gap:6px}
+                .admin-support-card img{max-width:300px;width:100%;border-radius:12px}
+                .admin-support-typing{display:inline-flex;gap:4px;align-items:center}
+                .admin-support-typing span{width:7px;height:7px;border-radius:50%;background:var(--navy);opacity:.35;animation:adminSupportTypingPulse 1.1s infinite ease-in-out}
+                .admin-support-typing span:nth-child(2){animation-delay:.15s}
+                .admin-support-typing span:nth-child(3){animation-delay:.3s}
+                @keyframes adminSupportTypingPulse{0%,80%,100%{transform:scale(.85);opacity:.3}40%{transform:scale(1);opacity:1}}
+            `;
+            document.head.appendChild(style);
+        }
+
+        function getNormalizedSupportThreadStatus(status) {
+            const normalized = String(status || 'active').trim().toLowerCase();
+            return normalized === 'open' ? 'active' : (normalized || 'active');
+        }
+
+        function formatAdminSupportFileSize(bytes) {
+            const value = Number(bytes || 0);
+            if (!Number.isFinite(value) || value <= 0) return '';
+            if (value < 1024) return `${Math.round(value)} B`;
+            if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+            return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        function getSupportCannedResponses() {
+            const rows = Array.isArray(storeSettings && storeSettings.cannedResponses) ? storeSettings.cannedResponses : [];
+            return rows.length ? rows : DEFAULT_SUPPORT_CANNED_RESPONSES.slice();
+        }
+
+        function saveSupportCannedResponses(rows) {
+            storeSettings.cannedResponses = Array.isArray(rows) ? rows.filter(Boolean) : [];
+            saveStoreSettings();
+            renderSupportQuickReplies();
+        }
+
+        function renderSupportQuickReplies() {
+            ensureAdminSupportStyles();
+            const listEl = document.getElementById('supportQuickRepliesList');
+            if (!listEl) return;
+            const query = String(document.getElementById('supportQuickRepliesSearch')?.value || '').trim().toLowerCase();
+            const rows = getSupportCannedResponses().filter((item) => {
+                const title = String(item && item.title || '').toLowerCase();
+                const category = String(item && item.category || '').toLowerCase();
+                const shortcut = String(item && item.shortcut || '').toLowerCase();
+                return !query || title.includes(query) || category.includes(query) || shortcut.includes(query);
+            });
+            if (!rows.length) {
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚡</div><p>لا توجد ردود جاهزة مطابقة.</p></div>';
+                return;
+            }
+            listEl.innerHTML = rows.map((item) => `
+                <div style="display:grid;gap:8px;padding:10px;border-radius:10px;background:#fff;border:1px solid rgba(10,17,40,.08);">
+                    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+                        <div>
+                            <strong>${escapeHtml(String(item.title || 'رد جاهز'))}</strong>
+                            <div class="my-account-muted-note">${escapeHtml(String(item.shortcut || ''))} · ${escapeHtml(String(item.category || 'عام'))}</div>
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            <button class="btn btn-light" type="button" data-reply-id="${escapeHtml(String(item.id || ''))}" onclick="insertSupportQuickReply(this.dataset.replyId)">إدراج</button>
+                            <button class="btn btn-light" type="button" data-reply-id="${escapeHtml(String(item.id || ''))}" onclick="editSupportQuickReply(this.dataset.replyId)">تعديل</button>
+                            <button class="btn btn-danger" type="button" data-reply-id="${escapeHtml(String(item.id || ''))}" onclick="deleteSupportQuickReply(this.dataset.replyId)">حذف</button>
+                        </div>
+                    </div>
+                    <div style="font-size:12px;color:#444;">${escapeHtml(String(item.text || ''))}</div>
+                </div>
+            `).join('');
+        }
+
+        function toggleSupportQuickRepliesPanel() {
+            const panel = document.getElementById('supportQuickRepliesPanel');
+            if (!panel) return false;
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            if (panel.style.display !== 'none') {
+                renderSupportQuickReplies();
+            }
+            return panel.style.display !== 'none';
+        }
+
+        function openSupportCannedResponseEditor() {
+            const title = prompt('عنوان الرد الجاهز:');
+            if (!title) return;
+            const text = prompt('نص الرد الجاهز:');
+            if (!text) return;
+            const category = prompt('الفئة (general/orders/shipping/returns):', 'general') || 'general';
+            const shortcut = prompt('الاختصار (مثال /hi):', '/reply') || '/reply';
+            const rows = getSupportCannedResponses();
+            rows.push({
+                id: `reply_${Date.now()}`,
+                title: String(title).trim(),
+                text: String(text).trim(),
+                category: String(category).trim() || 'general',
+                shortcut: String(shortcut).trim() || '/reply'
+            });
+            saveSupportCannedResponses(rows);
+            showNotification('success', 'تمت إضافة الرد الجاهز.');
+        }
+
+        function findSupportQuickReply(id) {
+            return getSupportCannedResponses().find((item) => String(item && item.id || '') === String(id || '')) || null;
+        }
+
+        function insertSupportQuickReply(id) {
+            const item = findSupportQuickReply(id);
+            const input = document.getElementById('supportReplyInput');
+            if (!item || !input) return false;
+            input.value = String(item.text || '');
+            input.focus();
+            handleAdminSupportInputChange();
+            return true;
+        }
+
+        function editSupportQuickReply(id) {
+            const rows = getSupportCannedResponses();
+            const index = rows.findIndex((item) => String(item && item.id || '') === String(id || ''));
+            if (index === -1) return;
+            const row = rows[index];
+            const title = prompt('عنوان الرد الجاهز:', row.title || '');
+            if (!title) return;
+            const text = prompt('نص الرد الجاهز:', row.text || '');
+            if (!text) return;
+            rows[index] = { ...row, title: String(title).trim(), text: String(text).trim() };
+            saveSupportCannedResponses(rows);
+            showNotification('success', 'تم تحديث الرد الجاهز.');
+        }
+
+        function deleteSupportQuickReply(id) {
+            const rows = getSupportCannedResponses();
+            const nextRows = rows.filter((item) => String(item && item.id || '') !== String(id || ''));
+            if (nextRows.length === rows.length) return;
+            saveSupportCannedResponses(nextRows);
+            showNotification('success', 'تم حذف الرد الجاهز.');
+        }
+
+        function setSupportStatusFilter(value) {
+            supportStatusFilter = String(value || '').trim().toLowerCase();
+            renderSupportThreads();
+        }
+
+        function renderAdminSupportAttachment(message) {
+            const attachment = message && message.attachment;
+            if (!attachment || !attachment.url) return '';
+            const safeUrl = escapeHtml(String(attachment.url || ''));
+            const safeName = escapeHtml(String(attachment.name || 'attachment'));
+            const safeSize = escapeHtml(formatAdminSupportFileSize(attachment.size));
+            if (String(message && message.type || '') === 'image') {
+                return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer"><img src="${safeUrl}" alt="${safeName}" loading="lazy" onerror="this.style.display='none'"></a>`;
+            }
+            return `
+                <div class="admin-support-card">
+                    <strong>📎 ${safeName}</strong>
+                    ${safeSize ? `<div class="my-account-muted-note">${safeSize}</div>` : ''}
+                    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">تحميل الملف</a>
+                </div>
+            `;
+        }
+
+        function renderAdminSupportAction(action) {
+            if (!action || typeof action !== 'object') return '';
+            if (String(action.kind || '') === 'order') {
+                const orderId = escapeHtml(String(action.orderId || ''));
+                return `
+                    <div class="admin-support-card">
+                        <strong>🛒 طلب ${escapeHtml(String(action.orderNumber || action.orderId || ''))}</strong>
+                        ${Number(action.orderTotal || 0) > 0 ? `<div class="my-account-muted-note">المبلغ: ${escapeHtml(formatCurrency(Number(action.orderTotal || 0)))}</div>` : ''}
+                        ${action.orderStatus ? `<div class="my-account-muted-note">الحالة: ${escapeHtml(String(action.orderStatus || ''))}</div>` : ''}
+                        ${orderId ? `<button class="btn btn-light" type="button" data-order-id="${orderId}" onclick="showSection('orders'); viewOrder(this.dataset.orderId)">عرض الطلب</button>` : `<button class="btn btn-light" type="button" onclick="showSection('orders')">فتح الطلبات</button>`}
+                    </div>
+                `;
+            }
+            const productId = escapeHtml(String(action.productId || ''));
+            return `
+                <div class="admin-support-card">
+                    <strong>📦 ${escapeHtml(String(action.productName || action.code || action.productId || 'منتج'))}</strong>
+                    ${(action.code || action.sku) ? `<div class="my-account-muted-note">الكود: ${escapeHtml(String(action.code || action.sku || ''))}</div>` : ''}
+                    ${Number(action.price || 0) > 0 ? `<div class="my-account-muted-note">السعر: ${escapeHtml(formatCurrency(Number(action.price || 0)))}</div>` : ''}
+                    ${productId ? `<button class="btn btn-light" type="button" data-product-id="${productId}" onclick="showSection('products'); editProduct(this.dataset.productId)">عرض المنتج</button>` : `<button class="btn btn-light" type="button" onclick="showSection('products')">فتح المنتجات</button>`}
+                </div>
+            `;
+        }
+
+        function updateAdminSupportTypingIndicator(thread = getSupportThreadById(activeSupportThreadId)) {
+            const el = document.getElementById('supportTypingIndicator');
+            if (!el) return;
+            clearTimeout(supportTypingRenderTimer);
+            const typing = thread && thread.typing;
+            const authUid = String(firebase && firebase.auth && firebase.auth().currentUser && firebase.auth().currentUser.uid || '').trim();
+            const visible = !!(typing && typing.isTyping === true && String(typing.uid || '').trim() && String(typing.uid || '').trim() !== authUid && (Date.now() - Number(typing.timestampMs || 0)) < SUPPORT_TYPING_STALE_MS);
+            if (!visible) {
+                el.style.display = 'none';
+                el.innerHTML = '';
+                return;
+            }
+            const label = String(typing.role || '') === 'customer' ? 'العميل يكتب الآن' : 'الأدمن يكتب الآن';
+            el.style.display = 'block';
+            el.innerHTML = `<div style="display:flex;align-items:center;gap:8px;"><span>${escapeHtml(label)}</span><span class="admin-support-typing" aria-hidden="true"><span></span><span></span><span></span></span></div>`;
+            supportTypingRenderTimer = window.setTimeout(() => updateAdminSupportTypingIndicator(thread), SUPPORT_TYPING_STALE_MS + 100);
+        }
+
+        function updateAdminSupportUploadProgress(percent = 0, label = '') {
+            const el = document.getElementById('supportUploadProgress');
+            if (!el) return;
+            if (!label) {
+                el.style.display = 'none';
+                el.textContent = '';
+                return;
+            }
+            el.style.display = 'block';
+            el.textContent = `${label}${Number.isFinite(Number(percent)) ? ` (${Math.max(0, Math.min(100, Math.round(Number(percent))))}%)` : ''}`;
+        }
+
+        function queueAdminTypingState(isTyping) {
+            const thread = getSupportThreadById(activeSupportThreadId);
+            if (!thread || typeof setSupportThreadTyping !== 'function') return;
+            const authUser = firebase && firebase.auth ? firebase.auth().currentUser : null;
+            if (!authUser || !authUser.uid) return;
+            clearTimeout(supportTypingDebounceTimer);
+            supportTypingDebounceTimer = window.setTimeout(() => {
+                setSupportThreadTyping(String(thread.id || ''), {
+                    uid: String(authUser.uid || ''),
+                    displayName: String(authUser.email || 'admin'),
+                    role: 'admin',
+                    isTyping: isTyping === true,
+                    timestampMs: Date.now()
+                }).catch(() => null);
+            }, SUPPORT_TYPING_DEBOUNCE_MS);
+            clearTimeout(supportTypingClearTimer);
+            if (isTyping === true) {
+                supportTypingClearTimer = window.setTimeout(() => queueAdminTypingState(false), SUPPORT_TYPING_STALE_MS);
+            }
+        }
+
+        function handleAdminSupportInputFocus() {
+            const input = document.getElementById('supportReplyInput');
+            if (input && String(input.value || '').trim()) {
+                queueAdminTypingState(true);
+            }
+        }
+
+        function handleAdminSupportInputBlur() {
+            queueAdminTypingState(false);
+        }
+
+        function resolveSupportShortcutMessage(text) {
+            const raw = String(text || '').trim();
+            const rows = getSupportCannedResponses();
+            const canned = rows.find((item) => String(item && item.shortcut || '').trim().toLowerCase() === raw.toLowerCase());
+            if (canned) {
+                return { text: String(canned.text || ''), source: 'shortcut' };
+            }
+            return { text: raw, source: 'plain' };
+        }
+
+        function resolveSupportOrderAction(query) {
+            const value = String(query || '').trim();
+            if (!value) return null;
+            const exact = (orders || []).find((item) => String(item && item.orderNumber || '').trim().toLowerCase() === value.toLowerCase())
+                || (orders || []).find((item) => String(item && item.id || '').trim().toLowerCase() === value.toLowerCase());
+            if (!exact) return null;
+            return {
+                kind: 'order',
+                orderId: String(exact.id || ''),
+                orderNumber: String(exact.orderNumber || exact.id || ''),
+                orderTotal: Number(exact.total || exact.totalPrice || exact.grandTotal || 0),
+                orderStatus: String(exact.status || '')
+            };
+        }
+
+        function resolveSupportProductAction(query) {
+            const value = String(query || '').trim();
+            if (!value) return null;
+            const rows = Array.isArray(products) ? products : [];
+            const lower = value.toLowerCase();
+            const exact = rows.find((item) => [item.id, item.code, item.sku].some((field) => String(field || '').trim().toLowerCase() === lower))
+                || rows.find((item) => String(item && item.name || '').trim().toLowerCase() === lower)
+                || rows.find((item) => String(item && item.name || '').trim().toLowerCase().includes(lower));
+            if (!exact) return null;
+            return {
+                kind: 'product',
+                productId: String(exact.id || ''),
+                productName: String(exact.name || ''),
+                code: String(exact.code || ''),
+                sku: String(exact.sku || exact.code || ''),
+                price: Number(exact.price || exact.sellPrice || 0),
+                image: String(exact.imageUrl || exact.image || '')
+            };
+        }
+
+        function buildSupportReplyPayload(text) {
+            const shortcut = resolveSupportShortcutMessage(text);
+            const resolvedText = shortcut.text;
+            const orderMatch = resolvedText.match(/^\/order\s+(.+)$/i);
+            if (orderMatch) {
+                const action = resolveSupportOrderAction(orderMatch[1]);
+                if (action) {
+                    return { message: resolvedText, messageType: 'action', action };
+                }
+                showNotification('warning', 'تعذر العثور على الطلب المطلوب. سيتم إرسال النص كما هو.');
+                return { message: resolvedText };
+            }
+            const productMatch = resolvedText.match(/^\/product\s+(.+)$/i);
+            if (productMatch) {
+                const action = resolveSupportProductAction(productMatch[1]);
+                if (action) {
+                    return { message: resolvedText, messageType: 'action', action };
+                }
+                showNotification('warning', 'تعذر العثور على المنتج المطلوب. سيتم إرسال النص كما هو.');
+            }
+            return { message: resolvedText };
+        }
+
+        function triggerAdminSupportAttachmentPicker() {
+            document.getElementById('supportAttachmentInput')?.click();
+            return true;
+        }
+
+        function handleAdminSupportInputChange() {
+            const input = document.getElementById('supportReplyInput');
+            if (!input) return;
+            const shortcut = resolveSupportShortcutMessage(String(input.value || '').trim());
+            if (shortcut && shortcut.source === 'shortcut' && shortcut.text && shortcut.text !== input.value) {
+                input.value = shortcut.text;
+            }
+            queueAdminTypingState(String(input.value || '').trim().length > 0);
+        }
+
+        async function handleAdminSupportAttachment(event) {
+            const input = event && event.target;
+            const file = input && input.files && input.files[0];
+            const thread = getSupportThreadById(activeSupportThreadId);
+            if (!file || !thread) return false;
+            if (Number(file.size || 0) > SUPPORT_ATTACHMENT_MAX_BYTES) {
+                showNotification('error', 'الملف يجب أن يكون أقل من 5MB.');
+                if (input) input.value = '';
+                return false;
+            }
+            if (typeof uploadToCloudinary !== 'function') {
+                showNotification('error', 'خدمة الرفع غير متاحة حالياً.');
+                if (input) input.value = '';
+                return false;
+            }
+            try {
+                await requireAdminPermission();
+                supportUploadInFlight = true;
+                updateSupportAccessUi();
+                updateAdminSupportUploadProgress(0, 'جاري رفع المرفق');
+                const uploaded = await uploadToCloudinary(file, {
+                    folder: 'salezone_support',
+                    onProgress: (percent) => updateAdminSupportUploadProgress(percent, 'جاري رفع المرفق')
+                });
+                const replyInput = document.getElementById('supportReplyInput');
+                const caption = String(replyInput && replyInput.value || '').trim();
+                if (replyInput) replyInput.value = '';
+                const authUser = firebase && firebase.auth ? firebase.auth().currentUser : null;
+                const senderUid = authUser && authUser.uid ? String(authUser.uid) : '';
+                const senderName = authUser && authUser.email ? String(authUser.email) : 'admin';
+                await sendSupportMessageByUid(String(thread.id || ''), caption, {
+                    senderRole: 'admin',
+                    senderUid,
+                    senderName,
+                    messageType: String(file.type || '').startsWith('image/') ? 'image' : 'file',
+                    attachment: {
+                        url: uploaded && (uploaded.secure_url || uploaded.url) || '',
+                        publicId: uploaded && (uploaded.public_id || uploaded.publicId) || '',
+                        name: file.name,
+                        size: Number(file.size || 0),
+                        mimeType: String(file.type || ''),
+                        width: Number(uploaded && uploaded.width || 0),
+                        height: Number(uploaded && uploaded.height || 0)
+                    }
+                });
+                updateAdminSupportUploadProgress(100, 'تم رفع المرفق');
+                window.setTimeout(() => updateAdminSupportUploadProgress(0, ''), 800);
+                showNotification('success', 'تم إرسال المرفق.');
+            } catch (error) {
+                console.error('handleAdminSupportAttachment error:', error);
+                updateAdminSupportUploadProgress(0, '');
+                showNotification('error', error && error.message ? error.message : 'تعذر رفع المرفق.');
+            } finally {
+                supportUploadInFlight = false;
+                updateSupportAccessUi();
+                if (input) input.value = '';
+            }
+            return true;
+        }
+
+        async function bulkCloseInactiveSupportThreads() {
+            if (!canUseSupportChat()) return;
+            const threshold = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            const candidates = (supportThreads || []).filter((thread) => {
+                const status = getNormalizedSupportThreadStatus(thread && thread.status || '');
+                const updatedAt = Date.parse(thread && thread.updatedAt || thread && thread.lastMessageAt || '');
+                return status !== 'closed' && Number.isFinite(updatedAt) && updatedAt < threshold;
+            });
+            if (!candidates.length) {
+                showNotification('info', 'لا توجد محادثات قديمة لإغلاقها.');
+                return;
+            }
+            if (!confirm(`سيتم إغلاق ${candidates.length} محادثة قديمة. هل تريد المتابعة؟`)) return;
+            try {
+                await requireAdminPermission();
+                for (const thread of candidates) {
+                    await closeSupportThread(String(thread.id || ''));
+                }
+                showNotification('success', `تم إغلاق ${candidates.length} محادثة قديمة.`);
+            } catch (error) {
+                console.error('bulkCloseInactiveSupportThreads error:', error);
+                showNotification('error', 'تعذر إغلاق بعض المحادثات.');
+            }
+        }
+
         function renderSupportThreads() {
             const listEl = document.getElementById('supportThreadsList');
             const metaEl = document.getElementById('supportThreadsMeta');
             if (!listEl || !metaEl) return;
+            ensureAdminSupportStyles();
             updateSupportAccessUi();
 
             if (supportAccess.denied) {
@@ -8141,25 +8621,34 @@ function adminLogout(){
 
             const list = Array.isArray(supportThreads) ? [...supportThreads] : [];
             list.sort((a, b) => String(b && b.updatedAt || '').localeCompare(String(a && a.updatedAt || '')));
+            const filteredList = supportStatusFilter
+                ? list.filter((thread) => getNormalizedSupportThreadStatus(thread && thread.status || '') === supportStatusFilter)
+                : list;
             supportThreads = list;
-            metaEl.textContent = `${list.length} محادثة`;
+            const rated = list.filter((thread) => thread && thread.rating && Number(thread.rating.score || 0) > 0);
+            const average = rated.length ? (rated.reduce((sum, thread) => sum + Number(thread.rating.score || 0), 0) / rated.length).toFixed(1) : '';
+            metaEl.textContent = average ? `${filteredList.length} محادثة · متوسط التقييم ${average}` : `${filteredList.length} محادثة`;
             updateBadges();
 
-            if (!list.length) {
+            if (!filteredList.length) {
                 listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><p>لا توجد محادثات دعم</p></div>';
                 return;
             }
 
-            listEl.innerHTML = list.map((thread) => {
+            listEl.innerHTML = filteredList.map((thread) => {
                 const id = String(thread && thread.id || '');
                 const unread = Math.max(0, Number(thread && thread.unreadForAdmin || 0));
                 const activeClass = id && id === String(activeSupportThreadId || '') ? 'active' : '';
                 const name = escapeHtml(thread && thread.customerName || 'عميل');
                 const phone = escapeHtml(thread && thread.customerPhone || '-');
                 const lastMessage = escapeHtml(thread && thread.lastMessage || 'بدون رسائل');
-                const status = getSupportThreadStatusLabel(String(thread && thread.status || 'open'));
-                const statusClass = getSupportThreadStatusClass(String(thread && thread.status || 'open'));
+                const normalizedStatus = getNormalizedSupportThreadStatus(String(thread && thread.status || 'active'));
+                const status = getSupportThreadStatusLabel(normalizedStatus);
+                const statusClass = getSupportThreadStatusClass(normalizedStatus);
                 const safeId = escapeHtml(id);
+                const rating = thread && thread.rating && Number(thread.rating.score || 0) > 0
+                    ? `⭐ ${escapeHtml(String(thread.rating.score || ''))}`
+                    : '';
                 return `
                     <div class="support-thread-item ${activeClass}" data-thread-id="${safeId}" onclick="selectSupportThread(this.dataset.threadId)">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -8170,6 +8659,7 @@ function adminLogout(){
                         <div style="font-size:12px;color:#333;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${lastMessage}</div>
                         <div class="support-thread-meta">
                             <span class="status-badge ${statusClass}">${status}</span>
+                            ${rating ? `<span class="admin-support-chip">${rating}</span>` : ''}
                             <span>${safeSupportTime(thread && thread.updatedAt)}</span>
                         </div>
                     </div>
@@ -8181,14 +8671,17 @@ function adminLogout(){
             const listEl = document.getElementById('supportMessagesList');
             const titleEl = document.getElementById('supportActiveThreadTitle');
             const statusEl = document.getElementById('supportActiveThreadStatus');
+            const ratingEl = document.getElementById('supportActiveThreadRating');
             const replyInput = document.getElementById('supportReplyInput');
             const replyBtn = document.getElementById('supportReplyBtn');
             const closeBtn = document.getElementById('closeSupportThreadBtn');
-            if (!listEl || !titleEl || !statusEl || !replyInput || !replyBtn || !closeBtn) return;
+            if (!listEl || !titleEl || !statusEl || !ratingEl || !replyInput || !replyBtn || !closeBtn) return;
+            ensureAdminSupportStyles();
             updateSupportAccessUi();
 
             if (supportAccess.denied) {
                 titleEl.textContent = 'الدردشة الداخلية غير متاحة';
+                ratingEl.textContent = 'بدون تقييم';
                 statusEl.className = 'status-badge status-pending';
                 statusEl.textContent = 'صلاحيات';
                 replyInput.value = '';
@@ -8202,6 +8695,7 @@ function adminLogout(){
             const thread = getSupportThreadById(activeSupportThreadId);
             if (!thread) {
                 titleEl.textContent = 'اختر محادثة';
+                ratingEl.textContent = 'بدون تقييم';
                 statusEl.className = 'status-badge status-pending';
                 statusEl.textContent = '-';
                 replyInput.value = '';
@@ -8212,18 +8706,20 @@ function adminLogout(){
                 return;
             }
 
-            const threadStatus = String(thread.status || 'open');
+            const threadStatus = getNormalizedSupportThreadStatus(String(thread.status || 'active'));
             const isClosed = threadStatus === 'closed';
             titleEl.textContent = `${thread.customerName || 'عميل'} - ${thread.customerPhone || '-'}`;
             statusEl.className = `status-badge ${getSupportThreadStatusClass(threadStatus)}`;
             statusEl.textContent = getSupportThreadStatusLabel(threadStatus);
-            replyInput.disabled = isClosed;
-            replyBtn.disabled = isClosed;
-            closeBtn.disabled = isClosed;
+            ratingEl.textContent = thread.rating && Number(thread.rating.score || 0) > 0
+                ? `التقييم: ${'⭐'.repeat(Math.max(1, Math.min(5, Number(thread.rating.score || 0))))}${thread.rating.comment ? ` — ${thread.rating.comment}` : ''}`
+                : 'بدون تقييم';
 
             const rows = Array.isArray(supportMessages) ? supportMessages : [];
             if (!rows.length) {
                 listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><p>لا توجد رسائل بعد</p></div>';
+                updateAdminSupportTypingIndicator(thread);
+                updateSupportAccessUi();
                 return;
             }
 
@@ -8239,22 +8735,23 @@ function adminLogout(){
                         || msg.body
                     ) || ''
                 ).trim();
-                if (!rawText) return '';
-                const text = escapeHtml(rawText);
+                const text = rawText ? escapeHtml(rawText) : '';
                 const createdAt = safeSupportTime(msg && msg.createdAt);
+                const attachmentMarkup = renderAdminSupportAttachment(msg);
+                const actionMarkup = msg && msg.action ? renderAdminSupportAction(msg.action) : '';
                 return `
                     <div class="support-message ${cssClass}">
-                        <div>${text}</div>
+                        ${text ? `<div>${text}</div>` : ''}
+                        ${actionMarkup}
+                        ${attachmentMarkup}
                         <div class="support-message-meta">${escapeHtml(name)} · ${createdAt}</div>
                     </div>
                 `;
-            }).filter(Boolean).join('');
-            if (!renderedMessages) {
-                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><p>لا توجد رسائل قابلة للعرض بعد</p></div>';
-                return;
-            }
+            }).join('');
             listEl.innerHTML = renderedMessages;
             listEl.scrollTop = listEl.scrollHeight;
+            updateAdminSupportTypingIndicator(thread);
+            updateSupportAccessUi();
         }
 
         function clearSupportMessageSubscription() {
@@ -8293,7 +8790,16 @@ function adminLogout(){
                     id,
                     async (rows) => {
                         supportMessages = Array.isArray(rows) ? rows : [];
+                        const latest = supportMessages.length ? supportMessages[supportMessages.length - 1] : null;
+                        const latestId = String(latest && latest.id || '').trim();
+                        const chatFocused = document.activeElement && document.activeElement.id === 'supportReplyInput';
                         renderSupportMessages();
+                        if (latestId && latestId !== lastAdminSupportMessageSeenId) {
+                            lastAdminSupportMessageSeenId = latestId;
+                            if (latest && latest.senderRole === 'customer' && getAdminNotificationSoundEnabled() && !chatFocused) {
+                                playAdminNotificationChime();
+                            }
+                        }
                         if (typeof markSupportThreadReadByAdmin === 'function') {
                             await markSupportThreadReadByAdmin(id).catch(() => null);
                         }
@@ -8355,12 +8861,14 @@ function adminLogout(){
 
         async function startSupportChatRealtime() {
             if (supportThreadsUnsubscribe || typeof subscribeSupportThreads !== 'function') {
+                renderSupportQuickReplies();
                 renderSupportThreads();
                 renderSupportMessages();
                 return;
             }
 
             if (!canUseSupportChat(false)) {
+                renderSupportQuickReplies();
                 renderSupportThreads();
                 renderSupportMessages();
                 return;
@@ -8378,6 +8886,7 @@ function adminLogout(){
                 return;
             }
 
+            renderSupportQuickReplies();
             supportThreadsUnsubscribe = subscribeSupportThreads(
                 (rows) => {
                     const previousActive = String(activeSupportThreadId || '');
@@ -8413,6 +8922,12 @@ function adminLogout(){
             clearSupportThreadSubscription();
             supportMessages = [];
             activeSupportThreadId = '';
+            clearTimeout(supportTypingDebounceTimer);
+            clearTimeout(supportTypingClearTimer);
+            clearTimeout(supportTypingRenderTimer);
+            updateAdminSupportTypingIndicator(null);
+            updateAdminSupportUploadProgress(0, '');
+            supportUploadInFlight = false;
             updateSupportAccessUi();
         }
 
@@ -8421,7 +8936,7 @@ function adminLogout(){
             const thread = getSupportThreadById(activeSupportThreadId);
             const input = document.getElementById('supportReplyInput');
             if (!thread || !input) return;
-            if (String(thread.status || 'open') === 'closed') {
+            if (getNormalizedSupportThreadStatus(String(thread.status || 'active')) === 'closed') {
                 showNotification('error', 'المحادثة مغلقة');
                 return;
             }
@@ -8437,14 +8952,14 @@ function adminLogout(){
                     return;
                 }
                 const senderName = authUser && authUser.email ? String(authUser.email) : 'admin';
-                await addSupportMessage({
-                    threadId: String(thread.id || ''),
+                const payload = buildSupportReplyPayload(message);
+                queueAdminTypingState(false);
+                await sendSupportMessageByUid(String(thread.id || ''), String(payload.message || ''), {
                     senderRole: 'admin',
                     senderUid,
                     senderName,
-                    message,
-                    createdAt: new Date().toISOString(),
-                    createdAtMs: Date.now()
+                    messageType: payload.messageType || 'text',
+                    action: payload.action || null
                 });
                 input.value = '';
             } catch (error) {
@@ -8469,6 +8984,7 @@ function adminLogout(){
 
             try {
                 await requireAdminPermission();
+                queueAdminTypingState(false);
                 if (typeof closeSupportThread !== 'function') throw new Error('closeSupportThread unavailable');
                 await closeSupportThread(thread.id);
                 supportThreads = (supportThreads || []).map((item) => (
