@@ -404,6 +404,112 @@ service cloud.firestore {
       && request.resource.data.price >= 0;
     }
 
+    function isValidNotificationActionMap() {
+      return !('action' in request.resource.data)
+        || (
+          request.resource.data.action is map
+          && request.resource.data.action.keys().size() <= 8
+        );
+    }
+
+    function isValidNotificationDocument(expectedUid) {
+      return request.resource.data.keys().hasAll([
+        'customerUid',
+        'scope',
+        'type',
+        'audience',
+        'title',
+        'body',
+        'action',
+        'source',
+        'readByCustomer',
+        'readByAdmin',
+        'createdByRole',
+        'createdAt',
+        'updatedAt'
+      ])
+      && request.resource.data.keys().hasOnly([
+        'customerUid',
+        'scope',
+        'type',
+        'audience',
+        'title',
+        'body',
+        'action',
+        'source',
+        'readByCustomer',
+        'readByAdmin',
+        'createdByRole',
+        'createdAt',
+        'updatedAt'
+      ])
+      && request.resource.data.customerUid is string
+      && request.resource.data.customerUid.size() <= 200
+      && (expectedUid == '' || request.resource.data.customerUid == expectedUid)
+      && request.resource.data.scope in ['customer', 'system']
+      && request.resource.data.type in ['order', 'chat', 'stock', 'point', 'admin', 'product', 'system']
+      && request.resource.data.audience in ['customer', 'admin', 'both']
+      && request.resource.data.title is string
+      && request.resource.data.title.size() > 0
+      && request.resource.data.title.size() <= 160
+      && request.resource.data.body is string
+      && request.resource.data.body.size() > 0
+      && request.resource.data.body.size() <= 600
+      && isValidNotificationActionMap()
+      && request.resource.data.source is string
+      && request.resource.data.source.size() > 0
+      && request.resource.data.source.size() <= 120
+      && request.resource.data.readByCustomer is bool
+      && request.resource.data.readByAdmin is bool
+      && request.resource.data.createdByRole in ['customer', 'admin', 'system']
+      && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
+      && (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp);
+    }
+
+    function isCustomerNotificationCreate(uid) {
+      return isOwner(uid)
+        && isVerifiedUser()
+        && isValidNotificationDocument(uid)
+        && request.resource.data.scope == 'customer'
+        && request.resource.data.createdByRole == 'customer'
+        && (
+          (
+            request.resource.data.type == 'chat'
+            && request.resource.data.audience == 'admin'
+            && request.resource.data.readByCustomer == true
+            && request.resource.data.readByAdmin == false
+          )
+          || (
+            request.resource.data.type in ['order', 'point']
+            && request.resource.data.audience == 'customer'
+            && request.resource.data.readByAdmin == true
+          )
+        );
+    }
+
+    function isCustomerNotificationReadUpdate(uid) {
+      return isOwner(uid)
+        && isVerifiedUser()
+        && isValidNotificationDocument(uid)
+        && request.resource.data.customerUid == resource.data.customerUid
+        && request.resource.data.scope == resource.data.scope
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.audience == resource.data.audience
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.body == resource.data.body
+        && request.resource.data.action == resource.data.action
+        && request.resource.data.source == resource.data.source
+        && request.resource.data.createdByRole == resource.data.createdByRole
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.readByAdmin == resource.data.readByAdmin
+        && request.resource.data.readByCustomer == true;
+    }
+
+    function isAdminNotificationWrite(expectedUid) {
+      return isAdmin()
+        && isValidNotificationDocument(expectedUid);
+    }
+
     match /products/{productId} {
       allow read: if (resource.data.isPublished != false) || isAdmin();
       allow create, update: if isAdmin() && isValidProductWrite();
@@ -423,6 +529,11 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+
+      match /notifications/{notificationId} {
+        allow read: if isAdmin();
+        allow create, update, delete: if isAdminNotificationWrite('');
+      }
     }
 
     match /suppliers/{supplierId} {
@@ -480,6 +591,13 @@ service cloud.firestore {
       allow create: if isCustomerOwnerCreate(uid) || isCustomerAdminWrite(uid);
       allow update: if isCustomerOwnerUpdate(uid) || isCustomerAdminWrite(uid);
       allow delete: if isAdmin();
+
+      match /notifications/{notificationId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isCustomerNotificationCreate(uid) || isAdminNotificationWrite(uid);
+        allow update: if isCustomerNotificationReadUpdate(uid) || isAdminNotificationWrite(uid);
+        allow delete: if isAdmin();
+      }
     }
 
     match /admins/{adminId} {
