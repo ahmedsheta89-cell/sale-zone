@@ -2747,14 +2747,17 @@ async function createSupportNotificationForMessage(threadId, messageRecord, thre
     const threadUid = normalizeNotificationText(threadId || threadRecord.uid, 200);
     if (!threadUid || !messageRecord) return null;
     const isCustomer = String(messageRecord.senderRole || '').trim().toLowerCase() === 'customer';
-    const customerName = normalizeNotificationText(threadRecord.customerName || '????', 120) || '????';
-    const messagePreview = normalizeNotificationText(messageRecord.message || messageRecord.text || '', 180);
+    const customerName = normalizeNotificationText(threadRecord.customerName || 'عميل', 120) || 'عميل';
+    const previewSource = typeof buildSupportMessagePreview === 'function'
+        ? buildSupportMessagePreview(messageRecord)
+        : String(messageRecord.message || messageRecord.text || '').trim();
+    const messagePreview = normalizeNotificationText(previewSource, 180);
     return saveCustomerNotification(threadUid, {
         scope: 'customer',
         type: 'chat',
         audience: isCustomer ? 'admin' : 'customer',
-        title: isCustomer ? `????? ??? ????? ?? ${customerName}` : '????? ????? ?? ?????',
-        body: messagePreview || (isCustomer ? '???? ????? ????? ?? ??????.' : '???? ????? ????? ?? ???? ?????.'),
+        title: isCustomer ? `رسالة دعم جديدة من ${customerName}` : 'رسالة جديدة من الدعم',
+        body: messagePreview || (isCustomer ? 'أرسل العميل رسالة جديدة إلى الدعم.' : 'أرسل الدعم رسالة جديدة إلى العميل.'),
         action: {
             kind: 'support-thread',
             tab: 'messages',
@@ -2888,20 +2891,132 @@ function normalizeSupportText(value, max = 4000) {
     return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+const SUPPORT_THREAD_STATUS_VALUES = ['open', 'active', 'waiting', 'pending', 'closed'];
+const SUPPORT_MESSAGE_TYPE_VALUES = ['text', 'image', 'file', 'action'];
+const SUPPORT_ALLOWED_ATTACHMENT_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx'];
+const SUPPORT_ALLOWED_ATTACHMENT_MIME_TYPES = {
+    'image/jpeg': 'image',
+    'image/jpg': 'image',
+    'image/png': 'image',
+    'image/webp': 'image',
+    'image/gif': 'image',
+    'application/pdf': 'file',
+    'application/msword': 'file',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'file'
+};
+const SUPPORT_MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+function normalizeSupportStatus(value, fallback = 'active') {
+    const raw = normalizeSupportText(value || fallback, 32).toLowerCase();
+    if (raw === 'open') return 'active';
+    return SUPPORT_THREAD_STATUS_VALUES.includes(raw) ? raw : fallback;
+}
+
+function normalizeSupportTypingPayload(payload, defaults = {}) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const base = defaults && typeof defaults === 'object' ? defaults : {};
+    const uid = normalizeSupportText(source.uid || base.uid, 200);
+    if (!uid) return null;
+    const role = ['customer', 'admin'].includes(String(source.role || base.role || 'customer'))
+        ? String(source.role || base.role || 'customer')
+        : 'customer';
+    const timestampMs = Number(source.timestampMs || base.timestampMs || Date.now());
+    return {
+        uid,
+        displayName: normalizeSupportText(source.displayName || base.displayName, 200),
+        role,
+        isTyping: source.isTyping === true,
+        timestampMs: Number.isFinite(timestampMs) ? timestampMs : Date.now()
+    };
+}
+
+function normalizeSupportRatingPayload(payload, defaults = {}) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const base = defaults && typeof defaults === 'object' ? defaults : {};
+    const score = Math.max(1, Math.min(5, Math.round(Number(source.score || base.score || 0))));
+    const createdByUid = normalizeSupportText(source.createdByUid || base.createdByUid, 200);
+    if (!score || !createdByUid) return null;
+    return {
+        score,
+        comment: normalizeSupportText(source.comment || base.comment, 600),
+        createdAt: normalizeSupportText(source.createdAt || base.createdAt || new Date().toISOString(), 60),
+        createdByUid
+    };
+}
+
+function getSupportAttachmentExtension(payload = {}) {
+    const fileName = String(payload.name || payload.fileName || payload.publicId || '').trim();
+    const match = fileName.match(/\.([a-z0-9]+)$/i);
+    return match ? String(match[1] || '').toLowerCase() : '';
+}
+
+function normalizeSupportAttachmentPayload(payload) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const url = normalizeSupportText(source.url || source.secure_url, 2000);
+    if (!url) return null;
+    const mimeType = normalizeSupportText(source.mimeType || source.type, 160).toLowerCase();
+    const extension = getSupportAttachmentExtension(source);
+    const inferredKind = SUPPORT_ALLOWED_ATTACHMENT_MIME_TYPES[mimeType]
+        || (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension) ? 'image' : 'file');
+    if (mimeType && !(mimeType in SUPPORT_ALLOWED_ATTACHMENT_MIME_TYPES) && !SUPPORT_ALLOWED_ATTACHMENT_EXTENSIONS.includes(extension)) {
+        return null;
+    }
+    const size = Number(source.size || 0);
+    return {
+        url,
+        publicId: normalizeSupportText(source.publicId || source.public_id, 400),
+        name: normalizeSupportText(source.name || source.fileName || 'attachment', 240),
+        size: Number.isFinite(size) ? Math.max(0, Math.min(size, SUPPORT_MAX_ATTACHMENT_BYTES)) : 0,
+        mimeType,
+        width: Number.isFinite(Number(source.width)) ? Math.max(0, Number(source.width)) : 0,
+        height: Number.isFinite(Number(source.height)) ? Math.max(0, Number(source.height)) : 0,
+        extension,
+        kind: inferredKind
+    };
+}
+
+function normalizeSupportActionPayload(payload) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const kind = normalizeSupportText(source.kind, 32).toLowerCase();
+    if (!['order', 'product'].includes(kind)) return null;
+    if (kind === 'order') {
+        return {
+            kind,
+            orderId: normalizeSupportText(source.orderId, 200),
+            orderNumber: normalizeSupportText(source.orderNumber, 80),
+            orderTotal: Number.isFinite(Number(source.orderTotal)) ? Number(source.orderTotal) : 0,
+            orderStatus: normalizeSupportText(source.orderStatus, 40)
+        };
+    }
+    return {
+        kind,
+        productId: normalizeSupportText(source.productId, 200),
+        productName: normalizeSupportText(source.productName, 200),
+        code: normalizeSupportText(source.code, 120),
+        sku: normalizeSupportText(source.sku, 120),
+        price: Number.isFinite(Number(source.price)) ? Number(source.price) : 0,
+        image: normalizeSupportText(source.image, 800)
+    };
+}
+
 function normalizeSupportThreadPayload(payload, defaults = {}) {
     const source = payload && typeof payload === 'object' ? payload : {};
     const base = defaults && typeof defaults === 'object' ? defaults : {};
     const now = new Date().toISOString();
     const threadUid = normalizeSupportText(source.uid || base.uid || source.customerUid || base.customerUid, 200);
+    const typing = source.typing === null
+        ? null
+        : normalizeSupportTypingPayload(source.typing, base.typing || {});
+    const rating = source.rating === null
+        ? null
+        : normalizeSupportRatingPayload(source.rating, base.rating || {});
 
     return {
         uid: threadUid,
         customerName: normalizeSupportText(source.customerName || base.customerName, 200),
         customerPhone: normalizeSupportText(source.customerPhone || base.customerPhone, 50),
         customerEmail: normalizeSupportText(source.customerEmail || base.customerEmail, 200).toLowerCase(),
-        status: ['open', 'closed'].includes(String(source.status || base.status || 'open'))
-            ? String(source.status || base.status || 'open')
-            : 'open',
+        status: normalizeSupportStatus(source.status || base.status || 'active', normalizeSupportStatus(base.status || 'active', 'active')),
         lastMessage: normalizeSupportText(source.lastMessage || base.lastMessage, 600),
         lastMessageAt: normalizeSupportText(source.lastMessageAt || base.lastMessageAt || now, 60),
         lastSenderRole: ['customer', 'admin'].includes(String(source.lastSenderRole || base.lastSenderRole || 'customer'))
@@ -2913,6 +3028,8 @@ function normalizeSupportThreadPayload(payload, defaults = {}) {
         unreadForCustomer: Number.isFinite(Number(source.unreadForCustomer))
             ? Math.max(0, Number(source.unreadForCustomer))
             : Math.max(0, Number(base.unreadForCustomer || 0)),
+        typing,
+        rating,
         createdAt: normalizeSupportText(source.createdAt || base.createdAt || now, 60),
         updatedAt: normalizeSupportText(source.updatedAt || now, 60)
     };
@@ -2928,12 +3045,14 @@ function normalizeSupportThreadRecord(data, threadId = '') {
         customerName: base.customerName,
         customerPhone: base.customerPhone,
         customerEmail: base.customerEmail,
-        status: base.status,
+        status: normalizeSupportStatus(base.status || 'active', 'active'),
         lastMessage: base.lastMessage,
         lastMessageAt: base.lastMessageAt,
         lastSenderRole: base.lastSenderRole,
         unreadForAdmin: Math.max(0, Number(base.unreadForAdmin || 0)),
         unreadForCustomer: Math.max(0, Number(base.unreadForCustomer || 0)),
+        typing: base.typing || null,
+        rating: base.rating || null,
         createdAt: base.createdAt,
         updatedAt: base.updatedAt
     };
@@ -2941,7 +3060,17 @@ function normalizeSupportThreadRecord(data, threadId = '') {
 
 function normalizeSupportMessagePayload(payload) {
     const source = payload && typeof payload === 'object' ? payload : {};
+    const attachment = normalizeSupportAttachmentPayload(source.attachment);
+    const action = normalizeSupportActionPayload(source.action);
+    const explicitType = normalizeSupportText(source.type || source.messageType, 20).toLowerCase();
     const createdAtMs = Number(source.createdAtMs);
+    let type = SUPPORT_MESSAGE_TYPE_VALUES.includes(explicitType) ? explicitType : '';
+    if (!type) {
+        if (action) type = 'action';
+        else if (attachment) type = attachment.kind === 'image' ? 'image' : 'file';
+        else type = 'text';
+    }
+    const message = normalizeSupportText(source.message || source.text, 2000);
     return {
         threadId: normalizeSupportText(source.threadId, 200),
         senderRole: ['customer', 'admin'].includes(String(source.senderRole || 'customer'))
@@ -2949,10 +3078,51 @@ function normalizeSupportMessagePayload(payload) {
             : 'customer',
         senderUid: normalizeSupportText(source.senderUid, 200),
         senderName: normalizeSupportText(source.senderName, 200),
-        message: normalizeSupportText(source.message, 2000),
+        message,
+        text: message,
+        type,
+        attachment,
+        action,
         createdAt: normalizeSupportText(source.createdAt || new Date().toISOString(), 60),
         createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : Date.now()
     };
+}
+
+function normalizeSupportMessageRecord(data, messageId = '') {
+    const base = normalizeSupportMessagePayload(data || {});
+    return {
+        id: String(messageId || data && data.id || ''),
+        threadId: base.threadId,
+        senderRole: base.senderRole,
+        senderUid: base.senderUid,
+        senderName: base.senderName,
+        message: base.message,
+        text: base.text,
+        type: base.type,
+        attachment: base.attachment || null,
+        action: base.action || null,
+        createdAt: base.createdAt,
+        createdAtMs: base.createdAtMs
+    };
+}
+
+function buildSupportMessagePreview(messageRecord) {
+    const record = normalizeSupportMessageRecord(messageRecord || {});
+    if (record.type === 'action' && record.action) {
+        if (record.action.kind === 'order') {
+            return `إجراء طلب ${record.action.orderNumber || record.action.orderId || ''}`.trim();
+        }
+        if (record.action.kind === 'product') {
+            return `إجراء منتج ${record.action.productName || record.action.code || record.action.productId || ''}`.trim();
+        }
+    }
+    if (record.type === 'image') {
+        return record.message || `أرسل صورة${record.attachment && record.attachment.name ? `: ${record.attachment.name}` : ''}`;
+    }
+    if (record.type === 'file') {
+        return record.message || `أرسل ملفًا${record.attachment && record.attachment.name ? `: ${record.attachment.name}` : ''}`;
+    }
+    return record.message || 'رسالة جديدة';
 }
 
 function buildSupportThreadId(customerUid) {
@@ -2974,8 +3144,10 @@ async function ensureSupportThreadByUid(uid, profile = {}) {
 async function sendSupportMessageByUid(uid, text, options = {}) {
     const normalizedUid = normalizeSupportText(uid, 200);
     const normalizedText = normalizeSupportText(text, 2000);
+    const attachment = normalizeSupportAttachmentPayload(options.attachment);
+    const action = normalizeSupportActionPayload(options.action);
     if (!normalizedUid) throw new Error('uid is required');
-    if (!normalizedText) throw new Error('message required');
+    if (!normalizedText && !attachment && !action) throw new Error('message required');
 
     const authUid = normalizeSupportText(options.senderUid || '', 200) || normalizedUid;
     const senderRole = options.senderRole === 'admin' ? 'admin' : 'customer';
@@ -2989,6 +3161,9 @@ async function sendSupportMessageByUid(uid, text, options = {}) {
         senderUid: authUid,
         senderName,
         message: normalizedText,
+        type: options.messageType || options.type || '',
+        attachment,
+        action,
         createdAt: new Date().toISOString(),
         createdAtMs: Date.now()
     });
@@ -3022,7 +3197,7 @@ async function getOrCreateSupportThread(customerProfile) {
             customerName: profile.customerName || profile.name || base.customerName || '',
             customerPhone: profile.customerPhone || profile.phone || profile.phoneNormalized || base.customerPhone || '',
             customerEmail: profile.customerEmail || profile.email || base.customerEmail || '',
-            status: base.status || 'open',
+            status: base.status || 'active',
             updatedAt: new Date().toISOString()
         }, base);
 
@@ -3043,7 +3218,7 @@ async function addSupportMessage(payload) {
         const db = getFirebaseDB();
         const normalized = normalizeSupportMessagePayload(payload);
         if (!normalized.threadId) throw new Error('threadId required');
-        if (!normalized.message) throw new Error('message required');
+        if (!normalized.message && !normalized.attachment && !normalized.action) throw new Error('message required');
 
         const threadRef = db.collection('support_threads').doc(normalized.threadId);
         const threadSnapshot = await threadRef.get();
@@ -3052,9 +3227,27 @@ async function addSupportMessage(payload) {
         }
         const threadData = normalizeSupportThreadRecord(threadSnapshot.data() || {}, normalized.threadId);
 
+        const messagePayload = {
+            threadId: normalized.threadId,
+            senderRole: normalized.senderRole,
+            senderUid: normalized.senderUid,
+            senderName: normalized.senderName,
+            message: normalized.message,
+            text: normalized.text,
+            type: normalized.type,
+            createdAt: normalized.createdAt,
+            createdAtMs: normalized.createdAtMs
+        };
+        if (normalized.attachment) {
+            messagePayload.attachment = normalized.attachment;
+        }
+        if (normalized.action) {
+            messagePayload.action = normalized.action;
+        }
+
         const messageRef = await threadRef
             .collection('messages')
-            .add(normalized);
+            .add(messagePayload);
 
         const isCustomer = normalized.senderRole === 'customer';
         const unreadForAdmin = isCustomer
@@ -3065,16 +3258,23 @@ async function addSupportMessage(payload) {
             : Math.max(0, Number(threadData.unreadForCustomer || 0)) + 1;
 
         await threadRef.set({
-            lastMessage: normalized.message.slice(0, 600),
+            lastMessage: buildSupportMessagePreview(messagePayload).slice(0, 600),
             lastMessageAt: normalized.createdAt,
             lastSenderRole: normalized.senderRole,
             updatedAt: normalized.createdAt,
-            status: 'open',
+            status: isCustomer ? 'waiting' : 'pending',
             unreadForAdmin,
-            unreadForCustomer
+            unreadForCustomer,
+            typing: {
+                uid: normalized.senderUid,
+                displayName: normalized.senderName,
+                role: normalized.senderRole,
+                isTyping: false,
+                timestampMs: normalized.createdAtMs
+            }
         }, { merge: true });
 
-        const createdMessage = { id: messageRef.id, ...normalized };
+        const createdMessage = { id: messageRef.id, ...messagePayload };
         await createSupportNotificationForMessage(normalized.threadId, createdMessage, {
             ...threadData,
             customerName: threadData.customerName || '',
@@ -3133,10 +3333,10 @@ async function getSupportMessages(threadId, limitCount = 200, options = {}) {
         const snapshot = await db.collection('support_threads')
             .doc(normalizedThreadId)
             .collection('messages')
-            .orderBy('createdAtMs', 'asc')
+            .orderBy('createdAtMs', 'desc')
             .limit(safeLimit)
             .get();
-        return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        return snapshot.docs.map((doc) => normalizeSupportMessageRecord(doc.data() || {}, doc.id)).reverse();
     } catch (e) {
         const normalized = normalizeFirebaseError(e, 'getSupportMessages');
         console.error('getSupportMessages error:', normalized.message);
@@ -3144,6 +3344,38 @@ async function getSupportMessages(threadId, limitCount = 200, options = {}) {
             throw normalized;
         }
         return [];
+    }
+}
+
+async function listSupportMessagesPage(threadId, options = {}) {
+    try {
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return { items: [], hasMore: false, cursor: null };
+        const db = getFirebaseDB();
+        const safeLimit = Math.max(1, Math.min(200, Number(options.limit) || 50));
+        const beforeCreatedAtMs = Number(options.beforeCreatedAtMs || 0);
+        let query = db.collection('support_threads')
+            .doc(normalizedThreadId)
+            .collection('messages')
+            .orderBy('createdAtMs', 'desc')
+            .limit(safeLimit);
+        if (Number.isFinite(beforeCreatedAtMs) && beforeCreatedAtMs > 0) {
+            query = query.where('createdAtMs', '<', beforeCreatedAtMs);
+        }
+        const snapshot = await query.get();
+        const items = snapshot.docs.map((doc) => normalizeSupportMessageRecord(doc.data() || {}, doc.id)).reverse();
+        return {
+            items,
+            hasMore: snapshot.size >= safeLimit,
+            cursor: items.length ? Number(items[0].createdAtMs || 0) : null
+        };
+    } catch (e) {
+        const normalized = normalizeFirebaseError(e, 'listSupportMessagesPage');
+        console.error('listSupportMessagesPage error:', normalized.message);
+        if (options && options.strict === true) {
+            throw normalized;
+        }
+        return { items: [], hasMore: false, cursor: null };
     }
 }
 
@@ -3201,11 +3433,11 @@ function subscribeSupportMessages(threadId, onData, onError, limitCount = 200) {
         return db.collection('support_threads')
             .doc(normalizedThreadId)
             .collection('messages')
-            .orderBy('createdAtMs', 'asc')
+            .orderBy('createdAtMs', 'desc')
             .limit(safeLimit)
             .onSnapshot(
                 (snapshot) => {
-                    const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+                    const rows = snapshot.docs.map((doc) => normalizeSupportMessageRecord(doc.data() || {}, doc.id)).reverse();
                     if (typeof onData === 'function') onData(rows);
                 },
                 (error) => {
@@ -3250,6 +3482,72 @@ async function markSupportThreadReadByCustomer(threadId) {
     }
 }
 
+async function setSupportThreadTyping(threadId, payload = {}) {
+    try {
+        const db = getFirebaseDB();
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return false;
+        const typing = normalizeSupportTypingPayload(payload, {
+            uid: normalizeSupportText(payload.uid, 200),
+            displayName: normalizeSupportText(payload.displayName || payload.senderName, 200),
+            role: payload.role || payload.senderRole || 'customer',
+            isTyping: payload.isTyping === true,
+            timestampMs: Date.now()
+        });
+        await db.collection('support_threads').doc(normalizedThreadId).set({
+            typing,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        return true;
+    } catch (e) {
+        console.error('setSupportThreadTyping error:', e);
+        return false;
+    }
+}
+
+async function reopenSupportThread(threadId) {
+    try {
+        const db = getFirebaseDB();
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) return false;
+        await db.collection('support_threads').doc(normalizedThreadId).set({
+            status: 'active',
+            typing: null,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        return true;
+    } catch (e) {
+        console.error('reopenSupportThread error:', e);
+        return false;
+    }
+}
+
+async function saveSupportThreadRating(threadId, payload = {}) {
+    try {
+        const db = getFirebaseDB();
+        const normalizedThreadId = normalizeSupportText(threadId, 200);
+        if (!normalizedThreadId) throw new Error('threadId required');
+        const rating = normalizeSupportRatingPayload(payload);
+        if (!rating) throw new Error('rating required');
+        const ref = db.collection('support_threads').doc(normalizedThreadId);
+        const snapshot = await ref.get();
+        if (!snapshot.exists) throw new Error('support thread not found');
+        const thread = normalizeSupportThreadRecord(snapshot.data() || {}, snapshot.id);
+        if (thread.status !== 'closed') throw new Error('thread must be closed before rating');
+        if (thread.rating && Number(thread.rating.score || 0) > 0) {
+            throw new Error('rating already submitted');
+        }
+        await ref.set({
+            rating,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        return rating;
+    } catch (e) {
+        console.error('saveSupportThreadRating error:', e);
+        throw e;
+    }
+}
+
 async function closeSupportThread(threadId) {
     try {
         const db = getFirebaseDB();
@@ -3257,6 +3555,7 @@ async function closeSupportThread(threadId) {
         if (!normalizedThreadId) return false;
         await db.collection('support_threads').doc(normalizedThreadId).set({
             status: 'closed',
+            typing: null,
             updatedAt: new Date().toISOString()
         }, { merge: true });
         return true;

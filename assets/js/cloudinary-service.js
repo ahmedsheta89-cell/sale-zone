@@ -22,12 +22,16 @@
   var MAX_RAW_UPLOAD_BYTES = 5 * 1024 * 1024;
   var MAX_COMPRESSED_DIMENSION = 1200;
   var DEFAULT_UPLOAD_QUALITY = 0.85;
-  var ALLOWED_UPLOAD_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+  var ALLOWED_UPLOAD_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx'];
   var ALLOWED_UPLOAD_MIME_TYPES = {
     'image/jpeg': true,
     'image/jpg': true,
     'image/png': true,
-    'image/webp': true
+    'image/webp': true,
+    'image/gif': true,
+    'application/pdf': true,
+    'application/msword': true,
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': true
   };
 
   var TRANSFORMS = {
@@ -310,6 +314,10 @@
       return Promise.reject(error);
     }
 
+    if (!isLikelyImageUploadFile(file)) {
+      return Promise.resolve(file);
+    }
+
     if (!(ALLOWED_UPLOAD_MIME_TYPES[validated.type] === true || ALLOWED_UPLOAD_EXTENSIONS.indexOf(validated.ext) !== -1)) {
       return Promise.resolve(file);
     }
@@ -389,7 +397,8 @@
         .replace(/^-|-$/g, '');
       var signal = settings.signal || null;
       var onAbort = typeof settings.onAbort === 'function' ? settings.onAbort : null;
-      var endpoint = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CONFIG.cloudName + '/image/upload';
+      var resourceType = isLikelyImageUploadFile(uploadFile) ? 'image' : 'raw';
+      var endpoint = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CONFIG.cloudName + '/' + resourceType + '/upload';
 
       return new Promise(function (resolve, reject) {
         var xhr = new XMLHttpRequest();

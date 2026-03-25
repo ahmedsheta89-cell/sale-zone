@@ -12,6 +12,7 @@ service-account*.json
 firebase-service-account*.json
 *firebase-adminsdk*.json
 *adminsdk*.json
+scripts/service-account-key.json
 tools/.secrets/
 
 # Logs

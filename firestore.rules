@@ -332,7 +332,119 @@ service cloud.firestore {
       && (!("online" in request.resource.data) || request.resource.data.online is bool);
     }
 
-    function isValidSupportThreadWrite(threadId) {
+    function isValidSupportTypingMap(value) {
+      return value is map
+      && value.keys().hasAll([
+        "uid",
+        "role",
+        "isTyping",
+        "timestampMs"
+      ])
+      && value.keys().hasOnly([
+        "uid",
+        "displayName",
+        "role",
+        "isTyping",
+        "timestampMs"
+      ])
+      && value.uid is string
+      && value.uid.size() > 0
+      && value.uid.size() <= 200
+      && value.role in ["customer", "admin"]
+      && value.isTyping is bool
+      && value.timestampMs is number
+      && (!("displayName" in value) || value.displayName is string);
+    }
+
+    function isValidSupportRatingMap(value) {
+      return value is map
+      && value.keys().hasAll([
+        "score",
+        "createdAt",
+        "createdByUid"
+      ])
+      && value.keys().hasOnly([
+        "score",
+        "comment",
+        "createdAt",
+        "createdByUid"
+      ])
+      && value.score is number
+      && value.score >= 1
+      && value.score <= 5
+      && value.createdAt is string
+      && value.createdByUid is string
+      && value.createdByUid.size() > 0
+      && value.createdByUid.size() <= 200
+      && (!("comment" in value) || value.comment is string);
+    }
+
+    function isValidSupportAttachmentMap(value) {
+      return value is map
+      && value.keys().hasAll([
+        "url",
+        "name",
+        "size",
+        "kind"
+      ])
+      && value.keys().hasOnly([
+        "url",
+        "publicId",
+        "name",
+        "size",
+        "mimeType",
+        "width",
+        "height",
+        "extension",
+        "kind"
+      ])
+      && value.url is string
+      && value.url.size() > 0
+      && value.url.size() <= 2000
+      && value.name is string
+      && value.name.size() > 0
+      && value.name.size() <= 240
+      && value.size is number
+      && value.size >= 0
+      && value.size <= 5242880
+      && value.kind in ["image", "file"]
+      && (!("publicId" in value) || value.publicId is string)
+      && (!("mimeType" in value) || value.mimeType is string)
+      && (!("width" in value) || value.width is number)
+      && (!("height" in value) || value.height is number)
+      && (!("extension" in value) || value.extension is string);
+    }
+
+    function isValidSupportActionMap(value) {
+      return value is map
+      && value.keys().hasAll(["kind"])
+      && value.keys().hasOnly([
+        "kind",
+        "orderId",
+        "orderNumber",
+        "orderTotal",
+        "orderStatus",
+        "productId",
+        "productName",
+        "code",
+        "sku",
+        "price",
+        "image"
+      ])
+      && value.kind in ["order", "product"]
+      && (!("orderId" in value) || value.orderId is string)
+      && (!("orderNumber" in value) || value.orderNumber is string)
+      && (!("orderTotal" in value) || value.orderTotal is number)
+      && (!("orderStatus" in value) || value.orderStatus is string)
+      && (!("productId" in value) || value.productId is string)
+      && (!("productName" in value) || value.productName is string)
+      && (!("code" in value) || value.code is string)
+      && (!("sku" in value) || value.sku is string)
+      && (!("price" in value) || value.price is number)
+      && (!("image" in value) || value.image is string);
+    }
+
+    function isValidSupportThreadData(threadId) {
       return request.resource.data.keys().hasOnly([
         "uid",
         "status",
@@ -345,7 +457,9 @@ service cloud.firestore {
         "unreadForCustomer",
         "customerName",
         "customerPhone",
-        "customerEmail"
+        "customerEmail",
+        "typing",
+        "rating"
       ])
       && request.resource.data.keys().hasAll([
         "uid",
@@ -354,7 +468,7 @@ service cloud.firestore {
       ])
       && request.resource.data.uid is string
       && request.resource.data.uid == threadId
-      && request.resource.data.status in ["open", "closed"]
+      && request.resource.data.status in ["open", "active", "waiting", "pending", "closed"]
       && (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp)
       && (!("createdAt" in request.resource.data) || (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp))
       && (!("lastMessage" in request.resource.data) || request.resource.data.lastMessage is string)
@@ -364,7 +478,56 @@ service cloud.firestore {
       && (!("unreadForCustomer" in request.resource.data) || (request.resource.data.unreadForCustomer is number && request.resource.data.unreadForCustomer >= 0))
       && (!("customerName" in request.resource.data) || request.resource.data.customerName is string)
       && (!("customerPhone" in request.resource.data) || request.resource.data.customerPhone is string)
-      && (!("customerEmail" in request.resource.data) || request.resource.data.customerEmail is string);
+      && (!("customerEmail" in request.resource.data) || request.resource.data.customerEmail is string)
+      && (!("typing" in request.resource.data) || request.resource.data.typing == null || isValidSupportTypingMap(request.resource.data.typing))
+      && (!("rating" in request.resource.data) || request.resource.data.rating == null || isValidSupportRatingMap(request.resource.data.rating));
+    }
+
+    function isValidSupportThreadOwnerCreate(threadId) {
+      return isOwner(threadId)
+      && isVerifiedUser()
+      && isValidSupportThreadData(threadId)
+      && request.resource.data.status in ["open", "active", "waiting"]
+      && (!("typing" in request.resource.data) || request.resource.data.typing == null || request.resource.data.typing.role == "customer")
+      && !("rating" in request.resource.data);
+    }
+
+    function isValidSupportThreadOwnerUpdate(threadId) {
+      return isOwner(threadId)
+      && isVerifiedUser()
+      && isValidSupportThreadData(threadId)
+      && request.resource.data.uid == resource.data.uid
+      && (
+        (
+          resource.data.status != "closed"
+          && request.resource.data.status in ["open", "active", "waiting", "pending"]
+        )
+        || (
+          resource.data.status == "closed"
+          && request.resource.data.status in ["closed", "active"]
+        )
+      )
+      && (!("typing" in request.resource.data) || request.resource.data.typing == null || request.resource.data.typing.role == "customer")
+      && (!("lastSenderRole" in request.resource.data) || request.resource.data.lastSenderRole != "admin" || request.resource.data.lastSenderRole == resource.data.lastSenderRole)
+      && (
+        !("rating" in request.resource.data)
+        || (
+          resource.data.status == "closed"
+          && request.resource.data.status == "closed"
+          && request.resource.data.rating != null
+          && request.resource.data.rating.createdByUid == request.auth.uid
+          && (!("rating" in resource.data) || request.resource.data.rating == resource.data.rating)
+        )
+        || (
+          "rating" in resource.data
+          && request.resource.data.rating == resource.data.rating
+        )
+      );
+    }
+
+    function isValidSupportThreadAdminWrite(threadId) {
+      return isAdmin()
+      && isValidSupportThreadData(threadId);
     }
 
     function isValidSupportMessageCreate(threadId) {
@@ -375,6 +538,9 @@ service cloud.firestore {
         "senderName",
         "message",
         "text",
+        "type",
+        "attachment",
+        "action",
         "createdAt",
         "createdAtMs"
       ])
@@ -388,13 +554,18 @@ service cloud.firestore {
       && request.resource.data.threadId == threadId
       && request.resource.data.senderRole in ["customer", "admin"]
       && request.resource.data.senderUid is string
+      && (!("type" in request.resource.data) || request.resource.data.type in ["text", "image", "file", "action"])
       && (
         (("message" in request.resource.data) && request.resource.data.message is string && request.resource.data.message.size() > 0)
         || (("text" in request.resource.data) && request.resource.data.text is string && request.resource.data.text.size() > 0)
+        || (("attachment" in request.resource.data) && request.resource.data.attachment != null)
+        || (("action" in request.resource.data) && request.resource.data.action != null)
       )
       && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
       && (!("createdAtMs" in request.resource.data) || request.resource.data.createdAtMs is number)
-      && (!("senderName" in request.resource.data) || request.resource.data.senderName is string);
+      && (!("senderName" in request.resource.data) || request.resource.data.senderName is string)
+      && (!("attachment" in request.resource.data) || request.resource.data.attachment == null || isValidSupportAttachmentMap(request.resource.data.attachment))
+      && (!("action" in request.resource.data) || request.resource.data.action == null || isValidSupportActionMap(request.resource.data.action));
     }
 
     function isValidProductWrite() {
@@ -642,16 +813,10 @@ service cloud.firestore {
 
     match /support_threads/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow create: if isValidSupportThreadWrite(uid)
-        && (
-          (isOwner(uid) && isVerifiedUser())
-          || isAdmin()
-        );
-      allow update: if isValidSupportThreadWrite(uid)
-        && (
-          (isOwner(uid) && isVerifiedUser())
-          || isAdmin()
-        );
+      allow create: if isValidSupportThreadOwnerCreate(uid)
+        || isValidSupportThreadAdminWrite(uid);
+      allow update: if isValidSupportThreadOwnerUpdate(uid)
+        || isValidSupportThreadAdminWrite(uid);
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
