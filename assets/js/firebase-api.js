@@ -2411,6 +2411,36 @@ function getAdminNotificationsCollectionGroup() {
     return getFirebaseDB().collectionGroup(NOTIFICATION_COLLECTION);
 }
 
+function buildAdminNotificationsAccessError(code = 'auth/not-admin', message = 'Admin claim is missing or stale.') {
+    const error = new Error(String(message || 'Admin notifications access denied.'));
+    error.code = String(code || 'auth/not-admin');
+    return error;
+}
+
+async function ensureAdminNotificationsAccess() {
+    const user = getFirebaseAuthUserSafe();
+    if (!user) {
+        throw buildAdminNotificationsAccessError('auth/not-authenticated', 'User is not authenticated.');
+    }
+    if (typeof user.getIdToken === 'function') {
+        await user.getIdToken(true).catch(() => null);
+    }
+    const tokenResult = typeof user.getIdTokenResult === 'function'
+        ? await user.getIdTokenResult(true).catch(() => null)
+        : null;
+    const claims = tokenResult && tokenResult.claims && typeof tokenResult.claims === 'object'
+        ? tokenResult.claims
+        : {};
+    const isAdmin = claims.admin === true || claims.role === 'admin';
+    if (!isAdmin) {
+        throw buildAdminNotificationsAccessError(
+            'auth/not-admin',
+            'Admin claim missing. Set a Firebase custom claim such as {"admin": true} and refresh the session.'
+        );
+    }
+    return { user, tokenResult };
+}
+
 async function saveCustomerNotification(uid, payload, options = {}) {
     const normalizedUid = normalizeNotificationText(uid, 200);
     if (!normalizedUid) throw new Error('uid is required');
@@ -2491,6 +2521,7 @@ function subscribeCustomerNotifications(uid, onData, onError, options = {}) {
 
 async function listAdminNotifications(options = {}) {
     try {
+        await ensureAdminNotificationsAccess();
         const opts = options && typeof options === 'object' ? options : {};
         const safeLimit = Math.max(1, Math.min(500, Number(opts.limit || 150)));
         let query = getAdminNotificationsCollectionGroup();
@@ -2514,30 +2545,46 @@ async function listAdminNotifications(options = {}) {
 
 function subscribeAdminNotifications(onData, onError, options = {}) {
     try {
+        let active = true;
+        let liveUnsubscribe = null;
+        const stop = () => {
+            active = false;
+            if (typeof liveUnsubscribe === 'function') {
+                try { liveUnsubscribe(); } catch (_) {}
+            }
+            liveUnsubscribe = null;
+        };
         const opts = options && typeof options === 'object' ? options : {};
         const safeLimit = Math.max(1, Math.min(500, Number(opts.limit || 150)));
-        let query = getAdminNotificationsCollectionGroup();
-        if (opts.unreadOnly === true) {
-            query = query.where('readByAdmin', '==', false);
-        }
-        query = query.orderBy('createdAt', 'desc').limit(safeLimit);
-        return query.onSnapshot(
-            (snapshot) => {
-                let rows = snapshot.docs.map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path));
-                rows = rows.filter((row) => isNotificationRecordVisibleToAdmin(row));
-                if (opts.type) {
-                    const wantedType = normalizeNotificationText(opts.type, 30).toLowerCase();
-                    rows = rows.filter((row) => String(row.type || '').toLowerCase() === wantedType);
-                }
-                if (typeof onData === 'function') onData(rows);
-            },
-            (error) => {
-                if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeAdminNotifications.listener'));
+        Promise.resolve().then(async () => {
+            await ensureAdminNotificationsAccess();
+            if (!active) return;
+            let query = getAdminNotificationsCollectionGroup();
+            if (opts.unreadOnly === true) {
+                query = query.where('readByAdmin', '==', false);
             }
-        );
+            query = query.orderBy('createdAt', 'desc').limit(safeLimit);
+            liveUnsubscribe = query.onSnapshot(
+                (snapshot) => {
+                    let rows = snapshot.docs.map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path));
+                    rows = rows.filter((row) => isNotificationRecordVisibleToAdmin(row));
+                    if (opts.type) {
+                        const wantedType = normalizeNotificationText(opts.type, 30).toLowerCase();
+                        rows = rows.filter((row) => String(row.type || '').toLowerCase() === wantedType);
+                    }
+                    if (typeof onData === 'function') onData(rows);
+                },
+                (error) => {
+                    if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeAdminNotifications.listener'));
+                }
+            );
+        }).catch((error) => {
+            if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeAdminNotifications.setup'));
+        });
+        return stop;
     } catch (error) {
         if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeAdminNotifications.setup'));
-        return null;
+        return () => {};
     }
 }
 
