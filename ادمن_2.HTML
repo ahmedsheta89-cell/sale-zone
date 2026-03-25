@@ -1653,6 +1653,7 @@
                         </div>
                     </div>
                     <div class="section-body">
+                        <div id="adminNotificationsAccessNotice" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:10px;background:#fff4e5;color:#8a4b08;font-size:12px;font-weight:600;"></div>
                         <div class="admin-notification-toolbar">
                             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                                 <label for="adminNotificationTypeFilter">النوع</label>
@@ -2322,7 +2323,7 @@
                                     </div>
                                     <div class="form-group">
                                         <label>💬 واتساب</label>
-                                        <input type="tel" id="contactWhatsapp" placeholder="01018108979" autocomplete="tel">
+                                        <input type="tel" id="contactWhatsapp" placeholder="201018108979" autocomplete="tel">
                                     </div>
                                 </div>
                                 <div class="form-row">
@@ -2971,6 +2972,12 @@
             source: '',
             notifiedReason: ''
         };
+        let adminNotificationsAccess = {
+            denied: false,
+            reason: '',
+            source: '',
+            notifiedReason: ''
+        };
         let storeOpsAccess = {
             denied: false,
             reason: '',
@@ -2988,7 +2995,7 @@
             tagline: 'التسوق الفاخر الذكي',
             description: '',
             topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
-            contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
+            contact: { phone: '01018108979', whatsapp: '201018108979', email: 'info@salezone.com', address: 'مصر' },
             footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
             loyalty: { rate: 5, pointValue: 0.1 },
             customCategories: [],
@@ -4210,6 +4217,21 @@
           return { isClaimAdmin, user };
         }
 
+        function normalizeWhatsAppNumber(raw) {
+            const digits = String(raw || '').replace(/\D/g, '');
+            if (!digits) return '201018108979';
+            if (digits.startsWith('20')) return digits;
+            if (digits.startsWith('2') && digits.length > 11) return digits;
+            if (digits.startsWith('0')) return `2${digits}`;
+            return digits;
+        }
+
+        function buildWhatsAppUrl(message = '', rawNumber = '') {
+            const number = normalizeWhatsAppNumber(rawNumber || storeSettings.contact?.whatsapp || storeSettings.content?.whatsappNumber || storeSettings.contact?.phone || '01018108979');
+            const normalizedMessage = String(message || '').trim();
+            return `https://wa.me/${number}${normalizedMessage ? `?text=${encodeURIComponent(normalizedMessage)}` : ''}`;
+        }
+
 async function handleLogin(e){
   e.preventDefault();
   const email = document.getElementById('adminEmail').value.trim();
@@ -4576,6 +4598,51 @@ function adminLogout(){
             updateBadges();
         }
 
+        function updateAdminNotificationsAccessUi() {
+            const noticeEl = document.getElementById('adminNotificationsAccessNotice');
+            if (!noticeEl) return;
+            if (adminNotificationsAccess.denied) {
+                const source = String(adminNotificationsAccess.source || 'notifications');
+                noticeEl.textContent = `تعذر تحميل الإشعارات بسبب الصلاحيات (source: ${source}). بقية لوحة الأدمن تعمل بشكل طبيعي.`;
+                noticeEl.style.display = 'block';
+            } else {
+                noticeEl.style.display = 'none';
+                noticeEl.textContent = '';
+            }
+        }
+
+        function clearAdminNotificationsAccessState() {
+            adminNotificationsAccess.denied = false;
+            adminNotificationsAccess.reason = '';
+            adminNotificationsAccess.source = '';
+            adminNotificationsAccess.notifiedReason = '';
+            updateAdminNotificationsAccessUi();
+        }
+
+        function handleAdminNotificationsAccessError(error, source = '') {
+            const code = getPermissionErrorCode(error);
+            const denied = code === 'not-admin' || code === 'not-authenticated' || code === 'not_authenticated' || isPermissionDenied(error);
+            if (!denied) return false;
+
+            const reason = String(error && (error.message || error.reason) || error || 'unknown notifications access error').trim();
+            const normalizedSource = String(source || 'notifications');
+            adminNotificationsAccess.denied = true;
+            adminNotificationsAccess.reason = reason;
+            adminNotificationsAccess.source = normalizedSource;
+
+            if (adminNotificationsAccess.notifiedReason !== reason) {
+                adminNotificationsAccess.notifiedReason = reason;
+                showNotification('warning', '⚠️ الإشعارات: تحقق من صلاحيات الأدمن في Firebase ثم سجل الخروج والدخول مرة أخرى.');
+            }
+
+            warnPermissionDeniedOnce(normalizedSource, error, 'notifications access denied');
+            stopAdminNotificationsRealtime();
+            adminNotifications = [];
+            renderAdminNotifications();
+            updateAdminNotificationsAccessUi();
+            return true;
+        }
+
         function toastAdminNotifications(items = []) {
             (Array.isArray(items) ? items : []).forEach((item) => {
                 const meta = getAdminNotificationTypeMeta(item && item.type);
@@ -4611,19 +4678,30 @@ function adminLogout(){
             adminNotificationSnapshotReady = true;
         }
 
-        function startAdminNotificationsRealtime(force = false) {
+        async function startAdminNotificationsRealtime(force = false) {
             if (!force && typeof adminNotificationsUnsubscribe === 'function') {
                 renderAdminNotificationSoundButton();
                 return true;
             }
             if (typeof subscribeAdminNotifications !== 'function') return false;
+            try {
+                await requireAdminPermission();
+                clearAdminNotificationsAccessState();
+            } catch (error) {
+                if (handleAdminNotificationsAccessError(error, 'startAdminNotificationsRealtime.requireAdminPermission')) return false;
+                throw error;
+            }
             stopAdminNotificationsRealtime();
             adminNotificationsUnsubscribe = subscribeAdminNotifications(
                 (rows) => applyAdminNotificationsSnapshot(rows),
-                (error) => console.warn('admin notifications listener warning:', error && error.message ? error.message : error),
+                (error) => {
+                    if (handleAdminNotificationsAccessError(error, 'startAdminNotificationsRealtime.listener')) return;
+                    console.warn('admin notifications listener warning:', error && error.message ? error.message : error);
+                },
                 { limit: 160 }
             );
             renderAdminNotificationSoundButton();
+            updateAdminNotificationsAccessUi();
             return typeof adminNotificationsUnsubscribe === 'function';
         }
 
@@ -4782,8 +4860,17 @@ function adminLogout(){
                 renderAdminNotifications();
                 return;
             }
-            const rows = await listAdminNotifications({ limit: 160 }).catch(() => []);
-            applyAdminNotificationsSnapshot(rows);
+            try {
+                await requireAdminPermission();
+                clearAdminNotificationsAccessState();
+                const rows = await listAdminNotifications({ limit: 160 });
+                applyAdminNotificationsSnapshot(rows);
+                updateAdminNotificationsAccessUi();
+            } catch (error) {
+                if (handleAdminNotificationsAccessError(error, 'refreshAdminNotifications')) return;
+                console.warn('refreshAdminNotifications warning:', error && error.message ? error.message : error);
+                applyAdminNotificationsSnapshot([]);
+            }
         }
 
         // ============================================
@@ -7358,7 +7445,7 @@ function adminLogout(){
             if (!o) return;
             const phone = o.customer?.phone || '';
             const msg = `مرحباً ${o.customer?.name}!\n\n📦 طلبك رقم: ${o.orderNumber}\n📍 الحالة: ${getStatusName(o.status)}\n\nشكراً لتسوقك معنا! 🛍️`;
-            window.open(`https://wa.me/2${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+            window.open(buildWhatsAppUrl(msg, phone), '_blank');
         }
 
         function printOrder(id) {
@@ -8638,7 +8725,7 @@ function adminLogout(){
             e.preventDefault();
             storeSettings.contact = {
                 phone: document.getElementById('contactPhone').value.trim(),
-                whatsapp: document.getElementById('contactWhatsapp').value.trim(),
+                whatsapp: normalizeWhatsAppNumber(document.getElementById('contactWhatsapp').value.trim()),
                 email: document.getElementById('contactEmail').value.trim(),
                 address: document.getElementById('contactAddress').value.trim()
             };
@@ -8704,15 +8791,16 @@ function adminLogout(){
 
         function saveContent(key, value) {
             ensureControlCenterDefaults();
+            const normalizedValue = key === 'whatsappNumber' ? normalizeWhatsAppNumber(value) : value;
             storeSettings.content = {
                 ...(storeSettings.content || {}),
-                [key]: value
+                [key]: normalizedValue
             };
-            if (key === 'whatsappNumber' && value) {
+            if (key === 'whatsappNumber' && normalizedValue) {
                 storeSettings.contact = {
                     ...(storeSettings.contact || {}),
-                    whatsapp: value,
-                    phone: storeSettings.contact?.phone || value
+                    whatsapp: normalizedValue,
+                    phone: storeSettings.contact?.phone || '01018108979'
                 };
             }
             saveStoreSettings();
@@ -8735,7 +8823,7 @@ function adminLogout(){
             const data = {};
             ['announcementText', 'announcementColor', 'flashSaleEndTime', 'flashSaleText', 'whatsappNumber', 'welcomeMessage'].forEach(function(key) {
                 const el = document.getElementById('content_' + key);
-                data[key] = el ? el.value : '';
+                data[key] = el ? (key === 'whatsappNumber' ? normalizeWhatsAppNumber(el.value) : el.value) : '';
             });
             storeSettings.content = {
                 ...(storeSettings.content || {}),
@@ -8745,7 +8833,7 @@ function adminLogout(){
                 storeSettings.contact = {
                     ...(storeSettings.contact || {}),
                     whatsapp: data.whatsappNumber,
-                    phone: storeSettings.contact?.phone || data.whatsappNumber
+                    phone: storeSettings.contact?.phone || '01018108979'
                 };
             }
             saveStoreSettings();

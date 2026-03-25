@@ -2124,9 +2124,9 @@
             name: 'Sale Zone Store',
             tagline: 'التسوق الفاخر الذكي',
             description: '',
-            whatsappNumber: '01018108979',
+            whatsappNumber: '201018108979',
             topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
-            contact: { phone: '01018108979', whatsapp: '01018108979', email: 'info@salezone.com', address: 'مصر' },
+            contact: { phone: '01018108979', whatsapp: '201018108979', email: 'info@salezone.com', address: 'مصر' },
             footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
             loyalty: { rate: 5, pointValue: 0.1 },
             customCategories: [],
@@ -3397,8 +3397,8 @@
                 const normalizedWhatsApp = normalizeWhatsAppNumber(content.whatsappNumber);
                 storeSettings.contact = {
                     ...(storeSettings.contact || {}),
-                    whatsapp: content.whatsappNumber,
-                    phone: storeSettings.contact?.phone || content.whatsappNumber
+                    whatsapp: normalizedWhatsApp,
+                    phone: storeSettings.contact?.phone || '01018108979'
                 };
                 document.querySelectorAll('[href*="wa.me"]').forEach((el) => {
                     el.href = el.href.replace(/wa\.me\/\d+/i, 'wa.me/' + normalizedWhatsApp);
@@ -7345,7 +7345,6 @@
         // 📱 WhatsApp Notification
         // ============================================
         function sendWhatsAppNotification(order) {
-            const whatsapp = storeSettings.contact?.whatsapp || '01018108979';
             const items = order.items.map(i => `• ${i.name} × ${i.quantity}`).join('\n');
             const message = `🛍️ *طلب جديد!*
 
@@ -7366,8 +7365,7 @@ ${order.pointsDiscount > 0 ? `💎 *نقاط:* -${formatPrice(order.pointsDiscou
 
 ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`;
 
-            const encodedMessage = encodeURIComponent(message);
-            window.open(`https://wa.me/2${whatsapp}?text=${encodedMessage}`, '_blank');
+            window.open(buildWhatsAppUrl(message), '_blank');
         }
 
         // ============================================
@@ -8126,8 +8124,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         function openStoreWhatsApp() {
             closeFAQBot({ skipHistory: true });
-            const message = encodeURIComponent('\u0645\u0631\u062D\u0628\u0627\u060C \u0623\u0631\u064A\u062F \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0639\u0646 \u0637\u0644\u0628');
-            window.open('https://wa.me/' + getStoreWhatsappNumber() + '?text=' + message, '_blank');
+            window.open(buildWhatsAppUrl('\u0645\u0631\u062D\u0628\u0627\u060C \u0623\u0631\u064A\u062F \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0639\u0646 \u0637\u0644\u0628'), '_blank');
         }
 
         function registerFaqBotWithNavHistory() {
@@ -8165,6 +8162,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             if (digits.startsWith('2') && digits.length > 11) return digits;
             if (digits.startsWith('0')) return `2${digits}`;
             return digits;
+        }
+
+        function buildWhatsAppUrl(message = '', rawNumber) {
+            const number = normalizeWhatsAppNumber(rawNumber || storeSettings.contact?.whatsapp || storeSettings.whatsappNumber || storeSettings.contact?.phone || '01018108979');
+            const normalizedMessage = String(message || '').trim();
+            return `https://wa.me/${number}${normalizedMessage ? `?text=${encodeURIComponent(normalizedMessage)}` : ''}`;
         }
 
         function getStoreWhatsappNumber() {

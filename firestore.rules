@@ -600,6 +600,10 @@ service cloud.firestore {
       }
     }
 
+    match /{path=**}/notifications/{notificationId} {
+      allow read: if isAdmin();
+    }
+
     match /admins/{adminId} {
       allow read, create, update, delete: if isAdmin();
     }
