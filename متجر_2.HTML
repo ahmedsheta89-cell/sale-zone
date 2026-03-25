@@ -539,7 +539,7 @@
         }
         .my-account-stats {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 12px;
             margin-bottom: 20px;
         }
@@ -646,6 +646,89 @@
             border-radius: 16px;
             padding: 16px;
             background: #fff;
+        }
+        .my-account-notification-list {
+            display: grid;
+            gap: 12px;
+        }
+        .my-account-notification-card {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 12px;
+            align-items: flex-start;
+            border: 1px solid #edf2f7;
+            border-radius: 16px;
+            padding: 16px;
+            background: #fff;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .my-account-notification-card:hover {
+            border-color: rgba(212, 175, 55, 0.55);
+            box-shadow: var(--shadow-sm);
+        }
+        .my-account-notification-card.unread {
+            background: #fffdf7;
+            border-color: rgba(212, 175, 55, 0.45);
+        }
+        .my-account-notification-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            flex-shrink: 0;
+        }
+        .my-account-notification-icon.order { background: #dbeafe; color: #1d4ed8; }
+        .my-account-notification-icon.chat { background: #ede9fe; color: #7c3aed; }
+        .my-account-notification-icon.point { background: #fef3c7; color: #b45309; }
+        .my-account-notification-icon.stock { background: #fee2e2; color: #b91c1c; }
+        .my-account-notification-icon.admin,
+        .my-account-notification-icon.system,
+        .my-account-notification-icon.product { background: #dcfce7; color: #15803d; }
+        .my-account-notification-body {
+            color: #475569;
+            font-size: 0.92rem;
+            line-height: 1.7;
+            margin-top: 4px;
+        }
+        .my-account-notification-meta {
+            display: grid;
+            gap: 8px;
+            justify-items: end;
+            min-width: 72px;
+        }
+        .my-account-unread-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #ef4444;
+            display: inline-block;
+            margin-inline-start: 8px;
+        }
+        .my-account-badge {
+            min-width: 22px;
+            height: 22px;
+            padding: 0 8px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 800;
+        }
+        .my-account-tab-badge {
+            margin-inline-start: 6px;
+            background: rgba(239, 68, 68, 0.12);
+            color: #b91c1c;
+            border-radius: 999px;
+            padding: 2px 7px;
+            font-size: 0.72rem;
+            font-weight: 800;
         }
         .my-account-order-card + .my-account-order-card,
         .my-account-points-card + .my-account-points-card {
@@ -1999,7 +2082,7 @@
         };
         const SUPPORT_CHAT_MESSAGES_LIMIT = 150;
         const MY_ACCOUNT_NOTIFICATION_PREF_KEY = 'sale_zone_account_notifications_enabled';
-        const MY_ACCOUNT_TABS = ['data', 'orders', 'favorites', 'points', 'messages', 'settings'];
+        const MY_ACCOUNT_TABS = ['data', 'orders', 'favorites', 'points', 'messages', 'notifications', 'settings'];
         const ORDER_TIMELINE_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed'];
         let myAccountState = {
             activeTab: 'data',
@@ -2012,9 +2095,14 @@
             orders: null,
             supportThread: null,
             supportMessages: [],
-            supportMessagesCount: 0
+            supportMessagesCount: 0,
+            notifications: [],
+            notificationsUnreadCount: 0
         };
         let storeAuthListenerBound = false;
+        let customerNotificationsUnsubscribe = null;
+        let customerNotificationsSnapshotReady = false;
+        let customerNotificationSeenIds = new Set();
         let tawkDesiredVisibility = null;
         const recentStoreEventLog = Object.create(null);
         const STORE_EVENT_THROTTLE_MS = {
@@ -5258,6 +5346,7 @@
                     localStorage.removeItem('currentUser');
                     invalidateMyAccountCache('all');
                     stopSupportChatRealtime();
+                    stopCustomerNotificationsRealtime();
                     updateUserUI();
                     updateLiveSessionState({ customerId: '', customerPhone: '' });
                     if (isMyAccountOpen()) closeMyAccount();
@@ -5751,6 +5840,7 @@
                 firebase.auth().signOut().catch(() => null);
             }
             stopSupportChatRealtime();
+            stopCustomerNotificationsRealtime();
             invalidateMyAccountCache('all');
             if (chatMode === 'support') {
                 switchChatMode('bot');
@@ -5865,6 +5955,11 @@
                 myAccountState.supportMessagesCount = 0;
                 myAccountState.loadedTabs.delete('messages');
             }
+            if (target === 'all' || target === 'notifications') {
+                myAccountState.notifications = [];
+                myAccountState.notificationsUnreadCount = 0;
+                myAccountState.loadedTabs.delete('notifications');
+            }
         }
 
         function getMyAccountNotificationEnabled() {
@@ -5944,6 +6039,10 @@
             return Number(myAccountState.supportMessagesCount || 0);
         }
 
+        function getMyAccountUnreadNotificationsCount() {
+            return Math.max(0, Number(myAccountState.notificationsUnreadCount || 0));
+        }
+
         function buildMyAccountTabLabel(tab) {
             const labels = {
                 data: 'بياناتي',
@@ -5951,6 +6050,7 @@
                 favorites: 'مفضلتي',
                 points: 'نقاطي',
                 messages: 'رسائلي',
+                notifications: 'الإشعارات',
                 settings: 'الإعدادات'
             };
             return labels[tab] || tab;
@@ -5964,6 +6064,7 @@
             const safePhone = escapeHtml(String(profile && profile.phone || 'غير مضاف'));
             const points = Number(profile && profile.loyaltyPoints || 0);
             const unreadMessages = Number(myAccountState.supportThread && myAccountState.supportThread.unreadForCustomer || 0);
+            const unreadNotifications = getMyAccountUnreadNotificationsCount();
             return `
                 <div class="my-account-avatar" aria-hidden="true">${firstLetter}</div>
                 <div style="display:grid;gap:8px;">
@@ -5972,10 +6073,11 @@
                         <p>${safeEmail || 'بدون بريد إلكتروني'}</p>
                     </div>
                     <p>📱 ${safePhone}</p>
-                    <p>⭐ ${escapeHtml(String(points))} نقطة${unreadMessages > 0 ? ` • 💬 ${escapeHtml(String(unreadMessages))} غير مقروءة` : ''}</p>
+                    <p>⭐ ${escapeHtml(String(points))} نقطة${unreadMessages > 0 ? ` • 💬 ${escapeHtml(String(unreadMessages))} غير مقروءة` : ''}${unreadNotifications > 0 ? ` • 🔔 ${escapeHtml(String(unreadNotifications))} إشعار` : ''}</p>
                 </div>
                 <div class="my-account-header-actions">
                     <button type="button" class="my-account-header-btn" onclick="showEditProfileForm()" aria-label="تعديل بيانات الحساب">✏️ تعديل البيانات</button>
+                    <button type="button" class="my-account-header-btn" onclick="setMyAccountTab('notifications')" aria-label="فتح الإشعارات">🔔 الإشعارات${unreadNotifications > 0 ? ` <span class="my-account-badge">${escapeHtml(String(unreadNotifications))}</span>` : ''}</button>
                     <button type="button" class="my-account-header-btn" onclick="openMySupportConversation()" aria-label="فتح محادثة الدعم">💬 افتح الدعم</button>
                 </div>
             `;
@@ -5986,11 +6088,13 @@
             const favoritesCount = Array.isArray(favorites) ? favorites.length : 0;
             const pointsBalance = Number(currentUser && currentUser.loyaltyPoints || 0);
             const messagesCount = getMyAccountActiveMessagesCount();
+            const notificationsCount = getMyAccountUnreadNotificationsCount();
             const stats = [
                 { label: 'الطلبات', value: orderCount, icon: '🛒' },
                 { label: 'المفضلة', value: favoritesCount, icon: '❤️' },
                 { label: 'النقاط', value: pointsBalance, icon: '⭐' },
-                { label: 'الرسائل', value: messagesCount, icon: '💬' }
+                { label: 'الرسائل', value: messagesCount, icon: '💬' },
+                { label: 'الإشعارات', value: notificationsCount, icon: '🔔' }
             ];
             return stats.map((item) => `
                 <div class="my-account-stat-card">
@@ -6008,7 +6112,9 @@
 
             header.innerHTML = buildMyAccountHeaderMarkup();
             stats.innerHTML = buildMyAccountStatsMarkup();
-            tabs.innerHTML = MY_ACCOUNT_TABS.map((tab) => `
+            tabs.innerHTML = MY_ACCOUNT_TABS.map((tab) => {
+                const unreadNotifications = tab === 'notifications' ? getMyAccountUnreadNotificationsCount() : 0;
+                return `
                 <button
                     type="button"
                     class="my-account-tab ${myAccountState.activeTab === tab ? 'active' : ''}"
@@ -6017,8 +6123,8 @@
                     aria-label="${escapeHtml(buildMyAccountTabLabel(tab))}"
                     onclick="setMyAccountTab(this.dataset.accountTab)"
                     data-account-tab="${tab}"
-                >${escapeHtml(buildMyAccountTabLabel(tab))}</button>
-            `).join('');
+                >${escapeHtml(buildMyAccountTabLabel(tab))}${unreadNotifications > 0 ? `<span class="my-account-tab-badge">${escapeHtml(String(unreadNotifications))}</span>` : ''}</button>`;
+            }).join('');
         }
 
         function refreshMyAccountChrome() {
@@ -6653,6 +6759,271 @@
             `;
         }
 
+        function getCustomerNotificationTypeMeta(type) {
+            const normalizedType = String(type || '').trim().toLowerCase();
+            const config = {
+                order: { icon: '📦', typeClass: 'order', toastType: 'info' },
+                chat: { icon: '💬', typeClass: 'chat', toastType: 'info' },
+                point: { icon: '⭐', typeClass: 'point', toastType: 'success' },
+                stock: { icon: '⚠️', typeClass: 'stock', toastType: 'warning' },
+                admin: { icon: '📣', typeClass: 'admin', toastType: 'info' },
+                product: { icon: '🆕', typeClass: 'product', toastType: 'success' },
+                system: { icon: '🔔', typeClass: 'system', toastType: 'info' }
+            };
+            return config[normalizedType] || config.system;
+        }
+
+        function getCustomerNotificationActionSummary(notification) {
+            const action = notification && notification.action && typeof notification.action === 'object' ? notification.action : {};
+            if (String(action.kind || '') === 'support-thread') return 'فتح الرسائل';
+            if (String(action.kind || '') === 'account-tab' && String(action.tab || '') === 'orders') return 'فتح الطلبات';
+            if (String(action.kind || '') === 'account-tab' && String(action.tab || '') === 'points') return 'فتح النقاط';
+            return 'فتح';
+        }
+
+        function stopCustomerNotificationsRealtime() {
+            if (typeof customerNotificationsUnsubscribe === 'function') {
+                try { customerNotificationsUnsubscribe(); } catch (_) {}
+            }
+            customerNotificationsUnsubscribe = null;
+            customerNotificationsSnapshotReady = false;
+            customerNotificationSeenIds = new Set();
+        }
+
+        function playNotificationChime() {
+            try {
+                if (!getMyAccountNotificationEnabled()) return false;
+                const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextCtor) return false;
+                const audioContext = new AudioContextCtor();
+                const oscillator = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(660, audioContext.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.05, audioContext.currentTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.18);
+                oscillator.connect(gain);
+                gain.connect(audioContext.destination);
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.2);
+                window.setTimeout(() => {
+                    if (typeof audioContext.close === 'function') audioContext.close().catch(() => null);
+                }, 260);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function maybeShowBrowserNotification(notification) {
+            try {
+                if (!getMyAccountNotificationEnabled()) return false;
+                if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+                if (document.visibilityState === 'visible') return false;
+                new Notification(String(notification && notification.title || 'إشعار جديد'), {
+                    body: String(notification && notification.body || ''),
+                    icon: '/assets/placeholder.svg',
+                    tag: String(notification && notification.id || Date.now())
+                });
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function toastCustomerNotifications(newItems = []) {
+            const rows = Array.isArray(newItems) ? newItems : [];
+            rows.forEach((notification) => {
+                const meta = getCustomerNotificationTypeMeta(notification && notification.type);
+                showNotification(meta.toastType, String(notification && notification.title || 'إشعار جديد'), String(notification && notification.body || ''));
+                maybeShowBrowserNotification(notification);
+                playNotificationChime();
+            });
+        }
+
+        function applyCustomerNotificationsSnapshot(rows = []) {
+            const items = (Array.isArray(rows) ? rows : []).slice().sort((a, b) => String(b && b.createdAt || '').localeCompare(String(a && a.createdAt || '')));
+            const unreadCount = items.reduce((sum, item) => sum + (item && item.readByCustomer !== true ? 1 : 0), 0);
+            const nextIds = new Set(items.map((item) => String(item && item.id || '')).filter(Boolean));
+            const newUnread = [];
+            if (customerNotificationsSnapshotReady) {
+                items.forEach((item) => {
+                    const id = String(item && item.id || '');
+                    if (!id || customerNotificationSeenIds.has(id) || item.readByCustomer === true) return;
+                    newUnread.push(item);
+                });
+            }
+            myAccountState.notifications = items;
+            myAccountState.notificationsUnreadCount = unreadCount;
+            customerNotificationSeenIds = nextIds;
+            refreshMyAccountChrome();
+            if (isMyAccountOpen() && myAccountState.activeTab === 'notifications') {
+                renderMyAccountNotificationsTab(document.getElementById('myAccountContent')).catch(() => null);
+            }
+            if (newUnread.length) {
+                toastCustomerNotifications(newUnread);
+            }
+            customerNotificationsSnapshotReady = true;
+        }
+
+        async function ensureCustomerNotificationsLoaded(force = false) {
+            if (!currentUser) return [];
+            if (!force && Array.isArray(myAccountState.notifications) && myAccountState.notifications.length) {
+                return myAccountState.notifications;
+            }
+            const uid = String(currentUser.uid || currentUser.id || '').trim();
+            if (!uid || typeof listCustomerNotifications !== 'function') {
+                myAccountState.notifications = [];
+                myAccountState.notificationsUnreadCount = 0;
+                return [];
+            }
+            const rows = await listCustomerNotifications(uid, { limit: 80 }).catch(() => []);
+            applyCustomerNotificationsSnapshot(rows);
+            return myAccountState.notifications;
+        }
+
+        function startCustomerNotificationsRealtime(force = false) {
+            if (!currentUser) {
+                stopCustomerNotificationsRealtime();
+                return false;
+            }
+            if (!force && typeof customerNotificationsUnsubscribe === 'function') return true;
+            if (typeof subscribeCustomerNotifications !== 'function') return false;
+            stopCustomerNotificationsRealtime();
+            const uid = String(currentUser.uid || currentUser.id || '').trim();
+            if (!uid) return false;
+            customerNotificationsUnsubscribe = subscribeCustomerNotifications(
+                uid,
+                (rows) => applyCustomerNotificationsSnapshot(rows),
+                (error) => console.warn('customer notifications listener warning:', error && error.message ? error.message : error),
+                { limit: 80 }
+            );
+            return typeof customerNotificationsUnsubscribe === 'function';
+        }
+
+        function getCustomerNotificationById(notificationId) {
+            const normalizedId = String(notificationId || '').trim();
+            return (Array.isArray(myAccountState.notifications) ? myAccountState.notifications : []).find((item) => String(item && item.id || '') === normalizedId) || null;
+        }
+
+        function updateCustomerNotificationState(notificationId, patch = {}) {
+            const normalizedId = String(notificationId || '').trim();
+            const nextPatch = patch && typeof patch === 'object' ? patch : {};
+            myAccountState.notifications = (Array.isArray(myAccountState.notifications) ? myAccountState.notifications : []).map((item) => (
+                String(item && item.id || '') === normalizedId ? { ...item, ...nextPatch } : item
+            ));
+            myAccountState.notificationsUnreadCount = (Array.isArray(myAccountState.notifications) ? myAccountState.notifications : []).reduce((sum, item) => sum + (item && item.readByCustomer !== true ? 1 : 0), 0);
+            refreshMyAccountChrome();
+        }
+
+        async function markCustomerNotificationAsRead(notificationId) {
+            const item = getCustomerNotificationById(notificationId);
+            if (!currentUser || !item || item.readByCustomer === true) return true;
+            updateCustomerNotificationState(notificationId, { readByCustomer: true, updatedAt: new Date().toISOString() });
+            const uid = String(currentUser.uid || currentUser.id || '').trim();
+            if (uid && typeof markCustomerNotificationRead === 'function') {
+                await markCustomerNotificationRead(uid, String(item.id || '')).catch(() => null);
+            }
+            return true;
+        }
+
+        async function markAllMyAccountNotificationsRead() {
+            if (!currentUser) return false;
+            const uid = String(currentUser.uid || currentUser.id || '').trim();
+            if (!uid) return false;
+            myAccountState.notifications = (Array.isArray(myAccountState.notifications) ? myAccountState.notifications : []).map((item) => ({
+                ...item,
+                readByCustomer: true,
+                updatedAt: new Date().toISOString()
+            }));
+            myAccountState.notificationsUnreadCount = 0;
+            refreshMyAccountChrome();
+            if (typeof markAllCustomerNotificationsRead === 'function') {
+                await markAllCustomerNotificationsRead(uid).catch(() => null);
+            }
+            if (isMyAccountOpen() && myAccountState.activeTab === 'notifications') {
+                renderMyAccountNotificationsTab(document.getElementById('myAccountContent')).catch(() => null);
+            }
+            return true;
+        }
+
+        async function openCustomerNotification(notificationId) {
+            const item = getCustomerNotificationById(notificationId);
+            if (!item) return false;
+            await markCustomerNotificationAsRead(notificationId);
+            const action = item.action && typeof item.action === 'object' ? item.action : {};
+            const kind = String(action.kind || '').trim();
+            if (kind === 'support-thread') {
+                openMySupportConversation();
+                return true;
+            }
+            if (kind === 'account-tab') {
+                const nextTab = String(action.tab || 'notifications').trim() || 'notifications';
+                await openMyAccount({ tab: nextTab }).catch(() => null);
+                return true;
+            }
+            await openMyAccount({ tab: 'notifications' }).catch(() => null);
+            return true;
+        }
+
+        async function renderMyAccountNotificationsTab(container) {
+            if (!container) return;
+            renderMyAccountLoading('جاري تحميل الإشعارات...');
+            const rows = await ensureCustomerNotificationsLoaded();
+            renderMyAccountChrome();
+            const unreadCount = getMyAccountUnreadNotificationsCount();
+            if (!Array.isArray(rows) || rows.length === 0) {
+                container.innerHTML = `
+                    <div class="my-account-panel my-account-empty">
+                        <div class="icon">🔔</div>
+                        <h3>لا توجد إشعارات حتى الآن</h3>
+                        <p>ستظهر هنا تحديثات الطلبات، رسائل الدعم، ونقاط الولاء الجديدة.</p>
+                    </div>
+                `;
+                return;
+            }
+            container.innerHTML = `
+                <div class="my-account-panel">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <h3 style="margin:0;color:var(--navy);">🔔 الإشعارات</h3>
+                            <p class="my-account-muted-note">كل تحديثات الطلبات والدعم ونقاط الولاء في مكان واحد.</p>
+                        </div>
+                        <div class="my-account-actions" style="margin-top:0;">
+                            <span class="my-account-badge">${escapeHtml(String(unreadCount))}</span>
+                            <button type="button" class="my-account-ghost-btn" onclick="markAllMyAccountNotificationsRead()">تمت قراءة الكل</button>
+                        </div>
+                    </div>
+                    <div class="my-account-notification-list" style="margin-top:16px;">
+                        ${rows.map((item) => {
+                            const meta = getCustomerNotificationTypeMeta(item && item.type);
+                            const unread = item && item.readByCustomer !== true;
+                            const safeId = escapeHtml(String(item && item.id || ''));
+                            return `
+                                <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(item && item.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}">
+                                    <div class="my-account-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
+                                    <div>
+                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                            <strong style="color:var(--navy);">${escapeHtml(String(item && item.title || ''))}</strong>
+                                            ${unread ? '<span class="my-account-unread-dot" aria-label="غير مقروء"></span>' : ''}
+                                        </div>
+                                        <div class="my-account-notification-body">${escapeHtml(String(item && item.body || ''))}</div>
+                                        <div class="my-account-muted-note" style="margin-top:6px;">${escapeHtml(getCustomerNotificationActionSummary(item))}</div>
+                                    </div>
+                                    <div class="my-account-notification-meta">
+                                        <span class="my-account-muted-note">${escapeHtml(formatDateTime(item && item.createdAt || ''))}</span>
+                                        ${unread ? `<button type="button" class="my-account-ghost-btn" data-notification-id="${safeId}" onclick="event.stopPropagation(); markCustomerNotificationAsRead(this.dataset.notificationId).then(() => renderMyAccountNotificationsTab(document.getElementById('myAccountContent')));">تمت قراءته</button>` : '<span class="my-account-pill success">مقروء</span>'}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
         function openPasswordSettings() {
             closeMyAccount();
             showChangePassword();
@@ -6746,6 +7117,10 @@
             }
             if (activeTab === 'messages') {
                 await renderMyAccountMessagesTab(container);
+                return;
+            }
+            if (activeTab === 'notifications') {
+                await renderMyAccountNotificationsTab(container);
                 return;
             }
             renderMyAccountSettingsTab(container);
@@ -7282,9 +7657,11 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const internalAllowed = applyInternalChatAvailability();
 
             if (loggedIn) {
+                startCustomerNotificationsRealtime();
                 syncTawkIdentity();
                 hideTawkWidget();
             } else {
+                stopCustomerNotificationsRealtime();
                 stopSupportChatRealtime();
                 if (chatMode === 'support') {
                     chatMode = 'bot';

@@ -1129,6 +1129,13 @@ async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
         uid: String(payload.uid || ''),
         details: { syncState: payload.syncState }
     });
+    await createCustomerOrderNotifications(payload, {
+        createdByRole: 'customer',
+        source: 'order:create',
+        pointsSource: 'order:points'
+    }).catch((notificationError) => {
+        console.warn('persistOrderOnline notification warning:', notificationError && notificationError.message ? notificationError.message : notificationError);
+    });
 
     return {
         id: orderId,
@@ -1478,6 +1485,21 @@ async function updateOrderStatus(id, status) {
         } catch (auditError) {
             console.warn('updateOrderStatus audit log warning:', auditError && auditError.message ? auditError.message : auditError);
         }
+        await createCustomerOrderNotifications({
+            ...current,
+            id: orderId,
+            status: nextStatus,
+            updatedAt: nowIso,
+            statusHistory,
+            version: nextVersion
+        }, {
+            createdByRole: 'admin',
+            source: 'order:status-update',
+            includePoints: false,
+            statusChange: true
+        }).catch((notificationError) => {
+            console.warn('updateOrderStatus notification warning:', notificationError && notificationError.message ? notificationError.message : notificationError);
+        });
 
     } catch (e) {
         console.error('updateOrderStatus error:', e);
@@ -2075,6 +2097,16 @@ async function updateStoreSettings(updates) {
 if (typeof window !== 'undefined') {
     window.getStoreSettings = getStoreSettings;
     window.updateStoreSettings = updateStoreSettings;
+    window.saveCustomerNotification = saveCustomerNotification;
+    window.saveAdminSystemNotification = saveAdminSystemNotification;
+    window.listCustomerNotifications = listCustomerNotifications;
+    window.subscribeCustomerNotifications = subscribeCustomerNotifications;
+    window.listAdminNotifications = listAdminNotifications;
+    window.subscribeAdminNotifications = subscribeAdminNotifications;
+    window.markCustomerNotificationRead = markCustomerNotificationRead;
+    window.markAllCustomerNotificationsRead = markAllCustomerNotificationsRead;
+    window.markAdminNotificationRead = markAdminNotificationRead;
+    window.markAllAdminNotificationsRead = markAllAdminNotificationsRead;
     window.ReleaseGateStateAPI = {
         getReleaseGateState,
         saveReleaseGateState
@@ -2085,6 +2117,14 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports.getStoreSettings = getStoreSettings;
     module.exports.updateStoreSettings = updateStoreSettings;
+    module.exports.saveCustomerNotification = saveCustomerNotification;
+    module.exports.saveAdminSystemNotification = saveAdminSystemNotification;
+    module.exports.listCustomerNotifications = listCustomerNotifications;
+    module.exports.listAdminNotifications = listAdminNotifications;
+    module.exports.markCustomerNotificationRead = markCustomerNotificationRead;
+    module.exports.markAllCustomerNotificationsRead = markAllCustomerNotificationsRead;
+    module.exports.markAdminNotificationRead = markAdminNotificationRead;
+    module.exports.markAllAdminNotificationsRead = markAllAdminNotificationsRead;
     module.exports.ReleaseGateStateAPI = {
         getReleaseGateState,
         saveReleaseGateState
@@ -2253,6 +2293,434 @@ function subscribeStoreEvents(onData, onError, limitCount = 100) {
         if (typeof onError === 'function') onError(normalizeFirebaseError(e, 'subscribeStoreEvents.setup'));
         return null;
     }
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+const NOTIFICATION_COLLECTION = 'notifications';
+const NOTIFICATION_ALLOWED_TYPES = ['order', 'chat', 'stock', 'point', 'admin', 'product', 'system'];
+const NOTIFICATION_ALLOWED_AUDIENCES = ['customer', 'admin', 'both'];
+const NOTIFICATION_ALLOWED_SCOPES = ['customer', 'system'];
+const NOTIFICATION_ALLOWED_ROLES = ['customer', 'admin', 'system'];
+
+function normalizeNotificationText(value, max = 400) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function normalizeNotificationTimestamp(value) {
+    const raw = String(value || '').trim();
+    return raw || new Date().toISOString();
+}
+
+function normalizeNotificationAction(action) {
+    const source = action && typeof action === 'object' ? action : {};
+    const normalized = {};
+    const kind = normalizeNotificationText(source.kind, 60);
+    if (kind) normalized.kind = kind;
+    const tab = normalizeNotificationText(source.tab, 40);
+    if (tab) normalized.tab = tab;
+    const orderId = normalizeNotificationText(source.orderId, 120);
+    if (orderId) normalized.orderId = orderId;
+    const orderNumber = normalizeNotificationText(source.orderNumber, 120);
+    if (orderNumber) normalized.orderNumber = orderNumber;
+    const threadId = normalizeNotificationText(source.threadId, 120);
+    if (threadId) normalized.threadId = threadId;
+    const productId = normalizeNotificationText(source.productId, 120);
+    if (productId) normalized.productId = productId;
+    const section = normalizeNotificationText(source.section, 60);
+    if (section) normalized.section = section;
+    const status = normalizeNotificationText(source.status, 60);
+    if (status) normalized.status = status;
+    const customerUid = normalizeNotificationText(source.customerUid, 200);
+    if (customerUid) normalized.customerUid = customerUid;
+    return normalized;
+}
+
+function normalizeNotificationPayload(payload = {}, defaults = {}, options = {}) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const base = defaults && typeof defaults === 'object' ? defaults : {};
+    const opts = options && typeof options === 'object' ? options : {};
+    const nowIso = new Date().toISOString();
+    const customerUid = normalizeNotificationText(opts.customerUid || source.customerUid || base.customerUid, 200);
+    const requestedScope = normalizeNotificationText(source.scope || base.scope || (customerUid ? 'customer' : 'system'), 30).toLowerCase();
+    const requestedType = normalizeNotificationText(source.type || base.type || 'system', 30).toLowerCase();
+    const requestedAudience = normalizeNotificationText(source.audience || base.audience || (customerUid ? 'customer' : 'admin'), 20).toLowerCase();
+    const requestedRole = normalizeNotificationText(source.createdByRole || base.createdByRole || (opts.createdByRole || 'system'), 20).toLowerCase();
+    const scope = NOTIFICATION_ALLOWED_SCOPES.includes(requestedScope) ? requestedScope : (customerUid ? 'customer' : 'system');
+    const type = NOTIFICATION_ALLOWED_TYPES.includes(requestedType) ? requestedType : 'system';
+    const audience = NOTIFICATION_ALLOWED_AUDIENCES.includes(requestedAudience) ? requestedAudience : (scope === 'system' ? 'admin' : 'customer');
+    const createdByRole = NOTIFICATION_ALLOWED_ROLES.includes(requestedRole) ? requestedRole : 'system';
+    const title = normalizeNotificationText(source.title || base.title, 160);
+    const body = normalizeNotificationText(source.body || base.body, 600);
+    const action = normalizeNotificationAction(source.action || base.action || {});
+    const createdAt = normalizeNotificationTimestamp(source.createdAt || base.createdAt || nowIso);
+    const updatedAt = normalizeNotificationTimestamp(source.updatedAt || nowIso);
+    return {
+        customerUid,
+        scope,
+        type,
+        audience,
+        title,
+        body,
+        action,
+        source: normalizeNotificationText(source.source || base.source || 'app', 120),
+        readByCustomer: source.readByCustomer === true,
+        readByAdmin: source.readByAdmin === true,
+        createdByRole,
+        createdAt,
+        updatedAt
+    };
+}
+
+function isNotificationRecordVisibleToCustomer(row, uid) {
+    const normalizedUid = normalizeNotificationText(uid, 200);
+    if (!normalizedUid || !row) return false;
+    return String(row.customerUid || '') === normalizedUid
+        && (row.audience === 'customer' || row.audience === 'both');
+}
+
+function isNotificationRecordVisibleToAdmin(row) {
+    if (!row) return false;
+    return row.scope === 'system' || row.scope === 'customer';
+}
+
+function enrichNotificationRecord(data, id = '', refPath = '') {
+    const normalized = normalizeNotificationPayload(data || {}, data || {}, {
+        customerUid: data && data.customerUid ? data.customerUid : ''
+    });
+    return {
+        id: String(id || '').trim(),
+        refPath: String(refPath || '').trim(),
+        ...normalized
+    };
+}
+
+function getCustomerNotificationCollection(uid) {
+    const normalizedUid = normalizeNotificationText(uid, 200);
+    if (!normalizedUid) throw new Error('uid is required');
+    return getFirebaseDB().collection('customers').doc(normalizedUid).collection(NOTIFICATION_COLLECTION);
+}
+
+function getAdminSystemNotificationCollection(settingId = 'store') {
+    const normalizedSettingId = normalizeNotificationText(settingId || 'store', 120) || 'store';
+    return getFirebaseDB().collection('settings').doc(normalizedSettingId).collection(NOTIFICATION_COLLECTION);
+}
+
+function getAdminNotificationsCollectionGroup() {
+    return getFirebaseDB().collectionGroup(NOTIFICATION_COLLECTION);
+}
+
+async function saveCustomerNotification(uid, payload, options = {}) {
+    const normalizedUid = normalizeNotificationText(uid, 200);
+    if (!normalizedUid) throw new Error('uid is required');
+    const opts = options && typeof options === 'object' ? options : {};
+    const normalized = normalizeNotificationPayload(payload || {}, {}, { customerUid: normalizedUid });
+    if (!normalized.title || !normalized.body) throw new Error('notification title/body are required');
+    const collectionRef = getCustomerNotificationCollection(normalizedUid);
+    const docId = normalizeNotificationText(opts.id || payload && payload.id || '', 200);
+    const docRef = docId ? collectionRef.doc(docId) : collectionRef.doc();
+    await docRef.set(normalized, { merge: opts.merge !== false });
+    return enrichNotificationRecord(normalized, docRef.id, docRef.path);
+}
+
+async function saveAdminSystemNotification(payload, options = {}) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const normalized = normalizeNotificationPayload({
+        ...(payload && typeof payload === 'object' ? payload : {}),
+        scope: 'system',
+        audience: payload && payload.audience ? payload.audience : 'admin',
+        customerUid: payload && payload.customerUid ? payload.customerUid : ''
+    }, {}, { createdByRole: opts.createdByRole || 'system' });
+    if (!normalized.title || !normalized.body) throw new Error('notification title/body are required');
+    const collectionRef = getAdminSystemNotificationCollection(opts.settingId || 'store');
+    const docId = normalizeNotificationText(opts.id || payload && payload.id || '', 200);
+    const docRef = docId ? collectionRef.doc(docId) : collectionRef.doc();
+    await docRef.set(normalized, { merge: opts.merge !== false });
+    return enrichNotificationRecord(normalized, docRef.id, docRef.path);
+}
+
+async function listCustomerNotifications(uid, options = {}) {
+    try {
+        const normalizedUid = normalizeNotificationText(uid, 200);
+        if (!normalizedUid) return [];
+        const opts = options && typeof options === 'object' ? options : {};
+        const safeLimit = Math.max(1, Math.min(300, Number(opts.limit || 100)));
+        let query = getCustomerNotificationCollection(normalizedUid);
+        if (opts.unreadOnly === true) {
+            query = query.where('readByCustomer', '==', false);
+        }
+        query = query.orderBy('createdAt', 'desc').limit(safeLimit);
+        const snapshot = await query.get();
+        return snapshot.docs
+            .map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path))
+            .filter((row) => isNotificationRecordVisibleToCustomer(row, normalizedUid));
+    } catch (error) {
+        console.error('listCustomerNotifications error:', error);
+        return [];
+    }
+}
+
+function subscribeCustomerNotifications(uid, onData, onError, options = {}) {
+    try {
+        const normalizedUid = normalizeNotificationText(uid, 200);
+        if (!normalizedUid) return null;
+        const opts = options && typeof options === 'object' ? options : {};
+        const safeLimit = Math.max(1, Math.min(300, Number(opts.limit || 100)));
+        let query = getCustomerNotificationCollection(normalizedUid);
+        if (opts.unreadOnly === true) {
+            query = query.where('readByCustomer', '==', false);
+        }
+        query = query.orderBy('createdAt', 'desc').limit(safeLimit);
+        return query.onSnapshot(
+            (snapshot) => {
+                const rows = snapshot.docs
+                    .map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path))
+                    .filter((row) => isNotificationRecordVisibleToCustomer(row, normalizedUid));
+                if (typeof onData === 'function') onData(rows);
+            },
+            (error) => {
+                if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeCustomerNotifications.listener'));
+            }
+        );
+    } catch (error) {
+        if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeCustomerNotifications.setup'));
+        return null;
+    }
+}
+
+async function listAdminNotifications(options = {}) {
+    try {
+        const opts = options && typeof options === 'object' ? options : {};
+        const safeLimit = Math.max(1, Math.min(500, Number(opts.limit || 150)));
+        let query = getAdminNotificationsCollectionGroup();
+        if (opts.unreadOnly === true) {
+            query = query.where('readByAdmin', '==', false);
+        }
+        query = query.orderBy('createdAt', 'desc').limit(safeLimit);
+        const snapshot = await query.get();
+        let rows = snapshot.docs.map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path));
+        rows = rows.filter((row) => isNotificationRecordVisibleToAdmin(row));
+        if (opts.type) {
+            const wantedType = normalizeNotificationText(opts.type, 30).toLowerCase();
+            rows = rows.filter((row) => String(row.type || '').toLowerCase() === wantedType);
+        }
+        return rows;
+    } catch (error) {
+        console.error('listAdminNotifications error:', error);
+        return [];
+    }
+}
+
+function subscribeAdminNotifications(onData, onError, options = {}) {
+    try {
+        const opts = options && typeof options === 'object' ? options : {};
+        const safeLimit = Math.max(1, Math.min(500, Number(opts.limit || 150)));
+        let query = getAdminNotificationsCollectionGroup();
+        if (opts.unreadOnly === true) {
+            query = query.where('readByAdmin', '==', false);
+        }
+        query = query.orderBy('createdAt', 'desc').limit(safeLimit);
+        return query.onSnapshot(
+            (snapshot) => {
+                let rows = snapshot.docs.map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path));
+                rows = rows.filter((row) => isNotificationRecordVisibleToAdmin(row));
+                if (opts.type) {
+                    const wantedType = normalizeNotificationText(opts.type, 30).toLowerCase();
+                    rows = rows.filter((row) => String(row.type || '').toLowerCase() === wantedType);
+                }
+                if (typeof onData === 'function') onData(rows);
+            },
+            (error) => {
+                if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeAdminNotifications.listener'));
+            }
+        );
+    } catch (error) {
+        if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeAdminNotifications.setup'));
+        return null;
+    }
+}
+
+async function markCustomerNotificationRead(uid, notificationId) {
+    try {
+        const normalizedUid = normalizeNotificationText(uid, 200);
+        const normalizedId = normalizeNotificationText(notificationId, 200);
+        if (!normalizedUid || !normalizedId) return false;
+        await getCustomerNotificationCollection(normalizedUid).doc(normalizedId).set({
+            readByCustomer: true,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        return true;
+    } catch (error) {
+        console.error('markCustomerNotificationRead error:', error);
+        return false;
+    }
+}
+
+async function markAllCustomerNotificationsRead(uid) {
+    try {
+        const normalizedUid = normalizeNotificationText(uid, 200);
+        if (!normalizedUid) return 0;
+        const snapshot = await getCustomerNotificationCollection(normalizedUid)
+            .where('readByCustomer', '==', false)
+            .orderBy('createdAt', 'desc')
+            .limit(400)
+            .get();
+        if (snapshot.empty) return 0;
+        const batch = getFirebaseDB().batch();
+        const nowIso = new Date().toISOString();
+        snapshot.docs.forEach((doc) => {
+            batch.set(doc.ref, { readByCustomer: true, updatedAt: nowIso }, { merge: true });
+        });
+        await batch.commit();
+        return snapshot.size;
+    } catch (error) {
+        console.error('markAllCustomerNotificationsRead error:', error);
+        return 0;
+    }
+}
+
+async function markAdminNotificationRead(refPathOrId) {
+    try {
+        const raw = normalizeNotificationText(refPathOrId, 600);
+        if (!raw) return false;
+        const db = getFirebaseDB();
+        const ref = raw.includes('/')
+            ? db.doc(raw)
+            : getAdminSystemNotificationCollection('store').doc(raw);
+        await ref.set({
+            readByAdmin: true,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        return true;
+    } catch (error) {
+        console.error('markAdminNotificationRead error:', error);
+        return false;
+    }
+}
+
+async function markAllAdminNotificationsRead(options = {}) {
+    try {
+        const rows = await listAdminNotifications({ ...(options || {}), unreadOnly: true, limit: 400 });
+        if (!Array.isArray(rows) || !rows.length) return 0;
+        const db = getFirebaseDB();
+        const batch = db.batch();
+        const nowIso = new Date().toISOString();
+        rows.forEach((row) => {
+            if (!row || !row.refPath) return;
+            batch.set(db.doc(row.refPath), { readByAdmin: true, updatedAt: nowIso }, { merge: true });
+        });
+        await batch.commit();
+        return rows.length;
+    } catch (error) {
+        console.error('markAllAdminNotificationsRead error:', error);
+        return 0;
+    }
+}
+
+function getNotificationOrderStatusLabel(status) {
+    const value = normalizeNotificationText(status, 40).toLowerCase();
+    const labels = {
+        pending: '??? ????????',
+        confirmed: '????',
+        processing: '???? ???????',
+        shipped: '?? ?????',
+        delivered: '?? ???????',
+        completed: '?????',
+        cancelled: '????'
+    };
+    return labels[value] || value || '??? ?????';
+}
+
+async function createCustomerOrderNotifications(orderPayload = {}, options = {}) {
+    const order = orderPayload && typeof orderPayload === 'object' ? orderPayload : {};
+    const orderId = normalizeNotificationText(order.id, 160);
+    const uid = normalizeNotificationText(order.uid, 200);
+    if (!uid || !orderId) return [];
+    const createdByRole = normalizeNotificationText(options.createdByRole || order.createdByRole || 'customer', 20).toLowerCase() || 'customer';
+    const result = [];
+    const orderNumber = normalizeNotificationText(order.orderNumber || order.id, 120) || orderId;
+    const status = normalizeNotificationText(order.status || 'pending', 40).toLowerCase() || 'pending';
+    const orderNotification = await saveCustomerNotification(uid, {
+        scope: 'customer',
+        type: 'order',
+        audience: 'customer',
+        title: options.statusChange === true ? `????? ???? ????? #${orderNumber}` : `?? ?????? ???? #${orderNumber}`,
+        body: options.statusChange === true
+            ? `?????? ????: ${getNotificationOrderStatusLabel(status)}`
+            : `????? ??? ????? ????. ?????? ???????: ${getNotificationOrderStatusLabel(status)}`,
+        action: {
+            kind: 'account-tab',
+            tab: 'orders',
+            orderId,
+            orderNumber,
+            status
+        },
+        source: options.source || (options.statusChange === true ? 'order:status-update' : 'order:create'),
+        readByCustomer: false,
+        readByAdmin: true,
+        createdByRole
+    }, {
+        id: options.id || (options.statusChange === true ? `order_status_${orderId}_${status}` : `order_created_${orderId}`)
+    }).catch(() => null);
+    if (orderNotification) result.push(orderNotification);
+
+    const earnedPoints = Number(order.earnedPoints || 0);
+    const usedPoints = Number(order.usedPoints || 0);
+    if (options.includePoints !== false && (earnedPoints > 0 || usedPoints > 0)) {
+        const pointChunks = [];
+        if (earnedPoints > 0) pointChunks.push(`??? ????? ${earnedPoints} ????`);
+        if (usedPoints > 0) pointChunks.push(`?? ??????? ${usedPoints} ????`);
+        const pointsNotification = await saveCustomerNotification(uid, {
+            scope: 'customer',
+            type: 'point',
+            audience: 'customer',
+            title: '????? ???? ???? ??????',
+            body: pointChunks.join(' ? ') || '?? ????? ???? ?????? ?????? ??.',
+            action: {
+                kind: 'account-tab',
+                tab: 'points',
+                orderId,
+                orderNumber
+            },
+            source: options.pointsSource || 'order:points',
+            readByCustomer: false,
+            readByAdmin: true,
+            createdByRole
+        }, {
+            id: `points_${orderId}`
+        }).catch(() => null);
+        if (pointsNotification) result.push(pointsNotification);
+    }
+
+    return result;
+}
+
+async function createSupportNotificationForMessage(threadId, messageRecord, threadRecord = {}) {
+    const threadUid = normalizeNotificationText(threadId || threadRecord.uid, 200);
+    if (!threadUid || !messageRecord) return null;
+    const isCustomer = String(messageRecord.senderRole || '').trim().toLowerCase() === 'customer';
+    const customerName = normalizeNotificationText(threadRecord.customerName || '????', 120) || '????';
+    const messagePreview = normalizeNotificationText(messageRecord.message || messageRecord.text || '', 180);
+    return saveCustomerNotification(threadUid, {
+        scope: 'customer',
+        type: 'chat',
+        audience: isCustomer ? 'admin' : 'customer',
+        title: isCustomer ? `????? ??? ????? ?? ${customerName}` : '????? ????? ?? ?????',
+        body: messagePreview || (isCustomer ? '???? ????? ????? ?? ??????.' : '???? ????? ????? ?? ???? ?????.'),
+        action: {
+            kind: 'support-thread',
+            tab: 'messages',
+            threadId: threadUid,
+            customerUid: threadUid
+        },
+        source: isCustomer ? 'support:customer-message' : 'support:admin-message',
+        readByCustomer: isCustomer,
+        readByAdmin: !isCustomer,
+        createdByRole: isCustomer ? 'customer' : 'admin'
+    }, {
+        id: `${isCustomer ? 'chat_admin' : 'chat_customer'}_${threadUid}_${normalizeNotificationText(messageRecord.id || '', 200) || Date.now()}`
+    }).catch(() => null);
 }
 
 function normalizeLiveSessionPayload(payload) {
@@ -2559,7 +3027,17 @@ async function addSupportMessage(payload) {
             unreadForCustomer
         }, { merge: true });
 
-        return { id: messageRef.id, ...normalized };
+        const createdMessage = { id: messageRef.id, ...normalized };
+        await createSupportNotificationForMessage(normalized.threadId, createdMessage, {
+            ...threadData,
+            customerName: threadData.customerName || '',
+            customerEmail: threadData.customerEmail || '',
+            customerPhone: threadData.customerPhone || ''
+        }).catch((notificationError) => {
+            console.warn('addSupportMessage notification warning:', notificationError && notificationError.message ? notificationError.message : notificationError);
+        });
+
+        return createdMessage;
     } catch (e) {
         console.error('addSupportMessage error:', e);
         throw e;

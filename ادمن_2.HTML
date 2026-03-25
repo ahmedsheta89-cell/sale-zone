@@ -1088,6 +1088,69 @@
             background: linear-gradient(135deg, var(--gold), var(--gold-dark));
             color: #fff;
         }
+        .admin-notification-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .admin-notification-list {
+            display: grid;
+            gap: 12px;
+        }
+        .admin-notification-item {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 12px;
+            align-items: flex-start;
+            border: 1px solid #e8ebf2;
+            border-radius: 14px;
+            padding: 14px;
+            background: #fff;
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+        .admin-notification-item:hover {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, .12);
+        }
+        .admin-notification-item.unread {
+            background: #fffdf6;
+        }
+        .admin-notification-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .admin-notification-icon.order { background: #dbeafe; color: #1d4ed8; }
+        .admin-notification-icon.chat { background: #ede9fe; color: #7c3aed; }
+        .admin-notification-icon.point { background: #fef3c7; color: #b45309; }
+        .admin-notification-icon.stock { background: #fee2e2; color: #b91c1c; }
+        .admin-notification-icon.admin,
+        .admin-notification-icon.system,
+        .admin-notification-icon.product { background: #dcfce7; color: #15803d; }
+        .admin-notification-meta {
+            display: grid;
+            gap: 8px;
+            justify-items: end;
+            min-width: 92px;
+            font-size: 11px;
+            color: #666;
+        }
+        .admin-notification-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: var(--error);
+            display: inline-block;
+        }
         .support-message-meta {
             margin-top: 4px;
             font-size: 10px;
@@ -1168,6 +1231,7 @@
                     <button class="menu-item" onclick="showSection('coupons')">🎫 الكوبونات</button>
                     <button class="menu-item" onclick="showSection('users')">👥 العملاء</button>
                     <button class="menu-item" onclick="showSection('support')">💬 الدردشة الداخلية <span class="badge" id="supportUnreadCount">0</span></button>
+                    <button class="menu-item" onclick="showSection('notifications')">🔔 الإشعارات <span class="badge" id="adminNotificationsCount">0</span></button>
                     <button class="menu-item" onclick="showSection('loyalty')">💎 نقاط الولاء</button>
                 </div>
                 <div class="menu-section">
@@ -1573,6 +1637,46 @@
                                     <textarea id="supportReplyInput" placeholder="اكتب ردك هنا..." disabled></textarea>
                                     <button class="btn btn-navy" onclick="sendSupportReply()" id="supportReplyBtn" disabled>إرسال</button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="content-section" id="notificationsSection">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">🔔 الإشعارات</h3>
+                        <div class="header-actions">
+                            <button class="btn btn-gold" type="button" onclick="refreshAdminNotifications()">🔄 تحديث</button>
+                            <button class="btn btn-info" type="button" onclick="markAllAdminNotificationsAsReadUi()">✅ تمت قراءة الكل</button>
+                        </div>
+                    </div>
+                    <div class="section-body">
+                        <div class="admin-notification-toolbar">
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <label for="adminNotificationTypeFilter">النوع</label>
+                                <select id="adminNotificationTypeFilter" onchange="setAdminNotificationTypeFilter(this.value)">
+                                    <option value="">الكل</option>
+                                    <option value="order">الطلبات</option>
+                                    <option value="chat">الدردشة</option>
+                                    <option value="stock">المخزون</option>
+                                    <option value="point">النقاط</option>
+                                    <option value="admin">إداري</option>
+                                    <option value="product">منتج</option>
+                                    <option value="system">نظام</option>
+                                </select>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <span class="badge" id="adminNotificationsUnreadBadge">0</span>
+                                <button class="btn btn-navy" type="button" onclick="toggleAdminNotificationSound()" id="adminNotificationSoundBtn">🔕 الصوت</button>
+                            </div>
+                        </div>
+                        <p id="adminNotificationsMeta" style="color:#666;margin-bottom:12px;font-size:13px;">لا توجد إشعارات بعد.</p>
+                        <div id="adminNotificationsList" class="admin-notification-list">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🔔</div>
+                                <p>لا توجد إشعارات حتى الآن</p>
                             </div>
                         </div>
                     </div>
@@ -2842,6 +2946,13 @@
         let supportMessages = [];
         let activeSupportThreadId = '';
         let supportThreadsUnsubscribe = null;
+        let adminNotifications = [];
+        let adminNotificationsUnsubscribe = null;
+        let adminNotificationSnapshotReady = false;
+        let adminNotificationSeenIds = new Set();
+        let adminNotificationTypeFilter = '';
+        let lowStockNotificationSyncTimer = null;
+        const ADMIN_NOTIFICATION_SOUND_PREF_KEY = 'sale_zone_admin_notifications_sound_enabled';
         const ANALYTICS_LOW_STOCK_THRESHOLD = 10;
         const ANALYTICS_CRITICAL_STOCK_THRESHOLD = 3;
         let analyticsPeriod = 'month';
@@ -3938,9 +4049,11 @@
                     image: item.image || './assets/placeholder.svg'
                 }));
                 setStorageData('PRODUCTS_ADMIN', compact);
+                scheduleLowStockNotificationSync();
                 return;
             }
             setStorageData('PRODUCTS_ADMIN', source);
+            scheduleLowStockNotificationSync();
         }
         function saveOrders() {
             const source = Array.isArray(orders) ? orders : [];
@@ -4236,6 +4349,7 @@ async function sendPasswordReset() {
         sessionStorage.removeItem('adminSessionId');
         sessionStorage.removeItem('adminSession');
         stopSupportChatRealtime();
+        stopAdminNotificationsRealtime();
         stopAdminChangeNotificationWatcher();
         document.getElementById('dashboard').classList.remove('active');
         document.getElementById('loginScreen').style.display = 'flex';
@@ -4280,6 +4394,7 @@ function adminLogout(){
   stopCustomersRealtimeSync();
   stopStoreOperationsMonitoring();
   stopSupportChatRealtime();
+  stopAdminNotificationsRealtime();
   stopAdminChangeNotificationWatcher();
   const sessionId = sessionStorage.getItem('adminSessionId');
   if (sessionId) {
@@ -4335,6 +4450,10 @@ function adminLogout(){
                 );
             });
             startSupportChatRealtime();
+            startAdminNotificationsRealtime();
+            refreshAdminNotifications().catch((error) => {
+                console.warn('refreshAdminNotifications init warning:', error && error.message ? error.message : error);
+            });
             startAdminChangeNotificationWatcher();
         }
 
@@ -4356,6 +4475,315 @@ function adminLogout(){
                 const unread = (supportThreads || []).reduce((sum, thread) => sum + Math.max(0, Number(thread && thread.unreadForAdmin || 0)), 0);
                 supportBadge.textContent = String(unread);
             }
+            const notificationsBadge = document.getElementById('adminNotificationsCount');
+            if (notificationsBadge) {
+                const unreadNotifications = (Array.isArray(adminNotifications) ? adminNotifications : []).reduce((sum, item) => sum + (item && item.readByAdmin !== true ? 1 : 0), 0);
+                notificationsBadge.textContent = String(unreadNotifications);
+            }
+        }
+
+        function getAdminNotificationSoundEnabled() {
+            try {
+                return localStorage.getItem(ADMIN_NOTIFICATION_SOUND_PREF_KEY) === '1';
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function renderAdminNotificationSoundButton() {
+            const btn = document.getElementById('adminNotificationSoundBtn');
+            if (!btn) return;
+            const enabled = getAdminNotificationSoundEnabled();
+            btn.textContent = enabled ? '🔔 الصوت مفعّل' : '🔕 الصوت';
+        }
+
+        async function toggleAdminNotificationSound() {
+            const nextValue = !getAdminNotificationSoundEnabled();
+            try {
+                localStorage.setItem(ADMIN_NOTIFICATION_SOUND_PREF_KEY, nextValue ? '1' : '0');
+            } catch (_) {}
+            if (nextValue && 'Notification' in window && Notification.permission === 'default') {
+                await Notification.requestPermission().catch(() => 'default');
+            }
+            renderAdminNotificationSoundButton();
+        }
+
+        function getAdminNotificationTypeMeta(type) {
+            const normalizedType = String(type || '').trim().toLowerCase();
+            const config = {
+                order: { icon: '📦', typeClass: 'order', toastType: 'success' },
+                chat: { icon: '💬', typeClass: 'chat', toastType: 'success' },
+                point: { icon: '⭐', typeClass: 'point', toastType: 'success' },
+                stock: { icon: '⚠️', typeClass: 'stock', toastType: 'error' },
+                admin: { icon: '📣', typeClass: 'admin', toastType: 'success' },
+                product: { icon: '🆕', typeClass: 'product', toastType: 'success' },
+                system: { icon: '🔔', typeClass: 'system', toastType: 'success' }
+            };
+            return config[normalizedType] || config.system;
+        }
+
+        function playAdminNotificationChime() {
+            try {
+                if (!getAdminNotificationSoundEnabled()) return false;
+                const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextCtor) return false;
+                const audioContext = new AudioContextCtor();
+                const oscillator = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(740, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(520, audioContext.currentTime + 0.14);
+                gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.04, audioContext.currentTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.22);
+                oscillator.connect(gain);
+                gain.connect(audioContext.destination);
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.24);
+                setTimeout(() => {
+                    if (typeof audioContext.close === 'function') audioContext.close().catch(() => null);
+                }, 300);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function maybeShowAdminBrowserNotification(item) {
+            try {
+                if (!getAdminNotificationSoundEnabled()) return false;
+                if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+                if (document.visibilityState === 'visible') return false;
+                new Notification(String(item && item.title || 'إشعار جديد'), {
+                    body: String(item && item.body || ''),
+                    icon: '/assets/placeholder.svg',
+                    tag: String(item && item.id || Date.now())
+                });
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function stopAdminNotificationsRealtime() {
+            if (typeof adminNotificationsUnsubscribe === 'function') {
+                try { adminNotificationsUnsubscribe(); } catch (_) {}
+            }
+            adminNotificationsUnsubscribe = null;
+            adminNotificationSnapshotReady = false;
+            adminNotificationSeenIds = new Set();
+            adminNotifications = [];
+            updateBadges();
+        }
+
+        function toastAdminNotifications(items = []) {
+            (Array.isArray(items) ? items : []).forEach((item) => {
+                const meta = getAdminNotificationTypeMeta(item && item.type);
+                const title = String(item && item.title || 'إشعار جديد');
+                const body = String(item && item.body || '');
+                showNotification(meta.toastType, `${title}${body ? ` — ${body}` : ''}`);
+                maybeShowAdminBrowserNotification(item);
+                playAdminNotificationChime();
+            });
+        }
+
+        function applyAdminNotificationsSnapshot(rows = []) {
+            const list = (Array.isArray(rows) ? rows : []).slice().sort((a, b) => String(b && b.createdAt || '').localeCompare(String(a && a.createdAt || '')));
+            const nextIds = new Set(list.map((item) => String(item && item.refPath || item && item.id || '')).filter(Boolean));
+            const newUnread = [];
+            if (adminNotificationSnapshotReady) {
+                list.forEach((item) => {
+                    const key = String(item && item.refPath || item && item.id || '');
+                    if (!key || adminNotificationSeenIds.has(key) || item.readByAdmin === true) return;
+                    newUnread.push(item);
+                });
+            }
+            adminNotifications = list;
+            adminNotificationSeenIds = nextIds;
+            updateBadges();
+            renderAdminNotificationSoundButton();
+            if (document.getElementById('notificationsSection')?.classList.contains('active')) {
+                renderAdminNotifications();
+            }
+            if (newUnread.length) {
+                toastAdminNotifications(newUnread);
+            }
+            adminNotificationSnapshotReady = true;
+        }
+
+        function startAdminNotificationsRealtime(force = false) {
+            if (!force && typeof adminNotificationsUnsubscribe === 'function') {
+                renderAdminNotificationSoundButton();
+                return true;
+            }
+            if (typeof subscribeAdminNotifications !== 'function') return false;
+            stopAdminNotificationsRealtime();
+            adminNotificationsUnsubscribe = subscribeAdminNotifications(
+                (rows) => applyAdminNotificationsSnapshot(rows),
+                (error) => console.warn('admin notifications listener warning:', error && error.message ? error.message : error),
+                { limit: 160 }
+            );
+            renderAdminNotificationSoundButton();
+            return typeof adminNotificationsUnsubscribe === 'function';
+        }
+
+        function getFilteredAdminNotifications() {
+            const allRows = Array.isArray(adminNotifications) ? adminNotifications : [];
+            if (!adminNotificationTypeFilter) return allRows;
+            return allRows.filter((item) => String(item && item.type || '').trim().toLowerCase() === adminNotificationTypeFilter);
+        }
+
+        function setAdminNotificationTypeFilter(value = '') {
+            adminNotificationTypeFilter = String(value || '').trim().toLowerCase();
+            renderAdminNotifications();
+        }
+
+        async function markAdminNotificationAsReadUi(refPath) {
+            const targetPath = String(refPath || '').trim();
+            if (!targetPath) return false;
+            adminNotifications = (Array.isArray(adminNotifications) ? adminNotifications : []).map((item) => (
+                String(item && item.refPath || '') === targetPath
+                    ? { ...item, readByAdmin: true, updatedAt: new Date().toISOString() }
+                    : item
+            ));
+            updateBadges();
+            renderAdminNotifications();
+            if (typeof markAdminNotificationRead === 'function') {
+                await markAdminNotificationRead(targetPath).catch(() => null);
+            }
+            return true;
+        }
+
+        async function markAllAdminNotificationsAsReadUi() {
+            adminNotifications = (Array.isArray(adminNotifications) ? adminNotifications : []).map((item) => ({
+                ...item,
+                readByAdmin: true,
+                updatedAt: new Date().toISOString()
+            }));
+            updateBadges();
+            renderAdminNotifications();
+            if (typeof markAllAdminNotificationsRead === 'function') {
+                await markAllAdminNotificationsRead({ type: adminNotificationTypeFilter || '' }).catch(() => null);
+            }
+            return true;
+        }
+
+        function openAdminNotification(refPath) {
+            const item = (Array.isArray(adminNotifications) ? adminNotifications : []).find((row) => String(row && row.refPath || '') === String(refPath || ''));
+            if (!item) return false;
+            markAdminNotificationAsReadUi(refPath).catch(() => null);
+            const action = item.action && typeof item.action === 'object' ? item.action : {};
+            const kind = String(action.kind || '').trim();
+            if (kind === 'support-thread') {
+                showSection('support');
+                setTimeout(() => selectSupportThread(String(action.threadId || item.customerUid || '')), 80);
+                return true;
+            }
+            if (kind === 'admin-section' && action.section) {
+                showSection(String(action.section || 'overview'));
+                return true;
+            }
+            if (kind === 'account-tab' && action.tab === 'orders') {
+                showSection('orders');
+                return true;
+            }
+            if (action.section) {
+                showSection(String(action.section || 'overview'));
+                return true;
+            }
+            return false;
+        }
+
+        function renderAdminNotifications() {
+            const listEl = document.getElementById('adminNotificationsList');
+            const metaEl = document.getElementById('adminNotificationsMeta');
+            const unreadBadge = document.getElementById('adminNotificationsUnreadBadge');
+            if (!listEl || !metaEl || !unreadBadge) return;
+            const rows = getFilteredAdminNotifications();
+            const unreadCount = rows.reduce((sum, item) => sum + (item && item.readByAdmin !== true ? 1 : 0), 0);
+            unreadBadge.textContent = String(unreadCount);
+            metaEl.textContent = rows.length ? `${rows.length} إشعار${adminNotificationTypeFilter ? ` • فلتر: ${adminNotificationTypeFilter}` : ''}` : 'لا توجد إشعارات مطابقة حالياً.';
+            if (!rows.length) {
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>لا توجد إشعارات حتى الآن</p></div>';
+                return;
+            }
+            listEl.innerHTML = rows.map((item) => {
+                const meta = getAdminNotificationTypeMeta(item && item.type);
+                const unread = item && item.readByAdmin !== true;
+                const refPath = escapeHtml(String(item && item.refPath || ''));
+                const customerUid = escapeHtml(String(item && item.customerUid || ''));
+                return `
+                    <div class="admin-notification-item ${unread ? 'unread' : ''}" data-ref-path="${refPath}" onclick="openAdminNotification(this.dataset.refPath)">
+                        <div class="admin-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
+                        <div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <strong style="color:var(--color-text-primary);">${escapeHtml(String(item && item.title || ''))}</strong>
+                                ${unread ? '<span class="admin-notification-dot" aria-label="غير مقروء"></span>' : ''}
+                            </div>
+                            <div style="margin-top:6px;color:#4b5563;line-height:1.7;">${escapeHtml(String(item && item.body || ''))}</div>
+                            <div style="margin-top:8px;font-size:12px;color:#666;">${customerUid ? `العميل: ${customerUid}` : 'إشعار نظامي'}</div>
+                        </div>
+                        <div class="admin-notification-meta">
+                            <span>${escapeHtml(formatDateTime(item && item.createdAt || ''))}</span>
+                            ${unread ? `<button class="btn btn-info" type="button" data-ref-path="${refPath}" onclick="event.stopPropagation(); markAdminNotificationAsReadUi(this.dataset.refPath)">تمت قراءته</button>` : '<span class="status-badge status-confirmed">مقروء</span>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function syncLowStockNotificationsFromProducts() {
+            if (typeof saveAdminSystemNotification !== 'function') return 0;
+            if (navigator.onLine !== true) return 0;
+            const rows = (Array.isArray(products) ? products : []).filter((item) => item && item.isPublished !== false && Number.isFinite(Number(item.stock)) && Number(item.stock) > 0 && Number(item.stock) <= ANALYTICS_LOW_STOCK_THRESHOLD);
+            let saved = 0;
+            for (const product of rows) {
+                const stockValue = Math.max(0, Number(product && product.stock || 0));
+                const bucket = stockValue <= ANALYTICS_CRITICAL_STOCK_THRESHOLD ? 'critical' : 'low';
+                const code = String(product && (product.code || product.id) || '').trim();
+                const docId = `stock_${bucket}_${String(product && product.id || '').trim()}`;
+                await saveAdminSystemNotification({
+                    scope: 'system',
+                    type: 'stock',
+                    audience: 'admin',
+                    title: `تنبيه مخزون منخفض #${code || 'منتج'}`,
+                    body: `المتوفر حالياً ${stockValue} وحدة للمنتج ${String(product && product.name || 'بدون اسم')}`.trim(),
+                    action: {
+                        kind: 'admin-section',
+                        section: 'products',
+                        productId: String(product && product.id || '')
+                    },
+                    source: 'admin:low-stock-sync',
+                    readByCustomer: true,
+                    readByAdmin: false,
+                    createdByRole: 'system'
+                }, { id: docId, merge: true }).catch(() => null);
+                saved += 1;
+            }
+            return saved;
+        }
+
+        function scheduleLowStockNotificationSync(delayMs = 1200) {
+            if (lowStockNotificationSyncTimer) {
+                clearTimeout(lowStockNotificationSyncTimer);
+                lowStockNotificationSyncTimer = null;
+            }
+            lowStockNotificationSyncTimer = setTimeout(() => {
+                lowStockNotificationSyncTimer = null;
+                syncLowStockNotificationsFromProducts().catch(() => null);
+            }, Math.max(200, Number(delayMs) || 1200));
+        }
+
+        async function refreshAdminNotifications() {
+            await syncLowStockNotificationsFromProducts().catch((error) => {
+                console.warn('syncLowStockNotificationsFromProducts warning:', error && error.message ? error.message : error);
+            });
+            if (typeof listAdminNotifications !== 'function') {
+                renderAdminNotifications();
+                return;
+            }
+            const rows = await listAdminNotifications({ limit: 160 }).catch(() => []);
+            applyAdminNotificationsSnapshot(rows);
         }
 
         // ============================================
@@ -11462,8 +11890,9 @@ function adminLogout(){
             document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
             document.getElementById(name + 'Section').classList.add('active');
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-            event?.target?.classList.add('active');
-            const titles = { overview: '🏠 نظرة عامة', products: '📦 المنتجات', suppliers: '🏭 الموردون', orders: '🛍️ الطلبات', banners: '🖼️ البانرات', coupons: '🎟️ الكوبونات', users: '👥 العملاء', support: '💬 الدردشة الداخلية', loyalty: '🎁 نقاط الولاء', analytics: '📊 التحليلات', reports: '📊 التقارير', storeSettings: '🏪 إعدادات المتجر', settings: '⚙️ الإعدادات' };
+            const activeMenuItem = event?.target || document.querySelector(`.menu-item[onclick*="showSection('${name}')"]`);
+            activeMenuItem?.classList.add('active');
+            const titles = { overview: '🏠 نظرة عامة', products: '📦 المنتجات', suppliers: '🏭 الموردون', orders: '🛍️ الطلبات', banners: '🖼️ البانرات', coupons: '🎟️ الكوبونات', users: '👥 العملاء', support: '💬 الدردشة الداخلية', notifications: '🔔 الإشعارات', loyalty: '🎁 نقاط الولاء', analytics: '📊 التحليلات', reports: '📊 التقارير', storeSettings: '🏪 إعدادات المتجر', settings: '⚙️ الإعدادات' };
             document.getElementById('pageTitle').textContent = titles[name] || name;
             setSidebarState(false);
             if (name === 'reports') {
@@ -11478,6 +11907,8 @@ function adminLogout(){
                     console.error('showSection analytics error:', error);
                     showNotification('error', 'تعذر تحميل التحليلات');
                 });
+            } else if (name === 'notifications') {
+                renderAdminNotifications();
             } else if (name === 'support') {
                 renderSupportThreads();
                 renderSupportMessages();
