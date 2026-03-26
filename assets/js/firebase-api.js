@@ -2097,6 +2097,7 @@ async function updateStoreSettings(updates) {
 if (typeof window !== 'undefined') {
     window.getStoreSettings = getStoreSettings;
     window.updateStoreSettings = updateStoreSettings;
+    window.ensureStorefrontFirestoreAuthReady = ensureStorefrontFirestoreAuthReady;
     window.getCustomerNotificationsAccessState = getCustomerNotificationsAccessState;
     window.getAdminNotificationsQueryState = getAdminNotificationsQueryState;
     window.saveCustomerNotification = saveCustomerNotification;
@@ -2119,6 +2120,7 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports.getStoreSettings = getStoreSettings;
     module.exports.updateStoreSettings = updateStoreSettings;
+    module.exports.ensureStorefrontFirestoreAuthReady = ensureStorefrontFirestoreAuthReady;
     module.exports.getCustomerNotificationsAccessState = getCustomerNotificationsAccessState;
     module.exports.getAdminNotificationsQueryState = getAdminNotificationsQueryState;
     module.exports.saveCustomerNotification = saveCustomerNotification;
@@ -2480,6 +2482,104 @@ function hasCustomerNotificationsAccess(uid) {
     return getCustomerNotificationsAccessState(uid).allowed;
 }
 
+async function ensureStorefrontFirestoreAuthReady(options = {}) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const targetUid = normalizeNotificationText(opts.targetUid, 200);
+    const timeoutMs = Math.max(250, Math.min(10000, Number(opts.timeoutMs) || 2500));
+    const forceRefresh = opts.forceRefresh === true;
+
+    let auth = null;
+    try {
+        auth = getFirebaseAuth();
+    } catch (_) {
+        return {
+            ready: false,
+            reason: targetUid ? 'auth-not-ready' : 'guest-path',
+            authUid: '',
+            targetUid
+        };
+    }
+
+    const finalizeState = async (candidateUser = null) => {
+        const user = candidateUser || getFirebaseAuthUserSafe();
+        const authUid = String(user && user.uid || '').trim();
+        if (!authUid) {
+            return {
+                ready: false,
+                reason: targetUid ? 'auth-not-ready' : 'guest-path',
+                authUid: '',
+                targetUid
+            };
+        }
+        if (targetUid && authUid !== targetUid) {
+            return {
+                ready: false,
+                reason: 'uid-mismatch',
+                authUid,
+                targetUid
+            };
+        }
+        if (typeof user.getIdToken === 'function') {
+            await user.getIdToken(forceRefresh).catch(() => null);
+        }
+        const hydratedUser = getFirebaseAuthUserSafe() || user;
+        const hydratedUid = String(hydratedUser && hydratedUser.uid || authUid).trim();
+        if (!hydratedUid) {
+            return {
+                ready: false,
+                reason: targetUid ? 'auth-not-ready' : 'guest-path',
+                authUid: '',
+                targetUid
+            };
+        }
+        if (targetUid && hydratedUid !== targetUid) {
+            return {
+                ready: false,
+                reason: 'uid-mismatch',
+                authUid: hydratedUid,
+                targetUid
+            };
+        }
+        return {
+            ready: true,
+            reason: 'ready',
+            authUid: hydratedUid,
+            targetUid: targetUid || hydratedUid,
+            user: hydratedUser
+        };
+    };
+
+    const currentUser = getFirebaseAuthUserSafe();
+    if (currentUser) {
+        return finalizeState(currentUser);
+    }
+
+    if (auth && typeof auth.onAuthStateChanged === 'function') {
+        const resolvedUser = await new Promise((resolve) => {
+            let settled = false;
+            let unsubscribe = null;
+            let timeoutHandle = null;
+            const finish = (user) => {
+                if (settled) return;
+                settled = true;
+                if (timeoutHandle) clearTimeout(timeoutHandle);
+                if (typeof unsubscribe === 'function') {
+                    try { unsubscribe(); } catch (_) {}
+                }
+                resolve(user || null);
+            };
+            timeoutHandle = setTimeout(() => finish(getFirebaseAuthUserSafe()), timeoutMs);
+            unsubscribe = auth.onAuthStateChanged(
+                (user) => finish(user || getFirebaseAuthUserSafe()),
+                () => finish(getFirebaseAuthUserSafe())
+            );
+        });
+        return finalizeState(resolvedUser);
+    }
+
+    return finalizeState(null);
+}
+
 function getAdminSystemNotificationCollection(settingId = 'store') {
     const normalizedSettingId = normalizeNotificationText(settingId || 'store', 120) || 'store';
     return getFirebaseDB().collection('settings').doc(normalizedSettingId).collection(NOTIFICATION_COLLECTION);
@@ -2647,8 +2747,9 @@ async function saveAdminSystemNotification(payload, options = {}) {
 
 async function listCustomerNotifications(uid, options = {}) {
     try {
-        const accessState = getCustomerNotificationsAccessState(uid);
-        if (!accessState.targetUid) return [];
+        const readyState = await ensureStorefrontFirestoreAuthReady({ targetUid: uid });
+        if (!readyState.ready || !readyState.targetUid) return [];
+        const accessState = getCustomerNotificationsAccessState(readyState.targetUid);
         if (!accessState.allowed) return [];
         const opts = options && typeof options === 'object' ? options : {};
         const safeLimit = Math.max(1, Math.min(300, Number(opts.limit || 100)));
@@ -2658,6 +2759,15 @@ async function listCustomerNotifications(uid, options = {}) {
             .map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path))
             .filter((row) => isNotificationRecordVisibleToCustomer(row, accessState.targetUid));
     } catch (error) {
+        const normalized = normalizeFirebaseError(error, 'listCustomerNotifications');
+        if (normalized.permissionDenied) {
+            logNotificationDebugOnce(
+                'customer.notifications.permission-denied-after-ready',
+                '[Notifications] Customer notifications query denied after auth readiness completed.',
+                normalized
+            );
+            return [];
+        }
         console.error('listCustomerNotifications error:', error);
         return [];
     }
@@ -2665,26 +2775,45 @@ async function listCustomerNotifications(uid, options = {}) {
 
 function subscribeCustomerNotifications(uid, onData, onError, options = {}) {
     try {
-        const accessState = getCustomerNotificationsAccessState(uid);
-        if (!accessState.targetUid) return null;
-        if (!accessState.allowed) return null;
-        const opts = options && typeof options === 'object' ? options : {};
-        const safeLimit = Math.max(1, Math.min(300, Number(opts.limit || 100)));
-        const query = buildNotificationQuery(getCustomerNotificationCollection(accessState.targetUid), 'readByCustomer', opts, safeLimit);
-        return query.onSnapshot(
-            (snapshot) => {
-                const rows = snapshot.docs
-                    .map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path))
-                    .filter((row) => isNotificationRecordVisibleToCustomer(row, accessState.targetUid));
-                if (typeof onData === 'function') onData(rows);
-            },
-            (error) => {
-                if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeCustomerNotifications.listener'));
+        let active = true;
+        let liveUnsubscribe = null;
+        const stop = () => {
+            active = false;
+            if (typeof liveUnsubscribe === 'function') {
+                try { liveUnsubscribe(); } catch (_) {}
             }
-        );
+            liveUnsubscribe = null;
+        };
+        Promise.resolve().then(async () => {
+            const readyState = await ensureStorefrontFirestoreAuthReady({ targetUid: uid });
+            if (!active || !readyState.ready || !readyState.targetUid) return;
+            const accessState = getCustomerNotificationsAccessState(readyState.targetUid);
+            if (!accessState.allowed) return;
+            const opts = options && typeof options === 'object' ? options : {};
+            const safeLimit = Math.max(1, Math.min(300, Number(opts.limit || 100)));
+            const query = buildNotificationQuery(getCustomerNotificationCollection(accessState.targetUid), 'readByCustomer', opts, safeLimit);
+            liveUnsubscribe = query.onSnapshot(
+                (snapshot) => {
+                    const rows = snapshot.docs
+                        .map((doc) => enrichNotificationRecord(doc.data() || {}, doc.id, doc.ref.path))
+                        .filter((row) => isNotificationRecordVisibleToCustomer(row, accessState.targetUid));
+                    if (typeof onData === 'function') onData(rows);
+                },
+                (error) => {
+                    const normalized = normalizeFirebaseError(error, 'subscribeCustomerNotifications.listener');
+                    if (normalized.permissionDenied) {
+                        normalized.reason = 'permission-denied-after-ready';
+                    }
+                    if (typeof onError === 'function') onError(normalized);
+                }
+            );
+        }).catch((error) => {
+            if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeCustomerNotifications.setup'));
+        });
+        return stop;
     } catch (error) {
         if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeCustomerNotifications.setup'));
-        return null;
+        return () => {};
     }
 }
 
@@ -2837,7 +2966,8 @@ async function markCustomerNotificationRead(uid, notificationId) {
         const normalizedUid = normalizeNotificationText(uid, 200);
         const normalizedId = normalizeNotificationText(notificationId, 200);
         if (!normalizedUid || !normalizedId) return false;
-        if (!hasCustomerNotificationsAccess(normalizedUid)) return false;
+        const readyState = await ensureStorefrontFirestoreAuthReady({ targetUid: normalizedUid });
+        if (!readyState.ready || !hasCustomerNotificationsAccess(normalizedUid)) return false;
         await getCustomerNotificationCollection(normalizedUid).doc(normalizedId).set({
             readByCustomer: true,
             updatedAt: new Date().toISOString()
@@ -2853,7 +2983,8 @@ async function markAllCustomerNotificationsRead(uid) {
     try {
         const normalizedUid = normalizeNotificationText(uid, 200);
         if (!normalizedUid) return 0;
-        if (!hasCustomerNotificationsAccess(normalizedUid)) return 0;
+        const readyState = await ensureStorefrontFirestoreAuthReady({ targetUid: normalizedUid });
+        if (!readyState.ready || !hasCustomerNotificationsAccess(normalizedUid)) return 0;
         const snapshot = await getCustomerNotificationCollection(normalizedUid)
             .where('readByCustomer', '==', false)
             .orderBy('createdAt', 'desc')
@@ -3039,26 +3170,47 @@ function normalizeLiveSessionPayload(payload) {
 async function upsertLiveSession(payload) {
     try {
         if (isTelemetryWriteSuspended()) {
-            return { ok: false, error: "telemetry-write-paused" };
+            return { ok: false, skipped: true, reason: 'telemetry-write-paused' };
         }
-        if (!canClientWriteTelemetry({ requireVerified: false })) {
-            return { ok: false, error: "telemetry-auth-required" };
-        }
-        const fireDB = getFirebaseDB();
         const normalized = normalizeLiveSessionPayload(payload);
         if (!normalized.sessionId) throw new Error('sessionId required');
-        if (!normalized.customerId) {
-            const user = getFirebaseAuthUserSafe();
-            normalized.customerId = user && user.uid ? String(user.uid) : '';
+        const readyState = await ensureStorefrontFirestoreAuthReady({
+            targetUid: normalized.customerId,
+            timeoutMs: 2500
+        });
+        if (!readyState.ready) {
+            return {
+                ok: false,
+                skipped: true,
+                reason: readyState.reason,
+                authUid: readyState.authUid || '',
+                id: normalized.sessionId
+            };
         }
+        const fireDB = getFirebaseDB();
+        normalized.customerId = String(readyState.authUid || normalized.customerId || '').trim();
         await fireDB.collection('store_live_sessions').doc(normalized.sessionId).set(normalized, { merge: true });
-        return { ok: true, id: normalized.sessionId };
+        return {
+            ok: true,
+            id: normalized.sessionId,
+            reason: 'authenticated-path',
+            authUid: normalized.customerId
+        };
     } catch (e) {
         if (isTransientTransportError(e)) {
             suspendTelemetryWrites(getErrorMessage(e), 45000);
         }
-        console.warn('upsertLiveSession warning:', e && e.message ? e.message : e);
-        return { ok: false, error: e && e.message ? e.message : String(e) };
+        const normalizedError = normalizeFirebaseError(e, 'upsertLiveSession');
+        if (!normalizedError.permissionDenied) {
+            console.warn('upsertLiveSession warning:', e && e.message ? e.message : e);
+        }
+        return {
+            ok: false,
+            skipped: false,
+            reason: normalizedError.permissionDenied ? 'permission-denied-after-ready' : (normalizedError.code || 'unknown'),
+            error: normalizedError.message,
+            code: normalizedError.code || 'unknown'
+        };
     }
 }
 
