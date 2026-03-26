@@ -2402,6 +2402,13 @@ function getCustomerNotificationCollection(uid) {
     return getFirebaseDB().collection('customers').doc(normalizedUid).collection(NOTIFICATION_COLLECTION);
 }
 
+function hasCustomerNotificationsAccess(uid) {
+    const normalizedUid = normalizeNotificationText(uid, 200);
+    const user = getFirebaseAuthUserSafe();
+    const authUid = String(user && user.uid || '').trim();
+    return Boolean(normalizedUid && authUid && authUid === normalizedUid);
+}
+
 function getAdminSystemNotificationCollection(settingId = 'store') {
     const normalizedSettingId = normalizeNotificationText(settingId || 'store', 120) || 'store';
     return getFirebaseDB().collection('settings').doc(normalizedSettingId).collection(NOTIFICATION_COLLECTION);
@@ -2474,6 +2481,7 @@ async function listCustomerNotifications(uid, options = {}) {
     try {
         const normalizedUid = normalizeNotificationText(uid, 200);
         if (!normalizedUid) return [];
+        if (!hasCustomerNotificationsAccess(normalizedUid)) return [];
         const opts = options && typeof options === 'object' ? options : {};
         const safeLimit = Math.max(1, Math.min(300, Number(opts.limit || 100)));
         let query = getCustomerNotificationCollection(normalizedUid);
@@ -2495,6 +2503,7 @@ function subscribeCustomerNotifications(uid, onData, onError, options = {}) {
     try {
         const normalizedUid = normalizeNotificationText(uid, 200);
         if (!normalizedUid) return null;
+        if (!hasCustomerNotificationsAccess(normalizedUid)) return null;
         const opts = options && typeof options === 'object' ? options : {};
         const safeLimit = Math.max(1, Math.min(300, Number(opts.limit || 100)));
         let query = getCustomerNotificationCollection(normalizedUid);
@@ -2593,6 +2602,7 @@ async function markCustomerNotificationRead(uid, notificationId) {
         const normalizedUid = normalizeNotificationText(uid, 200);
         const normalizedId = normalizeNotificationText(notificationId, 200);
         if (!normalizedUid || !normalizedId) return false;
+        if (!hasCustomerNotificationsAccess(normalizedUid)) return false;
         await getCustomerNotificationCollection(normalizedUid).doc(normalizedId).set({
             readByCustomer: true,
             updatedAt: new Date().toISOString()
@@ -2608,6 +2618,7 @@ async function markAllCustomerNotificationsRead(uid) {
     try {
         const normalizedUid = normalizeNotificationText(uid, 200);
         if (!normalizedUid) return 0;
+        if (!hasCustomerNotificationsAccess(normalizedUid)) return 0;
         const snapshot = await getCustomerNotificationCollection(normalizedUid)
             .where('readByCustomer', '==', false)
             .orderBy('createdAt', 'desc')
