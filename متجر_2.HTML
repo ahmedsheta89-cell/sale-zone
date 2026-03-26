@@ -2119,6 +2119,7 @@
         let customerNotificationsUnsubscribe = null;
         let customerNotificationsSnapshotReady = false;
         let customerNotificationSeenIds = new Set();
+        const customerNotificationLogOnce = new Set();
         let tawkDesiredVisibility = null;
         const recentStoreEventLog = Object.create(null);
         const STORE_EVENT_THROTTLE_MS = {
@@ -7277,6 +7278,17 @@
             customerNotificationsSnapshotReady = true;
         }
 
+        function logCustomerNotificationsOnce(key, message, meta) {
+            const normalizedKey = String(key || '').trim();
+            if (!normalizedKey || customerNotificationLogOnce.has(normalizedKey)) return;
+            customerNotificationLogOnce.add(normalizedKey);
+            if (typeof meta === 'undefined') {
+                console.warn(message);
+                return;
+            }
+            console.warn(message, meta);
+        }
+
         async function ensureCustomerNotificationsLoaded(force = false) {
             if (!currentUser) return [];
             if (!force && Array.isArray(myAccountState.notifications) && myAccountState.notifications.length) {
@@ -7286,6 +7298,26 @@
             if (!uid || typeof listCustomerNotifications !== 'function') {
                 myAccountState.notifications = [];
                 myAccountState.notificationsUnreadCount = 0;
+                return [];
+            }
+            const accessState = typeof getCustomerNotificationsAccessState === 'function'
+                ? getCustomerNotificationsAccessState(uid)
+                : {
+                    allowed: Boolean(getFirebaseCurrentUserSafe() && String(getFirebaseCurrentUserSafe().uid || '').trim() === uid),
+                    reason: 'attempted-query',
+                    targetUid: uid,
+                    authUid: String(getFirebaseCurrentUserSafe() && getFirebaseCurrentUserSafe().uid || '').trim(),
+                    authReady: !!getFirebaseCurrentUserSafe()
+                };
+            if (!accessState.allowed) {
+                logCustomerNotificationsOnce(
+                    `customerNotifications.load.${accessState.reason}`,
+                    '[Notifications] Customer notifications load skipped until Firebase Auth matches the target uid.',
+                    accessState
+                );
+                myAccountState.notifications = [];
+                myAccountState.notificationsUnreadCount = 0;
+                refreshMyAccountChrome();
                 return [];
             }
             const rows = await listCustomerNotifications(uid, { limit: 80 }).catch(() => []);
@@ -7303,10 +7335,50 @@
             stopCustomerNotificationsRealtime();
             const uid = String(currentUser.uid || currentUser.id || '').trim();
             if (!uid) return false;
+            const accessState = typeof getCustomerNotificationsAccessState === 'function'
+                ? getCustomerNotificationsAccessState(uid)
+                : {
+                    allowed: Boolean(getFirebaseCurrentUserSafe() && String(getFirebaseCurrentUserSafe().uid || '').trim() === uid),
+                    reason: 'attempted-query',
+                    targetUid: uid,
+                    authUid: String(getFirebaseCurrentUserSafe() && getFirebaseCurrentUserSafe().uid || '').trim(),
+                    authReady: !!getFirebaseCurrentUserSafe()
+                };
+            if (!accessState.allowed) {
+                logCustomerNotificationsOnce(
+                    `customerNotifications.subscribe.${accessState.reason}`,
+                    '[Notifications] Customer notifications realtime subscription skipped intentionally.',
+                    accessState
+                );
+                if (accessState.reason === 'uid-mismatch') {
+                    invalidateMyAccountCache('notifications');
+                    refreshMyAccountChrome();
+                }
+                return false;
+            }
+            logCustomerNotificationsOnce(
+                'customerNotifications.subscribe.attempted-query',
+                '[Notifications] Customer notifications realtime subscription starting.',
+                accessState
+            );
             customerNotificationsUnsubscribe = subscribeCustomerNotifications(
                 uid,
                 (rows) => applyCustomerNotificationsSnapshot(rows),
-                (error) => console.warn('customer notifications listener warning:', error && error.message ? error.message : error),
+                (error) => {
+                    const normalized = error && typeof error === 'object' ? error : { message: String(error || 'unknown notifications error') };
+                    const errorCode = String(normalized && normalized.code || 'unknown').trim();
+                    logCustomerNotificationsOnce(
+                        `customerNotifications.runtime.${errorCode}`,
+                        '[Notifications] Customer notifications listener warning.',
+                        {
+                            code: errorCode,
+                            message: String(normalized && normalized.message || normalized || ''),
+                            targetUid: accessState.targetUid,
+                            authUid: accessState.authUid
+                        }
+                    );
+                    console.warn('customer notifications listener warning:', normalized && normalized.message ? normalized.message : normalized);
+                },
                 { limit: 80 }
             );
             return typeof customerNotificationsUnsubscribe === 'function';
