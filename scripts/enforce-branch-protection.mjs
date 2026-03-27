@@ -1,30 +1,44 @@
-﻿#!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
+#!/usr/bin/env node
+import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const OWNER = process.env.GITHUB_REPOSITORY_OWNER;
 const REPO = process.env.GITHUB_REPOSITORY?.split('/')[1];
 const TOKEN = process.env.GITHUB_TOKEN;
-const BRANCH = 'main';
+const DEFAULT_BRANCH = 'main';
 const OUT_FILE = 'branch-protection-evidence.json';
 const DRY_RUN = process.argv.includes('--dry-run');
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const BASELINE_PATH = path.join(REPO_ROOT, '.github', 'branch-protection-baseline.json');
 
-const REQUIRED_CONTEXTS = [
-  'preflight',
-  'contracts-check',
-  'security-regression-check',
-  'workers-paranoid-gate',
-  'ci-parity'
-];
+function readBaseline() {
+  const raw = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+  const checks = raw.required_status_checks || {};
+  const contexts = Array.from(new Set((checks.contexts || []).map((context) => String(context).trim()).filter(Boolean)));
+  return {
+    branch: String(raw.branch || DEFAULT_BRANCH),
+    strict: Boolean(checks.strict),
+    contexts,
+    enforceAdmins: Boolean(raw.enforce_admins),
+    requiredApprovingReviewCount: Number(raw.required_approving_review_count || 0),
+    dismissStaleReviews: Boolean(raw.dismiss_stale_reviews)
+  };
+}
+
+const baseline = readBaseline();
+const BRANCH = baseline.branch;
+const REQUIRED_CONTEXTS = baseline.contexts;
 
 const payload = {
   required_status_checks: {
-    strict: true,
+    strict: baseline.strict,
     contexts: REQUIRED_CONTEXTS
   },
-  enforce_admins: true,
+  enforce_admins: baseline.enforceAdmins,
   required_pull_request_reviews: {
-    required_approving_review_count: 1,
-    dismiss_stale_reviews: true
+    required_approving_review_count: baseline.requiredApprovingReviewCount,
+    dismiss_stale_reviews: baseline.dismissStaleReviews
   },
   restrictions: null,
   allow_force_pushes: false,

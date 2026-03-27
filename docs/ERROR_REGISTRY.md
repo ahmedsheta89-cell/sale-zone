@@ -2,8 +2,8 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 11
-> Total patterns discovered: 5
+> Total errors logged: 13
+> Total patterns discovered: 6
 
 ---
 
@@ -31,7 +31,7 @@
 | [Firestore Indexes](#firestore-indexes) | 1 | 2025-01 |
 | [Deployment Pipeline](#deployment-pipeline) | 2 | 2025-01 |
 | [Git & Branching](#git--branching) | 2 | 2025-01 |
-| [Governance Checks](#governance-checks) | 1 | 2025-01 |
+| [Governance Checks](#governance-checks) | 3 | 2026-03 |
 
 ---
 
@@ -253,22 +253,24 @@ Review indexes periodically. Delete unused ones. Every index consumes storage an
 
 ### ERR-007: Deploy Backend Workflow Failing
 
-?? Date: 2025-01
-?? Batch: Post-BATCH19
+?? Date: 2026-03
+?? Batch: Post-PR#104 audit
 ??? Tags: #deploy #backend #github-actions #pipeline
 
 **Symptoms:**
 Multiple `deploy-backend.yml` runs were failing, blocking backend promotion.
 
-**Possible Causes:**
-A) Missing secret: FIREBASE_SERVICE_ACCOUNT
-B) Wrong project ID in workflow
-C) Missing `functions/` directory or `functions/package.json`
-D) Node.js version mismatch
+**Root Cause:**
+The repository declared Firebase Spark mode with Cloud Functions disabled, but `deploy-backend.yml` still attempted `firebase deploy --only functions` and even generated a fallback `functions/package.json` when none existed. `deploy-production.yml` then required backend metadata with `functionsDeployed: true`, so same-SHA promotion could stall even when the release only needed Firestore indexes.
 
-**Status:** Under investigation — update after diagnosis confirms the concrete cause
+**Solution:**
+Make the workflow Spark-compatible:
+- Deploy Firestore indexes from the target SHA on every backend promotion run
+- Skip Cloud Functions unless `deploy_functions=true`
+- Emit backend metadata that records whether functions were requested/deployed
+- Let production require `indexesAttempted=true` and accept `functionsDeployed=false` on Spark
 
-**Severity:** ?? High — backend not deploying
+**Severity:** ?? High ? backend not deploying
 
 ---
 
@@ -371,6 +373,54 @@ Bump patch version in `version.json` before running governance checks.
 Any change to core files = bump `version.json` BEFORE running governance checks.
 
 **Severity:** ?? Medium — blocks pipeline
+
+---
+
+### ERR-012: Branch Protection Context Drift
+
+?? Date: 2026-03
+?? Batch: Post-PR#104 audit
+??? Tags: #governance #branch-protection #release-gate #drift
+
+**Symptoms:**
+Branch-protection docs, baseline JSON, and enforcement scripts disagreed on which status checks were required for `main`.
+
+**Root Cause:**
+`scripts/enforce-branch-protection.mjs` and `scripts/verify-branch-protection.mjs` used hard-coded contexts (`preflight`, `contracts-check`, `security-regression-check`, `workers-paranoid-gate`, `ci-parity`) that drifted away from `.github/branch-protection-baseline.json` and the written policy. This made audits contradictory and weakened confidence in what GitHub was actually enforcing.
+
+**Solution:**
+- Use `.github/branch-protection-baseline.json` as the single repository source of truth
+- Keep the required branch-protection contexts stable: `release-gate`, `policy-governance`, `hash-stability`
+- Let `release-gate` remain the aggregate blocker for internal governance jobs
+
+**Prevention Rule:**
+Never hard-code required status-check names in multiple places. Read them from the baseline file.
+
+**Severity:** ?? High ? governance drift can hide real enforcement gaps
+
+---
+
+### ERR-013: Branch Protection Verification Was Silently Skipping
+
+?? Date: 2026-03
+?? Batch: Post-PR#104 audit
+??? Tags: #github-actions #governance #verification #branch-protection
+
+**Symptoms:**
+`release-gate.yml` reported branch-protection evidence, but the verification step could skip without proving the live repository settings matched the policy.
+
+**Root Cause:**
+The `Verify branch protection` step in `release-gate.yml` did not pass `GITHUB_TOKEN` to `scripts/verify-branch-protection.mjs`, so the script had no GitHub context and wrote a skipped result. Even with a token, branch protection still depends on repository settings and adequate GitHub permissions outside the repo.
+
+**Solution:**
+- Pass `GITHUB_TOKEN` into the verify step
+- Keep branch-protection verification evidence in CI
+- Document the remaining manual requirement: GitHub branch protection must be configured in repository settings with the baseline contexts
+
+**Prevention Rule:**
+If a governance script depends on GitHub API context, wire the token into the workflow step explicitly and document any external admin setup that CI cannot self-apply.
+
+**Severity:** ?? High ? governance checks could look healthy without proving live enforcement
 
 ---
 

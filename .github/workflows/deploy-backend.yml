@@ -1,6 +1,6 @@
-﻿# DISABLED: Firebase Spark plan has no Cloud Functions.
-# Re-enable when upgrading to Blaze plan.
-# Last failed: 2026-02-27 (Functions API not enabled)
+# Spark-compatible backend promotion workflow.
+# On Spark it deploys Firestore indexes and emits same-SHA metadata.
+# Set deploy_functions=true only after upgrading to Blaze and enabling Cloud Functions API.
 name: Deploy Backend
 
 on:
@@ -13,6 +13,11 @@ on:
       project_id:
         description: "Firebase project id"
         required: true
+        type: string
+      deploy_functions:
+        description: "Set to true only after upgrading to Blaze and enabling Cloud Functions API"
+        required: false
+        default: "false"
         type: string
 
 permissions:
@@ -72,6 +77,18 @@ jobs:
           fi
           echo "project_id=$project_id" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve deploy mode
+        id: mode
+        run: |
+          set -euo pipefail
+          raw="${{ github.event.inputs.deploy_functions || 'false' }}"
+          normalized="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          if [[ "$normalized" != "true" && "$normalized" != "false" ]]; then
+            echo "::error::Invalid deploy_functions input: '$raw' (expected true or false)"
+            exit 1
+          fi
+          echo "deploy_functions=$normalized" >> "$GITHUB_OUTPUT"
+
       - name: Checkout target SHA
         uses: actions/checkout@v4
         with:
@@ -106,40 +123,25 @@ jobs:
           set -euo pipefail
           npm install -g firebase-tools
 
-      - name: Verify required backend files
+      - name: Verify deployable files
         run: |
           set -euo pipefail
-          mkdir -p functions
-
-          if [[ ! -f functions/package.json ]]; then
-            echo "functions/package.json missing - creating minimal fallback"
-                        cat <<''JSON'' > functions/package.json
-            {
-              "name": "firebase-backend",
-              "version": "1.0.0",
-              "private": true,
-              "main": "src/index.js",
-              "engines": {
-                "node": ">=18"
-              },
-              "scripts": {
-                "start": "node src/index.js"
-              },
-              "dependencies": {
-                "firebase-admin": "^12.0.0",
-                "firebase-functions": "^5.0.0",
-                "express": "^4.19.2",
-                "cors": "^2.8.5"
-              }
-            }
-            JSON          fi
-
           if [[ ! -f firestore.indexes.json ]]; then
-            echo "firestore.indexes.json missing - creating minimal fallback"
-            echo '{"indexes":[],"fieldOverrides":[]}' > firestore.indexes.json
+            echo "::error::firestore.indexes.json missing"
+            exit 1
+          fi
+
+          if [[ "${{ steps.mode.outputs.deploy_functions }}" == "true" ]]; then
+            if [[ ! -f functions/package.json ]]; then
+              echo "::error::functions/package.json missing while deploy_functions=true"
+              exit 1
+            fi
+          else
+            echo "::notice::Cloud Functions deploy skipped (Spark-compatible mode)."
           fi
 
       - name: Deploy Functions
+        if: ${{ steps.mode.outputs.deploy_functions == 'true' }}
         run: |
           set -euo pipefail
           firebase deploy --only functions --project "${{ steps.project.outputs.project_id }}" --non-interactive
@@ -154,21 +156,26 @@ jobs:
           set -euo pipefail
           mkdir -p backend-artifact
           created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-                    cat > backend-artifact/backend-metadata.json <<EOF
+          deploy_functions="${{ steps.mode.outputs.deploy_functions }}"
+          deploy_mode="spark-compatible"
+          if [[ "$deploy_functions" == "true" ]]; then
+            deploy_mode="full-backend"
+          fi
+          cat > backend-artifact/backend-metadata.json <<EOF
           {
             "commitSha": "${{ github.event.inputs.target_sha }}",
             "workflow": "deploy-backend",
             "createdAtUtc": "${created_at}",
-            "functionsDeployed": true,
+            "deployMode": "${deploy_mode}",
+            "functionsRequested": ${deploy_functions},
+            "functionsDeployed": ${deploy_functions},
             "indexesAttempted": true
           }
           EOF
+
       - name: Upload backend metadata artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-${{ github.event.inputs.target_sha }}
           path: backend-artifact/backend-metadata.json
           if-no-files-found: error
-
-
-

@@ -79,6 +79,29 @@ Rules and indexes aligned to actual `customers/` and `settings/` paths.
 
 ---
 
+## DEC-005: Use Release Gate as the Single Merge Blocker
+
+?? Date: 2026-03
+?? Decision: Align branch protection to stable aggregate checks and drive it from the baseline file
+?? Batch: Post-PR#104 audit
+
+**Reason:**
+Requiring every internal governance job directly created drift between docs, scripts, and GitHub settings. `release-gate` already aggregates the underlying checks, while `policy-governance` remains a separate targeted guard.
+
+**Alternatives considered:**
+A) Require every internal job directly ? rejected, too much drift surface
+B) Add a second PR-validation workflow ? rejected, duplicates release-gate
+C) Require `release-gate`, `policy-governance`, and `hash-stability` and read them from one baseline ? chosen
+
+**Risks:**
+- Branch protection still depends on GitHub repository settings outside the repo
+- CI can record evidence, but it cannot self-apply branch protection without sufficient GitHub permissions
+
+**Result:**
+Repository-side governance now uses one baseline file, and the release-gate verification step receives the GitHub token it needs to query live protection when permissions allow it.
+
+---
+
 ## Template — Log a New Decision
 
 ## DEC-XXX: [Decision Title]

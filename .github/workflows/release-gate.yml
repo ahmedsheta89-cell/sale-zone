@@ -329,6 +329,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/enforce-branch-protection.mjs
       - name: Verify branch protection
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/verify-branch-protection.mjs
       - name: Upload branch protection evidence
         uses: actions/upload-artifact@v4

@@ -204,17 +204,20 @@ if (changedFiles.length) {
 
 assertContains(deployBackendWorkflow, /name:\s*Deploy Backend/, 'contracts: deploy-backend workflow missing.');
 assertContains(deployBackendWorkflow, /project_id:\s*[\s\S]*required:\s*true/, 'contracts: deploy-backend project_id must be required.');
+assertContains(deployBackendWorkflow, /deploy_functions:\s*[\s\S]*default:\s*"false"/, 'contracts: deploy-backend must default deploy_functions to false.');
 assertContains(deployBackendWorkflow, /if:\s*\$\{\{\s*inputs\.target_sha\s*!=\s*''\s*\}\}/, 'contracts: deploy-backend must fail closed when target_sha is empty.');
 assertContains(deployBackendWorkflow, /fetch-depth:\s*0/, 'contracts: deploy-backend checkout must use fetch-depth: 0.');
 assertContains(deployBackendWorkflow, /"commitSha"\s*:/, 'contracts: deploy-backend metadata commitSha key missing.');
 assertContains(deployBackendWorkflow, /"workflow"\s*:\s*"deploy-backend"/, 'contracts: deploy-backend metadata workflow key missing.');
 assertContains(deployBackendWorkflow, /"createdAtUtc"\s*:/, 'contracts: deploy-backend metadata createdAtUtc key missing.');
-assertContains(deployBackendWorkflow, /"functionsDeployed"\s*:\s*true/, 'contracts: deploy-backend metadata functionsDeployed=true missing.');
+assertContains(deployBackendWorkflow, /"functionsRequested"\s*:/, 'contracts: deploy-backend metadata functionsRequested key missing.');
+assertContains(deployBackendWorkflow, /"functionsDeployed"\s*:/, 'contracts: deploy-backend metadata functionsDeployed key missing.');
 assertContains(deployBackendWorkflow, /"indexesAttempted"\s*:\s*true/, 'contracts: deploy-backend metadata indexesAttempted=true missing.');
 assertContains(deployProductionWorkflow, /deploy-backend\.yml/, 'contracts: deploy-production verify-gates missing deploy-backend dependency.');
 assertContains(deployProductionWorkflow, /backend-\$\{targetSha\}/, 'contracts: deploy-production must validate backend artifact name by SHA.');
 assertContains(deployProductionWorkflow, /Validate backend metadata artifact/, 'contracts: deploy-production backend metadata validation step missing.');
 assertContains(deployProductionWorkflow, /backend metadata commitSha mismatch/, 'contracts: deploy-production must fail on backend metadata SHA mismatch.');
+assertContains(deployProductionWorkflow, /backend metadata must confirm indexesAttempted=true/, 'contracts: deploy-production must require backend indexesAttempted=true.');
 
 const featureRegistryPath = path.join(root, 'monitoring', 'feature-registry.json');
 let featureRegistry = null;

@@ -218,8 +218,17 @@ jobs:
           if (String(metadata.workflow || '') !== 'deploy-backend') {
             throw new Error(`backend metadata workflow mismatch (expected deploy-backend, got ${metadata.workflow})`);
           }
-          if (metadata.functionsDeployed !== true || metadata.indexesAttempted !== true) {
-            throw new Error('backend metadata flags must be true for functionsDeployed and indexesAttempted.');
+          if (metadata.indexesAttempted !== true) {
+            throw new Error('backend metadata must confirm indexesAttempted=true.');
+          }
+          if (typeof metadata.functionsDeployed !== 'boolean') {
+            throw new Error('backend metadata must contain a boolean functionsDeployed flag.');
+          }
+          if (metadata.functionsRequested !== undefined && typeof metadata.functionsRequested !== 'boolean') {
+            throw new Error('backend metadata must contain a boolean functionsRequested flag when present.');
+          }
+          if (metadata.functionsDeployed !== true) {
+            console.log('[deploy-production] Cloud Functions were intentionally skipped for this SHA.');
           }
           NODE
 
