@@ -2,8 +2,8 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 13
-> Total patterns discovered: 6
+> Total errors logged: 15
+> Total patterns discovered: 7
 
 ---
 
@@ -29,9 +29,10 @@
 | [Firebase Auth](#firebase-auth) | 3 | 2025-01 |
 | [Firestore Rules](#firestore-rules) | 2 | 2025-01 |
 | [Firestore Indexes](#firestore-indexes) | 1 | 2025-01 |
-| [Deployment Pipeline](#deployment-pipeline) | 2 | 2025-01 |
+| [Deployment Pipeline](#deployment-pipeline) | 3 | 2026-03 |
 | [Git & Branching](#git--branching) | 2 | 2025-01 |
 | [Governance Checks](#governance-checks) | 3 | 2026-03 |
+| [Observability & Logging](#observability--logging) | 1 | 2026-03 |
 
 ---
 
@@ -421,6 +422,81 @@ The `Verify branch protection` step in `release-gate.yml` did not pass `GITHUB_T
 If a governance script depends on GitHub API context, wire the token into the workflow step explicitly and document any external admin setup that CI cannot self-apply.
 
 **Severity:** ?? High ? governance checks could look healthy without proving live enforcement
+
+---
+
+## Deployment Pipeline
+
+### ERR-014: Firestore Rules and Indexes Drifted Behind Merged Code
+
+?? Date: 2026-03
+?? Batch: Post-PR#104 runtime fix
+??? Tags: #firestore #deploy #rules #indexes #production
+
+**Error Message:**
+```text
+FirebaseError: Missing or insufficient permissions
+```
+
+**When it appears:**
+- Signed-in customer opens notifications
+- Admin opens notifications panel
+- Repo files on `origin/main` already contain the matching rules and indexes
+- Runtime still returns permission-denied
+
+**Root Cause:**
+The repository already contained the correct notification paths and indexes, but merging code to GitHub does not publish Firestore rules or indexes by itself. The customer query path `customers/{uid}/notifications` is covered by the repo rules, and the admin collection-group query shape is covered by the repo indexes, so repeated production permission-denied logs point to the live Firebase project still serving older rules and/or index state.
+
+Known contributing factors:
+- Firestore deploy is separate from code merge
+- `deploy-backend.yml` had backend/index deployment drift history
+- `deploy-firestore-rules.yml` deploys rules only, not indexes
+
+**Solution:**
+- Treat Firestore deploy as a separate production step
+- Deploy both:
+  - `firestore:rules`
+  - `firestore:indexes`
+- Verify the admin collection-group index has finished building before judging the fix
+
+**Prevention Rule:**
+After any PR that changes `firestore.rules` or `firestore.indexes.json`, verify the live Firebase project was updated. Do not assume GitHub merge equals Firestore deployment.
+
+**Related Errors:** ERR-004, ERR-007
+**Severity:** ?? Critical
+
+---
+
+## Observability & Logging
+
+### ERR-015: GATE_STATE_SOURCE Log Spam
+
+?? Date: 2026-03
+?? Batch: Post-PR#104 runtime fix
+??? Tags: #logging #admin #release-gate #noise
+
+**Error Message:**
+```text
+[GATE_STATE_SOURCE] Release gate state source resolved
+```
+
+**When it appears:**
+- Admin panel initializes release-gate tracking
+- Backend/cache source resolution runs more than once
+- The same informational message repeats many times in the console
+
+**Root Cause:**
+The release-gate status logger emitted the same `GATE_STATE_SOURCE` message from multiple resolution paths without a once-per-source guard, so repeated sync cycles produced noisy duplicate logs.
+
+**Solution:**
+- Add a dedicated helper that logs the resolved source only once per source value
+- Reset the guard only when the watcher restarts
+
+**Prevention Rule:**
+Low-signal operational logs should be guarded with `logOnce` or equivalent state when the same message can be emitted by polling, snapshots, or fallback paths.
+
+**Related Errors:** ERR-014
+**Severity:** ?? Low
 
 ---
 
