@@ -4648,6 +4648,21 @@ function adminLogout(){
                 const source = String(adminNotificationsAccess.source || 'notifications');
                 noticeEl.textContent = `تعذر تحميل الإشعارات بسبب الصلاحيات (source: ${source}). بقية لوحة الأدمن تعمل بشكل طبيعي.`;
                 noticeEl.style.display = 'block';
+            } else if (typeof getAdminNotificationsQueryState === 'function') {
+                const queryState = getAdminNotificationsQueryState();
+                const fallbackReason = String(queryState && queryState.fallbackReason || '').trim();
+                if (queryState && queryState.mode === 'direct-path' && fallbackReason) {
+                    logWarnOnce(
+                        'admin.notifications.mode.direct-path.runtime',
+                        '[Notifications][Admin] collectionGroup denied at runtime; direct-path fallback is active.',
+                        queryState
+                    );
+                    noticeEl.textContent = 'تم تفعيل وضع fallback للإشعارات لأن collectionGroup رُفض وقت التشغيل. يتم الآن عرض الإشعارات عبر المسارات المباشرة بشكل آمن.';
+                    noticeEl.style.display = 'block';
+                    return;
+                }
+                noticeEl.style.display = 'none';
+                noticeEl.textContent = '';
             } else {
                 noticeEl.style.display = 'none';
                 noticeEl.textContent = '';
@@ -4712,6 +4727,7 @@ function adminLogout(){
             adminNotificationSeenIds = nextIds;
             updateBadges();
             renderAdminNotificationSoundButton();
+            updateAdminNotificationsAccessUi();
             if (document.getElementById('notificationsSection')?.classList.contains('active')) {
                 renderAdminNotifications();
             }
@@ -4719,6 +4735,16 @@ function adminLogout(){
                 toastAdminNotifications(newUnread);
             }
             adminNotificationSnapshotReady = true;
+        }
+
+        function getAdminNotificationQueryOptions() {
+            const customerIds = Array.isArray(users)
+                ? Array.from(new Set(users.map((item) => String(item && (item.id || item.uid) || '').trim()).filter(Boolean)))
+                : [];
+            return {
+                limit: 160,
+                customerIds
+            };
         }
 
         async function startAdminNotificationsRealtime(force = false) {
@@ -4730,19 +4756,30 @@ function adminLogout(){
             try {
                 await requireAdminPermission();
                 clearAdminNotificationsAccessState();
+                logWarnOnce('admin.notifications.preflight.ok', '[Notifications][Admin] preflight passed; starting realtime listener.');
             } catch (error) {
                 if (handleAdminNotificationsAccessError(error, 'startAdminNotificationsRealtime.requireAdminPermission')) return false;
                 throw error;
             }
             stopAdminNotificationsRealtime();
+            const queryOptions = getAdminNotificationQueryOptions();
             adminNotificationsUnsubscribe = subscribeAdminNotifications(
                 (rows) => applyAdminNotificationsSnapshot(rows),
                 (error) => {
                     if (handleAdminNotificationsAccessError(error, 'startAdminNotificationsRealtime.listener')) return;
                     console.warn('admin notifications listener warning:', error && error.message ? error.message : error);
                 },
-                { limit: 160 }
+                queryOptions
             );
+            if (typeof getAdminNotificationsQueryState === 'function') {
+                const queryState = getAdminNotificationsQueryState();
+                const mode = String(queryState && queryState.mode || 'collectionGroup');
+                logWarnOnce(
+                    `admin.notifications.mode.${mode}`,
+                    `[Notifications][Admin] listener query mode: ${mode}`,
+                    queryState
+                );
+            }
             renderAdminNotificationSoundButton();
             updateAdminNotificationsAccessUi();
             return typeof adminNotificationsUnsubscribe === 'function';
@@ -4906,8 +4943,18 @@ function adminLogout(){
             try {
                 await requireAdminPermission();
                 clearAdminNotificationsAccessState();
-                const rows = await listAdminNotifications({ limit: 160 });
+                logWarnOnce('admin.notifications.refresh.preflight.ok', '[Notifications][Admin] preflight passed; loading notifications snapshot.');
+                const rows = await listAdminNotifications(getAdminNotificationQueryOptions());
                 applyAdminNotificationsSnapshot(rows);
+                if (typeof getAdminNotificationsQueryState === 'function') {
+                    const queryState = getAdminNotificationsQueryState();
+                    const mode = String(queryState && queryState.mode || 'collectionGroup');
+                    logWarnOnce(
+                        `admin.notifications.refresh.mode.${mode}`,
+                        `[Notifications][Admin] refresh query mode: ${mode}`,
+                        queryState
+                    );
+                }
                 updateAdminNotificationsAccessUi();
             } catch (error) {
                 if (handleAdminNotificationsAccessError(error, 'refreshAdminNotifications')) return;

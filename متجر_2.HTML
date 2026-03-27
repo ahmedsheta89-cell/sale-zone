@@ -2119,6 +2119,8 @@
         let customerNotificationsUnsubscribe = null;
         let customerNotificationsSnapshotReady = false;
         let customerNotificationSeenIds = new Set();
+        const customerNotificationLogOnce = new Set();
+        const liveSessionLogOnce = new Set();
         let tawkDesiredVisibility = null;
         const recentStoreEventLog = Object.create(null);
         const STORE_EVENT_THROTTLE_MS = {
@@ -3603,6 +3605,43 @@
             if (!user) return false;
             if (!requireVerified) return true;
             return user.emailVerified === true;
+        }
+
+        async function resolveStorefrontFirestoreAuthState(targetUid = '') {
+            const normalizedTargetUid = String(targetUid || '').trim();
+            if (typeof ensureStorefrontFirestoreAuthReady === 'function') {
+                try {
+                    const state = await ensureStorefrontFirestoreAuthReady({
+                        targetUid: normalizedTargetUid,
+                        timeoutMs: 2500
+                    });
+                    if (state && typeof state === 'object') return state;
+                } catch (_) {}
+            }
+            const authUser = getFirebaseCurrentUserSafe();
+            const authUid = String(authUser && authUser.uid || '').trim();
+            if (!authUid) {
+                return {
+                    ready: false,
+                    reason: normalizedTargetUid ? 'auth-not-ready' : 'guest-path',
+                    authUid: '',
+                    targetUid: normalizedTargetUid
+                };
+            }
+            if (normalizedTargetUid && authUid !== normalizedTargetUid) {
+                return {
+                    ready: false,
+                    reason: 'uid-mismatch',
+                    authUid,
+                    targetUid: normalizedTargetUid
+                };
+            }
+            return {
+                ready: true,
+                reason: 'ready',
+                authUid,
+                targetUid: normalizedTargetUid || authUid
+            };
         }
 
         // ============================================
@@ -5127,21 +5166,53 @@
         async function updateLiveSessionState(extra = {}) {
             try {
                 if (typeof upsertLiveSession !== 'function') return;
-                if (!canWriteTelemetry(false)) return;
-                await upsertLiveSession({
+                const patch = extra && typeof extra === 'object' ? extra : {};
+                const targetUid = String(
+                    patch.customerId
+                    || currentUser && (currentUser.uid || currentUser.id)
+                    || ''
+                ).trim();
+                const authState = await resolveStorefrontFirestoreAuthState(targetUid);
+                if (!authState.ready) {
+                    const reasonKey = String(authState.reason || 'guest-path').trim() || 'guest-path';
+                    if (!liveSessionLogOnce.has(`liveSession.${reasonKey}`)) {
+                        liveSessionLogOnce.add(`liveSession.${reasonKey}`);
+                        console.warn('[Telemetry] Live session write skipped intentionally.', authState);
+                    }
+                    return { ok: false, skipped: true, reason: authState.reason || 'guest-path' };
+                }
+                if (!liveSessionLogOnce.has('liveSession.authenticated-path')) {
+                    liveSessionLogOnce.add('liveSession.authenticated-path');
+                    console.warn('[Telemetry] Live session write proceeding after Firebase Auth readiness confirmed.', authState);
+                }
+                const result = await upsertLiveSession({
                     sessionId: STORE_SESSION_ID,
                     page: window.location.pathname || '',
                     href: window.location.href || '',
                     online: navigator.onLine,
-                    customerId: currentUser && currentUser.id ? String(currentUser.id) : '',
+                    customerId: String(authState.authUid || targetUid || ''),
                     customerPhone: currentUser && currentUser.phone ? String(currentUser.phone) : '',
                     device: detectDeviceType(),
                     userAgent: navigator.userAgent || '',
                     updatedAt: new Date().toISOString(),
-                    ...(extra && typeof extra === 'object' ? extra : {})
+                    ...patch
                 });
+                if (result && result.ok !== true) {
+                    const failureReason = String(result.reason || result.error || 'unknown').trim() || 'unknown';
+                    if (!liveSessionLogOnce.has(`liveSession.${failureReason}`)) {
+                        liveSessionLogOnce.add(`liveSession.${failureReason}`);
+                        console.warn('[Telemetry] Live session write result.', {
+                            reason: failureReason,
+                            authUid: authState.authUid || '',
+                            targetUid: authState.targetUid || targetUid || '',
+                            sessionId: STORE_SESSION_ID
+                        });
+                    }
+                }
+                return result;
             } catch (error) {
                 console.warn('updateLiveSessionState warning:', error && error.message ? error.message : error);
+                return { ok: false, error: error && error.message ? error.message : String(error) };
             }
         }
 
@@ -7277,6 +7348,17 @@
             customerNotificationsSnapshotReady = true;
         }
 
+        function logCustomerNotificationsOnce(key, message, meta) {
+            const normalizedKey = String(key || '').trim();
+            if (!normalizedKey || customerNotificationLogOnce.has(normalizedKey)) return;
+            customerNotificationLogOnce.add(normalizedKey);
+            if (typeof meta === 'undefined') {
+                console.warn(message);
+                return;
+            }
+            console.warn(message, meta);
+        }
+
         async function ensureCustomerNotificationsLoaded(force = false) {
             if (!currentUser) return [];
             if (!force && Array.isArray(myAccountState.notifications) && myAccountState.notifications.length) {
@@ -7288,12 +7370,39 @@
                 myAccountState.notificationsUnreadCount = 0;
                 return [];
             }
-            const rows = await listCustomerNotifications(uid, { limit: 80 }).catch(() => []);
+            const authState = await resolveStorefrontFirestoreAuthState(uid);
+            const accessState = authState.ready
+                ? {
+                    allowed: true,
+                    reason: 'attempted-query',
+                    targetUid: String(authState.targetUid || uid).trim(),
+                    authUid: String(authState.authUid || uid).trim(),
+                    authReady: true
+                }
+                : {
+                    allowed: false,
+                    reason: String(authState.reason || 'auth-not-ready').trim() || 'auth-not-ready',
+                    targetUid: String(authState.targetUid || uid).trim(),
+                    authUid: String(authState.authUid || '').trim(),
+                    authReady: authState.ready === true
+                };
+            if (!accessState.allowed || !accessState.targetUid) {
+                logCustomerNotificationsOnce(
+                    `customerNotifications.load.${accessState.reason}`,
+                    '[Notifications] Customer notifications load skipped until Firebase Auth matches the target uid.',
+                    accessState
+                );
+                myAccountState.notifications = [];
+                myAccountState.notificationsUnreadCount = 0;
+                refreshMyAccountChrome();
+                return [];
+            }
+            const rows = await listCustomerNotifications(accessState.targetUid, { limit: 80 }).catch(() => []);
             applyCustomerNotificationsSnapshot(rows);
             return myAccountState.notifications;
         }
 
-        function startCustomerNotificationsRealtime(force = false) {
+        async function startCustomerNotificationsRealtime(force = false) {
             if (!currentUser) {
                 stopCustomerNotificationsRealtime();
                 return false;
@@ -7303,10 +7412,59 @@
             stopCustomerNotificationsRealtime();
             const uid = String(currentUser.uid || currentUser.id || '').trim();
             if (!uid) return false;
+            const authState = await resolveStorefrontFirestoreAuthState(uid);
+            const accessState = authState.ready
+                ? {
+                    allowed: true,
+                    reason: 'attempted-query',
+                    targetUid: String(authState.targetUid || uid).trim(),
+                    authUid: String(authState.authUid || uid).trim(),
+                    authReady: true
+                }
+                : {
+                    allowed: false,
+                    reason: String(authState.reason || 'auth-not-ready').trim() || 'auth-not-ready',
+                    targetUid: String(authState.targetUid || uid).trim(),
+                    authUid: String(authState.authUid || '').trim(),
+                    authReady: authState.ready === true
+                };
+            if (!accessState.allowed || !accessState.targetUid) {
+                logCustomerNotificationsOnce(
+                    `customerNotifications.subscribe.${accessState.reason}`,
+                    '[Notifications] Customer notifications realtime subscription skipped intentionally.',
+                    accessState
+                );
+                if (accessState.reason === 'uid-mismatch') {
+                    invalidateMyAccountCache('notifications');
+                    refreshMyAccountChrome();
+                }
+                return false;
+            }
+            logCustomerNotificationsOnce(
+                'customerNotifications.subscribe.attempted-query',
+                '[Notifications] Customer notifications realtime subscription starting.',
+                accessState
+            );
             customerNotificationsUnsubscribe = subscribeCustomerNotifications(
-                uid,
+                accessState.targetUid,
                 (rows) => applyCustomerNotificationsSnapshot(rows),
-                (error) => console.warn('customer notifications listener warning:', error && error.message ? error.message : error),
+                (error) => {
+                    const normalized = error && typeof error === 'object' ? error : { message: String(error || 'unknown notifications error') };
+                    const errorCode = normalized && normalized.permissionDenied
+                        ? 'permission-denied-after-ready'
+                        : String(normalized && normalized.code || 'unknown').trim();
+                    logCustomerNotificationsOnce(
+                        `customerNotifications.runtime.${errorCode}`,
+                        '[Notifications] Customer notifications listener warning.',
+                        {
+                            code: errorCode,
+                            message: String(normalized && normalized.message || normalized || ''),
+                            targetUid: accessState.targetUid,
+                            authUid: accessState.authUid
+                        }
+                    );
+                    console.warn('customer notifications listener warning:', normalized && normalized.message ? normalized.message : normalized);
+                },
                 { limit: 80 }
             );
             return typeof customerNotificationsUnsubscribe === 'function';
