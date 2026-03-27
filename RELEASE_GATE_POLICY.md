@@ -62,11 +62,15 @@ Runner:
 - Firestore rules must be deployed from the same SHA before production:
   - workflow: `.github/workflows/deploy-firestore-rules.yml`
   - input: `target_sha`
+- Backend promotion also runs on the same SHA:
+  - workflow: `.github/workflows/deploy-backend.yml`
+  - on Spark it deploys Firestore indexes plus backend metadata
+  - Cloud Functions remain optional until Blaze and require `deploy_functions=true`
 - Production validates checkout SHA explicitly:
   - `git rev-parse HEAD` must match `target_sha`
 - Production checks that staging artifact exists for the same SHA:
   - `staging-<target_sha>`
-- Production also checks that `deploy-firestore-rules.yml` has a successful run on the same SHA.
+- Production also checks that both `deploy-firestore-rules.yml` and `deploy-backend.yml` succeeded on the same SHA.
 
 ## Periodic Sabotage Tests (Not Daily)
 Run these periodically (weekly) and on every `policy-change:` PR:
@@ -131,6 +135,10 @@ Required status checks on `main`:
 - `release-gate`
 - `policy-governance`
 - `hash-stability`
+
+Repository source of truth:
+- `.github/branch-protection-baseline.json`
+- branch-protection scripts must read the baseline instead of hard-coding context names
 
 ## Local Gate Commands
 - Daily quick gate:

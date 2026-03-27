@@ -15,6 +15,7 @@
 - All data operations use Firestore directly
 - `callBackendApi()` exists but is intentionally unused
 - DO NOT re-enable backend API without upgrading to Blaze
+- `deploy-backend.yml` is Spark-compatible: it deploys Firestore indexes and same-SHA metadata by default, and only deploys Cloud Functions when `deploy_functions=true`
 
 ### Server Truth Only
 - Firestore = single source of truth
@@ -23,12 +24,14 @@
 
 ### Branch Protection
 Required checks (exact names):
+- `release-gate`
 - `policy-governance`
 - `hash-stability`
-- `release-gate`
-- `smoke-check`
-- `contracts-check`
-- `admin-function-monitor`
+
+Notes:
+- `release-gate` is the aggregate merge blocker and already depends on smoke, contracts, admin monitor, rules, e2e, security, workers, CI parity, and branch-protection evidence.
+- `.github/branch-protection-baseline.json` is the repository source of truth for these required checks.
+- GitHub branch protection must still be configured in repository settings; repo scripts can verify or apply it only when a token with sufficient privileges is available.
 
 ## Security — App Check
 - Status: ACTIVE
@@ -52,8 +55,8 @@ If `.github/workflows/deploy-firestore-rules.yml` needs to deploy rules automati
 4. Add `FIREBASE_TOKEN` with that token value
 
 Fallback:
-- If the secret is still missing, the workflow now continues without blocking the merge.
-- You still need to publish `firestore.rules` manually from Firebase Console or Firebase CLI.
+- If `FIREBASE_TOKEN` is missing, use `auth_mode=oidc_wif` or publish from Firebase CLI manually.
+- Missing deployment credentials should block the deployment workflow, not silently pass.
 
 ## Release Gate Jobs
 | Job | Purpose | Trigger |
@@ -136,7 +139,7 @@ These files require `version.json` bump when changed:
 | `workers-paranoid-gate.yml` | ACTIVE | Every PR/push | Always on |
 | `deploy-firestore-rules.yml` | ACTIVE | On rules change | Always on |
 | `daily-health-check.yml` | ACTIVE | Daily 6AM UTC | Always on |
-| `deploy-backend.yml` | DISABLED | 2026-02-27 | Upgrade to Blaze |
+| `deploy-backend.yml` | ACTIVE | Manual same-SHA deploy | Spark-compatible indexes; functions only when `deploy_functions=true` |
 | `rollback-production.yml` | READY | Manual only | Emergency only |
 | `workers-rollout.yml` | READY | Manual only | When workers are deployed |
 

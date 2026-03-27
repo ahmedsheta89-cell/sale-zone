@@ -125,6 +125,30 @@ grep -n "collection\|doc(" assets/js/firebase-api.js | grep -i "notif"
 
 ---
 
+## PATTERN-006: Branch Protection Needs One Source of Truth
+
+**Pattern:** Branch-protection drift appears when docs, scripts, and baseline JSON each define different required checks
+
+**Related Errors:** ERR-012, ERR-013
+
+**Description:**
+A governance system becomes untrustworthy when required status checks are duplicated in multiple files. One file drifts, the audit says one thing, CI says another, and nobody can prove what GitHub is really enforcing.
+
+**How to detect:**
+- ? Docs list one set of required checks, but scripts enforce another
+- ? Branch-protection evidence reports skipped or contradictory contexts
+- ? The aggregate gate already covers jobs that are also listed separately
+
+**General Solution:**
+- Store required branch-protection contexts in `.github/branch-protection-baseline.json`
+- Make enforcement and verification scripts read that file
+- Keep GitHub required checks limited to stable aggregate contexts
+
+**Detection command:**
+`rg -n "required_contexts|required status checks|release-gate|policy-governance|hash-stability" .github/branch-protection-baseline.json scripts RELEASE_GATE_POLICY.md GOVERNANCE.md`
+
+---
+
 ## Template — Log a New Pattern
 
 ## PATTERN-XXX: [Pattern Name]

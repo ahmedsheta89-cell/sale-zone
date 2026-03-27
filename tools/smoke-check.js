@@ -270,17 +270,20 @@ assertContains(adminFunctionRegistry, /"sourceHash"\s*:/, 'admin-function-regist
 assertContains(adminFunctionRegistry, /"policyHash"\s*:/, 'admin-function-registry.json: policyHash field missing', errors);
 assertContains(deployBackendWorkflow, /name:\s*Deploy Backend/, 'workflow: deploy-backend.yml is missing', errors);
 assertContains(deployBackendWorkflow, /project_id:\s*[\s\S]*required:\s*true/, 'workflow: deploy-backend must require project_id input', errors);
+assertContains(deployBackendWorkflow, /deploy_functions:\s*[\s\S]*default:\s*"false"/, 'workflow: deploy-backend must default deploy_functions to false', errors);
 assertContains(deployBackendWorkflow, /if:\s*\$\{\{\s*inputs\.target_sha\s*!=\s*''\s*\}\}/, 'workflow: deploy-backend must fail closed when target_sha is empty', errors);
 assertContains(deployBackendWorkflow, /fetch-depth:\s*0/, 'workflow: deploy-backend checkout must use fetch-depth: 0', errors);
 assertContains(deployBackendWorkflow, /"commitSha"\s*:/, 'workflow: deploy-backend metadata commitSha key missing', errors);
 assertContains(deployBackendWorkflow, /"workflow"\s*:\s*"deploy-backend"/, 'workflow: deploy-backend metadata workflow key missing', errors);
 assertContains(deployBackendWorkflow, /"createdAtUtc"\s*:/, 'workflow: deploy-backend metadata createdAtUtc key missing', errors);
-assertContains(deployBackendWorkflow, /"functionsDeployed"\s*:\s*true/, 'workflow: deploy-backend metadata functionsDeployed=true missing', errors);
+assertContains(deployBackendWorkflow, /"functionsRequested"\s*:/, 'workflow: deploy-backend metadata functionsRequested key missing', errors);
+assertContains(deployBackendWorkflow, /"functionsDeployed"\s*:/, 'workflow: deploy-backend metadata functionsDeployed key missing', errors);
 assertContains(deployBackendWorkflow, /"indexesAttempted"\s*:\s*true/, 'workflow: deploy-backend metadata indexesAttempted=true missing', errors);
 assertContains(deployProductionWorkflow, /deploy-backend\.yml/, 'workflow: deploy-production must require deploy-backend.yml in verify-gates', errors);
 assertContains(deployProductionWorkflow, /backend-\$\{targetSha\}/, 'workflow: deploy-production must assert backend artifact name by SHA', errors);
 assertContains(deployProductionWorkflow, /Validate backend metadata artifact/, 'workflow: deploy-production backend metadata validation step missing', errors);
 assertContains(deployProductionWorkflow, /backend metadata commitSha mismatch/, 'workflow: deploy-production must hard fail on backend metadata SHA mismatch', errors);
+assertContains(deployProductionWorkflow, /backend metadata must confirm indexesAttempted=true/, 'workflow: deploy-production must require backend indexesAttempted=true', errors);
 
 const sensitiveClientFiles = new Set([
   '\u0645\u062a\u062c\u0631_2.HTML',
