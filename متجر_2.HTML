@@ -7838,10 +7838,12 @@
                 const lowerMessage = errorMessage.toLowerCase();
                 const isVerificationPolicyError = (
                     errorCode.includes('auth/email-not-verified') ||
-                    errorCode.includes('permission-denied') ||
-                    lowerMessage.includes('missing or insufficient permissions') ||
                     lowerMessage.includes('email not verified') ||
                     lowerMessage.includes('verify your email')
+                );
+                const isPermissionError = (
+                    errorCode.includes('permission-denied') ||
+                    lowerMessage.includes('missing or insufficient permissions')
                 );
 
                 if (isVerificationPolicyError) {
@@ -7854,6 +7856,16 @@
                     }
                     showNotification('warning', 'تفعيل البريد مطلوب', verificationMessage);
                     trackStoreEvent('ORDER_SAVE_BLOCKED_AUTH_POLICY', 'Order save blocked by verification/auth policy', 'warning', {
+                        orderNumber: order.orderNumber,
+                        code: errorCode,
+                        message: errorMessage
+                    });
+                    return;
+                }
+
+                if (isPermissionError) {
+                    showNotification('error', 'تعذر إنشاء الطلب', 'حدث خطأ في إنشاء الطلب. يرجى المحاولة مرة أخرى أو التواصل مع الدعم.');
+                    trackStoreEvent('ORDER_SAVE_PERMISSION_DENIED', 'Order save failed due to Firestore permission mismatch', 'error', {
                         orderNumber: order.orderNumber,
                         code: errorCode,
                         message: errorMessage

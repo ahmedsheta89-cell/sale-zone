@@ -174,7 +174,36 @@ Merging a PR updates Git history, but Firestore rules and indexes only change af
 
 ---
 
-## Template — Log a New Pattern
+## PATTERN-008: Firestore Query Must Match Rules Constraints
+
+**Pattern:** If rules require `resource.data.field == request.auth.value`, queries must include the same field constraint.
+
+**Related Errors:** ERR-016
+
+**Description:**
+Firestore evaluates rules against every document that could match a query. If the query does not constrain the same field that the rules check, Firestore cannot guarantee every result would pass the rule, so it rejects the whole query.
+
+**Example:**
+- Rule: `allow read: if resource.data.uid == request.auth.uid`
+- Bad: `.where('idempotencyKey', '==', key)`
+- Good: `.where('uid', '==', authUid).where('idempotencyKey', '==', key)`
+
+**How to detect:**
+- Customer-scoped query returns `permission-denied` even though auth is ready
+- The rule checks `resource.data.<field>` but the query never filters on that field
+- The same operation succeeds for admins but fails for customers
+
+**General Solution:**
+- Mirror customer ownership constraints in the query itself
+- Re-check duplicate-detection or lookup queries for missing owner filters
+- Treat generic `permission-denied` as a rules/query mismatch until proven otherwise
+
+**Detection command:**
+`rg -n "idempotencyKey|resource.data.uid|where\('uid'" assets/js/firebase-api.js firestore.rules`
+
+---
+
+## Template - Log a New Pattern
 
 ## PATTERN-XXX: [Pattern Name]
 

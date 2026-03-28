@@ -2,8 +2,8 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 15
-> Total patterns discovered: 7
+> Total errors logged: 16
+> Total patterns discovered: 8
 
 ---
 
@@ -32,6 +32,7 @@
 | [Deployment Pipeline](#deployment-pipeline) | 3 | 2026-03 |
 | [Git & Branching](#git--branching) | 2 | 2025-01 |
 | [Governance Checks](#governance-checks) | 3 | 2026-03 |
+| [Orders & Checkout](#orders--checkout) | 1 | 2026-03 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
 
 ---
@@ -500,7 +501,70 @@ Low-signal operational logs should be guarded with `logOnce` or equivalent state
 
 ---
 
-## Template — Log a New Error
+## Orders & Checkout
+
+### ERR-016: Order Creation Fails with permission-denied Due to Unconstrained Query
+
+Date: 2026-03
+Tags: #orders #firestore #query #idempotency #permission-denied
+
+**Error Message:**
+```text
+FirebaseError: Missing or insufficient permissions
+```
+
+**Displayed as:**
+```text
+Check your email to complete verification
+```
+
+**When it appears:**
+- Customer signs in successfully
+- Customer opens checkout and submits an order
+- Storefront calls `addOrder()`
+- `persistOrderOnline()` checks for duplicates before writing the order
+
+**Root Cause:**
+The duplicate-check query in `persistOrderOnline()` queried:
+
+```javascript
+db.collection('orders')
+  .where('idempotencyKey', '==', key)
+  .limit(1)
+  .get()
+```
+
+Customer order reads are protected by the rule:
+
+```javascript
+allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+```
+
+Because the query did not constrain `uid`, Firestore could not prove that every matching document belonged to the signed-in customer, so it rejected the entire query with `permission-denied` before the order write happened.
+
+The storefront then misclassified that generic permission error as an email-verification failure and showed the wrong message.
+
+**Solution:**
+- Scope the duplicate-check query by customer uid:
+
+```javascript
+.where('uid', '==', payload.uid)
+.where('idempotencyKey', '==', key)
+```
+
+- Handle `permission-denied` separately from `auth/email-not-verified` in checkout UI error handling
+
+Files affected: `assets/js/firebase-api.js`, storefront checkout UI
+
+**Prevention Rule:**
+If a Firestore read rule depends on `resource.data.<field> == request.auth.<value>`, every customer query must include the same field constraint or Firestore may reject the whole query.
+
+**Related Errors:** ERR-011
+**Severity:** Critical - customers cannot place orders
+
+---
+
+## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
 
