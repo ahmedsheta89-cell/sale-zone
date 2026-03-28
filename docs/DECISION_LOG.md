@@ -102,6 +102,28 @@ Repository-side governance now uses one baseline file, and the release-gate veri
 
 ---
 
+## DEC-006: Keep Admin Notifications Strict and Match Client Preflight to Server Rules
+
+?? Date: 2026-03
+?? Decision: Require both admin claim and verified email for admin notification access
+?? Batch: Post-PR#104 runtime fix
+
+**Reason:**
+The server-side Firestore rules already define admin access as a verified user with an admin claim. Relaxing the rules to claim-only would hide account-state problems and weaken the permission model. The safer fix is to keep the strict rule and make client-side admin notification preflight fail early with the same requirement.
+
+**Alternatives considered:**
+A) Relax admin notification rules to claim-only ? rejected
+B) Keep strict rules and align the client preflight/error messaging ? chosen
+
+**Risks:**
+- Admin accounts with stale or unverified email will lose notification access until fixed
+- Production debugging still requires checking both claim state and Firestore deployment state
+
+**Result:**
+Admin notification access now fails earlier with a specific verified-email message, while the server-side permission model stays unchanged.
+
+---
+
 ## Template — Log a New Decision
 
 ## DEC-XXX: [Decision Title]

@@ -3122,6 +3122,7 @@
         let admin24hChangeAlertShownThisSession = false;
         let admin24hGateStateSource = 'cache';
         let admin24hGateStateSettled = false;
+        let admin24hLastLoggedGateStateSource = '';
 
         function normalizeArabicHeader(text) {
             return String(text || '')
@@ -3145,6 +3146,15 @@
             if (/(med|medical|طبي|اجهزه|اجهزة)/.test(v)) return 'medical';
             if (/(supplement|vit|مكمل|فيتامين|جمله|جملة)/.test(v)) return 'supplements';
             return 'supplements';
+        }
+
+        function logAdmin24hGateStateSourceOnce(source) {
+            const normalizedSource = String(source || 'cache').trim().toLowerCase() || 'cache';
+            if (admin24hLastLoggedGateStateSource === normalizedSource) return;
+            admin24hLastLoggedGateStateSource = normalizedSource;
+            logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', {
+                source: normalizedSource
+            });
         }
 
         function parseMoney(value) {
@@ -3820,9 +3830,7 @@
                 const backendState = await getReleaseGateState({ retries: 1 });
                 admin24hGateStateSource = 'backend';
                 admin24hGateStateSettled = true;
-                logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', {
-                    source: admin24hGateStateSource
-                });
+                logAdmin24hGateStateSourceOnce(admin24hGateStateSource);
 
                 if (backendState && backendState.lastSeenDigest && backendState.lastSeenDigest !== localTracker.lastSeenDigest) {
                     logAdmin('warn', 'GATE_STATE_MISMATCH', 'Backend release gate digest differs from local digest', {
@@ -3842,9 +3850,7 @@
                 logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'release gate state not available from backend', {
                     error: error && error.message ? String(error.message) : String(error)
                 });
-                logAdmin('info', 'GATE_STATE_SOURCE', 'Release gate state source resolved', {
-                    source: admin24hGateStateSource
-                });
+                logAdmin24hGateStateSourceOnce(admin24hGateStateSource);
             }
 
             if (effectiveGateState === 'BLOCKED' && !hasAdmin24hAlertShownThisSession()) {
@@ -3865,6 +3871,7 @@
             stopAdminChangeNotificationWatcher();
             admin24hChangeAlertShownThisSession = hasAdmin24hAlertShownThisSession();
             admin24hGateStateSettled = false;
+            admin24hLastLoggedGateStateSource = '';
             checkAdmin24hChangeAlert().catch((error) => {
                 logAdmin('warn', 'GATE_STATE_DEGRADED_BACKEND_UNAVAILABLE', 'Initial release gate sync failed', {
                     error: error && error.message ? String(error.message) : String(error)
@@ -4679,7 +4686,12 @@ function adminLogout(){
 
         function handleAdminNotificationsAccessError(error, source = '') {
             const code = getPermissionErrorCode(error);
-            const denied = code === 'not-admin' || code === 'not-authenticated' || code === 'not_authenticated' || isPermissionDenied(error);
+            const denied = code === 'not-admin'
+                || code === 'not-authenticated'
+                || code === 'not_authenticated'
+                || code === 'email-not-verified'
+                || code === 'auth/email-not-verified'
+                || isPermissionDenied(error);
             if (!denied) return false;
 
             const reason = String(error && (error.message || error.reason) || error || 'unknown notifications access error').trim();
@@ -4690,7 +4702,15 @@ function adminLogout(){
 
             if (adminNotificationsAccess.notifiedReason !== reason) {
                 adminNotificationsAccess.notifiedReason = reason;
-                showNotification('warning', '⚠️ الإشعارات: تحقق من صلاحيات الأدمن في Firebase ثم سجل الخروج والدخول مرة أخرى.');
+                const reasonLower = reason.toLowerCase();
+                const adminWarningMessage = (
+                    code === 'email-not-verified'
+                    || code === 'auth/email-not-verified'
+                    || reasonLower.includes('email-not-verified')
+                )
+                    ? '⚠️ الإشعارات: يلزم تفعيل بريد حساب الأدمن ثم تحديث الجلسة قبل تحميل الإشعارات.'
+                    : '⚠️ الإشعارات: تحقق من صلاحيات الأدمن في Firebase ثم سجل الخروج والدخول مرة أخرى.';
+                showNotification('warning', adminWarningMessage);
             }
 
             warnPermissionDeniedOnce(normalizedSource, error, 'notifications access denied');

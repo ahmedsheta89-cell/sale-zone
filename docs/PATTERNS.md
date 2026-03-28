@@ -149,6 +149,31 @@ A governance system becomes untrustworthy when required status checks are duplic
 
 ---
 
+## PATTERN-007: GitHub Merge != Firebase Deploy
+
+**Pattern:** Repository code can be correct while live Firestore still serves older rules or indexes
+
+**Related Errors:** ERR-014
+
+**Description:**
+Merging a PR updates Git history, but Firestore rules and indexes only change after a Firebase deployment. This creates a trap where repo inspection says a query should work, while production still returns `permission-denied` because the live project has not received the new rules or indexes yet.
+
+**How to detect:**
+- ? Repo rules clearly cover the failing query path
+- ? Repo indexes match the failing query shape
+- ? Production still returns Firestore permission or index errors after merge
+- ? Deployment workflows for rules/indexes did not run or did not succeed
+
+**General Solution:**
+- Treat Firestore deployment as a separate release step
+- Deploy both rules and indexes
+- Confirm the collection-group index finished building before closing the incident
+
+**Detection command:**
+`rg -n "notifications|readByAdmin|readByCustomer|collectionGroup" assets/js/firebase-api.js firestore.rules firestore.indexes.json`
+
+---
+
 ## Template — Log a New Pattern
 
 ## PATTERN-XXX: [Pattern Name]

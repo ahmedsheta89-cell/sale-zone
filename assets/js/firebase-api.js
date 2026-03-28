@@ -2700,6 +2700,14 @@ async function ensureAdminNotificationsAccess() {
     if (typeof user.getIdToken === 'function') {
         await user.getIdToken(true).catch(() => null);
     }
+    if (user.emailVerified !== true) {
+        const verifyError = buildAdminNotificationsAccessError(
+            'auth/email-not-verified',
+            'Admin notifications require a verified email address. Verify the admin account email, refresh the session, and try again.'
+        );
+        verifyError.emailVerified = false;
+        throw verifyError;
+    }
     const tokenResult = typeof user.getIdTokenResult === 'function'
         ? await user.getIdTokenResult(true).catch(() => null)
         : null;
