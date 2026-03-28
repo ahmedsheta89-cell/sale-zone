@@ -8,6 +8,8 @@ on:
 permissions:
   contents: read
   issues: write
+  deployments: read
+  pages: read
 
 jobs:
   health-check:
@@ -35,8 +37,8 @@ jobs:
       - name: Run admin monitor
         run: node tools/admin-function-monitor.js
 
-      - name: Verify branch protection
-        run: node tools/verify-branch-protection.js
+      - name: GitHub Admin Checks
+        run: node tools/github-admin-check.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
