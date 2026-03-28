@@ -1097,6 +1097,8 @@ async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
     if (idempotencyKey) {
         const existingSnapshot = await fireDB
             .collection('orders')
+            // Scope duplicate checks to the signed-in customer so the query satisfies order read rules.
+            .where('uid', '==', String(payload.uid || '').trim())
             .where('idempotencyKey', '==', idempotencyKey)
             .limit(1)
             .get();
