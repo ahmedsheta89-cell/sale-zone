@@ -1,0 +1,99 @@
+# Operating Sequence
+
+This runbook defines the safe operational sequence for Sale Zone work. It is intentionally practical and assumes the root checkout may already be dirty.
+
+## When a Bug Is Found
+
+1. Read [AGENT_RULES.md](AGENT_RULES.md) and [PROJECT_STATUS.md](PROJECT_STATUS.md).
+2. Diagnose first. Do not start by editing.
+3. Create a new worktree from `origin/main`; do not use the dirty root checkout.
+4. Apply the smallest safe fix that addresses the real cause.
+5. If auth/UI state is involved, treat live Firebase auth as truth and cached UI/localStorage as suspect until proven otherwise.
+
+## After a Fix Is Implemented
+
+1. Run `npm.cmd ci`.
+2. Set `git config core.hooksPath ".githooks"`.
+3. Run the required governance quartet:
+   - `node tools/usage-check.js`
+   - `node tools/contracts-check.js`
+   - `node tools/snapshot-check.js --check`
+   - `node tools/smoke-check.js`
+4. If the change affects runtime behavior, run browser/backend verification only when prerequisites exist.
+5. Capture evidence before claiming success.
+
+## After Merge
+
+1. Fetch `origin`.
+2. Create a detached worktree from `origin/main`.
+3. Verify the fix is present on merged content.
+4. If the original branch commit SHA is not an ancestor, check whether merge happened by squash and confirm content equivalence instead of declaring a false failure.
+5. Rerun governance and integrity checks on merged `main`.
+
+## Post-Merge Real-User Validation
+
+Use this when the merged change affects login, checkout, orders, admin access, or any other user-facing behavior.
+
+- Prefer the same browser session when auth continuity matters.
+- If UI appearance and runtime auth disagree, runtime auth wins and the desync is a bug.
+- Screenshots, browser console/runtime state, and reproducible steps are required evidence.
+- Use merged `main` content or an equivalent deployment target; do not rely on stale GitHub Pages content by default.
+
+## Before Release
+
+1. Follow [RELEASE_GATE_POLICY.md](RELEASE_GATE_POLICY.md).
+2. Verify same-SHA expectations for staging/production flows.
+3. Confirm external/manual items that code checks cannot prove:
+   - branch protection
+   - deployed Firebase rules/indexes state
+   - environment readiness
+4. Do not claim release readiness from code checks alone.
+
+## Browser Validation Flow
+
+- Use fixed branch content or merged `main`.
+- Use Playwright or real-browser validation depending the question.
+- Credentials are required for login, checkout, loyalty, order history, and admin paths.
+- Missing credentials => `BLOCKED`.
+- Screenshot-backed evidence is required for browser `PASS`.
+- Browser results against stale deployed content are informative at best, not authoritative for recent fixes.
+
+## Backend Validation Flow
+
+- Requires service account/project context when direct backend proof is needed.
+- Missing service account or project credentials => `BLOCKED`.
+- Treat backend deploy state as external/manual unless directly verified against the target environment.
+
+## Dirty Root Tree Policy
+
+- Never clean, repurpose, or test against the dirty root checkout.
+- Never assume dirty-root changes are yours to reuse or remove.
+- New work should happen in a fresh worktree or clearly isolated branch/worktree pair.
+
+## Safe Worktree Rules
+
+1. `git fetch origin --prune`
+2. Create worktree from `origin/main`
+3. Set `git config core.hooksPath ".githooks"`
+4. Run `npm.cmd ci`
+5. Keep audit/test artifacts inside the isolated worktree unless the task explicitly requires moving them elsewhere
+
+## Safe Cleanup Rules
+
+- Surface findings before removing a worktree.
+- Preserve evidence paths or copy artifacts before cleanup if the results may be needed later.
+- Do not delete a worktree that still contains the only copy of important evidence unless the user clearly prefers cleanup over retention.
+
+## Failure Interpretation
+
+- Repo regression: code, rules, workflows, or governance actually fail on the content under test.
+- Environment/tooling issue: sandbox/process restrictions, missing credentials, blocked network, missing CLI auth, PowerShell execution-policy friction, or similar host-side limitations.
+- If a check fails because the environment blocks truthful execution, classify it as `BLOCKED` or environment-specific, not as a fake repo `FAIL`.
+
+# See Also
+
+- [AGENT_RULES.md](AGENT_RULES.md)
+- [PROJECT_STATUS.md](PROJECT_STATUS.md)
+- [PROMPT_CATALOG.md](PROMPT_CATALOG.md)
+- [ENGINEERING_OPERATING_STANDARD.md](ENGINEERING_OPERATING_STANDARD.md)
+- [RELEASE_GATE_POLICY.md](RELEASE_GATE_POLICY.md)
