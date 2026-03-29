@@ -2116,6 +2116,7 @@
             notificationsUnreadCount: 0
         };
         let storeAuthListenerBound = false;
+        let storeAuthResolved = false;
         let customerNotificationsUnsubscribe = null;
         let customerNotificationsSnapshotReady = false;
         let customerNotificationSeenIds = new Set();
@@ -5327,6 +5328,37 @@
             return firebase.auth();
         }
 
+        function clearCurrentUserCache() {
+            currentUser = null;
+            myAccountState.profile = null;
+            localStorage.removeItem('currentUser');
+        }
+
+        function syncCurrentUserFromAuthUser(authUser, fallback = {}) {
+            if (!authUser || !authUser.uid) return null;
+            const seed = fallback && typeof fallback === 'object' ? fallback : {};
+            currentUser = sanitizeCustomerRecord({
+                ...(currentUser || {}),
+                ...seed,
+                id: String(seed.id || currentUser && currentUser.id || authUser.uid),
+                uid: String(authUser.uid || ''),
+                name: String(
+                    seed.name
+                    || currentUser && currentUser.name
+                    || authUser.displayName
+                    || authUser.email && String(authUser.email).split('@')[0]
+                    || ''
+                ),
+                email: String(authUser.email || seed.email || currentUser && currentUser.email || '').trim().toLowerCase(),
+                emailVerified: authUser.emailVerified === true,
+                authMethod: String(seed.authMethod || currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
+                photoURL: String(authUser.photoURL || seed.photoURL || currentUser && currentUser.photoURL || '')
+            });
+            myAccountState.profile = currentUser;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            return currentUser;
+        }
+
         function getMagicLinkActionCodeSettings() {
             return {
                 url: MAGIC_LINK_REDIRECT_URL,
@@ -5425,12 +5457,18 @@
         function ensureStoreAuthListener() {
             if (storeAuthListenerBound) return;
             const auth = getFirebaseAuthInstance();
-            if (!auth || typeof auth.onAuthStateChanged !== 'function') return;
+            if (!auth || typeof auth.onAuthStateChanged !== 'function') {
+                storeAuthResolved = true;
+                updateUserUI();
+                return;
+            }
             storeAuthListenerBound = true;
+            storeAuthResolved = !!(auth.currentUser && auth.currentUser.uid);
+            updateUserUI();
             auth.onAuthStateChanged((authUser) => {
+                storeAuthResolved = true;
                 if (!authUser) {
-                    currentUser = null;
-                    localStorage.removeItem('currentUser');
+                    clearCurrentUserCache();
                     invalidateMyAccountCache('all');
                     stopSupportChatRealtime();
                     stopCustomerNotificationsRealtime();
@@ -5441,17 +5479,7 @@
                     return;
                 }
 
-                currentUser = sanitizeCustomerRecord({
-                    ...(currentUser || {}),
-                    id: String(currentUser && currentUser.id || authUser.uid),
-                    uid: String(authUser.uid || ''),
-                    name: String(currentUser && currentUser.name || authUser.displayName || authUser.email && String(authUser.email).split('@')[0] || ''),
-                    email: String(authUser.email || currentUser && currentUser.email || '').trim().toLowerCase(),
-                    emailVerified: authUser.emailVerified === true,
-                    authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
-                    photoURL: String(authUser.photoURL || currentUser && currentUser.photoURL || '')
-                });
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                syncCurrentUserFromAuthUser(authUser);
                 updateUserUI();
                 updateLiveSessionState({
                     customerId: String(currentUser.id || currentUser.uid || ''),
@@ -5513,6 +5541,7 @@
                     role: String(profile && profile.role || 'customer'),
                     emailVerified: authUser.emailVerified === true
                 });
+                storeAuthResolved = true;
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 updateUserUI();
                 invalidateMyAccountCache('all');
@@ -5828,11 +5857,12 @@
 
         function checkLoggedInUser() {
             const saved = localStorage.getItem('currentUser');
+            let cachedUser = null;
             if (saved) {
                 try {
-                    currentUser = sanitizeCustomerRecord(JSON.parse(saved));
+                    cachedUser = sanitizeCustomerRecord(JSON.parse(saved));
                 } catch (_) {
-                    currentUser = null;
+                    cachedUser = null;
                     localStorage.removeItem('currentUser');
                 }
             }
@@ -5841,17 +5871,9 @@
                 ? firebase.auth().currentUser
                 : null;
             if (authUser && authUser.uid) {
-                currentUser = sanitizeCustomerRecord({
-                    ...(currentUser || {}),
-                    id: String(currentUser && currentUser.id || authUser.uid),
-                    uid: String(authUser.uid || ''),
-                    name: String(currentUser && currentUser.name || authUser.displayName || ''),
-                    email: String(authUser.email || currentUser && currentUser.email || '').toLowerCase(),
-                    emailVerified: authUser.emailVerified === true,
-                    authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
-                    photoURL: String(authUser.photoURL || currentUser && currentUser.photoURL || '')
-                });
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                storeAuthResolved = true;
+                currentUser = cachedUser;
+                syncCurrentUserFromAuthUser(authUser);
 
                 if (typeof getMyCustomerProfile === 'function') {
                     getMyCustomerProfile(String(authUser.uid || ''))
@@ -5881,6 +5903,12 @@
                         })
                         .catch(() => null);
                 }
+            } else if (!getFirebaseAuthInstance()) {
+                storeAuthResolved = true;
+                clearCurrentUserCache();
+            } else {
+                currentUser = null;
+                storeAuthResolved = false;
             }
 
             updateUserUI();
@@ -5892,16 +5920,31 @@
                     customerId: String(currentUser.id || currentUser.uid || ''),
                     customerPhone: String(currentUser.phone || '')
                 });
+            } else {
+                updateLiveSessionState({ customerId: '', customerPhone: '' });
             }
             updateLoyaltyDisplay();
             syncChatRouting({ source: 'check-logged-in-user', silent: true }).catch(() => null);
         }
 
         function updateUserUI() {
-            document.getElementById('guestMenu').classList.toggle('hidden', !!currentUser);
-            document.getElementById('userMenu').classList.toggle('hidden', !currentUser);
-            document.getElementById('userBtn').textContent = currentUser && currentUser.name ? currentUser.name.charAt(0) : '👤';
-            document.getElementById('userBtn').setAttribute('aria-label', currentUser ? `فتح حساب ${currentUser.name || ''}` : 'فتح قائمة الحساب');
+            const guestMenu = document.getElementById('guestMenu');
+            const userMenu = document.getElementById('userMenu');
+            const userBtn = document.getElementById('userBtn');
+            const authPending = storeAuthResolved !== true;
+            if (guestMenu) guestMenu.classList.toggle('hidden', authPending || !!currentUser);
+            if (userMenu) userMenu.classList.toggle('hidden', authPending || !currentUser);
+            if (userBtn) {
+                if (authPending) {
+                    userBtn.textContent = '…';
+                    userBtn.setAttribute('aria-label', 'جاري التحقق من جلسة الدخول');
+                    userBtn.setAttribute('aria-busy', 'true');
+                } else {
+                    userBtn.textContent = currentUser && currentUser.name ? currentUser.name.charAt(0) : '👤';
+                    userBtn.setAttribute('aria-label', currentUser ? `فتح حساب ${currentUser.name || ''}` : 'فتح قائمة الحساب');
+                    userBtn.removeAttribute('aria-busy');
+                }
+            }
             updateLoyaltyDisplay();
             if (isMyAccountOpen()) {
                 renderMyAccountChrome();
@@ -5921,8 +5964,8 @@
                     customerId: String(currentUser.id || '')
                 });
             }
-            currentUser = null;
-            localStorage.removeItem('currentUser');
+            storeAuthResolved = true;
+            clearCurrentUserCache();
             if (firebase && firebase.auth) {
                 firebase.auth().signOut().catch(() => null);
             }
@@ -7697,10 +7740,24 @@
         // 📦 Checkout
         // ============================================
         async function ensureVerifiedForSensitiveAction(actionKey = 'sensitive-action') {
-            if (!currentUser) {
-                showNotification('error', '🔒 تسجيل الدخول مطلوب', 'يجب تسجيل الدخول أولاً');
+            const authUser = getFirebaseCurrentUserSafe();
+            if (!authUser || !authUser.uid) {
+                storeAuthResolved = true;
+                clearCurrentUserCache();
+                updateUserUI();
+                updateLiveSessionState({ customerId: '', customerPhone: '' });
+                if (isMyAccountOpen()) closeMyAccount();
+                showNotification('error', '🔒 انتهت الجلسة', 'انتهت جلسة تسجيل الدخول. سجّل الدخول مرة أخرى ثم أعد المحاولة.');
                 showLoginModal();
                 return false;
+            }
+            if (!currentUser || String(currentUser.uid || currentUser.id || '').trim() !== String(authUser.uid || '').trim()) {
+                syncCurrentUserFromAuthUser(authUser);
+                updateUserUI();
+                updateLiveSessionState({
+                    customerId: String(currentUser && (currentUser.id || currentUser.uid) || ''),
+                    customerPhone: String(currentUser && currentUser.phone || '')
+                });
             }
 
             let verifyCheckError = null;
@@ -9033,6 +9090,10 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             closeFAQBot({ skipHistory: true });
             const dropdown = document.querySelector('.user-dropdown');
             const trigger = document.getElementById('userBtn');
+            if (storeAuthResolved !== true) {
+                showNotification('info', 'جاري التحقق', 'نراجع جلسة الدخول الآن. انتظر لحظة ثم حاول مرة أخرى.');
+                return;
+            }
             if (currentUser) {
                 if (dropdown) dropdown.classList.remove('force-open');
                 if (trigger) trigger.setAttribute('aria-expanded', 'false');
