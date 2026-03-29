@@ -2672,6 +2672,8 @@
             const rating = Number(source.rating);
             const ratingCount = Number(source.ratingCount);
             const isPublished = source.isPublished === true;
+            const trackInventory = source.trackInventory === true || source['تتبع_المخزون'] === true;
+            const stockValue = Number(source.stock);
             const costPrice = Number.isFinite(Number(source.costPrice)) ? Number(source.costPrice) : (Number.isFinite(price) ? price : 0);
             const marginPercent = Number.isFinite(Number(source.marginPercent)) ? Number(source.marginPercent) : 0;
             const sellPrice = Number.isFinite(Number(source.sellPrice)) ? Number(source.sellPrice) : (Number.isFinite(price) ? price : 0);
@@ -2698,6 +2700,8 @@
                 costPrice,
                 marginPercent,
                 sellPrice,
+                stock: Number.isFinite(stockValue) ? stockValue : -1,
+                trackInventory,
                 profitValue,
                 profitMarginActual,
                 manualPriceOverride: source.manualPriceOverride === true,
@@ -4167,17 +4171,22 @@
             };
         }
 
+        function isProductInventoryTracked(item) {
+            const source = item && typeof item === 'object' ? item : {};
+            return source.trackInventory === true || source['تتبع_المخزون'] === true;
+        }
+
         function isProductInStock(item) {
-            const stockValue = Number(item && item.stock);
-            // WHY: imported catalog rows use -1 as "available / unmanaged stock", not "out of stock".
-            if (!Number.isFinite(stockValue)) return true;
-            return stockValue !== 0;
+            const stockValue = getProductStockValue(item);
+            if (stockValue === null) return true;
+            return stockValue > 0;
         }
 
         function getProductStockValue(item) {
+            if (!isProductInventoryTracked(item)) return null;
             const stockValue = Number(item && item.stock);
-            if (!Number.isFinite(stockValue)) return null;
-            return stockValue;
+            if (!Number.isFinite(stockValue)) return 0;
+            return Math.max(0, stockValue);
         }
 
         function getProductDiscountPercent(item) {
@@ -4197,6 +4206,12 @@
                 return t('onlyLeft').replace('{count}', String(stockValue));
             }
             return '';
+        }
+
+        if (typeof window !== 'undefined') {
+            window.isProductInventoryTracked = isProductInventoryTracked;
+            window.isProductInStock = isProductInStock;
+            window.getProductStockValue = getProductStockValue;
         }
 
         function computeProductSearchResult(state) {

@@ -229,6 +229,10 @@ function isTransientRealtimeError(error) {
         normalized.includes('webchannel') ||
         normalized.includes('cors') ||
         normalized.includes('network') ||
+        normalized.includes('err_cert_authority_invalid') ||
+        normalized.includes('cert_authority_invalid') ||
+        (normalized.includes('certificate') && normalized.includes('invalid')) ||
+        normalized.includes('ssl') ||
         normalized.includes('listen/channel') ||
         normalized.includes('status: 1')
     );
@@ -681,4 +685,3 @@ if (isStorePage) {
         setTimeout(initializeFirebaseData, 2000);
     }
 }
-

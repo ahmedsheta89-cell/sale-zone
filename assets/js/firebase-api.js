@@ -673,6 +673,7 @@ function mapProductFromSnapshot(doc) {
         ratingCount: data.ratingCount || 0,
         code: data.code || '',
         stock: Number.isFinite(Number(data.stock)) ? Number(data.stock) : -1,
+        trackInventory: data.trackInventory === true,
         supplierId: data.supplierId || '',
         supplierName: data.supplierName || '',
         supplierCode: data.supplierCode || '',
@@ -691,6 +692,17 @@ function mapProductFromSnapshot(doc) {
         createdAt: data.createdAt || '',
         updatedAt: data.updatedAt || ''
     };
+}
+
+function isTrackedInventoryProduct(item) {
+    return !!(item && typeof item === 'object' && item.trackInventory === true);
+}
+
+function getTrackedInventoryStockValue(item) {
+    if (!isTrackedInventoryProduct(item)) return null;
+    const stockValue = Number(item && item.stock);
+    if (!Number.isFinite(stockValue)) return 0;
+    return Math.max(0, stockValue);
 }
 
 async function getPublishedProducts() {
@@ -1730,7 +1742,12 @@ async function searchProductsIndexed(query, filters = {}, sort = 'default', page
             return Number.isFinite(price) && price <= maxPrice;
         });
     }
-    if (safeFilters.inStock === true) rows = rows.filter((item) => Number(item.stock || 0) > 0);
+    if (safeFilters.inStock === true) {
+        rows = rows.filter((item) => {
+            const trackedStockValue = getTrackedInventoryStockValue(item);
+            return trackedStockValue === null || trackedStockValue > 0;
+        });
+    }
 
     if (queryText) {
         const queryTokens = queryText.split(' ').filter(Boolean);
