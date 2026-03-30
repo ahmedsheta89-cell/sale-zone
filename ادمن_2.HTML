@@ -2556,6 +2556,16 @@
             <label>عمود المخزون</label>
             <select id="mapStockCol"></select>
           </div>
+          <div class="form-group">
+            <label>عمود سعر البيع</label>
+            <select id="mapSellPriceCol"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>عمود تتبع المخزون</label>
+            <select id="mapTrackInventoryCol"></select>
+          </div>
         </div>
       </div>
 
@@ -2575,7 +2585,7 @@
               <input type="checkbox" id="publishAfterImport" checked onchange="updateImportPublishHint(this.checked)">
               <span>نشر المنتجات مباشرة بعد الاستيراد</span>
             </label>
-            <div class="wizard-help" id="wizardPublishHint">سيتم نشر المنتجات الصالحة مباشرة بعد الاستيراد، مع إبقاء أي صف غير صالح مخفيًا تلقائيًا.</div>
+            <div class="wizard-help" id="wizardPublishHint">سيتم نشر المنتجات مباشرة بعد الاستيراد. الصفوف ذات السعر صفر ستظهر بتحذير في التقرير النهائي.</div>
           </div>
         </div>
         <div class="wizard-progress">
@@ -3098,6 +3108,7 @@
         const IMPORT_WIZARD_FIELDS = [
             { key: 'name', label: 'الاسم', required: true },
             { key: 'price', label: 'السعر', required: true },
+            { key: 'sellPrice', label: 'سعر البيع', required: false },
             { key: 'desc', label: 'الوصف', required: false },
             { key: 'category', label: 'القسم', required: false },
             { key: 'usageInstructions', label: 'طريقة الاستخدام', required: false },
@@ -3106,11 +3117,13 @@
             { key: 'image', label: 'الصورة', required: false },
             { key: 'oldPrice', label: 'السعر القديم', required: false },
             { key: 'code', label: 'الكود', required: false },
-            { key: 'stock', label: 'المخزون', required: false }
+            { key: 'stock', label: 'المخزون', required: false },
+            { key: 'trackInventory', label: 'تتبع المخزون', required: false }
         ];
         const IMPORT_HEADER_SYNONYMS = {
             name: ['name', 'product', 'product name', 'اسم', 'اسم المنتج', 'الصنف', 'المنتج'],
-            price: ['price', 'Price', 'PRICE', 'retail', 'selling', 'sale price', 'سعر', 'السعر', 'السعر (ج.م)', 'سعر البيع', 'سعر القطاعي', 'التكلفة'],
+            price: ['price', 'Price', 'PRICE', 'retail', 'selling', 'list price', 'base price', 'سعر', 'السعر', 'السعر (ج.م)', 'سعر المنتج', 'سعر القطاعي'],
+            sellPrice: ['sellprice', 'sell price', 'sale price', 'discount price', 'offer price', 'سعر البيع', 'سعر_البيع', 'سعر الخصم', 'السعر بعد الخصم'],
             desc: ['description', 'desc', 'details', 'الوصف', 'تفاصيل', 'مواصفات'],
             category: ['category', 'class', 'section', 'القسم', 'التصنيف', 'الفئه', 'الفئة'],
             usageInstructions: ['طريقة الاستخدام', 'الاستخدام', 'طريقة الاستعمال', 'usage', 'Usage', 'instructions', 'كيفية الاستخدام'],
@@ -3119,7 +3132,8 @@
             image: ['image', 'img', 'photo', 'url', 'link', 'الصوره', 'الصورة', 'رابط الصورة', 'اسم الصورة'],
             oldPrice: ['old price', 'mrp', 'before', 'list price', 'السعر القديم', 'قبل الخصم', 'سعر قبل'],
             code: ['code', 'sku', 'barcode', 'item code', 'الكود', 'باركود', 'رمز'],
-            stock: ['stock', 'qty', 'quantity', 'inventory', 'المخزون', 'الكميه', 'الكمية']
+            stock: ['stock', 'qty', 'quantity', 'inventory', 'المخزون', 'الكميه', 'الكمية'],
+            trackInventory: ['track inventory', 'trackinventory', 'inventory tracking', 'تتبع المخزون', 'تتبع_المخزون', 'تفعيل المخزون']
         };
 
         let productFilterCache = {
@@ -3174,9 +3188,32 @@
 
         function parseMoney(value) {
             if (typeof value === 'number' && Number.isFinite(value)) return value;
-            const raw = String(value == null ? '' : value).trim();
+            const raw = String(value == null ? '' : value)
+                .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+                .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+                .replace(/\u066B/g, '.')
+                .replace(/\u066C/g, ',')
+                .trim();
             if (!raw) return NaN;
-            const normalized = raw.replace(/[^\d.,-]/g, '').replace(/,/g, '.');
+            let normalized = raw.replace(/[^\d.,-]/g, '');
+            const commaCount = (normalized.match(/,/g) || []).length;
+            const dotCount = (normalized.match(/\./g) || []).length;
+            if (commaCount && dotCount) {
+                if (normalized.lastIndexOf(',') > normalized.lastIndexOf('.')) {
+                    normalized = normalized.replace(/\./g, '').replace(/,/g, '.');
+                } else {
+                    normalized = normalized.replace(/,/g, '');
+                }
+            } else if (commaCount > 1) {
+                normalized = normalized.replace(/,/g, '');
+            } else if (commaCount === 1 && dotCount === 0) {
+                const [, decimals = ''] = normalized.split(',');
+                normalized = decimals.length <= 2
+                    ? normalized.replace(/,/g, '.')
+                    : normalized.replace(/,/g, '');
+            } else if (dotCount > 1) {
+                normalized = normalized.replace(/\./g, '');
+            }
             const parsed = parseFloat(normalized);
             return Number.isFinite(parsed) ? parsed : NaN;
         }
@@ -3272,8 +3309,7 @@
                 ? Number(source.stock)
                 : Number(defaults.stock);
             const pricing = resolveProductPricingFields(source, defaults);
-            const hasValidPublishPrice = Number.isFinite(Number(pricing.sellPrice)) && Number(pricing.sellPrice) > 0;
-            const isPublished = requestedPublished && hasValidPublishPrice;
+            const isPublished = requestedPublished;
             const cleanedImage = cleanImageField(source.image || defaults.image || '');
             const cleanedImageUrl = cleanImageField(source.imageUrl || source.image || defaults.imageUrl || cleanedImage || '');
             const storedImage = cleanedImage || DEFAULT_PRODUCT_IMAGE;
@@ -3304,7 +3340,7 @@
                     ? source.searchTokens
                     : buildProductSearchTokensSafe({ ...defaults, ...source, ...pricing }),
                 isPublished,
-                visibilityState: isPublished ? 'published' : (hasValidPublishPrice ? 'hidden' : 'invalid-price'),
+                visibilityState: isPublished ? 'published' : 'hidden',
                 importBatchId: String(source.importBatchId || defaults.importBatchId || ''),
                 importSource: String(source.importSource || defaults.importSource || ''),
                 createdAt: source.createdAt || defaults.createdAt || nowIso,
@@ -5806,9 +5842,8 @@ function adminLogout(){
 
         function markManualSellPriceOverride() {
             const checkbox = document.getElementById('productManualPriceOverride');
-            if (checkbox && checkbox.checked) {
-                recalculateProductPricingFromForm();
-            }
+            if (checkbox && checkbox.checked !== true) checkbox.checked = true;
+            recalculateProductPricingFromForm();
         }
 
         function handleProductSupplierChange() {
@@ -5979,7 +6014,8 @@ function adminLogout(){
             const rawPrice = parseMoney(document.getElementById('productPrice').value);
             const rawOldPrice = parseMoney(document.getElementById('productOldPrice').value);
             const rawStock = stockInputValue === '' ? NaN : Number(stockInputValue);
-            const manualPriceOverride = document.getElementById('productManualPriceOverride')?.checked === true;
+            const inferredAutoSellPrice = Number((Math.max(0, rawCostPrice) * (1 + (Math.min(Math.max(0, rawMarginPercent), 1000) / 100))).toFixed(2));
+            let manualPriceOverride = document.getElementById('productManualPriceOverride')?.checked === true;
             const manualPriceReason = String(document.getElementById('productManualPriceReason')?.value || '').trim();
 
             if (!Number.isFinite(rawCostPrice) || rawCostPrice < 0) {
@@ -5992,6 +6028,12 @@ function adminLogout(){
 
             if (!Number.isFinite(rawPrice) || rawPrice <= 0) {
                 throw new Error('invalid-price');
+            }
+
+            if (!manualPriceOverride && Number.isFinite(inferredAutoSellPrice) && Math.abs(rawPrice - inferredAutoSellPrice) > 0.009) {
+                manualPriceOverride = true;
+                const manualOverrideInput = document.getElementById('productManualPriceOverride');
+                if (manualOverrideInput) manualOverrideInput.checked = true;
             }
 
             if (trackInventory && (!Number.isFinite(rawStock) || rawStock < 0)) {
@@ -6448,7 +6490,7 @@ function adminLogout(){
             document.getElementById('productCode').value = p.code || '';
             document.getElementById('productCostPrice').value = p.costPrice ?? p.price ?? '';
             document.getElementById('productMarginPercent').value = p.marginPercent ?? 0;
-            document.getElementById('productPrice').value = p.price ?? '';
+            document.getElementById('productPrice').value = p.sellPrice ?? p.price ?? '';
             document.getElementById('productOldPrice').value = p.oldPrice ?? '';
             document.getElementById('productManualPriceOverride').checked = p.manualPriceOverride === true;
             document.getElementById('productManualPriceReason').value = p.manualPriceReason || '';
@@ -10302,6 +10344,7 @@ function adminLogout(){
                 mapping: {
                     name: '',
                     price: '',
+                    sellPrice: '',
                     desc: '',
                     category: '',
                     usageInstructions: '',
@@ -10310,11 +10353,13 @@ function adminLogout(){
                     image: '',
                     oldPrice: '',
                     code: '',
-                    stock: ''
+                    stock: '',
+                    trackInventory: ''
                 },
                 validatedProducts: [],
                 invalidRows: [],
                 invalidPriceRows: [],
+                zeroPriceRows: [],
                 missingImageRows: [],
                 unknownSuppliers: [],
                 duplicateRows: [],
@@ -10339,7 +10384,7 @@ function adminLogout(){
             const hint = document.getElementById('wizardPublishHint');
             if (!hint) return;
             hint.textContent = importWizardState.publishAfterImport
-                ? 'سيتم نشر المنتجات الصالحة مباشرة بعد الاستيراد، مع إبقاء أي صف غير صالح مخفيًا تلقائيًا.'
+                ? 'سيتم نشر المنتجات مباشرة بعد الاستيراد. الصفوف ذات السعر صفر ستظهر بتحذير في التقرير النهائي.'
                 : 'سيتم حفظ المنتجات كمخفية حتى تراجعها ثم تنشرها يدويًا بعد الاستيراد.';
         }
 
@@ -10364,7 +10409,7 @@ function adminLogout(){
             if (headerHint) headerHint.value = '';
             if (importSource) importSource.value = '';
             if (publishToggle) publishToggle.checked = true;
-            if (publishHint) publishHint.textContent = 'سيتم نشر المنتجات الصالحة مباشرة بعد الاستيراد، مع إبقاء أي صف غير صالح مخفيًا تلقائيًا.';
+            if (publishHint) publishHint.textContent = 'سيتم نشر المنتجات مباشرة بعد الاستيراد. الصفوف ذات السعر صفر ستظهر بتحذير في التقرير النهائي.';
             if (importSummary) {
                 importSummary.textContent = '';
                 importSummary.style.display = 'none';
@@ -10378,7 +10423,7 @@ function adminLogout(){
                 if (el) el.textContent = 'لا توجد معاينة بعد.';
             });
 
-            ['mapNameCol', 'mapPriceCol', 'mapDescCol', 'mapCategoryCol', 'mapUsageInstructionsCol', 'mapBrandCol', 'mapImageCol', 'mapSupplierNameCol', 'mapOldPriceCol', 'mapCodeCol', 'mapStockCol']
+            ['mapNameCol', 'mapPriceCol', 'mapSellPriceCol', 'mapDescCol', 'mapCategoryCol', 'mapUsageInstructionsCol', 'mapBrandCol', 'mapImageCol', 'mapSupplierNameCol', 'mapOldPriceCol', 'mapCodeCol', 'mapStockCol', 'mapTrackInventoryCol']
                 .forEach((id) => {
                     const select = document.getElementById(id);
                     if (!select) return;
@@ -10703,6 +10748,7 @@ function adminLogout(){
             const list = Array.isArray(columns) ? columns : [];
             let bestKey = '';
             let bestScore = -1;
+            const minimumScore = ['name', 'price', 'sellPrice', 'stock', 'trackInventory'].includes(fieldKey) ? 6 : 8;
 
             list.forEach((column) => {
                 const score = scoreHeaderCell(normalizeArabicHeader(column.label), fieldKey);
@@ -10712,7 +10758,7 @@ function adminLogout(){
                 }
             });
 
-            return bestScore > 0 ? bestKey : '';
+            return bestScore >= minimumScore ? bestKey : '';
         }
 
         function buildColumnMapping() {
@@ -10721,6 +10767,7 @@ function adminLogout(){
             const mappingTargets = {
                 name: 'mapNameCol',
                 price: 'mapPriceCol',
+                sellPrice: 'mapSellPriceCol',
                 desc: 'mapDescCol',
                 category: 'mapCategoryCol',
                 usageInstructions: 'mapUsageInstructionsCol',
@@ -10729,7 +10776,8 @@ function adminLogout(){
                 supplierName: 'mapSupplierNameCol',
                 oldPrice: 'mapOldPriceCol',
                 code: 'mapCodeCol',
-                stock: 'mapStockCol'
+                stock: 'mapStockCol',
+                trackInventory: 'mapTrackInventoryCol'
             };
 
             const optionsHtml = columns.map((col) => `<option value="${col.key}">${escapeHtml(col.label)} (C${col.index + 1})</option>`).join('');
@@ -10848,6 +10896,7 @@ function adminLogout(){
             const mapping = {
                 name: document.getElementById('mapNameCol')?.value || '',
                 price: document.getElementById('mapPriceCol')?.value || '',
+                sellPrice: document.getElementById('mapSellPriceCol')?.value || '',
                 desc: document.getElementById('mapDescCol')?.value || '',
                 category: document.getElementById('mapCategoryCol')?.value || '',
                 usageInstructions: document.getElementById('mapUsageInstructionsCol')?.value || '',
@@ -10856,7 +10905,8 @@ function adminLogout(){
                 supplierName: document.getElementById('mapSupplierNameCol')?.value || '',
                 oldPrice: document.getElementById('mapOldPriceCol')?.value || '',
                 code: document.getElementById('mapCodeCol')?.value || '',
-                stock: document.getElementById('mapStockCol')?.value || ''
+                stock: document.getElementById('mapStockCol')?.value || '',
+                trackInventory: document.getElementById('mapTrackInventoryCol')?.value || ''
             };
             state.mapping = mapping;
             importWizardState = state;
@@ -10878,11 +10928,17 @@ function adminLogout(){
         }
 
         function parseImportPrice(raw) {
-            if (raw === null || raw === undefined || raw === '') return null;
-            const cleaned = String(raw).replace(/[^\d.]/g, '');
-            const num = parseFloat(cleaned);
-            if (Number.isNaN(num) || num <= 0) return null;
-            return Math.round(num * 100) / 100;
+            const parsed = parseMoney(raw);
+            if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+            return Math.round(parsed * 100) / 100;
+        }
+
+        function parseImportBoolean(raw) {
+            const normalized = normalizeArabicHeader(String(raw || '')
+                .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+                .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))));
+            if (!normalized) return false;
+            return ['1', 'true', 'yes', 'y', 'on', 'نعم', 'ايوه', 'ايوا', 'مفعل', 'تفعيل', 'صح'].includes(normalized);
         }
 
         function normalizeDuplicateName(value) {
@@ -11026,9 +11082,20 @@ function adminLogout(){
                 if (value) next[field] = value;
             });
 
-            if (Number.isFinite(Number(imported.price)) && Number(imported.price) > 0) next.price = Number(imported.price);
+            const importedPrice = Number(imported.price);
+            const importedSellPrice = Number(imported.sellPrice);
+            const normalizedImportedPrice = Number.isFinite(importedSellPrice) && importedSellPrice > 0
+                ? importedSellPrice
+                : (Number.isFinite(importedPrice) && importedPrice >= 0 ? importedPrice : NaN);
+            if (Number.isFinite(normalizedImportedPrice) && normalizedImportedPrice >= 0) {
+                next.price = normalizedImportedPrice;
+                next.sellPrice = normalizedImportedPrice;
+            }
             if (Number.isFinite(Number(imported.oldPrice)) && Number(imported.oldPrice) > 0) next.oldPrice = Number(imported.oldPrice);
+            else if (Number.isFinite(importedPrice) && importedPrice > normalizedImportedPrice) next.oldPrice = importedPrice;
             if (Number.isFinite(Number(imported.stock)) && Number(imported.stock) >= 0) next.stock = Number(imported.stock);
+            if (Object.prototype.hasOwnProperty.call(imported, 'trackInventory')) next.trackInventory = imported.trackInventory === true;
+            if (imported.manualPriceOverride === true) next.manualPriceOverride = true;
 
             const importedImage = cleanImageField(imported.image || imported.imageUrl || '');
             if (importedImage) {
@@ -11073,7 +11140,7 @@ function adminLogout(){
                 ? `<div style="margin-top:12px;"><strong>🔄 المنتجات المكررة (${results.duplicates.length})</strong><ul style="margin-top:8px;padding-inline-start:18px;">${results.duplicates.slice(0, 20).map((item) => `<li>صف ${item.row}: ${escapeHtml(item.name || '-')}</li>`).join('')}</ul></div>`
                 : '';
             const invalidPriceHtml = Array.isArray(results.invalidPrice) && results.invalidPrice.length
-                ? `<div style="margin-top:12px;"><strong>❌ أسعار غير صالحة (${results.invalidPrice.length})</strong><ul style="margin-top:8px;padding-inline-start:18px;">${results.invalidPrice.slice(0, 20).map((item) => `<li>صف ${item.row}: ${escapeHtml(item.name || '-')} (${escapeHtml(String(item.rawPrice || ''))})</li>`).join('')}</ul></div>`
+                ? `<div style="margin-top:12px;"><strong>⚠️ أسعار صارت صفرًا (${results.invalidPrice.length})</strong><ul style="margin-top:8px;padding-inline-start:18px;">${results.invalidPrice.slice(0, 20).map((item) => `<li>صف ${item.row}: ${escapeHtml(item.name || '-')} (${escapeHtml(String(item.rawPrice || ''))})</li>`).join('')}</ul></div>`
                 : '';
             const missingImagesHtml = Array.isArray(results.missingImages) && results.missingImages.length
                 ? `<div style="margin-top:12px;"><strong>🖼️ بدون صورة (${results.missingImages.length})</strong><ul style="margin-top:8px;padding-inline-start:18px;">${results.missingImages.slice(0, 20).map((item) => `<li>صف ${item.row}: ${escapeHtml(item.name || '-')}</li>`).join('')}</ul></div>`
@@ -11098,6 +11165,8 @@ function adminLogout(){
                     <div style="padding:12px;border-radius:12px;background:#ecfdf5;"><strong>${results.imported}</strong><div>تمت المعالجة</div></div>
                     <div style="padding:12px;border-radius:12px;background:#fff7ed;"><strong>${results.skipped}</strong><div>تم التخطي</div></div>
                     <div style="padding:12px;border-radius:12px;background:#eff6ff;"><strong>${results.updated || 0}</strong><div>تم التحديث</div></div>
+                    <div style="padding:12px;border-radius:12px;background:#f0fdf4;"><strong>${results.validPriceCount || 0}</strong><div>أسعار صالحة</div></div>
+                    <div style="padding:12px;border-radius:12px;background:#fff7ed;"><strong>${results.zeroPriceCount || 0}</strong><div>سعر = 0 (تحذير)</div></div>
                 </div>
                 ${duplicatesHtml}
                 ${invalidPriceHtml}
@@ -11120,18 +11189,24 @@ function adminLogout(){
             return new Promise((resolve) => setTimeout(resolve, ms));
         }
 
-        function renderWizardValidationReport(validRows, invalidRows, skippedRows) {
+        function renderWizardValidationReport(validRows, invalidRows, skippedRows, zeroPriceRows = []) {
             const report = document.getElementById('wizardValidationReport');
             if (!report) return;
 
             const invalidPreview = invalidRows.slice(0, 20).map((row) => `<li>السطر ${row.row}: ${escapeHtml(row.reason)}</li>`).join('');
             const remaining = invalidRows.length > 20 ? `<li>... وهناك ${invalidRows.length - 20} سطر إضافي</li>` : '';
+            const zeroPricePreview = zeroPriceRows.slice(0, 20).map((row) => `<li>السطر ${row.row}: ${escapeHtml(row.name || '-')} (${escapeHtml(String(row.rawPrice || ''))})</li>`).join('');
+            const zeroPriceBlock = zeroPriceRows.length
+                ? `<hr><div><strong>⚠️ صفوف بسعر صفر/غير مقروء:</strong></div><ul style="margin-top:8px;padding-inline-start:18px;">${zeroPricePreview}${zeroPriceRows.length > 20 ? `<li>... وهناك ${zeroPriceRows.length - 20} سطر إضافي</li>` : ''}</ul>`
+                : '';
 
             report.innerHTML = `
                 <div><strong>الصفوف الصالحة:</strong> ${validRows.length}</div>
                 <div><strong>الصفوف المرفوضة:</strong> ${invalidRows.length}</div>
+                <div><strong>تحذيرات السعر صفر:</strong> ${zeroPriceRows.length}</div>
                 <div><strong>الصفوف الفارغة (تم تجاوزها):</strong> ${skippedRows}</div>
-                ${invalidRows.length ? `<hr><div><strong>أسباب الرفض:</strong></div><ul style="margin-top:8px;padding-inline-start:18px;">${invalidPreview}${remaining}</ul>` : '<hr><div style="color:#0f7c33;">كل الصفوف صالحة ✅</div>'}
+                ${invalidRows.length ? `<hr><div><strong>أسباب الرفض:</strong></div><ul style="margin-top:8px;padding-inline-start:18px;">${invalidPreview}${remaining}</ul>` : '<hr><div style="color:#0f7c33;">كل الصفوف الصالحة قابلة للمعالجة ✅</div>'}
+                ${zeroPriceBlock}
             `;
         }
 
@@ -11147,13 +11222,14 @@ function adminLogout(){
 
             if (!mapping.name || !mapping.price) {
                 showNotification('error', 'اختيار عمود الاسم والسعر إلزامي');
-                renderWizardValidationReport([], [{ row: '-', reason: 'لم يتم تحديد عمود الاسم أو السعر.' }], 0);
+                renderWizardValidationReport([], [{ row: '-', reason: 'لم يتم تحديد عمود الاسم أو السعر.' }], 0, []);
                 return { validRows: [], invalidRows: [{ row: '-', reason: 'Missing required mapping' }], skippedRows: 0 };
             }
 
             const validRows = [];
             const invalidRows = [];
             const invalidPriceRows = [];
+            const zeroPriceRows = [];
             const missingImageRows = [];
             const unknownSuppliers = new Set();
             let skippedRows = 0;
@@ -11169,19 +11245,12 @@ function adminLogout(){
 
                 const name = getMappedValue(row, mapping.name);
                 const priceRaw = getMappedValue(row, mapping.price);
-                const price = parseImportPrice(priceRaw);
+                const sellPriceRaw = getMappedValue(row, mapping.sellPrice);
+                const parsedBasePrice = parseImportPrice(priceRaw);
+                const parsedSellPrice = parseImportPrice(sellPriceRaw);
 
                 if (!name) {
                     invalidRows.push({ row: rowIndex + 1, reason: 'اسم المنتج فارغ.' });
-                    continue;
-                }
-                if (price === null) {
-                    invalidPriceRows.push({
-                        row: rowIndex + 1,
-                        name,
-                        rawPrice: priceRaw
-                    });
-                    invalidRows.push({ row: rowIndex + 1, reason: `سعر غير صالح: "${priceRaw}"` });
                     continue;
                 }
 
@@ -11194,7 +11263,21 @@ function adminLogout(){
                 const supplierInfo = resolveSupplierFromImport(getMappedValue(row, mapping.supplierName));
                 const code = getMappedValue(row, mapping.code);
                 const stock = parseStockValue(getMappedValue(row, mapping.stock));
+                const trackInventory = parseImportBoolean(getMappedValue(row, mapping.trackInventory));
                 const image = cleanImageField(getMappedValue(row, mapping.image));
+                const effectiveSellPrice = parsedSellPrice > 0 ? parsedSellPrice : parsedBasePrice;
+                const derivedOldPrice = Number.isFinite(oldPrice) && oldPrice > 0
+                    ? oldPrice
+                    : (parsedSellPrice > 0 && parsedBasePrice > parsedSellPrice ? parsedBasePrice : null);
+                if (effectiveSellPrice <= 0) {
+                    const zeroRow = {
+                        row: rowIndex + 1,
+                        name,
+                        rawPrice: sellPriceRaw || priceRaw
+                    };
+                    invalidPriceRows.push(zeroRow);
+                    zeroPriceRows.push(zeroRow);
+                }
                 if (supplierInfo.supplierName && !supplierInfo.supplierId) {
                     unknownSuppliers.add(supplierInfo.supplierName);
                 }
@@ -11212,12 +11295,15 @@ function adminLogout(){
                     brand,
                     ...supplierInfo,
                     category: categoryRaw || inferCategory(name),
-                    price,
-                    oldPrice: Number.isFinite(oldPrice) ? oldPrice : null,
+                    price: effectiveSellPrice,
+                    sellPrice: effectiveSellPrice,
+                    oldPrice: derivedOldPrice,
                     image: image || DEFAULT_PRODUCT_IMAGE,
                     imageUrl: image || DEFAULT_PRODUCT_IMAGE,
                     code,
                     stock,
+                    trackInventory,
+                    manualPriceOverride: parsedSellPrice > 0,
                     rating: 4.5,
                     ratingCount: 0,
                     isPublished: false
@@ -11235,9 +11321,10 @@ function adminLogout(){
             importWizardState.validatedProducts = validRows;
             importWizardState.invalidRows = invalidRows;
             importWizardState.invalidPriceRows = invalidPriceRows;
+            importWizardState.zeroPriceRows = zeroPriceRows;
             importWizardState.missingImageRows = missingImageRows;
             importWizardState.unknownSuppliers = Array.from(unknownSuppliers);
-            renderWizardValidationReport(validRows, invalidRows, skippedRows);
+            renderWizardValidationReport(validRows, invalidRows, skippedRows, zeroPriceRows);
 
             return { validRows, invalidRows, skippedRows };
         }
@@ -11364,7 +11451,7 @@ function adminLogout(){
                 importBatchId,
                 importSource
             }, {
-                // WHY: default imported products to the selected publishing mode; normalizeProductForStorage still protects invalid-price rows.
+                // WHY: default imported products to the selected publishing mode while zero-price rows remain visible as warnings in the import report.
                 isPublished: publishAfterImport,
                 category: row.product.category
             }));
@@ -11519,10 +11606,12 @@ function adminLogout(){
                 const hiddenCount = Math.max(0, localImported.length - publishedCount);
                 const skippedDuplicateCount = duplicateAction === 'skip' ? duplicateAnalysis.duplicates.length : 0;
                 const skippedCount = skippedRowsCount + importWizardState.invalidRows.length + skippedDuplicateCount;
+                const zeroPriceCount = Array.isArray(importWizardState.zeroPriceRows) ? importWizardState.zeroPriceRows.length : 0;
+                const validPriceCount = Math.max(0, (localImported.length + updatedCount) - zeroPriceCount);
                 const summaryMessage = `تمت معالجة ${localImported.length + updatedCount} صف | إضافة ${localImported.length} | تحديث ${updatedCount} | مخفي ${hiddenCount}`;
                 setWizardProgress(100, `اكتمل الاستيراد: ${localImported.length} إضافة | ${updatedCount} تحديث | ${syncedCount} مباشر | ${queuedCount} مؤجل`);
                 if (importSummary) {
-                    importSummary.textContent = summaryMessage;
+                    importSummary.textContent = `${summaryMessage} | أسعار صالحة ${validPriceCount} | سعر صفر ${zeroPriceCount}`;
                     importSummary.style.display = 'block';
                 }
                 showImportReport({
@@ -11530,8 +11619,11 @@ function adminLogout(){
                     imported: localImported.length + updatedCount,
                     updated: updatedCount,
                     skipped: skippedCount,
+                    validPriceCount,
+                    zeroPriceCount,
                     duplicates: duplicateAnalysis.duplicates,
                     invalidPrice: importWizardState.invalidPriceRows || [],
+                    zeroPriceWarnings: importWizardState.zeroPriceRows || [],
                     missingImages: importWizardState.missingImageRows || [],
                     unknownSuppliers: importWizardState.unknownSuppliers || [],
                     errors: errorMessages
