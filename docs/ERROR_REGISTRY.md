@@ -1,8 +1,8 @@
-# ?? Error Registry — Sale Zone Project
+# ?? Error Registry ï¿½ Sale Zone Project
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 16
+> Total errors logged: 17
 > Total patterns discovered: 8
 
 ---
@@ -32,14 +32,14 @@
 | [Deployment Pipeline](#deployment-pipeline) | 3 | 2026-03 |
 | [Git & Branching](#git--branching) | 2 | 2025-01 |
 | [Governance Checks](#governance-checks) | 3 | 2026-03 |
-| [Orders & Checkout](#orders--checkout) | 1 | 2026-03 |
+| [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
 
 ---
 
 ## Firebase Auth
 
-### ERR-001: Permission Denied — Customer Notifications Before Auth Ready
+### ERR-001: Permission Denied ï¿½ Customer Notifications Before Auth Ready
 
 ?? Date: 2025-01
 ?? Batch: Post-BATCH19
@@ -85,14 +85,14 @@ firebase.auth().onAuthStateChanged(function(user) {
 });
 ```
 
-Files affected: `ãÊÌÑ_2.HTML`, `assets/js/firebase-api.js`
+Files affected: `ï¿½ï¿½ï¿½ï¿½_2.HTML`, `assets/js/firebase-api.js`
 Commit: `c907dac`
 
 **Prevention Rule:**
 Any Firestore query that depends on auth MUST be inside onAuthStateChanged, never in DOMContentLoaded or window.onload.
 
 **Related Errors:** ERR-002, ERR-003
-**Severity:** ?? High — affects every site visitor
+**Severity:** ?? High ï¿½ affects every site visitor
 
 ---
 
@@ -141,7 +141,7 @@ Commit: `2acd338`
 Any code that depends on admin claims MUST await getIdTokenResult first and have a fallback + retry mechanism.
 
 **Related Errors:** ERR-001, ERR-003
-**Severity:** ?? Medium — affects admin only
+**Severity:** ?? Medium ï¿½ affects admin only
 
 ---
 
@@ -170,7 +170,7 @@ Commit: `640476c`
 
 **Discovered Pattern:** PATTERN-001 (Auth Timing Pattern)
 **Related Errors:** ERR-001, ERR-002
-**Severity:** ?? High — fills console and slows site
+**Severity:** ?? High ï¿½ fills console and slows site
 
 ---
 
@@ -204,7 +204,7 @@ Firestore collectionGroup queries need TWO layers to align:
 - ? Index support matching the actual collectionGroup query shape
 If either side is wrong = runtime failure
 
-**Severity:** ?? High — admin notifications broken
+**Severity:** ?? High ï¿½ admin notifications broken
 
 ---
 
@@ -216,16 +216,16 @@ If either side is wrong = runtime failure
 
 **Root Cause:**
 External suggestions proposed `/users/{userId}/notifications` path, but the actual codebase uses:
-- `customers/{uid}/notifications/{notificationId}` — for customer notifications
-- `settings/{settingId}/notifications/{notificationId}` — for admin/system notifications
-- `collectionGroup('notifications')` — for admin to read all
+- `customers/{uid}/notifications/{notificationId}` ï¿½ for customer notifications
+- `settings/{settingId}/notifications/{notificationId}` ï¿½ for admin/system notifications
+- `collectionGroup('notifications')` ï¿½ for admin to read all
 
 Applying the wrong path structure would break all existing notification data.
 
 **Prevention Rule:**
 ALWAYS check actual code paths in `firebase-api.js` BEFORE writing Firestore rules. Never assume path structure from external suggestions.
 
-**Severity:** ?? High — would break all notifications if applied
+**Severity:** ?? High ï¿½ would break all notifications if applied
 
 ---
 
@@ -247,7 +247,7 @@ Commit: `b9832e0`
 **Prevention Rule:**
 Review indexes periodically. Delete unused ones. Every index consumes storage and slows writes.
 
-**Severity:** ?? Low — warning only
+**Severity:** ?? Low ï¿½ warning only
 
 ---
 
@@ -297,7 +297,7 @@ Create PR manually via browser URL:
 **Permanent Fix:**
 Update GitHub App permissions: Settings ? Developer Settings ? Fine-grained tokens ? Add Pull Requests (Read and Write)
 
-**Severity:** ?? Medium — manual workaround available
+**Severity:** ?? Medium ï¿½ manual workaround available
 
 ---
 
@@ -321,7 +321,7 @@ git worktree add worktrees/[name] -b [branch] origin/main
 **Prevention Rule:**
 `git worktree` is the safest way to work when root checkout is dirty. Avoid `git stash` which can lose work.
 
-**Severity:** ?? Medium — blocks work but has workaround
+**Severity:** ?? Medium ï¿½ blocks work but has workaround
 
 ---
 
@@ -350,7 +350,7 @@ ELSE IF checkout is dirty
   ? worktree + cherry-pick
 ```
 
-**Severity:** ?? High — can corrupt code if not caught
+**Severity:** ?? High ï¿½ can corrupt code if not caught
 
 ---
 
@@ -374,7 +374,7 @@ Bump patch version in `version.json` before running governance checks.
 **Prevention Rule:**
 Any change to core files = bump `version.json` BEFORE running governance checks.
 
-**Severity:** ?? Medium — blocks pipeline
+**Severity:** ?? Medium ï¿½ blocks pipeline
 
 ---
 
@@ -564,6 +564,51 @@ If a Firestore read rule depends on `resource.data.<field> == request.auth.<valu
 
 ---
 
+
+### ERR-017: Storefront Shows All Products as Unavailable Because Live Catalog Prices Are Zero
+
+Date: 2026-03
+Batch: Post-PR#121/#122 merged-main validation
+Tags: #catalog #pricing #browser-validation #data-quality #storefront
+
+**Error Message:**
+```text
+ØºÙŠØ± Ù…ØªØ§Ø­ Ù„Ù„Ø¨ÙŠØ¹
+```
+
+**When it appears:**
+- Merged `origin/main` is served locally over HTTP
+- Storefront loads and renders products successfully
+- Product cards show availability state
+- Browser validation finds zero sellable products even after the inventory-tracking fix is merged
+
+**Root Cause:**
+The inventory fix from PR #121 correctly changed sellability rules so products are sellable by default unless `trackInventory === true && stock <= 0`.
+
+However, the live catalog data still contains products with invalid pricing, especially `price: 0` and `sellPrice: 0`. The storefront pricing/availability logic still treats zero-priced products as unavailable for sale. That means the code fix is present, but the live Firebase catalog remains commercially blocked by bad product data.
+
+Observed during post-merge browser validation:
+- Store loaded successfully
+- Product count was non-zero
+- Sellable count was `0`
+- Unavailable count was `24`
+
+This is a live-data regression boundary, not evidence that the inventory fix failed to merge.
+
+**Solution:**
+- Use the admin product edit fix from PR #122 to correct product prices in Firestore
+- Use the Excel import fix from PR #122 for future catalog imports so Arabic numerals and localized price formats do not collapse to zero
+- Re-run browser validation after catalog pricing is corrected
+
+Files affected: `Ù…ØªØ¬Ø±_2.HTML`, `Ø§Ø¯Ù…Ù†_2.HTML`, live Firestore `products` data
+
+**Prevention Rule:**
+When validating sellability fixes, separate code truth from catalog-data truth. An inventory logic fix does not repair already-bad product pricing data in Firebase.
+
+**Related Errors:** ERR-016
+**Severity:** High - storefront loads but no customer can buy products
+
+---
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
@@ -581,7 +626,7 @@ If a Firestore read rule depends on `resource.data.<field> == request.auth.<valu
 [Steps to reproduce]
 
 **Root Cause:**
-[Why it happened — not symptoms, the real cause]
+[Why it happened ï¿½ not symptoms, the real cause]
 
 **Solution:**
 [What was done exactly]
