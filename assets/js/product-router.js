@@ -54,6 +54,34 @@
         return `${STORE_URL}#product/${encodeURIComponent(String(productId || ''))}`;
     }
 
+    function isProductInventoryTracked(product) {
+        if (typeof root.isProductInventoryTracked === 'function') {
+            return root.isProductInventoryTracked(product);
+        }
+        return product?.trackInventory === true || product?.['تتبع_المخزون'] === true;
+    }
+
+    function getTrackedStockValue(product) {
+        if (typeof root.getProductStockValue === 'function') {
+            const resolved = root.getProductStockValue(product);
+            if (resolved === null || Number.isFinite(Number(resolved))) {
+                return resolved;
+            }
+        }
+        if (!isProductInventoryTracked(product)) return null;
+        const stockValue = Number(product?.stock);
+        if (!Number.isFinite(stockValue)) return 0;
+        return Math.max(0, stockValue);
+    }
+
+    function isSellableProduct(product) {
+        if (typeof root.isProductInStock === 'function') {
+            return root.isProductInStock(product);
+        }
+        const stockValue = getTrackedStockValue(product);
+        return stockValue === null || stockValue > 0;
+    }
+
     async function resolveProductById(productId) {
         if (!productId) return null;
 
@@ -230,9 +258,9 @@
                     '@type': 'Offer',
                     price: getProductPriceValue(product),
                     priceCurrency: 'EGP',
-                    availability: Number(product?.stock) === 0
-                        ? 'https://schema.org/OutOfStock'
-                        : 'https://schema.org/InStock',
+                    availability: isSellableProduct(product)
+                        ? 'https://schema.org/InStock'
+                        : 'https://schema.org/OutOfStock',
                     url: getProductUrl(product.id)
                 }
             });
@@ -247,9 +275,9 @@
             const oldPriceText = Number(product?.oldPrice) > getProductPriceValue(product)
                 ? (typeof root.formatPrice === 'function' ? root.formatPrice(Number(product.oldPrice)) : `${Number(product.oldPrice)} جنيه`)
                 : '';
-            const stockValue = Number(product?.stock);
+            const stockValue = getTrackedStockValue(product);
             const lowStock = Number.isFinite(stockValue) && stockValue > 0 && stockValue <= 5;
-            const outOfStock = Number.isFinite(stockValue) && stockValue === 0;
+            const outOfStock = stockValue === 0;
 
             return `
                 <div style="max-width:900px;margin:0 auto;padding:16px">

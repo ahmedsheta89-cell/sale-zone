@@ -2687,6 +2687,21 @@
           <input type="text" id="productManualPriceReason" placeholder="سبب التثبيت اليدوي (اختياري)" style="margin-top:8px;" autocomplete="off">
         </div>
 
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="productTrackInventory" onchange="syncProductInventoryFields()">
+            تتبع المخزون
+          </label>
+          <small style="color:#777;">عند التفعيل فقط سيصبح المنتج غير متاح عندما يصل المخزون إلى صفر.</small>
+        </div>
+
+        <div class="form-row" id="productInventoryRow" style="display:none;">
+          <div class="form-group">
+            <label>كمية المخزون</label>
+            <input type="number" id="productStock" min="0" step="1" inputmode="numeric">
+          </div>
+        </div>
+
         <!-- ============ صورة المنتج (رفع أو رابط) ============ -->
         <div class="form-group">
           <label>🖼️ صورة المنتج</label>
@@ -3252,6 +3267,10 @@
             const requestedPublished = Object.prototype.hasOwnProperty.call(source, 'isPublished')
                 ? source.isPublished !== false
                 : (defaults.isPublished !== false);
+            const trackInventory = source.trackInventory === true || source['تتبع_المخزون'] === true || defaults.trackInventory === true;
+            const rawStock = Object.prototype.hasOwnProperty.call(source, 'stock')
+                ? Number(source.stock)
+                : Number(defaults.stock);
             const pricing = resolveProductPricingFields(source, defaults);
             const hasValidPublishPrice = Number.isFinite(Number(pricing.sellPrice)) && Number(pricing.sellPrice) > 0;
             const isPublished = requestedPublished && hasValidPublishPrice;
@@ -3259,6 +3278,7 @@
             const cleanedImageUrl = cleanImageField(source.imageUrl || source.image || defaults.imageUrl || cleanedImage || '');
             const storedImage = cleanedImage || DEFAULT_PRODUCT_IMAGE;
             const storedImageUrl = cleanedImageUrl || storedImage;
+            const normalizedStock = Number.isFinite(rawStock) ? Math.max(0, rawStock) : (trackInventory ? 0 : -1);
 
             return {
                 id: String(source.id || ''),
@@ -3278,7 +3298,8 @@
                 ratingCount: Number.isFinite(Number(source.ratingCount)) ? Number(source.ratingCount) : 0,
                 code: String(source.code || ''),
                 sku: String(source.sku || source.code || ''),
-                stock: Number.isFinite(Number(source.stock)) ? Number(source.stock) : -1,
+                stock: normalizedStock,
+                trackInventory,
                 searchTokens: Array.isArray(source.searchTokens) && source.searchTokens.length
                     ? source.searchTokens
                     : buildProductSearchTokensSafe({ ...defaults, ...source, ...pricing }),
@@ -3295,6 +3316,25 @@
             return (Array.isArray(list) ? list : [])
                 .map((p) => normalizeProductForStorage(p, { isPublished: true }))
                 .filter((p) => p.name && p.price >= 0);
+        }
+
+        function isProductInventoryTracked(product) {
+            return !!(product && typeof product === 'object' && product.trackInventory === true);
+        }
+
+        function syncProductInventoryFields() {
+            const toggle = document.getElementById('productTrackInventory');
+            const stockRow = document.getElementById('productInventoryRow');
+            const stockInput = document.getElementById('productStock');
+            const enabled = toggle?.checked === true;
+
+            if (stockRow) stockRow.style.display = enabled ? 'flex' : 'none';
+            if (stockInput) {
+                stockInput.disabled = !enabled;
+                if (enabled && !Number.isFinite(Number(stockInput.value))) {
+                    stockInput.value = '0';
+                }
+            }
         }
 
         function ensureSuppliersSchema(list) {
@@ -3602,6 +3642,7 @@
                 updatedAt: String(item.updatedAt || item.timestamp || ''),
                 price: Number(item.price || 0),
                 stock: Number(item.stock || 0),
+                trackInventory: item.trackInventory === true,
                 isPublished: item.isPublished !== false
             }));
 
@@ -4913,7 +4954,7 @@ function adminLogout(){
         async function syncLowStockNotificationsFromProducts() {
             if (typeof saveAdminSystemNotification !== 'function') return 0;
             if (navigator.onLine !== true) return 0;
-            const rows = (Array.isArray(products) ? products : []).filter((item) => item && item.isPublished !== false && Number.isFinite(Number(item.stock)) && Number(item.stock) > 0 && Number(item.stock) <= ANALYTICS_LOW_STOCK_THRESHOLD);
+            const rows = (Array.isArray(products) ? products : []).filter((item) => item && item.isPublished !== false && isProductInventoryTracked(item) && Number.isFinite(Number(item.stock)) && Number(item.stock) > 0 && Number(item.stock) <= ANALYTICS_LOW_STOCK_THRESHOLD);
             let saved = 0;
             for (const product of rows) {
                 const stockValue = Math.max(0, Number(product && product.stock || 0));
@@ -5928,6 +5969,8 @@ function adminLogout(){
             const imageFromManual = String(document.getElementById('manualImg').value || '').trim();
             const selectedCategory = document.getElementById('productCategory').value;
             const productIsPublished = document.getElementById('productIsPublished').checked;
+            const trackInventory = document.getElementById('productTrackInventory')?.checked === true;
+            const stockInputValue = String(document.getElementById('productStock')?.value || '').trim();
             const supplierId = String(document.getElementById('productSupplierId')?.value || '').trim();
             const supplier = getSupplierById(supplierId);
             const brand = String(document.getElementById('productBrand')?.value || '').trim();
@@ -5935,6 +5978,7 @@ function adminLogout(){
             const rawMarginPercent = parseMoney(document.getElementById('productMarginPercent').value);
             const rawPrice = parseMoney(document.getElementById('productPrice').value);
             const rawOldPrice = parseMoney(document.getElementById('productOldPrice').value);
+            const rawStock = stockInputValue === '' ? NaN : Number(stockInputValue);
             const manualPriceOverride = document.getElementById('productManualPriceOverride')?.checked === true;
             const manualPriceReason = String(document.getElementById('productManualPriceReason')?.value || '').trim();
 
@@ -5948,6 +5992,10 @@ function adminLogout(){
 
             if (!Number.isFinite(rawPrice) || rawPrice <= 0) {
                 throw new Error('invalid-price');
+            }
+
+            if (trackInventory && (!Number.isFinite(rawStock) || rawStock < 0)) {
+                throw new Error('invalid-stock');
             }
 
             const payload = normalizeProductForStorage({
@@ -5969,7 +6017,9 @@ function adminLogout(){
                 rating: 4.5,
                 ratingCount: 0,
                 code: String(document.getElementById('productCode')?.value || '').trim(),
-                isPublished: productIsPublished
+                isPublished: productIsPublished,
+                trackInventory,
+                stock: trackInventory ? rawStock : (Number.isFinite(rawStock) && rawStock >= 0 ? rawStock : -1)
             }, {
                 isPublished: productIsPublished,
                 category: selectedCategory
@@ -6278,6 +6328,10 @@ function adminLogout(){
                     showNotification('error', 'السعر غير صالح: يجب أن يكون أكبر من صفر');
                     return;
                 }
+                if (error && error.message === 'invalid-stock') {
+                    showNotification('error', 'المخزون غير صالح: أدخل رقمًا صفر أو أكبر عند تفعيل تتبع المخزون');
+                    return;
+                }
                 if (error && error.message === 'missing-name') {
                     showNotification('error', 'اسم المنتج مطلوب');
                     return;
@@ -6398,7 +6452,10 @@ function adminLogout(){
             document.getElementById('productOldPrice').value = p.oldPrice ?? '';
             document.getElementById('productManualPriceOverride').checked = p.manualPriceOverride === true;
             document.getElementById('productManualPriceReason').value = p.manualPriceReason || '';
+            document.getElementById('productTrackInventory').checked = p.trackInventory === true;
+            document.getElementById('productStock').value = Number.isFinite(Number(p.stock)) && Number(p.stock) >= 0 ? Number(p.stock) : '';
             document.getElementById('productIsPublished').checked = p.isPublished !== false;
+            syncProductInventoryFields();
             recalculateProductPricingFromForm();
 
             const img = p.image || '';
@@ -6475,6 +6532,7 @@ function adminLogout(){
                 'productProfitValue',
                 'productProfitMarginActual',
                 'productManualPriceReason',
+                'productStock',
                 'manualImg',
                 'finalImg',
                 'imgFile'
@@ -6508,6 +6566,8 @@ function adminLogout(){
             if (productIsPublished) productIsPublished.checked = true;
             const productManualPriceOverride = document.getElementById('productManualPriceOverride');
             if (productManualPriceOverride) productManualPriceOverride.checked = false;
+            const productTrackInventory = document.getElementById('productTrackInventory');
+            if (productTrackInventory) productTrackInventory.checked = false;
 
             const defaultCostInput = document.getElementById('productCostPrice');
             if (defaultCostInput && !defaultCostInput.value) defaultCostInput.value = '0';
@@ -6518,6 +6578,7 @@ function adminLogout(){
             if (title) title.textContent = '➕ منتج جديد';
             renderProductCategoryOptions('');
             renderSupplierOptions();
+            syncProductInventoryFields();
             recalculateProductPricingFromForm();
         }
 
@@ -11848,6 +11909,7 @@ function adminLogout(){
             const publishedRows = (Array.isArray(sourceProducts) ? sourceProducts : []).filter((product) => (
                 product
                 && product.isPublished !== false
+                && isProductInventoryTracked(product)
                 && Number.isFinite(Number(product.stock))
                 && Number(product.stock) > 0
             ));
@@ -11880,7 +11942,7 @@ function adminLogout(){
             const safeProducts = Array.isArray(products) ? products : [];
             const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
             const productSignature = safeProducts.map((product) => (
-                `${String(product?.id || '')}:${product?.isPublished !== false ? '1' : '0'}:${Number(product?.stock ?? -1)}:${String(product?.updatedAt || '')}`
+                `${String(product?.id || '')}:${product?.isPublished !== false ? '1' : '0'}:${product?.trackInventory === true ? '1' : '0'}:${Number(product?.stock ?? -1)}:${String(product?.updatedAt || '')}`
             )).join('|');
             const supplierSignature = safeSuppliers.map((supplier) => (
                 `${String(supplier?.id || '')}:${supplier?.active !== false ? '1' : '0'}:${Number(supplier?.productCount || 0)}`
