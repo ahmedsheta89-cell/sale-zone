@@ -448,10 +448,10 @@ function roundMoney(value) {
 function resolveProductDisplayPrice(product) {
     const source = product && typeof product === 'object' ? product : {};
     const sellPrice = Number(source.sellPrice);
-    if (Number.isFinite(sellPrice) && sellPrice > 0) return roundMoney(sellPrice);
+    if (Number.isFinite(sellPrice) && sellPrice >= 0) return roundMoney(sellPrice);
 
     const basePrice = Number(source.price);
-    if (Number.isFinite(basePrice) && basePrice > 0) return roundMoney(basePrice);
+    if (Number.isFinite(basePrice) && basePrice >= 0) return roundMoney(basePrice);
 
     return null;
 }
@@ -511,6 +511,19 @@ function normalizePricingFields(input) {
     const sellPrice = manualPriceOverride ? requestedSellPrice : autoSellPrice;
     const profitValue = roundMoney(sellPrice - costPrice);
     const profitMarginActual = sellPrice > 0 ? roundMoney((profitValue / sellPrice) * 100) : 0;
+    console.log('[PRICE_NORM_DEBUG] Before:', {
+        price: source.price,
+        sellPrice: source.sellPrice,
+        costPrice: source.costPrice,
+        marginPercent: source.marginPercent
+    }, 'After:', {
+        price: sellPrice,
+        sellPrice,
+        costPrice,
+        marginPercent,
+        profitValue,
+        profitMarginActual
+    }, 'Override:', manualPriceOverride);
 
     return {
         costPrice,
@@ -665,7 +678,7 @@ function mapProductFromSnapshot(doc) {
         name: data.name || '',
         desc: data.desc || '',
         category: data.category || '',
-        price: data.price || 0,
+        price: Number.isFinite(Number(data.price)) ? Number(data.price) : 0,
         oldPrice: data.oldPrice || null,
         image: cleanImageField(data.image || data.imageUrl || ''),
         imageUrl: cleanImageField(data.imageUrl || data.image || ''),
