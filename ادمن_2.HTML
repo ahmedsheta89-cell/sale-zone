@@ -3238,11 +3238,21 @@
                 return normalizePricingFields(effective);
             }
 
-            const costPrice = Math.max(0, Number(parseMoney(effective.costPrice)));
-            const marginPercent = Math.max(0, Math.min(1000, Number(parseMoney(effective.marginPercent))));
+            const fallbackPrice = parseMoney(effective.price);
+            const parsedCostPrice = parseMoney(effective.costPrice);
+            const parsedMarginPercent = parseMoney(effective.marginPercent);
+            const parsedSellPrice = parseMoney(
+                Object.prototype.hasOwnProperty.call(effective, 'sellPrice') ? effective.sellPrice : effective.price
+            );
+            const costPrice = Number.isFinite(parsedCostPrice)
+                ? Math.max(0, parsedCostPrice)
+                : (Number.isFinite(fallbackPrice) ? Math.max(0, fallbackPrice) : 0);
+            const marginPercent = Number.isFinite(parsedMarginPercent)
+                ? Math.max(0, Math.min(1000, parsedMarginPercent))
+                : 0;
             const manualPriceOverride = effective.manualPriceOverride === true;
             const autoSellPrice = Number((costPrice * (1 + (marginPercent / 100))).toFixed(2));
-            const requestedSellPrice = Number(Number(parseMoney(effective.sellPrice)).toFixed(2));
+            const requestedSellPrice = Number(Number(parsedSellPrice).toFixed(2));
             const sellPrice = manualPriceOverride && Number.isFinite(requestedSellPrice) ? Math.max(0, requestedSellPrice) : autoSellPrice;
             const profitValue = Number((sellPrice - costPrice).toFixed(2));
             const profitMarginActual = sellPrice > 0 ? Number(((profitValue / sellPrice) * 100).toFixed(2)) : 0;
@@ -5543,6 +5553,7 @@ function adminLogout(){
             let successCount = 0;
             let failedCount = 0;
             const online = navigator.onLine === true;
+            const zeroPriceSave = Number(payload && payload.sellPrice) === 0 || Number(payload && payload.price) === 0;
             const total = ids.length;
             let completed = 0;
 
@@ -6026,7 +6037,7 @@ function adminLogout(){
                 throw new Error('invalid-margin');
             }
 
-            if (!Number.isFinite(rawPrice) || rawPrice <= 0) {
+            if (!Number.isFinite(rawPrice) || rawPrice < 0) {
                 throw new Error('invalid-price');
             }
 
@@ -6367,7 +6378,7 @@ function adminLogout(){
                     return;
                 }
                 if (error && error.message === 'invalid-price') {
-                    showNotification('error', 'السعر غير صالح: يجب أن يكون أكبر من صفر');
+                    showNotification('error', 'السعر غير صالح: أدخل رقمًا أكبر من أو يساوي صفر');
                     return;
                 }
                 if (error && error.message === 'invalid-stock') {
@@ -6429,6 +6440,9 @@ function adminLogout(){
                 window._allProducts = products;
                 invalidateProductFilterCache();
                 showNotification('success', 'تم تحديث المنتج');
+                if (zeroPriceSave) {
+                    showNotification('warning', 'تم حفظ المنتج بسعر 0. سيظهر كمنتج مجاني ما دام منشورًا ومتاحًا.');
+                }
             } else {
                 const nowIso = new Date().toISOString();
                 const newProduct = normalizeProductForStorage({
@@ -6467,6 +6481,9 @@ function adminLogout(){
                 window._allProducts = products;
                 invalidateProductFilterCache();
                 showNotification('success', 'تمت إضافة المنتج');
+                if (zeroPriceSave) {
+                    showNotification('warning', 'تم حفظ المنتج بسعر 0. سيظهر كمنتج مجاني ما دام منشورًا ومتاحًا.');
+                }
             }
 
             saveProducts();
@@ -10933,6 +10950,10 @@ function adminLogout(){
             return Math.round(parsed * 100) / 100;
         }
 
+        function hasExplicitImportValue(raw) {
+            return String(raw == null ? '' : raw).trim() !== '';
+        }
+
         function parseImportBoolean(raw) {
             const normalized = normalizeArabicHeader(String(raw || '')
                 .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
@@ -11090,6 +11111,8 @@ function adminLogout(){
             if (Number.isFinite(normalizedImportedPrice) && normalizedImportedPrice >= 0) {
                 next.price = normalizedImportedPrice;
                 next.sellPrice = normalizedImportedPrice;
+                next.manualPriceOverride = true;
+                next.manualPriceReason = String(imported.manualPriceReason || next.manualPriceReason || 'excel_import').trim();
             }
             if (Number.isFinite(Number(imported.oldPrice)) && Number(imported.oldPrice) > 0) next.oldPrice = Number(imported.oldPrice);
             else if (Number.isFinite(importedPrice) && importedPrice > normalizedImportedPrice) next.oldPrice = importedPrice;
@@ -11266,9 +11289,21 @@ function adminLogout(){
                 const trackInventory = parseImportBoolean(getMappedValue(row, mapping.trackInventory));
                 const image = cleanImageField(getMappedValue(row, mapping.image));
                 const effectiveSellPrice = parsedSellPrice > 0 ? parsedSellPrice : parsedBasePrice;
+                const hasExplicitPriceValue = hasExplicitImportValue(priceRaw) || hasExplicitImportValue(sellPriceRaw);
                 const derivedOldPrice = Number.isFinite(oldPrice) && oldPrice > 0
                     ? oldPrice
                     : (parsedSellPrice > 0 && parsedBasePrice > parsedSellPrice ? parsedBasePrice : null);
+                console.log('[EXCEL_IMPORT_DEBUG] Raw pricing cells:', JSON.stringify({
+                    row: rowIndex + 1,
+                    name,
+                    priceRaw,
+                    sellPriceRaw,
+                    parsedBasePrice,
+                    parsedSellPrice,
+                    effectiveSellPrice,
+                    trackInventory,
+                    stock
+                }));
                 if (effectiveSellPrice <= 0) {
                     const zeroRow = {
                         row: rowIndex + 1,
@@ -11297,13 +11332,16 @@ function adminLogout(){
                     category: categoryRaw || inferCategory(name),
                     price: effectiveSellPrice,
                     sellPrice: effectiveSellPrice,
+                    costPrice: 0,
+                    marginPercent: 0,
                     oldPrice: derivedOldPrice,
                     image: image || DEFAULT_PRODUCT_IMAGE,
                     imageUrl: image || DEFAULT_PRODUCT_IMAGE,
                     code,
                     stock,
                     trackInventory,
-                    manualPriceOverride: parsedSellPrice > 0,
+                    manualPriceOverride: hasExplicitPriceValue,
+                    manualPriceReason: hasExplicitPriceValue ? 'excel_import' : '',
                     rating: 4.5,
                     ratingCount: 0,
                     isPublished: false
@@ -11496,6 +11534,12 @@ function adminLogout(){
                         isPublished: publishAfterImport
                     });
                     const updatePayload = { ...merged };
+                    console.log('[EXCEL_IMPORT_DEBUG] Product payload:', JSON.stringify({
+                        mode: 'update',
+                        row: entry.row,
+                        id: existingId,
+                        product: updatePayload
+                    }));
                     delete updatePayload.id;
 
                     try {
@@ -11527,8 +11571,13 @@ function adminLogout(){
 
                 for (let offset = 0; offset < normalizedProducts.length; offset += chunkSize) {
                     const chunk = normalizedProducts.slice(offset, offset + chunkSize);
-                    const payloadChunk = chunk.map((item) => {
+                    const payloadChunk = chunk.map((item, index) => {
                         const copy = { ...item };
+                        console.log('[EXCEL_IMPORT_DEBUG] Product payload:', JSON.stringify({
+                            mode: 'create',
+                            row: rowsToImport[offset + index] ? rowsToImport[offset + index].row : null,
+                            product: copy
+                        }));
                         delete copy.id;
                         return copy;
                     });

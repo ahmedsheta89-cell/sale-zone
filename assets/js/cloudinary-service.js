@@ -19,7 +19,8 @@
     cloudName: CLOUD_NAME,
     uploadPreset: UPLOAD_PRESET
   };
-  var MAX_RAW_UPLOAD_BYTES = 5 * 1024 * 1024;
+  var MAX_FINAL_UPLOAD_BYTES = 5 * 1024 * 1024;
+  var MAX_PRECOMPRESS_IMAGE_BYTES = 20 * 1024 * 1024;
   var MAX_COMPRESSED_DIMENSION = 1200;
   var DEFAULT_UPLOAD_QUALITY = 0.85;
   var ALLOWED_UPLOAD_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx'];
@@ -112,31 +113,39 @@
     return match ? String(match[1] || '').toLowerCase() : '';
   }
 
-  function validateUploadFile(file) {
+  function validateUploadFile(file, options) {
     var type;
     var ext;
     var size;
+    var settings;
+    var maxBytes;
+    var allowPrecompressLargeImage;
 
     if (!file || typeof file !== 'object') {
-      throw buildCloudinaryUploadError('لم يتم اختيار صورة للرفع.', {
+      throw buildCloudinaryUploadError('?? ??? ?????? ???? ?????.', {
         code: 'CLOUDINARY_NO_FILE',
         transient: false
       });
     }
 
+    settings = options && typeof options === 'object' ? options : {};
     type = String(file.type || '').toLowerCase();
     ext = getUploadFileExtension(file);
     size = Number(file.size || 0);
+    allowPrecompressLargeImage = settings.phase === 'precompress' && isLikelyImageUploadFile(file);
+    maxBytes = allowPrecompressLargeImage ? MAX_PRECOMPRESS_IMAGE_BYTES : MAX_FINAL_UPLOAD_BYTES;
 
     if (!(ALLOWED_UPLOAD_MIME_TYPES[type] === true || ALLOWED_UPLOAD_EXTENSIONS.indexOf(ext) !== -1)) {
-      throw buildCloudinaryUploadError('صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP فقط.', {
+      throw buildCloudinaryUploadError('???? ?????? ??? ??????. ?????? JPG ?? PNG ?? WebP ???.', {
         code: 'CLOUDINARY_INVALID_FILE',
         transient: false
       });
     }
 
-    if (size > MAX_RAW_UPLOAD_BYTES) {
-      throw buildCloudinaryUploadError('حجم الصورة قبل الضغط أكبر من 5MB. اختر ملفًا أصغر أو اضغطه أولاً.', {
+    if (size > maxBytes) {
+      throw buildCloudinaryUploadError(allowPrecompressLargeImage
+        ? '??? ?????? ??? ????? ???? ?? 20MB. ???? ????? ???? ?? ???? ????? ?????.'
+        : '??? ?????? ??? ????? ???? ?? 5MB. ???? ????? ?? ???? ????? ????.', {
         code: 'CLOUDINARY_FILE_TOO_LARGE',
         transient: false
       });
@@ -309,7 +318,7 @@
     if (!file || typeof document === 'undefined') return Promise.resolve(file);
 
     try {
-      validated = validateUploadFile(file);
+      validated = validateUploadFile(file, { phase: 'precompress' });
     } catch (error) {
       return Promise.reject(error);
     }
@@ -373,7 +382,7 @@
   function uploadToCloudinary(file, options) {
     var settings = options && typeof options === 'object' ? options : {};
     try {
-      validateUploadFile(file);
+      validateUploadFile(file, { phase: 'precompress' });
     } catch (validationError) {
       return Promise.reject(validationError);
     }
@@ -386,6 +395,7 @@
     return compressImageBeforeUpload(file).catch(function () {
       return file;
     }).then(function (uploadFile) {
+      validateUploadFile(uploadFile, { phase: 'upload' });
       var onProgress = typeof settings.onProgress === 'function' ? settings.onProgress : null;
       var folder = String(settings.folder || _folder()).trim();
       var publicId = String(settings.publicId || '')
@@ -615,7 +625,8 @@
     isConfigured: isCloudinaryConfigured,
     buildUploadError: buildCloudinaryUploadError,
     uploadRules: {
-      maxBytes: MAX_RAW_UPLOAD_BYTES,
+      maxBytes: MAX_FINAL_UPLOAD_BYTES,
+      maxPrecompressImageBytes: MAX_PRECOMPRESS_IMAGE_BYTES,
       maxDimension: MAX_COMPRESSED_DIMENSION,
       quality: DEFAULT_UPLOAD_QUALITY,
       allowedExtensions: ALLOWED_UPLOAD_EXTENSIONS.slice()

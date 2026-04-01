@@ -2,7 +2,7 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 17
+> Total errors logged: 18
 > Total patterns discovered: 8
 
 ---
@@ -33,6 +33,7 @@
 | [Git & Branching](#git--branching) | 2 | 2025-01 |
 | [Governance Checks](#governance-checks) | 3 | 2026-03 |
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
+| [Catalog & Import](#catalog--import) | 1 | 2026-04 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
 
 ---
@@ -607,6 +608,66 @@ When validating sellability fixes, separate code truth from catalog-data truth. 
 
 **Related Errors:** ERR-016
 **Severity:** High - storefront loads but no customer can buy products
+
+---
+
+## Catalog & Import
+
+### ERR-018: Excel Import Prices Were Being Recomputed, Large Images Were Rejected Before Compression, and Storefront Cart Still Blocked Zero-Price Untracked Products
+
+Date: 2026-04
+Batch: Critical production fix after PR #122
+Tags: #excel-import #pricing #cloudinary #inventory #storefront
+
+**Error Message:**
+```text
+price: 0.00 after refresh
+EXCEL_IMAGE_UPLOAD upload failed: حجم الصورة أكبر من 5MB
+غير متاح للبيع
+```
+
+**When it appears:**
+- Admin imports products from Excel/CSV with a valid price column
+- Imported rows appear correct during the import flow
+- After save or refresh, product prices can collapse back to zero
+- Large product images are rejected before compression runs
+- Storefront products with `trackInventory` off still fail purchase paths when price is zero or stock is zero
+
+**Root Cause:**
+This production issue had three linked causes:
+
+1. Excel-imported prices were not always treated as explicit manual prices.
+   - Rows that only supplied the base price column could miss the `manualPriceOverride` path
+   - Later normalization/write flows could recompute pricing instead of preserving the imported value
+
+2. Cloudinary validation rejected raw image files before compression.
+   - The upload guard enforced the 5MB limit on the original file
+   - Large images never reached `compressImageBeforeUpload()`
+
+3. Storefront sellability and cart behavior still had a hard stock gate.
+   - The broader sellability fix made untracked products available by default
+   - But `addToCart()` still blocked `stock === 0` even when inventory tracking was disabled
+
+**Solution:**
+- Treat any imported explicit `price` or `sellPrice` value as manual pricing and preserve it through normalization/write flows
+- Add debug logs for import payloads and pricing normalization during verification
+- Allow pre-compression image validation up to 20MB, then enforce the final 5MB upload limit after compression
+- Remove the remaining cart-path stock gate for products that do not use inventory tracking
+- Treat `price = 0` as a valid free product instead of auto-marking it unavailable
+
+Files affected:
+- `ادمن_2.HTML`
+- `متجر_2.HTML`
+- `assets/js/firebase-api.js`
+- `assets/js/cloudinary-service.js`
+
+Commit: pending on `fix/critical-excel-import-pricing-images`
+
+**Prevention Rule:**
+If import data carries an explicit price, mark it as manual before any downstream normalization. For image uploads, validate both pre-compression and post-compression phases separately. For sellability, inventory rules must not be reintroduced indirectly in cart code.
+
+**Related Errors:** ERR-017
+**Severity:** Critical - imported catalog data becomes commercially unusable
 
 ---
 ## Template - Log a New Error

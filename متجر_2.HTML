@@ -2554,10 +2554,10 @@
         function resolveDisplayPrice(product) {
             const source = product && typeof product === 'object' ? product : {};
             const sellPrice = Number(source.sellPrice);
-            if (Number.isFinite(sellPrice) && sellPrice > 0) return sellPrice;
+            if (Number.isFinite(sellPrice) && sellPrice >= 0) return sellPrice;
 
             const basePrice = Number(source.price);
-            if (Number.isFinite(basePrice) && basePrice > 0) return basePrice;
+            if (Number.isFinite(basePrice) && basePrice >= 0) return basePrice;
 
             return null;
         }
@@ -4017,7 +4017,7 @@
             const ratingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
             const discountPercent = getProductDiscountPercent(p);
             const stockMessage = getProductStockMessage(p);
-            const canAddToCart = hasValidPrice && isProductInStock(p);
+            const canAddToCart = isProductSellable(p);
 
             return `
                 <div class="product-card" data-product-id="${safeProductId}" onclick="showProductDetails(this.dataset.productId)">
@@ -4180,6 +4180,21 @@
             const stockValue = getProductStockValue(item);
             if (stockValue === null) return true;
             return stockValue > 0;
+        }
+
+        const sellabilityDebugState = typeof window !== 'undefined'
+            ? (window.__SALEZONE_SELLABILITY_DEBUG__ = window.__SALEZONE_SELLABILITY_DEBUG__ || Object.create(null))
+            : Object.create(null);
+
+        function isProductSellable(item) {
+            const source = item && typeof item === 'object' ? item : {};
+            const result = source.isPublished !== false && isProductInStock(source);
+            const debugKey = String(source.id || source.code || source.name || Math.random());
+            if (!sellabilityDebugState[debugKey]) {
+                sellabilityDebugState[debugKey] = true;
+                console.log('[SELLABILITY_DEBUG] Product:', source.name || '', 'Price:', resolveDisplayPrice(source), 'TrackInventory:', isProductInventoryTracked(source), 'Stock:', getProductStockValue(source), 'Published:', source.isPublished !== false, 'Result:', result);
+            }
+            return result;
         }
 
         function getProductStockValue(item) {
@@ -4582,7 +4597,7 @@
             const safeOldPrice = escapeHtml(hasOldPrice ? formatPrice(Number(p.oldPrice)) : '');
             const discountPercent = getProductDiscountPercent(p);
             const stockMessage = getProductStockMessage(p);
-            const canAddToCart = hasValidPrice && isProductInStock(p);
+            const canAddToCart = isProductSellable(p);
             const isFav = favorites.includes(String(p && p.id));
             window.currentProduct = p;
             productModalState = {
@@ -4881,11 +4896,11 @@
         function addToCart(id, quantity = 1) {
             const p = getVisibleProductsList().find((x) => x.id == id || String(x.id) === String(id));
             if (!p) return;
-            if (getProductStockValue(p) === 0) {
+            if (isProductInventoryTracked(p) && getProductStockValue(p) === 0) {
                 if (window.Toast && typeof window.Toast.warning === 'function') {
-                    window.Toast.warning('المنتج غير متوفر حالياً');
+                    window.Toast.warning(t('outOfStockNow'));
                 } else {
-                    showNotification('warning', 'تنبيه', 'المنتج غير متوفر حالياً');
+                    showNotification('warning', 'تنبيه', t('outOfStockNow'));
                 }
                 return;
             }
