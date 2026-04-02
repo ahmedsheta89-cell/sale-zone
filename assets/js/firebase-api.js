@@ -511,20 +511,6 @@ function normalizePricingFields(input) {
     const sellPrice = manualPriceOverride ? requestedSellPrice : autoSellPrice;
     const profitValue = roundMoney(sellPrice - costPrice);
     const profitMarginActual = sellPrice > 0 ? roundMoney((profitValue / sellPrice) * 100) : 0;
-    console.log('[PRICE_NORM_DEBUG] Before:', {
-        price: source.price,
-        sellPrice: source.sellPrice,
-        costPrice: source.costPrice,
-        marginPercent: source.marginPercent
-    }, 'After:', {
-        price: sellPrice,
-        sellPrice,
-        costPrice,
-        marginPercent,
-        profitValue,
-        profitMarginActual
-    }, 'Override:', manualPriceOverride);
-
     return {
         costPrice,
         marginPercent,

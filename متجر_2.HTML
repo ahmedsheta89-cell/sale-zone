@@ -4182,19 +4182,9 @@
             return stockValue > 0;
         }
 
-        const sellabilityDebugState = typeof window !== 'undefined'
-            ? (window.__SALEZONE_SELLABILITY_DEBUG__ = window.__SALEZONE_SELLABILITY_DEBUG__ || Object.create(null))
-            : Object.create(null);
-
         function isProductSellable(item) {
             const source = item && typeof item === 'object' ? item : {};
-            const result = source.isPublished !== false && isProductInStock(source);
-            const debugKey = String(source.id || source.code || source.name || Math.random());
-            if (!sellabilityDebugState[debugKey]) {
-                sellabilityDebugState[debugKey] = true;
-                console.log('[SELLABILITY_DEBUG] Product:', source.name || '', 'Price:', resolveDisplayPrice(source), 'TrackInventory:', isProductInventoryTracked(source), 'Stock:', getProductStockValue(source), 'Published:', source.isPublished !== false, 'Result:', result);
-            }
-            return result;
+            return source.isPublished !== false && isProductInStock(source);
         }
 
         function getProductStockValue(item) {

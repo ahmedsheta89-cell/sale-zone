@@ -11293,17 +11293,6 @@ function adminLogout(){
                 const derivedOldPrice = Number.isFinite(oldPrice) && oldPrice > 0
                     ? oldPrice
                     : (parsedSellPrice > 0 && parsedBasePrice > parsedSellPrice ? parsedBasePrice : null);
-                console.log('[EXCEL_IMPORT_DEBUG] Raw pricing cells:', JSON.stringify({
-                    row: rowIndex + 1,
-                    name,
-                    priceRaw,
-                    sellPriceRaw,
-                    parsedBasePrice,
-                    parsedSellPrice,
-                    effectiveSellPrice,
-                    trackInventory,
-                    stock
-                }));
                 if (effectiveSellPrice <= 0) {
                     const zeroRow = {
                         row: rowIndex + 1,
@@ -11534,12 +11523,6 @@ function adminLogout(){
                         isPublished: publishAfterImport
                     });
                     const updatePayload = { ...merged };
-                    console.log('[EXCEL_IMPORT_DEBUG] Product payload:', JSON.stringify({
-                        mode: 'update',
-                        row: entry.row,
-                        id: existingId,
-                        product: updatePayload
-                    }));
                     delete updatePayload.id;
 
                     try {
@@ -11573,11 +11556,6 @@ function adminLogout(){
                     const chunk = normalizedProducts.slice(offset, offset + chunkSize);
                     const payloadChunk = chunk.map((item, index) => {
                         const copy = { ...item };
-                        console.log('[EXCEL_IMPORT_DEBUG] Product payload:', JSON.stringify({
-                            mode: 'create',
-                            row: rowsToImport[offset + index] ? rowsToImport[offset + index].row : null,
-                            product: copy
-                        }));
                         delete copy.id;
                         return copy;
                     });
