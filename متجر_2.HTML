@@ -139,6 +139,17 @@
             --shadow-lg: 0 10px 40px rgba(0,0,0,0.2);
             --shadow-gold: 0 4px 20px rgba(212,175,55,0.3);
             --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --account-shell: #0f0f23;
+            --account-shell-soft: #16213e;
+            --account-shell-strong: #1a1a2e;
+            --account-card: rgba(255, 255, 255, 0.06);
+            --account-card-strong: rgba(255, 255, 255, 0.1);
+            --account-border: rgba(255, 255, 255, 0.12);
+            --account-text: #ffffff;
+            --account-text-muted: rgba(255, 255, 255, 0.72);
+            --account-accent: #e94560;
+            --account-success: #0f9b58;
+            --account-shadow: 0 28px 60px rgba(6, 9, 20, 0.38);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -406,50 +417,121 @@
         .modal-overlay.active .modal { transform: scale(1); }
         .modal.large { max-width: 700px; }
         .modal.my-account-modal {
-            max-width: 1080px;
-            width: min(1080px, 100%);
-            max-height: 92vh;
+            max-width: 1180px;
+            width: min(1180px, 100%);
+            max-height: 94vh;
             direction: rtl;
             display: flex;
             flex-direction: column;
+            background:
+                radial-gradient(circle at top right, rgba(200, 169, 94, 0.16), transparent 22%),
+                radial-gradient(circle at bottom left, rgba(233, 69, 96, 0.12), transparent 20%),
+                linear-gradient(180deg, var(--account-shell) 0%, #0b1020 100%);
+            color: var(--account-text);
+            box-shadow: var(--account-shadow);
+            border: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden;
         }
         .my-account-layout {
             display: grid;
-            grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+            grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
             min-height: 0;
+            flex: 1;
         }
         .my-account-sidebar {
-            background: linear-gradient(180deg, rgba(10, 17, 40, 0.98), rgba(17, 24, 39, 0.96));
-            color: var(--white);
-            padding: 24px 20px;
+            background:
+                linear-gradient(180deg, rgba(10, 17, 40, 0.92), rgba(15, 15, 35, 0.9));
+            color: var(--account-text);
+            padding: 28px 24px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 22px;
+            position: relative;
+            overflow: hidden;
+        }
+        .my-account-sidebar::before {
+            content: '';
+            position: absolute;
+            inset: auto -80px -90px auto;
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(200,169,94,0.28), transparent 70%);
+            pointer-events: none;
+        }
+        .my-account-hero {
+            position: relative;
+            z-index: 1;
+            padding: 22px;
+            border-radius: 24px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+            border: 1px solid var(--account-border);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+            display: grid;
+            gap: 18px;
+            backdrop-filter: blur(12px);
         }
         .my-account-avatar {
-            width: 86px;
-            height: 86px;
+            width: 92px;
+            height: 92px;
             border-radius: 50%;
             background: linear-gradient(135deg, var(--gold), var(--gold-dark));
             color: var(--navy);
             font-family: var(--font-display);
-            font-size: 32px;
+            font-size: 34px;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            box-shadow: var(--shadow-gold);
+            box-shadow: 0 18px 35px rgba(200, 169, 94, 0.24);
+        }
+        .my-account-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: fit-content;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.09);
+            color: var(--gold-light);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+        .my-account-identity {
+            display: grid;
+            gap: 8px;
         }
         .my-account-sidebar h3 {
-            font-size: 1.35rem;
+            font-size: clamp(1.45rem, 2vw, 1.9rem);
             margin: 0;
-            color: var(--white);
+            color: var(--account-text);
+            line-height: 1.3;
         }
         .my-account-sidebar p {
             margin: 0;
-            color: rgba(255, 255, 255, 0.78);
-            font-size: 0.92rem;
+            color: var(--account-text-muted);
+            font-size: 0.94rem;
             line-height: 1.7;
+        }
+        .my-account-meta-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .my-account-meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 42px;
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--account-text);
+            font-size: 0.88rem;
+            font-weight: 600;
         }
         .my-account-header-actions {
             display: flex;
@@ -470,16 +552,20 @@
         .my-account-tab {
             border: 1px solid rgba(255, 255, 255, 0.12);
             background: rgba(255, 255, 255, 0.08);
-            color: var(--white);
-            padding: 10px 14px;
+            color: var(--account-text);
+            padding: 10px 15px;
             font-size: 0.92rem;
             font-weight: 600;
             cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+        .my-account-header-btn.is-notifications {
+            animation: bellPulse 3.8s ease-in-out infinite;
         }
         .my-account-ghost-btn {
-            color: var(--navy);
-            background: #f8fafc;
-            border-color: #d7dee8;
+            color: var(--account-text);
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.1);
         }
         .my-account-primary-btn {
             border: none;
@@ -493,8 +579,8 @@
         }
         .my-account-danger-btn {
             border: none;
-            background: #fee2e2;
-            color: #b91c1c;
+            background: rgba(233, 69, 96, 0.16);
+            color: #ffd6de;
             padding: 11px 16px;
             font-size: 0.95rem;
             font-weight: 700;
@@ -505,10 +591,12 @@
         .my-account-tab:hover,
         .my-account-primary-btn:hover,
         .my-account-danger-btn:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 18px 30px rgba(6, 9, 20, 0.2);
         }
         .my-account-body {
-            background: #fffdf9;
+            background:
+                linear-gradient(180deg, rgba(15, 15, 35, 0.98), rgba(22, 33, 62, 0.98));
             min-height: 0;
             display: flex;
             flex-direction: column;
@@ -516,25 +604,31 @@
         .my-account-tabs {
             display: flex;
             gap: 10px;
-            padding: 18px 18px 0;
+            padding: 18px 22px 0;
             overflow-x: auto;
             scrollbar-width: thin;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: linear-gradient(180deg, rgba(15, 15, 35, 0.98), rgba(15, 15, 35, 0.72));
+            backdrop-filter: blur(12px);
         }
         .my-account-tab {
             white-space: nowrap;
-            color: #475569;
-            background: #f8fafc;
-            border-color: #e2e8f0;
+            color: var(--account-text-muted);
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.1);
             font-size: 0.88rem;
+            box-shadow: inset 0 0 0 1px transparent;
         }
         .my-account-tab.active {
-            background: var(--navy);
-            border-color: var(--navy);
-            color: var(--white);
-            box-shadow: 0 14px 30px rgba(10, 17, 40, 0.16);
+            background: linear-gradient(135deg, rgba(200,169,94,0.22), rgba(255,255,255,0.12));
+            border-color: rgba(200,169,94,0.35);
+            color: var(--account-text);
+            box-shadow: 0 18px 30px rgba(0,0,0,0.18);
         }
         .my-account-scroll {
-            padding: 18px;
+            padding: 20px 22px 24px;
             overflow-y: auto;
             min-height: 0;
         }
@@ -542,31 +636,64 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 8px;
         }
         .my-account-stat-card {
-            background: var(--white);
-            border: 1px solid #edf2f7;
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 20px;
+            padding: 18px 16px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+            min-height: 124px;
+            display: grid;
+            align-content: start;
+            gap: 10px;
+        }
+        .my-account-stat-card::after {
+            content: '';
+            position: absolute;
+            inset: auto -16px -26px auto;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(200,169,94,0.2), transparent 68%);
+        }
+        .my-account-stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.08);
+            font-size: 1.1rem;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
         }
         .my-account-stat-card small {
             display: block;
-            color: #64748b;
-            margin-bottom: 8px;
+            color: var(--account-text-muted);
             font-size: 0.82rem;
+            font-weight: 600;
         }
         .my-account-stat-card strong {
-            font-size: 1.45rem;
-            color: var(--navy);
+            font-size: 1.65rem;
+            color: var(--account-text);
+            line-height: 1.1;
         }
         .my-account-panel {
-            background: var(--white);
-            border-radius: 18px;
-            padding: 20px;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid #edf2f7;
+            background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+            border-radius: 24px;
+            padding: 22px;
+            box-shadow: 0 20px 45px rgba(6, 9, 20, 0.14);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+            animation: accountFadeUp 0.45s ease;
+        }
+        .my-account-panel h3,
+        .my-account-panel strong {
+            color: var(--account-text);
         }
         .my-account-grid {
             display: grid;
@@ -579,19 +706,19 @@
         }
         .my-account-field label {
             font-size: 0.88rem;
-            color: #475569;
+            color: var(--account-text-muted);
             font-weight: 700;
         }
         .my-account-field input,
         .my-account-field textarea {
             width: 100%;
             min-height: 48px;
-            border: 1px solid #d8dee9;
-            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
             padding: 12px 14px;
             font-size: 0.95rem;
-            background: #fff;
-            color: #0f172a;
+            background: rgba(255,255,255,0.08);
+            color: var(--account-text);
         }
         .my-account-field textarea {
             min-height: 104px;
@@ -599,11 +726,11 @@
         }
         .my-account-readonly {
             min-height: 48px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            background: #f8fafc;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.05);
             padding: 12px 14px;
-            color: #334155;
+            color: var(--account-text);
             display: flex;
             align-items: center;
             line-height: 1.7;
@@ -617,22 +744,27 @@
         .my-account-products {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 14px;
+            gap: 16px;
         }
         .my-account-product-card {
-            background: var(--white);
-            border: 1px solid #edf2f7;
-            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 22px;
             overflow: hidden;
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 18px 40px rgba(6, 9, 20, 0.16);
             display: flex;
             flex-direction: column;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .my-account-product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 26px 50px rgba(6, 9, 20, 0.2);
         }
         .my-account-product-card img {
             width: 100%;
             aspect-ratio: 1;
             object-fit: cover;
-            background: #f8fafc;
+            background: rgba(255,255,255,0.08);
         }
         .my-account-product-card .content {
             padding: 14px;
@@ -643,10 +775,10 @@
         .my-account-order-card,
         .my-account-points-card,
         .my-account-settings-card {
-            border: 1px solid #edf2f7;
-            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
             padding: 16px;
-            background: #fff;
+            background: rgba(255,255,255,0.05);
         }
         .my-account-notification-list {
             display: grid;
@@ -657,19 +789,19 @@
             grid-template-columns: auto 1fr auto;
             gap: 12px;
             align-items: flex-start;
-            border: 1px solid #edf2f7;
-            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
             padding: 16px;
-            background: #fff;
+            background: rgba(255,255,255,0.05);
             cursor: pointer;
             transition: var(--transition);
         }
         .my-account-notification-card:hover {
             border-color: rgba(212, 175, 55, 0.55);
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 20px 36px rgba(6, 9, 20, 0.14);
         }
         .my-account-notification-card.unread {
-            background: #fffdf7;
+            background: linear-gradient(180deg, rgba(200,169,94,0.14), rgba(255,255,255,0.04));
             border-color: rgba(212, 175, 55, 0.45);
         }
         .my-account-notification-icon {
@@ -690,7 +822,7 @@
         .my-account-notification-icon.system,
         .my-account-notification-icon.product { background: #dcfce7; color: #15803d; }
         .my-account-notification-body {
-            color: #475569;
+            color: var(--account-text);
             font-size: 0.92rem;
             line-height: 1.7;
             margin-top: 4px;
@@ -724,8 +856,8 @@
         }
         .my-account-tab-badge {
             margin-inline-start: 6px;
-            background: rgba(239, 68, 68, 0.12);
-            color: #b91c1c;
+            background: rgba(233, 69, 96, 0.16);
+            color: #ffd3dc;
             border-radius: 999px;
             padding: 2px 7px;
             font-size: 0.72rem;
@@ -757,11 +889,11 @@
         .my-account-timeline-step {
             flex: 1 1 110px;
             min-width: 90px;
-            border-radius: 14px;
+            border-radius: 16px;
             padding: 10px 12px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            color: #64748b;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--account-text-muted);
             text-align: center;
             font-size: 0.78rem;
             font-weight: 700;
@@ -769,13 +901,13 @@
         .my-account-timeline-step.active {
             background: linear-gradient(135deg, rgba(212, 175, 55, 0.18), rgba(212, 175, 55, 0.08));
             border-color: rgba(212, 175, 55, 0.55);
-            color: var(--gold-dark);
+            color: var(--gold-light);
         }
         .my-account-points-progress {
             width: 100%;
             height: 12px;
             border-radius: 999px;
-            background: #e2e8f0;
+            background: rgba(255,255,255,0.12);
             overflow: hidden;
             margin: 12px 0;
         }
@@ -794,14 +926,14 @@
             align-items: center;
             justify-content: space-between;
             gap: 12px;
-            border: 1px solid #edf2f7;
-            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
             padding: 14px 16px;
-            background: #fff;
+            background: rgba(255,255,255,0.04);
         }
         .my-account-setting-row small {
             display: block;
-            color: #64748b;
+            color: var(--account-text-muted);
             margin-top: 4px;
             line-height: 1.6;
         }
@@ -809,7 +941,7 @@
             width: 52px;
             height: 30px;
             border-radius: 999px;
-            background: #cbd5e1;
+            background: rgba(255,255,255,0.2);
             position: relative;
             transition: var(--transition);
             flex-shrink: 0;
@@ -826,24 +958,45 @@
             transition: var(--transition);
         }
         .my-account-switch.active {
-            background: #16a34a;
+            background: var(--account-success);
         }
         .my-account-switch.active::after {
             transform: translateX(-22px);
         }
         .my-account-muted-note {
-            color: #64748b;
+            color: var(--account-text-muted);
             font-size: 0.85rem;
             line-height: 1.7;
         }
         .my-account-empty {
             text-align: center;
-            padding: 40px 20px;
-            color: #64748b;
+            padding: 44px 24px;
+            color: var(--account-text-muted);
+        }
+        .my-account-empty h3 {
+            color: var(--account-text);
+            margin-bottom: 8px;
         }
         .my-account-empty .icon {
-            font-size: 2.4rem;
-            margin-bottom: 10px;
+            width: 82px;
+            height: 82px;
+            border-radius: 24px;
+            margin: 0 auto 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        @keyframes accountFadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes bellPulse {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            92% { transform: translateY(-1px) rotate(-4deg); }
+            96% { transform: translateY(-1px) rotate(4deg); }
         }
         .modal-header { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: var(--white); padding: 20px; text-align: center; position: relative; border-radius: 18px 18px 0 0; }
         .modal-header h2 { font-family: var(--font-display); font-size: var(--font-xl); margin-bottom: 4px; font-weight: 700; }
@@ -1077,9 +1230,15 @@
             .modal-overlay { align-items: flex-end; padding: 10px; }
             .modal { max-width: 100%; max-height: 92dvh; border-radius: 16px; }
             .modal-body { padding: 16px; }
-            .modal.my-account-modal { max-height: 94dvh; }
+            .modal.my-account-modal { width: 100%; max-height: 96dvh; border-radius: 22px 22px 0 0; }
             .my-account-layout { grid-template-columns: 1fr; }
             .my-account-sidebar { padding: 18px 16px; gap: 16px; }
+            .my-account-hero { padding: 18px; border-radius: 20px; }
+            .my-account-meta-list,
+            .my-account-header-actions,
+            .my-account-actions { flex-direction: column; }
+            .my-account-header-actions > *,
+            .my-account-actions > * { width: 100%; }
             .my-account-tabs { padding: 14px 14px 0; }
             .my-account-scroll { padding: 14px; }
             .my-account-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -6331,23 +6490,31 @@
             const safeName = escapeHtml(String(profile && profile.name || 'عميل'));
             const safeEmail = escapeHtml(String(profile && profile.email || ''));
             const safePhone = escapeHtml(String(profile && profile.phone || 'غير مضاف'));
+            const safeAddress = escapeHtml(String(profile && profile.address || 'القاهرة - مصر'));
             const points = Number(profile && profile.loyaltyPoints || 0);
             const unreadMessages = Number(myAccountState.supportThread && myAccountState.supportThread.unreadForCustomer || 0);
             const unreadNotifications = getMyAccountUnreadNotificationsCount();
             return `
-                <div class="my-account-avatar" aria-hidden="true">${firstLetter}</div>
-                <div style="display:grid;gap:8px;">
-                    <div>
-                        <h3>${safeName}</h3>
-                        <p>${safeEmail || 'بدون بريد إلكتروني'}</p>
+                <div class="my-account-hero">
+                    <div class="my-account-avatar" aria-hidden="true">${firstLetter}</div>
+                    <div class="my-account-identity">
+                        <span class="my-account-kicker">مساحتك الشخصية</span>
+                        <div>
+                            <h3>${safeName}</h3>
+                            <p>${safeEmail || 'بدون بريد إلكتروني'}</p>
+                        </div>
                     </div>
-                    <p>📱 ${safePhone}</p>
-                    <p>⭐ ${escapeHtml(String(points))} نقطة${unreadMessages > 0 ? ` • 💬 ${escapeHtml(String(unreadMessages))} غير مقروءة` : ''}${unreadNotifications > 0 ? ` • 🔔 ${escapeHtml(String(unreadNotifications))} إشعار` : ''}</p>
-                </div>
-                <div class="my-account-header-actions">
-                    <button type="button" class="my-account-header-btn" onclick="showEditProfileForm()" aria-label="تعديل بيانات الحساب">✏️ تعديل البيانات</button>
-                    <button type="button" class="my-account-header-btn" onclick="setMyAccountTab('notifications')" aria-label="فتح الإشعارات">🔔 الإشعارات${unreadNotifications > 0 ? ` <span class="my-account-badge">${escapeHtml(String(unreadNotifications))}</span>` : ''}</button>
-                    <button type="button" class="my-account-header-btn" onclick="openMySupportConversation()" aria-label="فتح محادثة الدعم">💬 افتح الدعم</button>
+                    <div class="my-account-meta-list">
+                        <span class="my-account-meta-chip">📱 ${safePhone}</span>
+                        <span class="my-account-meta-chip">📍 ${safeAddress}</span>
+                        <span class="my-account-meta-chip">⭐ ${escapeHtml(String(points))} نقطة</span>
+                    </div>
+                    <p>${unreadMessages > 0 ? `لديك ${escapeHtml(String(unreadMessages))} رسائل غير مقروءة` : 'كل تفاعلاتك وطلباتك محفوظة هنا بشكل منظم.'}${unreadNotifications > 0 ? ` • ${escapeHtml(String(unreadNotifications))} إشعار جديد` : ''}</p>
+                    <div class="my-account-header-actions">
+                        <button type="button" class="my-account-header-btn" onclick="showEditProfileForm()" aria-label="تعديل بيانات الحساب">✏️ تعديل البيانات</button>
+                        <button type="button" class="my-account-header-btn is-notifications" onclick="setMyAccountTab('notifications')" aria-label="فتح الإشعارات">🔔 الإشعارات${unreadNotifications > 0 ? ` <span class="my-account-badge">${escapeHtml(String(unreadNotifications))}</span>` : ''}</button>
+                        <button type="button" class="my-account-header-btn" onclick="openMySupportConversation()" aria-label="فتح محادثة الدعم">💬 افتح الدعم</button>
+                    </div>
                 </div>
             `;
         }
@@ -6367,7 +6534,8 @@
             ];
             return stats.map((item) => `
                 <div class="my-account-stat-card">
-                    <small>${item.icon} ${item.label}</small>
+                    <span class="my-account-stat-icon" aria-hidden="true">${item.icon}</span>
+                    <small>${item.label}</small>
                     <strong>${escapeHtml(String(item.value))}</strong>
                 </div>
             `).join('');
@@ -6502,7 +6670,7 @@
                 <div class="my-account-panel">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
                         <div>
-                            <h3 style="margin:0;color:var(--navy);">بياناتي</h3>
+                            <h3 style="margin:0;color:var(--account-text);">بياناتي</h3>
                             <p class="my-account-muted-note">${myAccountState.profileEditMode ? 'يمكنك تعديل الاسم والهاتف والعنوان ثم الحفظ.' : 'هذه هي البيانات المرتبطة بحسابك الحالي.'}</p>
                         </div>
                         ${myAccountState.profileEditMode ? '' : '<button type="button" class="my-account-primary-btn" onclick="showEditProfileForm()">✏️ تعديل البيانات</button>'}
@@ -6544,7 +6712,7 @@
                 <div class="my-account-panel" style="margin-top:16px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                         <div>
-                            <h3 style="margin:0;color:var(--navy);">أمان الحساب</h3>
+                            <h3 style="margin:0;color:var(--account-text);">أمان الحساب</h3>
                             <p class="my-account-muted-note">${canChangeEmail ? 'يمكنك تغيير البريد الإلكتروني بعد إدخال كلمة المرور الحالية.' : 'حسابك الحالي يستخدم Google أو Magic Link، لذلك يبقى البريد للعرض فقط في هذا الإصدار.'}</p>
                         </div>
                         ${canChangeEmail ? `<button type="button" class="my-account-ghost-btn" onclick="toggleEmailEditMode()">${myAccountState.emailEditMode ? 'إخفاء تغيير البريد' : 'تغيير البريد'}</button>` : ''}
@@ -6762,7 +6930,7 @@
                 <div class="my-account-panel">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
                         <div>
-                            <h3 style="margin:0;color:var(--navy);">طلباتي</h3>
+                            <h3 style="margin:0;color:var(--account-text);">طلباتي</h3>
                             <p class="my-account-muted-note">يمكنك متابعة الحالة التفصيلية لكل طلب من نفس القسم.</p>
                         </div>
                         <button type="button" class="my-account-ghost-btn" onclick="showMyOrders()">فتح العرض التقليدي</button>
@@ -6774,12 +6942,12 @@
                             <div class="my-account-order-card">
                                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                                     <div style="display:grid;gap:6px;">
-                                        <strong style="font-size:1rem;color:var(--navy);">${escapeHtml(orderNumber)}</strong>
+                                        <strong style="font-size:1rem;color:var(--account-text);">${escapeHtml(orderNumber)}</strong>
                                         <span class="my-account-muted-note">${escapeHtml(formatDate(order && order.createdAt || ''))}</span>
                                     </div>
                                     <div style="display:grid;gap:8px;justify-items:end;">
                                         <span class="my-account-pill ${String(order && order.status || '') === 'completed' || String(order && order.status || '') === 'delivered' ? 'success' : String(order && order.status || '') === 'cancelled' ? 'warning' : 'info'}">${escapeHtml(getStatusName(order && order.status || 'pending'))}</span>
-                                        <strong style="color:var(--gold-dark);">${escapeHtml(total)}</strong>
+                                        <strong style="color:var(--gold-light);">${escapeHtml(total)}</strong>
                                     </div>
                                 </div>
                                 ${buildOrderTimelineMarkup(order)}
@@ -6827,7 +6995,7 @@
                 <div class="my-account-panel">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
                         <div>
-                            <h3 style="margin:0;color:var(--navy);">مفضلتي</h3>
+                            <h3 style="margin:0;color:var(--account-text);">مفضلتي</h3>
                             <p class="my-account-muted-note">نفس المنتجات المخزنة في القائمة الجانبية، لكن بطريقة أسهل داخل حسابك.</p>
                         </div>
                         <button type="button" class="my-account-ghost-btn" onclick="toggleFavorites()">فتح القائمة الجانبية</button>
@@ -6835,10 +7003,10 @@
                     <div class="my-account-products">
                         ${favoriteProducts.map((product) => `
                             <div class="my-account-product-card">
-                                <img src="${escapeHtml(getSafeImageUrl(product, 360))}" alt="${escapeHtml(product && product.name || '')}" onerror="handleStoreImageError(this)" loading="lazy">
+                                <img src="${escapeHtml(getSafeImageUrl(product, 360))}" alt="${escapeHtml(product && product.name || '')}" width="320" height="320" onerror="handleStoreImageError(this)" loading="lazy">
                                 <div class="content">
-                                    <strong style="color:var(--navy);line-height:1.6;">${escapeHtml(product && product.name || '')}</strong>
-                                    <span style="color:var(--gold-dark);font-weight:700;">${escapeHtml(formatPrice(Number(product && product.price || 0)))}</span>
+                                    <strong style="color:var(--account-text);line-height:1.6;">${escapeHtml(product && product.name || '')}</strong>
+                                    <span style="color:var(--gold-light);font-weight:700;">${escapeHtml(formatPrice(Number(product && product.price || 0)))}</span>
                                     <div class="my-account-actions" style="margin-top:0;">
                                         <button type="button" class="my-account-primary-btn" data-product-id="${escapeHtml(String(product && product.id || ''))}" onclick="addToCart(this.dataset.productId)">🛒 أضف للسلة</button>
                                         <button type="button" class="my-account-ghost-btn" data-product-id="${escapeHtml(String(product && product.id || ''))}" onclick="showProductDetails(this.dataset.productId)">👁️ التفاصيل</button>
@@ -6900,10 +7068,10 @@
 
             container.innerHTML = `
                 <div class="my-account-panel">
-                    <h3 style="margin:0 0 6px;color:var(--navy);">نقاطي</h3>
+                    <h3 style="margin:0 0 6px;color:var(--account-text);">نقاطي</h3>
                     <p class="my-account-muted-note">الاستبدال ما زال يتم أثناء الـ checkout، لكن هنا ستجد الرصيد والحركة بالكامل.</p>
                     <div style="display:grid;gap:10px;margin:18px 0;">
-                        <div style="font-size:2rem;font-weight:800;color:var(--gold-dark);">${escapeHtml(String(balance))} نقطة</div>
+                        <div style="font-size:2rem;font-weight:800;color:var(--gold-light);">${escapeHtml(String(balance))} نقطة</div>
                         <div class="my-account-points-progress"><span style="width:${progress.toFixed(0)}%;"></span></div>
                         <div class="my-account-muted-note">المستوى التالي عند ${escapeHtml(String(nextMilestone))} نقطة</div>
                     </div>
@@ -6912,7 +7080,7 @@
                     </div>
                 </div>
                 <div class="my-account-panel" style="margin-top:16px;">
-                    <h3 style="margin:0 0 14px;color:var(--navy);">سجل النقاط</h3>
+                    <h3 style="margin:0 0 14px;color:var(--account-text);">سجل النقاط</h3>
                     ${history.length === 0 ? `
                         <div class="my-account-empty" style="padding:20px 0;">
                             <div class="icon">⭐</div>
@@ -7101,7 +7269,7 @@
                 <div style="display:grid;gap:10px;">
                     ${statusMeta.key === 'closed' ? `
                         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-                            <strong style="color:var(--navy);">المحادثة مغلقة حالياً</strong>
+                            <strong style="color:var(--account-text);">المحادثة مغلقة حالياً</strong>
                             <button type="button" class="my-account-ghost-btn" onclick="reopenMySupportThread()">إعادة فتح المحادثة</button>
                         </div>
                     ` : ''}
@@ -7109,7 +7277,7 @@
                         <div class="my-account-muted-note">التقييم الحالي: ${'⭐'.repeat(Math.max(1, Math.min(5, Number(currentThread.rating.score || 0))))}${currentThread.rating.comment ? ` — ${escapeHtml(String(currentThread.rating.comment || ''))}` : ''}</div>
                     ` : statusMeta.key === 'closed' ? `
                         <div style="display:grid;gap:8px;">
-                            <strong style="color:var(--navy);">كيف تقيّم تجربة الدعم؟</strong>
+                            <strong style="color:var(--account-text);">كيف تقيّم تجربة الدعم؟</strong>
                             <div class="support-rating-stars">
                                 ${[1,2,3,4,5].map((score) => `<button type="button" aria-label="تقييم ${score}" onclick="selectSupportRatingScore(${score})">⭐</button>`).join('')}
                             </div>
@@ -7367,7 +7535,7 @@
             if (supportAccess.denied) {
                 container.innerHTML = `
                     <div class="my-account-panel">
-                        <h3 style="margin:0 0 8px;color:var(--navy);">رسائلي</h3>
+                        <h3 style="margin:0 0 8px;color:var(--account-text);">رسائلي</h3>
                         <p class="my-account-muted-note">تعذر فتح الدردشة الداخلية من هذه الجلسة حالياً. سنحوّلك مباشرة إلى خدمة العملاء أو واتساب عند الحاجة.</p>
                         <div class="my-account-actions">
                             <button type="button" class="my-account-primary-btn" onclick="openTawkChat()">🎧 فتح Tawk.to</button>
@@ -7401,7 +7569,7 @@
                 <div class="my-account-panel">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                         <div>
-                            <h3 style="margin:0;color:var(--navy);">رسائلي</h3>
+                            <h3 style="margin:0;color:var(--account-text);">رسائلي</h3>
                             <p class="my-account-muted-note">يوجد حالياً thread واحد مرتبط بحسابك، ويمكنك متابعته في أي وقت.</p>
                         </div>
                         <span class="my-account-pill ${statusMeta.tone}">${statusMeta.label}</span>
@@ -7409,7 +7577,7 @@
                     <div class="my-account-thread-card" style="margin-top:16px;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                             <div style="display:grid;gap:8px;">
-                                <strong style="color:var(--navy);">محادثة الدعم</strong>
+                                <strong style="color:var(--account-text);">محادثة الدعم</strong>
                                 <span class="my-account-muted-note">${escapeHtml(String(thread && thread.lastMessage || 'ابدأ أول رسالة ليظهر الملخص هنا.'))}</span>
                                 <span class="my-account-muted-note">آخر تحديث: ${escapeHtml(formatDateTime(thread && (thread.lastMessageAt || thread.updatedAt) || ''))}</span>
                                 ${rating ? `<span class="my-account-muted-note">التقييم: ${'⭐'.repeat(Math.max(1, Math.min(5, Number(rating.score || 0))))}${rating.comment ? ` — ${escapeHtml(String(rating.comment || ''))}` : ''}</span>` : ''}
@@ -7744,7 +7912,7 @@
                 <div class="my-account-panel">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                         <div>
-                            <h3 style="margin:0;color:var(--navy);">🔔 الإشعارات</h3>
+                            <h3 style="margin:0;color:var(--account-text);">🔔 الإشعارات</h3>
                             <p class="my-account-muted-note">كل تحديثات الطلبات والدعم ونقاط الولاء في مكان واحد.</p>
                         </div>
                         <div class="my-account-actions" style="margin-top:0;">
@@ -7762,7 +7930,7 @@
                                     <div class="my-account-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
                                     <div>
                                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                            <strong style="color:var(--navy);">${escapeHtml(String(item && item.title || ''))}</strong>
+                                            <strong style="color:var(--account-text);">${escapeHtml(String(item && item.title || ''))}</strong>
                                             ${unread ? '<span class="my-account-unread-dot" aria-label="غير مقروء"></span>' : ''}
                                         </div>
                                         <div class="my-account-notification-body">${escapeHtml(String(item && item.body || ''))}</div>
@@ -7795,7 +7963,7 @@
             const canChangePassword = isPasswordAccount();
             container.innerHTML = `
                 <div class="my-account-panel">
-                    <h3 style="margin:0 0 14px;color:var(--navy);">الإعدادات</h3>
+                    <h3 style="margin:0 0 14px;color:var(--account-text);">الإعدادات</h3>
                     <div class="my-account-settings-list">
                         <div class="my-account-setting-row">
                             <div>
