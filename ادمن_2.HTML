@@ -4531,6 +4531,21 @@
             return `https://wa.me/${number}${normalizedMessage ? `?text=${encodeURIComponent(normalizedMessage)}` : ''}`;
         }
 
+        function openWindowWithFocus(url = '', target = '_blank', features) {
+            let opened = null;
+            try {
+                opened = typeof features === 'string'
+                    ? window.open(url, target, features)
+                    : window.open(url, target);
+            } catch (_) {
+                opened = null;
+            }
+            if (opened && typeof opened.focus === 'function') {
+                try { opened.focus(); } catch (_) {}
+            }
+            return opened;
+        }
+
 async function handleLogin(e){
   e.preventDefault();
   const email = document.getElementById('adminEmail').value.trim();
@@ -7910,13 +7925,13 @@ function adminLogout(){
             if (!o) return;
             const phone = o.customer?.phone || '';
             const msg = `مرحباً ${o.customer?.name}!\n\n📦 طلبك رقم: ${o.orderNumber}\n📍 الحالة: ${getStatusName(o.status)}\n\nشكراً لتسوقك معنا! 🛍️`;
-            window.open(buildWhatsAppUrl(msg, phone), '_blank');
+            openWindowWithFocus(buildWhatsAppUrl(msg, phone), '_blank');
         }
 
         function printOrder(id) {
             const o = orders.find(x => String(x.id) === String(id));
             if (!o) return;
-            const w = window.open('', '_blank');
+            const w = openWindowWithFocus('', '_blank');
             if (!w) return;
             const safeOrderNumber = escapeHtml(o.orderNumber || o.id || '-');
             const safeCreatedAt = escapeHtml(formatDateTime(o.createdAt));
@@ -9804,7 +9819,7 @@ function adminLogout(){
         }
 
         function previewStore() {
-            window.open('https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML', '_blank');
+            openWindowWithFocus('https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML', '_blank');
         }
 
         document.addEventListener('DOMContentLoaded', function() {
