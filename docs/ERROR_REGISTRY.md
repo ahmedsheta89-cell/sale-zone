@@ -670,6 +670,60 @@ If import data carries an explicit price, mark it as manual before any downstrea
 **Severity:** Critical - imported catalog data becomes commercially unusable
 
 ---
+
+## Auth & Session Integrity
+
+### ERR-019: Storefront Could Mix a Cached Customer UID with a Persisted Admin Firebase Session
+
+Date: 2026-04
+Batch: Critical auth/session isolation fix
+Tags: #auth #session #security #storefront #admin
+
+**Error Message:**
+```text
+[Telemetry] Live session write skipped intentionally.
+reason: 'uid-mismatch'
+authUid:   'L6478DWwBwfbnEUOkE3kCwLWxGG3'
+targetUid: 'DyQdpMVkzHRUYsIFb3xDEnd13gx2'
+```
+
+**When it appears:**
+- Admin signs in on the same browser/origin as the storefront
+- Storefront still holds a cached customer `currentUser`
+- A new customer logs in, registers, or opens profile editing
+- Telemetry and profile writes see different values for `authUid` and `targetUid`
+- The storefront can appear to jump from the customer account to the admin account after refresh or profile interaction
+
+**Root Cause:**
+The bug was caused by a session-integrity gap across the storefront and admin surfaces:
+
+1. Firebase Auth used the default shared persistence, so the admin auth session could survive across same-origin surfaces.
+2. Store boot ran `checkLoggedInUser()` before the auth listener had fully resolved the live Firebase user.
+3. The storefront merged `localStorage.currentUser` with `firebase.auth().currentUser` instead of rejecting stale cache on UID mismatch.
+4. Profile edit flows used `currentUser.uid || currentUser.id || authUser.uid`, allowing cached data to compete with the live Firebase UID.
+
+The backend data layer correctly rejected the mismatch, but the UI/session layer fed it inconsistent identity state.
+
+**Solution:**
+- Enforce Firebase Auth `SESSION` persistence in `assets/js/firebase-config.js`
+- Clear stale storefront cache and same-tab admin session artifacts before customer login/register flows
+- Reject admin-claim Firebase sessions on the storefront and sign them out there instead of hydrating store UI with them
+- Make storefront cache rebinding auth-bound only: cached `currentUser` is kept only when its UID matches `firebase.auth().currentUser.uid`
+- Make profile load/edit flows use the Firebase auth UID as the source of truth
+- Reorder store boot so the auth listener binds before cached-user bootstrap work
+
+Files affected:
+- `متجر_2.HTML`
+- `ادمن_2.HTML`
+- `assets/js/firebase-config.js`
+
+**Prevention Rule:**
+On same-origin multi-surface apps, Firebase Auth must be the identity source of truth. Cached UI state may decorate the active user, but it must never out-rank `firebase.auth().currentUser.uid`. Any UID mismatch must clear stale cache immediately, and admin sessions must never hydrate storefront customer state.
+
+**Related Errors:** ERR-001
+**Severity:** Critical - security and profile-write integrity risk
+
+---
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]

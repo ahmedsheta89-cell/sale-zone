@@ -4396,6 +4396,9 @@ async function handleLogin(e){
   }
 
   try{
+    if (typeof ensureFirebaseSessionPersistence === 'function') {
+      await ensureFirebaseSessionPersistence().catch(() => null);
+    }
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
     const user = userCred.user;
     const token = await user.getIdTokenResult(true);
@@ -4462,6 +4465,9 @@ async function sendVerificationLink() {
   }
 
   try {
+    if (typeof ensureFirebaseSessionPersistence === 'function') {
+      await ensureFirebaseSessionPersistence().catch(() => null);
+    }
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
     const user = userCred.user;
     if (user.emailVerified) {

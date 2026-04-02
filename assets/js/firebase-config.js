@@ -90,6 +90,54 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
+function getFirebaseSessionPersistenceConstant() {
+    try {
+        return firebase && firebase.auth && firebase.auth.Auth && firebase.auth.Auth.Persistence
+            ? firebase.auth.Auth.Persistence.SESSION
+            : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function ensureFirebaseSessionPersistence() {
+    if (window.__SALEZONE_AUTH_PERSISTENCE_PROMISE__) {
+        return window.__SALEZONE_AUTH_PERSISTENCE_PROMISE__;
+    }
+
+    window.__SALEZONE_AUTH_PERSISTENCE_PROMISE__ = (async () => {
+        try {
+            if (!(firebase && firebase.auth)) {
+                return { ok: false, reason: 'auth-not-available' };
+            }
+            const auth = firebase.auth();
+            if (!auth || typeof auth.setPersistence !== 'function') {
+                return { ok: false, reason: 'set-persistence-unavailable' };
+            }
+
+            const sessionPersistence = getFirebaseSessionPersistenceConstant();
+            if (!sessionPersistence) {
+                return { ok: false, reason: 'session-persistence-unavailable' };
+            }
+
+            await auth.setPersistence(sessionPersistence);
+            window.__SALEZONE_AUTH_PERSISTENCE_MODE__ = 'session';
+            return { ok: true, mode: 'session' };
+        } catch (error) {
+            const message = error && error.message ? String(error.message) : String(error || '');
+            window.__SALEZONE_AUTH_PERSISTENCE_MODE__ = 'default';
+            console.warn('[Auth] Failed to enforce session persistence:', message);
+            return { ok: false, reason: 'set-persistence-failed', error: message };
+        }
+    })();
+
+    return window.__SALEZONE_AUTH_PERSISTENCE_PROMISE__;
+}
+
+window.ensureFirebaseSessionPersistence = ensureFirebaseSessionPersistence;
+
+ensureFirebaseSessionPersistence().catch(() => null);
+
 // Initialize Firestore
 const db = firebase.firestore();
 
