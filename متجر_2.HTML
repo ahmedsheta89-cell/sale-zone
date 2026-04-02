@@ -606,14 +606,24 @@
             gap: 10px;
             padding: 18px 22px 0;
             overflow-x: auto;
-            scrollbar-width: thin;
+            max-width: 100%;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x proximity;
             position: sticky;
             top: 0;
             z-index: 2;
             background: linear-gradient(180deg, rgba(15, 15, 35, 0.98), rgba(15, 15, 35, 0.72));
             backdrop-filter: blur(12px);
         }
+        .my-account-tabs::-webkit-scrollbar {
+            display: none;
+        }
         .my-account-tab {
+            flex: 0 0 auto;
+            min-width: fit-content;
+            scroll-snap-align: start;
             white-space: nowrap;
             color: var(--account-text-muted);
             background: rgba(255,255,255,0.06);
@@ -630,7 +640,9 @@
         .my-account-scroll {
             padding: 20px 22px 24px;
             overflow-y: auto;
+            overflow-x: hidden;
             min-height: 0;
+            overscroll-behavior: contain;
         }
         .my-account-stats {
             display: grid;
@@ -1227,21 +1239,60 @@
             .banner-text { font-size: 14px; }
             .chat-box { width: calc(100vw - 40px); max-width: 320px; }
             .filter-bar { flex-direction: column; align-items: stretch; }
-            .modal-overlay { align-items: flex-end; padding: 10px; }
+            .modal-overlay { align-items: flex-end; padding: 0; }
             .modal { max-width: 100%; max-height: 92dvh; border-radius: 16px; }
             .modal-body { padding: 16px; }
-            .modal.my-account-modal { width: 100%; max-height: 96dvh; border-radius: 22px 22px 0 0; }
+            .modal.my-account-modal {
+                width: 100vw;
+                max-width: 100vw;
+                height: 100dvh;
+                max-height: 100dvh;
+                margin: 0;
+                border-radius: 0;
+            }
             .my-account-layout { grid-template-columns: 1fr; }
-            .my-account-sidebar { padding: 18px 16px; gap: 16px; }
-            .my-account-hero { padding: 18px; border-radius: 20px; }
+            .my-account-sidebar { padding: 16px 12px 12px; gap: 14px; }
+            .my-account-hero {
+                padding: 16px;
+                border-radius: 18px;
+                text-align: center;
+                justify-items: center;
+            }
+            .my-account-avatar {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+            }
+            .my-account-identity { justify-items: center; }
             .my-account-meta-list,
             .my-account-header-actions,
             .my-account-actions { flex-direction: column; }
             .my-account-header-actions > *,
             .my-account-actions > * { width: 100%; }
-            .my-account-tabs { padding: 14px 14px 0; }
-            .my-account-scroll { padding: 14px; }
-            .my-account-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .my-account-meta-list { justify-content: center; }
+            .my-account-tabs {
+                gap: 8px;
+                padding: 12px 12px 0;
+                scroll-snap-type: x mandatory;
+            }
+            .my-account-tab {
+                padding: 8px 16px;
+                font-size: 0.85rem;
+            }
+            .my-account-body {
+                min-height: 0;
+                overflow: hidden;
+            }
+            .my-account-scroll {
+                padding: 12px;
+                overflow-y: auto;
+            }
+            .my-account-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .my-account-stat-card {
+                min-height: 106px;
+                padding: 14px 12px;
+                border-radius: 16px;
+            }
             .my-account-grid { grid-template-columns: 1fr; }
             .my-account-products { grid-template-columns: 1fr; }
             .my-account-setting-row { align-items: flex-start; flex-direction: column; }
@@ -7697,7 +7748,7 @@
             customerNotificationSeenIds = nextIds;
             refreshMyAccountChrome();
             if (isMyAccountOpen() && myAccountState.activeTab === 'notifications') {
-                renderMyAccountNotificationsTab(document.getElementById('myAccountContent')).catch(() => null);
+                renderMyAccountNotificationsTab(document.getElementById('myAccountContent'), { preserveView: true }).catch(() => null);
             }
             if (newUnread.length) {
                 toastCustomerNotifications(newUnread);
@@ -7749,6 +7800,10 @@
                     '[Notifications] Customer notifications load skipped until Firebase Auth matches the target uid.',
                     accessState
                 );
+                if (Array.isArray(myAccountState.notifications) && myAccountState.notifications.length) {
+                    refreshMyAccountChrome();
+                    return myAccountState.notifications;
+                }
                 myAccountState.notifications = [];
                 myAccountState.notificationsUnreadCount = 0;
                 refreshMyAccountChrome();
@@ -7868,7 +7923,7 @@
                 await markAllCustomerNotificationsRead(uid).catch(() => null);
             }
             if (isMyAccountOpen() && myAccountState.activeTab === 'notifications') {
-                renderMyAccountNotificationsTab(document.getElementById('myAccountContent')).catch(() => null);
+                renderMyAccountNotificationsTab(document.getElementById('myAccountContent'), { preserveView: true }).catch(() => null);
             }
             return true;
         }
@@ -7892,60 +7947,105 @@
             return true;
         }
 
-        async function renderMyAccountNotificationsTab(container) {
-            if (!container) return;
-            renderMyAccountLoading('جاري تحميل الإشعارات...');
-            const rows = await ensureCustomerNotificationsLoaded();
-            renderMyAccountChrome();
-            const unreadCount = getMyAccountUnreadNotificationsCount();
-            if (!Array.isArray(rows) || rows.length === 0) {
-                container.innerHTML = `
-                    <div class="my-account-panel my-account-empty">
-                        <div class="icon">🔔</div>
-                        <h3>لا توجد إشعارات حتى الآن</h3>
-                        <p>ستظهر هنا تحديثات الطلبات، رسائل الدعم، ونقاط الولاء الجديدة.</p>
+        function buildMyAccountNotificationsItemsMarkup(rows = []) {
+            return (Array.isArray(rows) ? rows : []).map((item) => {
+                const meta = getCustomerNotificationTypeMeta(item && item.type);
+                const unread = item && item.readByCustomer !== true;
+                const safeId = escapeHtml(String(item && item.id || ''));
+                return `
+                    <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(item && item.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}">
+                        <div class="my-account-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
+                        <div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <strong style="color:var(--account-text);">${escapeHtml(String(item && item.title || ''))}</strong>
+                                ${unread ? '<span class="my-account-unread-dot" aria-label="غير مقروء"></span>' : ''}
+                            </div>
+                            <div class="my-account-notification-body">${escapeHtml(String(item && item.body || ''))}</div>
+                            <div class="my-account-muted-note" style="margin-top:6px;">${escapeHtml(getCustomerNotificationActionSummary(item))}</div>
+                        </div>
+                        <div class="my-account-notification-meta">
+                            <span class="my-account-muted-note">${escapeHtml(formatDateTime(item && item.createdAt || ''))}</span>
+                            ${unread ? `<button type="button" class="my-account-ghost-btn" data-notification-id="${safeId}" onclick="event.stopPropagation(); markCustomerNotificationAsRead(this.dataset.notificationId).then(() => renderMyAccountNotificationsTab(document.getElementById('myAccountContent'), { preserveView: true }));">تمت قراءته</button>` : '<span class="my-account-pill success">مقروء</span>'}
+                        </div>
                     </div>
                 `;
-                return;
-            }
-            container.innerHTML = `
-                <div class="my-account-panel">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-                        <div>
-                            <h3 style="margin:0;color:var(--account-text);">🔔 الإشعارات</h3>
-                            <p class="my-account-muted-note">كل تحديثات الطلبات والدعم ونقاط الولاء في مكان واحد.</p>
-                        </div>
-                        <div class="my-account-actions" style="margin-top:0;">
-                            <span class="my-account-badge">${escapeHtml(String(unreadCount))}</span>
-                            <button type="button" class="my-account-ghost-btn" onclick="markAllMyAccountNotificationsRead()">تمت قراءة الكل</button>
-                        </div>
-                    </div>
-                    <div class="my-account-notification-list" style="margin-top:16px;">
-                        ${rows.map((item) => {
-                            const meta = getCustomerNotificationTypeMeta(item && item.type);
-                            const unread = item && item.readByCustomer !== true;
-                            const safeId = escapeHtml(String(item && item.id || ''));
-                            return `
-                                <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(item && item.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}">
-                                    <div class="my-account-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
-                                    <div>
-                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                            <strong style="color:var(--account-text);">${escapeHtml(String(item && item.title || ''))}</strong>
-                                            ${unread ? '<span class="my-account-unread-dot" aria-label="غير مقروء"></span>' : ''}
-                                        </div>
-                                        <div class="my-account-notification-body">${escapeHtml(String(item && item.body || ''))}</div>
-                                        <div class="my-account-muted-note" style="margin-top:6px;">${escapeHtml(getCustomerNotificationActionSummary(item))}</div>
-                                    </div>
-                                    <div class="my-account-notification-meta">
-                                        <span class="my-account-muted-note">${escapeHtml(formatDateTime(item && item.createdAt || ''))}</span>
-                                        ${unread ? `<button type="button" class="my-account-ghost-btn" data-notification-id="${safeId}" onclick="event.stopPropagation(); markCustomerNotificationAsRead(this.dataset.notificationId).then(() => renderMyAccountNotificationsTab(document.getElementById('myAccountContent')));">تمت قراءته</button>` : '<span class="my-account-pill success">مقروء</span>'}
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
+            }).join('');
+        }
+
+        function getMyAccountNotificationsEmptyMarkup() {
+            return `
+                <div class="my-account-panel my-account-empty">
+                    <div class="icon">🔔</div>
+                    <h3>لا توجد إشعارات حتى الآن</h3>
+                    <p>ستظهر هنا تحديثات الطلبات، رسائل الدعم، ونقاط الولاء الجديدة.</p>
                 </div>
             `;
+        }
+
+        function patchMyAccountNotificationsView(container, rows = []) {
+            if (!container) return;
+            const unreadCount = getMyAccountUnreadNotificationsCount();
+            const panel = container.querySelector('[data-my-account-notifications-panel="true"]');
+
+            if ((!Array.isArray(rows) || rows.length === 0) && !panel) {
+                container.innerHTML = getMyAccountNotificationsEmptyMarkup();
+                container.dataset.accountView = 'notifications';
+                return;
+            }
+
+            if (!panel) {
+                container.innerHTML = `
+                    <div class="my-account-panel my-account-notifications-panel" data-my-account-notifications-panel="true">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                            <div>
+                                <h3 style="margin:0;color:var(--account-text);">🔔 الإشعارات</h3>
+                                <p class="my-account-muted-note">كل تحديثات الطلبات والدعم ونقاط الولاء في مكان واحد.</p>
+                            </div>
+                            <div class="my-account-actions" style="margin-top:0;">
+                                <span class="my-account-badge" data-my-account-notification-count>${escapeHtml(String(unreadCount))}</span>
+                                <button type="button" class="my-account-ghost-btn" onclick="markAllMyAccountNotificationsRead()">تمت قراءة الكل</button>
+                            </div>
+                        </div>
+                        <div class="my-account-notification-list" data-my-account-notification-list style="margin-top:16px;">
+                            ${Array.isArray(rows) && rows.length ? buildMyAccountNotificationsItemsMarkup(rows) : ''}
+                        </div>
+                    </div>
+                `;
+                container.dataset.accountView = 'notifications';
+                if (!Array.isArray(rows) || rows.length === 0) {
+                    container.innerHTML = getMyAccountNotificationsEmptyMarkup();
+                }
+                return;
+            }
+
+            const countNode = panel.querySelector('[data-my-account-notification-count]');
+            if (countNode) countNode.textContent = String(unreadCount);
+            const listNode = panel.querySelector('[data-my-account-notification-list]');
+            if (!Array.isArray(rows) || rows.length === 0) {
+                container.innerHTML = getMyAccountNotificationsEmptyMarkup();
+                container.dataset.accountView = 'notifications';
+                return;
+            }
+            if (listNode) {
+                listNode.innerHTML = buildMyAccountNotificationsItemsMarkup(rows);
+            }
+            container.dataset.accountView = 'notifications';
+        }
+
+        async function renderMyAccountNotificationsTab(container, options = {}) {
+            if (!container) return;
+            const renderOptions = options && typeof options === 'object' ? options : {};
+            const preserveView = renderOptions.preserveView === true && container.dataset.accountView === 'notifications';
+            if (!preserveView) {
+                renderMyAccountLoading('جاري تحميل الإشعارات...');
+            }
+            const previousScrollTop = preserveView ? container.scrollTop : 0;
+            const rows = await ensureCustomerNotificationsLoaded(renderOptions.force === true);
+            renderMyAccountChrome();
+            patchMyAccountNotificationsView(container, rows);
+            if (preserveView) {
+                container.scrollTop = previousScrollTop;
+            }
         }
 
         function openPasswordSettings() {
