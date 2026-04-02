@@ -2130,6 +2130,8 @@
         };
         const LIVE_SESSION_HEARTBEAT_MS = 45000;
         const STORE_SESSION_KEY = 'sale_zone_live_session_id';
+        const ADMIN_SESSION_STORAGE_KEYS = Object.freeze(['adminLoggedIn', 'adminSessionId', 'adminSession']);
+        const STORE_AUTH_BOOTSTRAP_KEYS = Object.freeze(['sale_zone_bootstrap_admin', 'sale_zone_bootstrap_email']);
         const STORE_SESSION_ID = (() => {
             let existing = '';
             try { existing = sessionStorage.getItem(STORE_SESSION_KEY) || ''; } catch (_) {}
@@ -2138,6 +2140,7 @@
             try { sessionStorage.setItem(STORE_SESSION_KEY, id); } catch (_) {}
             return id;
         })();
+        let storeAuthTransitionSerial = 0;
 
         let storeSettings = {
             name: 'Sale Zone Store',
@@ -2864,8 +2867,8 @@
             safeRun('updateFavUI', updateFavUI);
             safeRun('initPullToRefresh', initPullToRefresh);
             safeRun('initInfiniteScroll', initInfiniteScroll);
-            safeRun('checkLoggedInUser', checkLoggedInUser);
             safeRun('ensureStoreAuthListener', ensureStoreAuthListener);
+            safeRun('checkLoggedInUser', checkLoggedInUser);
             completeMagicLinkSignInIfNeeded().catch((error) => {
                 console.error('completeMagicLinkSignInIfNeeded bootstrap error:', error);
             });
@@ -5348,35 +5351,147 @@
             return firebase.auth();
         }
 
+        function getCurrentUserUid(record = currentUser) {
+            return String(record && (record.uid || record.id) || '').trim();
+        }
+
+        function doesUserRecordMatchUid(record, uid = '') {
+            const normalizedUid = String(uid || '').trim();
+            if (!normalizedUid) return false;
+            return getCurrentUserUid(record) === normalizedUid;
+        }
+
+        function persistCurrentUserCache(record) {
+            if (!record) {
+                clearCurrentUserCache();
+                return null;
+            }
+            const sanitized = sanitizeCustomerRecord(record);
+            currentUser = sanitized;
+            myAccountState.profile = sanitized;
+            try {
+                localStorage.setItem('currentUser', JSON.stringify(sanitized));
+            } catch (_) {}
+            try {
+                sessionStorage.removeItem('currentUser');
+            } catch (_) {}
+            return sanitized;
+        }
+
+        function clearAdminSessionArtifacts() {
+            try {
+                ADMIN_SESSION_STORAGE_KEYS.forEach((key) => sessionStorage.removeItem(key));
+            } catch (_) {}
+            try {
+                STORE_AUTH_BOOTSTRAP_KEYS.forEach((key) => localStorage.removeItem(key));
+            } catch (_) {}
+        }
+
         function clearCurrentUserCache() {
             currentUser = null;
             myAccountState.profile = null;
-            localStorage.removeItem('currentUser');
+            try {
+                localStorage.removeItem('currentUser');
+            } catch (_) {}
+            try {
+                sessionStorage.removeItem('currentUser');
+            } catch (_) {}
+        }
+
+        function clearStorefrontSessionArtifacts(options = {}) {
+            const config = options && typeof options === 'object' ? options : {};
+            clearCurrentUserCache();
+            if (config.clearAdminSession !== false) {
+                clearAdminSessionArtifacts();
+            }
+        }
+
+        async function prepareFreshCustomerAuthSession(source = 'customer-auth') {
+            clearStorefrontSessionArtifacts();
+            invalidateMyAccountCache('all');
+            stopSupportChatRealtime();
+            stopCustomerNotificationsRealtime();
+            storeAuthResolved = false;
+            updateUserUI();
+
+            if (typeof ensureFirebaseSessionPersistence === 'function') {
+                await ensureFirebaseSessionPersistence().catch(() => null);
+            }
+
+            const auth = getFirebaseAuthInstance();
+            if (auth && auth.currentUser && typeof auth.signOut === 'function') {
+                await auth.signOut().catch(() => null);
+            }
+
+            return { ok: true, source: String(source || 'customer-auth') };
+        }
+
+        async function resolveStorefrontCustomerAuthState(authUser, source = 'storefront') {
+            if (!authUser || !authUser.uid) {
+                clearStorefrontSessionArtifacts({ clearAdminSession: false });
+                return { ok: false, reason: 'missing-auth-user', source: String(source || 'storefront') };
+            }
+
+            const authUid = String(authUser.uid || '').trim();
+            if (!doesUserRecordMatchUid(currentUser, authUid) && currentUser) {
+                clearStorefrontSessionArtifacts({ clearAdminSession: false });
+            }
+
+            let claims = {};
+            if (typeof authUser.getIdTokenResult === 'function') {
+                const tokenResult = await authUser.getIdTokenResult().catch(() => null);
+                claims = tokenResult && tokenResult.claims && typeof tokenResult.claims === 'object'
+                    ? tokenResult.claims
+                    : {};
+            }
+
+            const isAdminSession = claims.admin === true || claims.role === 'admin';
+            if (isAdminSession) {
+                clearStorefrontSessionArtifacts();
+                const auth = getFirebaseAuthInstance();
+                if (auth && typeof auth.signOut === 'function') {
+                    await auth.signOut().catch(() => null);
+                }
+                return {
+                    ok: false,
+                    reason: 'admin-session-on-store',
+                    source: String(source || 'storefront'),
+                    authUid
+                };
+            }
+
+            const syncedUser = syncCurrentUserFromAuthUser(authUser, currentUser || {});
+            return {
+                ok: true,
+                reason: 'ready',
+                source: String(source || 'storefront'),
+                authUid,
+                user: syncedUser
+            };
         }
 
         function syncCurrentUserFromAuthUser(authUser, fallback = {}) {
             if (!authUser || !authUser.uid) return null;
-            const seed = fallback && typeof fallback === 'object' ? fallback : {};
-            currentUser = sanitizeCustomerRecord({
-                ...(currentUser || {}),
-                ...seed,
-                id: String(seed.id || currentUser && currentUser.id || authUser.uid),
-                uid: String(authUser.uid || ''),
+            const authUid = String(authUser.uid || '').trim();
+            const seed = fallback && typeof fallback === 'object' && doesUserRecordMatchUid(fallback, authUid) ? fallback : {};
+            const existing = doesUserRecordMatchUid(currentUser, authUid) ? currentUser : {};
+            return persistCurrentUserCache({
+                ...(existing || {}),
+                ...(seed || {}),
+                id: authUid,
+                uid: authUid,
                 name: String(
                     seed.name
-                    || currentUser && currentUser.name
+                    || existing && existing.name
                     || authUser.displayName
                     || authUser.email && String(authUser.email).split('@')[0]
                     || ''
                 ),
-                email: String(authUser.email || seed.email || currentUser && currentUser.email || '').trim().toLowerCase(),
+                email: String(authUser.email || seed.email || existing && existing.email || '').trim().toLowerCase(),
                 emailVerified: authUser.emailVerified === true,
-                authMethod: String(seed.authMethod || currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
-                photoURL: String(authUser.photoURL || seed.photoURL || currentUser && currentUser.photoURL || '')
+                authMethod: String(seed.authMethod || existing && existing.authMethod || inferAuthMethodFromAuthUser(authUser)),
+                photoURL: String(authUser.photoURL || seed.photoURL || existing && existing.photoURL || '')
             });
-            myAccountState.profile = currentUser;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            return currentUser;
         }
 
         function getMagicLinkActionCodeSettings() {
@@ -5483,12 +5598,13 @@
                 return;
             }
             storeAuthListenerBound = true;
-            storeAuthResolved = !!(auth.currentUser && auth.currentUser.uid);
+            storeAuthResolved = false;
             updateUserUI();
-            auth.onAuthStateChanged((authUser) => {
+            auth.onAuthStateChanged(async (authUser) => {
+                const transitionId = ++storeAuthTransitionSerial;
                 storeAuthResolved = true;
                 if (!authUser) {
-                    clearCurrentUserCache();
+                    clearStorefrontSessionArtifacts({ clearAdminSession: false });
                     invalidateMyAccountCache('all');
                     stopSupportChatRealtime();
                     stopCustomerNotificationsRealtime();
@@ -5499,11 +5615,40 @@
                     return;
                 }
 
-                syncCurrentUserFromAuthUser(authUser);
+                const authState = await resolveStorefrontCustomerAuthState(authUser, 'auth-state-change');
+                if (transitionId !== storeAuthTransitionSerial) return;
+                if (!authState.ok) {
+                    invalidateMyAccountCache('all');
+                    stopSupportChatRealtime();
+                    stopCustomerNotificationsRealtime();
+                    updateUserUI();
+                    updateLiveSessionState({ customerId: '', customerPhone: '' });
+                    if (isMyAccountOpen()) closeMyAccount();
+                    syncChatRouting({ source: 'auth-state-rejected', silent: true }).catch(() => null);
+                    return;
+                }
+
+                if (typeof getMyCustomerProfile === 'function') {
+                    const profile = await getMyCustomerProfile(String(authState.authUid || '')).catch(() => null);
+                    if (transitionId !== storeAuthTransitionSerial) return;
+                    if (profile) {
+                        currentUser = persistCurrentUserCache({
+                            ...(currentUser || {}),
+                            ...profile,
+                            id: String(authState.authUid || ''),
+                            uid: String(authState.authUid || ''),
+                            email: String(profile.email || authUser.email || currentUser && currentUser.email || '').trim().toLowerCase(),
+                            emailVerified: authUser.emailVerified === true,
+                            authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
+                            photoURL: String(authUser.photoURL || currentUser && currentUser.photoURL || '')
+                        });
+                    }
+                }
+
                 updateUserUI();
                 updateLiveSessionState({
-                    customerId: String(currentUser.id || currentUser.uid || ''),
-                    customerPhone: String(currentUser.phone || '')
+                    customerId: String(authState.authUid || currentUser && (currentUser.id || currentUser.uid) || ''),
+                    customerPhone: String(currentUser && currentUser.phone || '')
                 });
                 syncChatRouting({ source: 'auth-state-change', silent: true }).catch(() => null);
                 if (myAccountState.pendingOpenAfterAuth) {
@@ -5519,11 +5664,20 @@
                     throw new Error('تعذر إنشاء جلسة دخول');
                 }
 
+                if (typeof ensureFirebaseSessionPersistence === 'function') {
+                    await ensureFirebaseSessionPersistence().catch(() => null);
+                }
+
                 if (typeof authUser.reload === 'function') {
                     await authUser.reload().catch(() => null);
                 }
                 if (typeof authUser.getIdToken === 'function') {
                     await authUser.getIdToken(true).catch(() => null);
+                }
+
+                const authState = await resolveStorefrontCustomerAuthState(authUser, 'finalize-auth');
+                if (!authState.ok) {
+                    throw new Error('جلسة الدخول الحالية غير صالحة للمتجر');
                 }
 
                 const uid = String(authUser.uid || '').trim();
@@ -5546,8 +5700,10 @@
                     }).catch(() => null);
                 }
 
-                currentUser = sanitizeCustomerRecord({
-                    id: String(profile && profile.id || uid),
+                clearAdminSessionArtifacts();
+
+                currentUser = persistCurrentUserCache({
+                    id: uid,
                     uid,
                     name: String(profile && (profile.displayName || profile.name) || authUser.displayName || (authUser.email ? String(authUser.email).split('@')[0] : 'عميل')),
                     phone: String(profile && profile.phone || config.phone || ''),
@@ -5562,7 +5718,6 @@
                     emailVerified: authUser.emailVerified === true
                 });
                 storeAuthResolved = true;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 updateUserUI();
                 invalidateMyAccountCache('all');
                 myAccountState.profile = currentUser;
@@ -5679,6 +5834,7 @@
             if (authSubmitLock) return;
             authSubmitLock = true;
             try {
+                await prepareFreshCustomerAuthSession('google-signin');
                 const auth = getFirebaseAuthInstance();
                 if (!auth || !firebase || !firebase.auth || typeof firebase.auth.GoogleAuthProvider !== 'function') {
                     throw new Error('Google Sign-In unavailable');
@@ -5721,6 +5877,7 @@
             }
 
             try {
+                await prepareFreshCustomerAuthSession('magic-link-complete');
                 const result = await auth.signInWithEmailLink(email, window.location.href);
                 localStorage.removeItem(MAGIC_LINK_STORAGE_KEY);
                 if (window.history && typeof window.history.replaceState === 'function') {
@@ -5759,6 +5916,7 @@
                 return;
             }
 
+            await prepareFreshCustomerAuthSession('password-login');
             const authCred = await signInCustomerAuth(email, password);
             const authUser = authCred && authCred.user
                 ? authCred.user
@@ -5805,6 +5963,7 @@
             if (!isValidCustomerPassword(password)) { showNotification('error', 'خطأ', 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return; }
             if (password !== confirm) { showNotification('error', 'خطأ', 'كلمات المرور غير متطابقة'); return; }
 
+            await prepareFreshCustomerAuthSession('password-register');
             const registerResult = await registerCustomerAuth({
                 email: emailNormalized,
                 password,
@@ -5828,40 +5987,16 @@
                 });
             }
 
-            currentUser = sanitizeCustomerRecord({
-                id: String(profile && profile.id || uid),
-                uid,
-                name: String(profile && (profile.displayName || profile.name) || name),
-                phone: String(profile && profile.phone || phone),
-                email: String(profile && profile.email || emailNormalized),
-                authMethod: 'password',
-                photoURL: String(authUser && authUser.photoURL || ''),
-                address: String(profile && profile.address || address),
-                loyaltyPoints: Number(profile && profile.loyaltyPoints || 0),
-                createdAt: String(profile && profile.createdAt || new Date().toISOString()),
-                updatedAt: String(profile && profile.updatedAt || new Date().toISOString()),
-                role: String(profile && profile.role || 'customer'),
-                emailVerified: false
-            });
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            users = [];
-            saveUsers();
-            updateUserUI();
-            invalidateMyAccountCache('all');
-            myAccountState.profile = currentUser;
-            syncChatRouting({ source: 'register-success', silent: true }).catch(() => null);
-            closeModal('authModal');
-            showNotification('success', 'تم إنشاء الحساب', 'تحقق من بريدك الإلكتروني لتفعيل الحساب قبل الشراء أو الدعم.');
-            updateLiveSessionState({
-                customerId: String(currentUser.id || currentUser.uid || ''),
-                customerPhone: String(currentUser.phone || '')
-            });
-            if (myAccountState.pendingOpenAfterAuth) {
-                consumeMyAccountOpenAfterAuth();
-            }
-            trackStoreEvent('REGISTER_SUCCESS', 'Customer registered successfully', 'info', {
-                customerId: String(currentUser.id || currentUser.uid || ''),
-                email: emailNormalized
+            await finalizeAuthenticatedCustomer(authUser, {
+                profile,
+                phone,
+                address,
+                displayName: name,
+                provider: 'password',
+                successTitle: 'تم إنشاء الحساب',
+                unverifiedMessage: 'تحقق من بريدك الإلكتروني لتفعيل الحساب قبل الشراء أو الدعم.',
+                eventCode: 'REGISTER_SUCCESS',
+                eventDescription: 'Customer registered successfully'
             });
             } catch (error) {
                 console.error('handleRegister error:', error);
@@ -5891,47 +6026,30 @@
                 ? firebase.auth().currentUser
                 : null;
             if (authUser && authUser.uid) {
-                storeAuthResolved = true;
-                currentUser = cachedUser;
-                syncCurrentUserFromAuthUser(authUser);
-
-                if (typeof getMyCustomerProfile === 'function') {
-                    getMyCustomerProfile(String(authUser.uid || ''))
-                        .then((profile) => {
-                            if (!profile) return;
-                            currentUser = sanitizeCustomerRecord({
-                                ...(currentUser || {}),
-                                id: String(profile.id || authUser.uid),
-                                uid: String(profile.uid || authUser.uid),
-                                name: String(profile.displayName || profile.name || currentUser.name || ''),
-                                phone: String(profile.phone || currentUser.phone || ''),
-                                email: String(profile.email || currentUser.email || '').toLowerCase(),
-                                address: String(profile.address || currentUser.address || ''),
-                                loyaltyPoints: Number(profile.loyaltyPoints || 0),
-                                createdAt: String(profile.createdAt || currentUser.createdAt || ''),
-                                updatedAt: String(profile.updatedAt || currentUser.updatedAt || ''),
-                                role: String(profile.role || currentUser.role || 'customer'),
-                                emailVerified: authUser.emailVerified === true,
-                                authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
-                                photoURL: String(authUser.photoURL || currentUser && currentUser.photoURL || '')
-                            });
-                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                            updateUserUI();
-                            if (isMyAccountOpen()) {
-                                loadProfileData(true).then(() => renderMyAccountActiveTab({ force: true })).catch(() => null);
-                            }
-                        })
-                        .catch(() => null);
+                const authUid = String(authUser.uid || '').trim();
+                storeAuthResolved = false;
+                if (cachedUser && doesUserRecordMatchUid(cachedUser, authUid)) {
+                    currentUser = persistCurrentUserCache(cachedUser);
+                } else {
+                    clearStorefrontSessionArtifacts({ clearAdminSession: false });
+                    currentUser = null;
                 }
             } else if (!getFirebaseAuthInstance()) {
                 storeAuthResolved = true;
-                clearCurrentUserCache();
+                clearStorefrontSessionArtifacts({ clearAdminSession: false });
             } else {
+                clearStorefrontSessionArtifacts({ clearAdminSession: false });
                 currentUser = null;
                 storeAuthResolved = false;
             }
 
             updateUserUI();
+            if (storeAuthResolved !== true) {
+                updateLiveSessionState({ customerId: '', customerPhone: '' });
+                updateLoyaltyDisplay();
+                syncChatRouting({ source: 'check-logged-in-user-pending', silent: true }).catch(() => null);
+                return;
+            }
             if (currentUser && chatMode === 'support') {
                 ensureSupportChatReady().catch(() => null);
             }
@@ -5985,7 +6103,7 @@
                 });
             }
             storeAuthResolved = true;
-            clearCurrentUserCache();
+            clearStorefrontSessionArtifacts();
             if (firebase && firebase.auth) {
                 firebase.auth().signOut().catch(() => null);
             }
@@ -6142,18 +6260,22 @@
             if (!force && myAccountState.profile) return myAccountState.profile;
 
             const authUser = getFirebaseCurrentUserSafe();
-            const uid = String(currentUser.uid || currentUser.id || authUser && authUser.uid || '').trim();
+            const authUid = String(authUser && authUser.uid || '').trim();
+            if (authUid && !doesUserRecordMatchUid(currentUser, authUid)) {
+                syncCurrentUserFromAuthUser(authUser);
+            }
+            const uid = String(authUid || currentUser && (currentUser.uid || currentUser.id) || '').trim();
             let profile = null;
 
             if (uid && typeof getMyCustomerProfile === 'function') {
                 profile = await getMyCustomerProfile(uid).catch(() => null);
             }
 
-            const merged = sanitizeCustomerRecord({
+            const merged = persistCurrentUserCache({
                 ...(currentUser || {}),
                 ...(profile || {}),
-                id: String(profile && profile.id || currentUser && currentUser.id || uid),
-                uid: String(profile && profile.uid || currentUser && currentUser.uid || uid),
+                id: String(authUid || profile && profile.id || currentUser && currentUser.id || uid),
+                uid: String(authUid || profile && profile.uid || currentUser && currentUser.uid || uid),
                 name: String(profile && (profile.displayName || profile.name) || currentUser && currentUser.name || authUser && (authUser.displayName || authUser.email && String(authUser.email).split('@')[0]) || 'عميل'),
                 phone: String(profile && profile.phone || currentUser && currentUser.phone || ''),
                 email: String(profile && profile.email || authUser && authUser.email || currentUser && currentUser.email || '').trim().toLowerCase(),
@@ -6166,10 +6288,7 @@
                 authMethod: String(currentUser && currentUser.authMethod || inferAuthMethodFromAuthUser(authUser)),
                 photoURL: String(authUser && authUser.photoURL || currentUser && currentUser.photoURL || '')
             });
-
-            currentUser = merged;
             myAccountState.profile = merged;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
             updateUserUI();
             return merged;
         }
@@ -6474,11 +6593,17 @@
 
             try {
                 const authUser = getFirebaseCurrentUserSafe();
+                if (!authUser || !authUser.uid) {
+                    throw new Error('جلسة Firebase غير متاحة');
+                }
+                const uid = String(authUser.uid || '').trim();
+                if (!doesUserRecordMatchUid(currentUser, uid)) {
+                    syncCurrentUserFromAuthUser(authUser);
+                }
                 if (authUser && typeof authUser.updateProfile === 'function') {
                     await authUser.updateProfile({ displayName: name }).catch(() => null);
                 }
 
-                const uid = String(currentUser.uid || currentUser.id || authUser && authUser.uid || '').trim();
                 if (uid && typeof upsertMyCustomerProfile === 'function') {
                     await upsertMyCustomerProfile(uid, {
                         displayName: name,
@@ -6488,10 +6613,10 @@
                     });
                 }
 
-                currentUser = sanitizeCustomerRecord({
+                currentUser = persistCurrentUserCache({
                     ...(currentUser || {}),
                     uid,
-                    id: String(currentUser.id || uid),
+                    id: uid,
                     name,
                     phone,
                     address,
@@ -6501,7 +6626,6 @@
                 });
                 myAccountState.profile = currentUser;
                 myAccountState.profileEditMode = false;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 updateUserUI();
                 renderMyAccountChrome();
                 renderMyAccountDataTab(document.getElementById('myAccountContent'));
@@ -6545,7 +6669,10 @@
                     await authUser.sendEmailVerification().catch(() => null);
                 }
 
-                const uid = String(currentUser.uid || currentUser.id || authUser.uid || '').trim();
+                const uid = String(authUser.uid || '').trim();
+                if (!doesUserRecordMatchUid(currentUser, uid)) {
+                    syncCurrentUserFromAuthUser(authUser);
+                }
                 if (uid && typeof upsertMyCustomerProfile === 'function') {
                     await upsertMyCustomerProfile(uid, {
                         email: nextEmail,
@@ -6555,10 +6682,10 @@
                     });
                 }
 
-                currentUser = sanitizeCustomerRecord({
+                currentUser = persistCurrentUserCache({
                     ...(currentUser || {}),
                     uid,
-                    id: String(currentUser.id || uid),
+                    id: uid,
                     email: nextEmail,
                     emailVerified: false,
                     authMethod: 'password',
@@ -6566,7 +6693,6 @@
                 });
                 myAccountState.profile = currentUser;
                 myAccountState.emailEditMode = false;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 updateUserUI();
                 renderMyAccountChrome();
                 renderMyAccountDataTab(document.getElementById('myAccountContent'));
@@ -7797,7 +7923,7 @@
                 currentUser.emailVerified = false;
             }
 
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            persistCurrentUserCache(currentUser);
             if (currentUser.emailVerified !== true) {
                 const resendResult = await resendVerificationEmailForCurrentUser(actionKey);
                 let verificationMessage = 'يجب تفعيل البريد الإلكتروني قبل إتمام الطلب أو استخدام الدعم الداخلي.';
@@ -7961,8 +8087,10 @@
 
             // Update user points
             if (currentUser) {
-                currentUser.loyaltyPoints = Math.max(0, Number(currentUser.loyaltyPoints || 0) - usedPoints + earnedPoints);
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                currentUser = persistCurrentUserCache({
+                    ...(currentUser || {}),
+                    loyaltyPoints: Math.max(0, Number(currentUser.loyaltyPoints || 0) - usedPoints + earnedPoints)
+                });
                 updateLoyaltyDisplay();
                 if (typeof upsertMyCustomerProfile === 'function') {
                     upsertMyCustomerProfile(String(currentUser.uid || currentUser.id || ''), {
