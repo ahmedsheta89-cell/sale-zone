@@ -3071,15 +3071,15 @@ async function markAllAdminNotificationsRead(options = {}) {
 function getNotificationOrderStatusLabel(status) {
     const value = normalizeNotificationText(status, 40).toLowerCase();
     const labels = {
-        pending: '??? ????????',
-        confirmed: '????',
-        processing: '???? ???????',
-        shipped: '?? ?????',
-        delivered: '?? ???????',
-        completed: '?????',
-        cancelled: '????'
+        pending: '\u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629',
+        confirmed: '\u0645\u0624\u0643\u062F',
+        processing: '\u0642\u064A\u062F \u0627\u0644\u062A\u062C\u0647\u064A\u0632',
+        shipped: '\u062A\u0645 \u0627\u0644\u0634\u062D\u0646',
+        delivered: '\u062A\u0645 \u0627\u0644\u062A\u0633\u0644\u064A\u0645',
+        completed: '\u0645\u0643\u062A\u0645\u0644',
+        cancelled: '\u0645\u0644\u063A\u064A'
     };
-    return labels[value] || value || '??? ?????';
+    return labels[value] || value || '\u062D\u0627\u0644\u0629 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641\u0629';
 }
 
 async function createCustomerOrderNotifications(orderPayload = {}, options = {}) {
@@ -3095,10 +3095,10 @@ async function createCustomerOrderNotifications(orderPayload = {}, options = {})
         scope: 'customer',
         type: 'order',
         audience: 'customer',
-        title: options.statusChange === true ? `????? ???? ????? #${orderNumber}` : `?? ?????? ???? #${orderNumber}`,
+        title: options.statusChange === true ? `\u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628 #${orderNumber}` : `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0637\u0644\u0628 \u062C\u062F\u064A\u062F #${orderNumber}`,
         body: options.statusChange === true
-            ? `?????? ????: ${getNotificationOrderStatusLabel(status)}`
-            : `????? ??? ????? ????. ?????? ???????: ${getNotificationOrderStatusLabel(status)}`,
+            ? `\u0627\u0644\u062D\u0627\u0644\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629: ${getNotificationOrderStatusLabel(status)}`
+            : `\u0627\u0633\u062A\u0644\u0645\u0646\u0627 \u0637\u0644\u0628\u0643 \u0628\u0646\u062C\u0627\u062D. \u0627\u0644\u062D\u0627\u0644\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629: ${getNotificationOrderStatusLabel(status)}`,
         action: {
             kind: 'account-tab',
             tab: 'orders',
@@ -3119,14 +3119,14 @@ async function createCustomerOrderNotifications(orderPayload = {}, options = {})
     const usedPoints = Number(order.usedPoints || 0);
     if (options.includePoints !== false && (earnedPoints > 0 || usedPoints > 0)) {
         const pointChunks = [];
-        if (earnedPoints > 0) pointChunks.push(`??? ????? ${earnedPoints} ????`);
-        if (usedPoints > 0) pointChunks.push(`?? ??????? ${usedPoints} ????`);
+        if (earnedPoints > 0) pointChunks.push(`\u062A\u0645\u062A \u0625\u0636\u0627\u0641\u0629 ${earnedPoints} \u0646\u0642\u0637\u0629`);
+        if (usedPoints > 0) pointChunks.push(`\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 ${usedPoints} \u0646\u0642\u0637\u0629`);
         const pointsNotification = await saveCustomerNotification(uid, {
             scope: 'customer',
             type: 'point',
             audience: 'customer',
-            title: '????? ???? ???? ??????',
-            body: pointChunks.join(' ? ') || '?? ????? ???? ?????? ?????? ??.',
+            title: '\u062A\u062D\u062F\u064A\u062B \u0646\u0642\u0627\u0637 \u0627\u0644\u0648\u0644\u0627\u0621',
+            body: pointChunks.join(' \u2022 ') || '\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0646\u0642\u0627\u0637 \u0627\u0644\u0648\u0644\u0627\u0621 \u0627\u0644\u062E\u0627\u0635\u0629 \u0628\u0643.',
             action: {
                 kind: 'account-tab',
                 tab: 'points',
@@ -3150,7 +3150,7 @@ async function createSupportNotificationForMessage(threadId, messageRecord, thre
     const threadUid = normalizeNotificationText(threadId || threadRecord.uid, 200);
     if (!threadUid || !messageRecord) return null;
     const isCustomer = String(messageRecord.senderRole || '').trim().toLowerCase() === 'customer';
-    const customerName = normalizeNotificationText(threadRecord.customerName || 'عميل', 120) || 'عميل';
+    const customerName = normalizeNotificationText(threadRecord.customerName || '\u0639\u0645\u064A\u0644', 120) || '\u0639\u0645\u064A\u0644';
     const previewSource = typeof buildSupportMessagePreview === 'function'
         ? buildSupportMessagePreview(messageRecord)
         : String(messageRecord.message || messageRecord.text || '').trim();
@@ -3159,8 +3159,8 @@ async function createSupportNotificationForMessage(threadId, messageRecord, thre
         scope: 'customer',
         type: 'chat',
         audience: isCustomer ? 'admin' : 'customer',
-        title: isCustomer ? `رسالة دعم جديدة من ${customerName}` : 'رسالة جديدة من الدعم',
-        body: messagePreview || (isCustomer ? 'أرسل العميل رسالة جديدة إلى الدعم.' : 'أرسل الدعم رسالة جديدة إلى العميل.'),
+        title: isCustomer ? `\u0631\u0633\u0627\u0644\u0629 \u062F\u0639\u0645 \u062C\u062F\u064A\u062F\u0629 \u0645\u0646 ${customerName}` : '\u0631\u0633\u0627\u0644\u0629 \u062C\u062F\u064A\u062F\u0629 \u0645\u0646 \u0627\u0644\u062F\u0639\u0645',
+        body: messagePreview || (isCustomer ? '\u0623\u0631\u0633\u0644 \u0627\u0644\u0639\u0645\u064A\u0644 \u0631\u0633\u0627\u0644\u0629 \u062C\u062F\u064A\u062F\u0629 \u0625\u0644\u0649 \u0627\u0644\u062F\u0639\u0645.' : '\u0623\u0631\u0633\u0644 \u0627\u0644\u062F\u0639\u0645 \u0631\u0633\u0627\u0644\u0629 \u062C\u062F\u064A\u062F\u0629 \u0625\u0644\u0649 \u0627\u0644\u0639\u0645\u064A\u0644.'),
         action: {
             kind: 'support-thread',
             tab: 'messages',

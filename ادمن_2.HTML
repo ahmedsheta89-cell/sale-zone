@@ -978,9 +978,9 @@
         }
         .notification.success .notification-icon { background: var(--success); }
         .notification.error .notification-icon { background: var(--error); }
-        .notification-content { flex: 1; }
-        .notification-title { font-weight: 700; font-size: 12px; color: var(--navy); }
-        .notification-message { font-size: 11px; color: #666; }
+        .notification-content { flex: 1; font-family: var(--font-arabic); unicode-bidi: plaintext; }
+        .notification-title { font-weight: 700; font-size: 12px; color: var(--navy); font-family: var(--font-arabic); }
+        .notification-message { font-size: 11px; color: #666; font-family: var(--font-arabic); }
         .notification-close { background: transparent; border: none; color: #999; font-size: 14px; cursor: pointer; }
 
         /* Empty State */
@@ -1248,6 +1248,8 @@
             background: #fff;
             cursor: pointer;
             transition: all .15s ease;
+            font-family: var(--font-arabic);
+            unicode-bidi: plaintext;
         }
         .admin-notification-item:hover {
             border-color: var(--gold);
@@ -1280,6 +1282,29 @@
             min-width: 92px;
             font-size: 11px;
             color: #666;
+        }
+        .admin-notification-copy {
+            min-width: 0;
+            font-family: var(--font-arabic);
+        }
+        .admin-notification-title {
+            color: var(--color-text-primary);
+            font-weight: 700;
+            line-height: 1.7;
+            font-family: var(--font-arabic);
+        }
+        .admin-notification-body {
+            margin-top: 6px;
+            color: #4b5563;
+            line-height: 1.8;
+            font-family: var(--font-arabic);
+            word-break: break-word;
+        }
+        .admin-notification-customer {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            font-family: var(--font-arabic);
         }
         .admin-notification-dot {
             width: 10px;
@@ -4951,11 +4976,78 @@ function adminLogout(){
             return true;
         }
 
+        function isUnreadableNotificationText(value) {
+            const text = String(value || '').trim();
+            if (!text) return false;
+            const compact = text.replace(/\s+/g, '');
+            if (!compact) return false;
+            if (/^\?+$/.test(compact)) return true;
+            const questionMarkCount = (text.match(/\?/g) || []).length;
+            if (questionMarkCount >= 3 && questionMarkCount >= Math.ceil(text.length * 0.2)) return true;
+            if (/^[\u00BF?؟!.,:;_\-()[\]#0-9]+$/.test(compact)) return false;
+            return /(ط|ظ|Ø|Ù|Ã|Â)/.test(text);
+        }
+
+        function getAdminNotificationDisplayCopy(item) {
+            const source = item && typeof item === 'object' ? item : {};
+            const rawTitle = String(source.title || '').trim();
+            const rawBody = String(source.body || '').trim();
+            const action = source.action && typeof source.action === 'object' ? source.action : {};
+            const orderNumber = String(action.orderNumber || source.orderNumber || source.orderId || '').trim();
+            const customerUid = String(source.customerUid || action.customerUid || '').trim();
+            const status = String(action.status || source.status || '').trim();
+            const hasCorruptedTitle = isUnreadableNotificationText(rawTitle);
+            const hasCorruptedBody = isUnreadableNotificationText(rawBody);
+            if (!hasCorruptedTitle && !hasCorruptedBody) {
+                return {
+                    title: rawTitle || 'إشعار جديد',
+                    body: rawBody,
+                    customerLabel: customerUid ? `العميل: ${customerUid}` : 'إشعار نظامي'
+                };
+            }
+
+            const type = String(source.type || '').trim().toLowerCase();
+            if (type === 'order') {
+                return {
+                    title: `تحديث الطلب${orderNumber ? ` #${orderNumber}` : ''}`,
+                    body: status ? `الحالة الحالية: ${status}` : 'يوجد تحديث جديد على طلب أحد العملاء.',
+                    customerLabel: customerUid ? `العميل: ${customerUid}` : 'إشعار طلب'
+                };
+            }
+            if (type === 'point') {
+                return {
+                    title: 'تحديث نقاط الولاء',
+                    body: 'تم تعديل نقاط أحد العملاء أو احتسابها بعد الطلب.',
+                    customerLabel: customerUid ? `العميل: ${customerUid}` : 'إشعار نقاط'
+                };
+            }
+            if (type === 'chat') {
+                return {
+                    title: rawTitle && !hasCorruptedTitle ? rawTitle : 'رسالة دعم جديدة',
+                    body: rawBody && !hasCorruptedBody ? rawBody : 'هناك رسالة جديدة في محادثة الدعم.',
+                    customerLabel: customerUid ? `العميل: ${customerUid}` : 'إشعار دعم'
+                };
+            }
+            if (type === 'stock') {
+                return {
+                    title: rawTitle && !hasCorruptedTitle ? rawTitle : 'تنبيه مخزون',
+                    body: rawBody && !hasCorruptedBody ? rawBody : 'يوجد منتج يحتاج متابعة في المخزون.',
+                    customerLabel: 'إشعار نظامي'
+                };
+            }
+            return {
+                title: rawTitle && !hasCorruptedTitle ? rawTitle : 'إشعار جديد',
+                body: rawBody && !hasCorruptedBody ? rawBody : 'تم استلام إشعار جديد. راجع التفاصيل من لوحة التحكم.',
+                customerLabel: customerUid ? `العميل: ${customerUid}` : 'إشعار نظامي'
+            };
+        }
+
         function toastAdminNotifications(items = []) {
             (Array.isArray(items) ? items : []).forEach((item) => {
                 const meta = getAdminNotificationTypeMeta(item && item.type);
-                const title = String(item && item.title || 'إشعار جديد');
-                const body = String(item && item.body || '');
+                const displayCopy = getAdminNotificationDisplayCopy(item);
+                const title = String(displayCopy.title || 'إشعار جديد');
+                const body = String(displayCopy.body || '');
                 showNotification(meta.toastType, `${title}${body ? ` — ${body}` : ''}`);
                 maybeShowAdminBrowserNotification(item);
                 playAdminNotificationChime();
@@ -5119,17 +5211,17 @@ function adminLogout(){
                 const meta = getAdminNotificationTypeMeta(item && item.type);
                 const unread = item && item.readByAdmin !== true;
                 const refPath = escapeHtml(String(item && item.refPath || ''));
-                const customerUid = escapeHtml(String(item && item.customerUid || ''));
+                const displayCopy = getAdminNotificationDisplayCopy(item);
                 return `
                     <div class="admin-notification-item ${unread ? 'unread' : ''}" data-ref-path="${refPath}" onclick="openAdminNotification(this.dataset.refPath)">
                         <div class="admin-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
-                        <div>
+                        <div class="admin-notification-copy">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <strong style="color:var(--color-text-primary);">${escapeHtml(String(item && item.title || ''))}</strong>
+                                <strong class="admin-notification-title">${escapeHtml(String(displayCopy.title || ''))}</strong>
                                 ${unread ? '<span class="admin-notification-dot" aria-label="غير مقروء"></span>' : ''}
                             </div>
-                            <div style="margin-top:6px;color:#4b5563;line-height:1.7;">${escapeHtml(String(item && item.body || ''))}</div>
-                            <div style="margin-top:8px;font-size:12px;color:#666;">${customerUid ? `العميل: ${customerUid}` : 'إشعار نظامي'}</div>
+                            <div class="admin-notification-body">${escapeHtml(String(displayCopy.body || ''))}</div>
+                            <div class="admin-notification-customer">${escapeHtml(String(displayCopy.customerLabel || 'إشعار نظامي'))}</div>
                         </div>
                         <div class="admin-notification-meta">
                             <span>${escapeHtml(formatDateTime(item && item.createdAt || ''))}</span>
