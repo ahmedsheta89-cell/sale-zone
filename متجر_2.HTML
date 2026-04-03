@@ -1179,6 +1179,226 @@
         .chat-widget.chat-widget-panel .chat-panel-backdrop { position: absolute; inset: 0; background: rgba(10,17,40,0.45); opacity: 0; visibility: hidden; transition: var(--transition); pointer-events: none; }
         .chat-widget.chat-widget-panel .chat-panel-backdrop.active { opacity: 1; visibility: visible; pointer-events: auto; }
         .chat-widget.chat-widget-panel .chat-box { position: absolute; bottom: 84px; left: 16px; pointer-events: auto; }
+        .sz-faq-widget {
+            position: fixed;
+            inset: auto 16px 84px 16px;
+            z-index: 9975;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(180deg, rgba(15, 15, 35, 0.98), rgba(22, 33, 62, 0.98));
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+            overflow: hidden;
+            width: min(440px, calc(100vw - 32px));
+            max-height: min(78vh, 760px);
+            margin-inline-start: auto;
+            backdrop-filter: blur(18px);
+        }
+        .sz-faq-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 18px 18px 14px;
+            background: linear-gradient(135deg, rgba(200,169,94,0.22), rgba(15,15,35,0.2));
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sz-faq-header-copy {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .sz-faq-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.12);
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .sz-faq-title {
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .sz-faq-subtitle {
+            margin-top: 4px;
+            font-size: 0.82rem;
+            line-height: 1.7;
+            color: rgba(255,255,255,0.74);
+        }
+        .sz-faq-close {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #fff;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .sz-faq-toolbar {
+            display: grid;
+            gap: 12px;
+            padding: 16px 18px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sz-faq-search-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sz-faq-search {
+            flex: 1;
+            min-height: 46px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+            padding: 12px 14px;
+            font-size: 0.92rem;
+        }
+        .sz-faq-search::placeholder { color: rgba(255,255,255,0.5); }
+        .sz-faq-search-btn {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--navy);
+            font-size: 1rem;
+            box-shadow: var(--shadow-gold);
+        }
+        .sz-faq-quick-actions,
+        .sz-faq-categories {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .sz-faq-quick-actions::-webkit-scrollbar,
+        .sz-faq-categories::-webkit-scrollbar {
+            display: none;
+        }
+        .sz-faq-pill,
+        .sz-faq-category {
+            flex-shrink: 0;
+            min-height: 38px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.82);
+            font-size: 0.82rem;
+            white-space: nowrap;
+        }
+        .sz-faq-category.active {
+            background: rgba(200,169,94,0.18);
+            border-color: rgba(200,169,94,0.45);
+            color: var(--gold-light);
+        }
+        .sz-faq-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px;
+            display: grid;
+            gap: 12px;
+            min-height: 220px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .sz-faq-accordion-item {
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.04);
+            overflow: hidden;
+        }
+        .sz-faq-accordion-toggle {
+            width: 100%;
+            text-align: right;
+            padding: 16px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: #fff;
+            background: transparent;
+        }
+        .sz-faq-accordion-copy {
+            display: grid;
+            gap: 6px;
+        }
+        .sz-faq-accordion-question {
+            font-size: 0.95rem;
+            font-weight: 700;
+            line-height: 1.7;
+        }
+        .sz-faq-accordion-meta {
+            font-size: 0.76rem;
+            color: rgba(255,255,255,0.58);
+        }
+        .sz-faq-accordion-arrow {
+            font-size: 0.9rem;
+            color: var(--gold-light);
+            transition: transform 0.2s ease;
+        }
+        .sz-faq-accordion-item.active .sz-faq-accordion-arrow {
+            transform: rotate(180deg);
+        }
+        .sz-faq-accordion-answer {
+            display: none;
+            padding: 0 18px 16px;
+            color: rgba(255,255,255,0.84);
+            line-height: 1.9;
+            font-size: 0.88rem;
+        }
+        .sz-faq-accordion-item.active .sz-faq-accordion-answer {
+            display: block;
+        }
+        .sz-faq-empty {
+            border-radius: 18px;
+            border: 1px dashed rgba(255,255,255,0.18);
+            padding: 24px 18px;
+            text-align: center;
+            color: rgba(255,255,255,0.74);
+            display: grid;
+            gap: 8px;
+        }
+        .sz-faq-footer {
+            display: grid;
+            gap: 10px;
+            padding: 14px 18px 18px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            background: rgba(6, 9, 20, 0.32);
+        }
+        .sz-faq-support-btn,
+        .sz-faq-whatsapp-link {
+            min-height: 46px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .sz-faq-support-btn {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--navy);
+            box-shadow: var(--shadow-gold);
+        }
+        .sz-faq-whatsapp-link {
+            background: rgba(16, 185, 129, 0.13);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #9af5c5;
+        }
         .contact-sheet-overlay { position: fixed; inset: 0; background: rgba(10,17,40,0.45); opacity: 0; visibility: hidden; transition: var(--transition); z-index: 2200; }
         .contact-sheet-overlay.active { opacity: 1; visibility: visible; }
         .contact-sheet { position: fixed; left: 16px; right: 16px; bottom: 78px; background: var(--white); border-radius: 20px; box-shadow: var(--shadow-lg); padding: 16px; z-index: 2201; opacity: 0; visibility: hidden; transform: translateY(20px); transition: var(--transition); }
@@ -1257,6 +1477,25 @@
             .banner-title { font-size: 24px; }
             .banner-text { font-size: 14px; }
             .chat-box { width: calc(100vw - 40px); max-width: 320px; }
+            .sz-faq-widget {
+                inset: 0;
+                width: 100vw;
+                max-height: 100dvh;
+                border-radius: 0;
+            }
+            .sz-faq-header {
+                padding: 18px 16px 14px;
+            }
+            .sz-faq-toolbar,
+            .sz-faq-body,
+            .sz-faq-footer {
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+            .sz-faq-quick-actions,
+            .sz-faq-categories {
+                padding-bottom: 2px;
+            }
             .filter-bar { flex-direction: column; align-items: stretch; }
             .modal-overlay { align-items: flex-end; padding: 0; }
             .modal { max-width: 100%; max-height: 92dvh; border-radius: 16px; }
@@ -2849,117 +3088,42 @@
         </div>
     </div>
 
-    <div id="faqBotWidget" style="
-      display:none;
-      position:fixed;
-      bottom:70px;
-      left:0;right:0;
-      margin:0 12px;
-      background:var(--color-background-primary);
-      border-radius:16px 16px 0 0;
-      box-shadow:0 -4px 30px rgba(0,0,0,0.15);
-      z-index:9975;
-      flex-direction:column;
-      direction:rtl;
-      overflow:hidden;
-      max-height:60vh;
-    ">
-      <div style="
-        padding:14px 16px;
-        background:var(--color-text-info,#0ea5e9);
-        color:#fff;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        border-radius:16px 16px 0 0;
-      ">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:1.2rem">🤖</span>
+    <div id="faqBotWidget" class="sz-faq-widget" style="display:none;">
+      <div class="sz-faq-header">
+        <div class="sz-faq-header-copy">
+          <span class="sz-faq-icon" aria-hidden="true">❓</span>
           <div>
-            <div style="font-weight:600;font-size:0.95rem">مساعد Sale Zone</div>
-            <div style="font-size:0.75rem;opacity:0.85">متوفر دائماً &bull; ردود فورية</div>
+            <div class="sz-faq-title">الأسئلة الشائعة</div>
+            <div class="sz-faq-subtitle">ابحث عن إجابتك بسرعة أو افتح الدعم إذا احتجت مساعدة مباشرة.</div>
           </div>
         </div>
-        <button onclick="closeFAQBot()"
-          style="background:none;border:none;color:#fff;
-          font-size:1.3rem;cursor:pointer;padding:4px 8px;
-          line-height:1">✕</button>
+        <button class="sz-faq-close" type="button" onclick="closeFAQBot()" aria-label="إغلاق الأسئلة الشائعة">✕</button>
       </div>
 
-      <div id="faqBotMessages" style="
-        flex:1;overflow-y:auto;
-        padding:12px;
-        display:flex;flex-direction:column;gap:8px;
-        -webkit-overflow-scrolling:touch;
-        min-height:120px;
-      "></div>
-
-      <div style="
-        padding:8px 12px;
-        display:flex;flex-wrap:wrap;gap:6px;
-        border-top:1px solid var(--color-border-tertiary);
-      ">
-        <button onclick="askFAQ('كيف التوصيل؟')"
-          style="padding:6px 12px;border-radius:20px;
-          border:1px solid var(--color-text-info,#0ea5e9);
-          color:var(--color-text-info,#0ea5e9);
-          background:none;font-size:0.8rem;cursor:pointer">🚚 التوصيل</button>
-        <button onclick="askFAQ('طرق الدفع؟')"
-          style="padding:6px 12px;border-radius:20px;
-          border:1px solid var(--color-text-info,#0ea5e9);
-          color:var(--color-text-info,#0ea5e9);
-          background:none;font-size:0.8rem;cursor:pointer">💳 الدفع</button>
-        <button onclick="askFAQ('سياسة الإرجاع؟')"
-          style="padding:6px 12px;border-radius:20px;
-          border:1px solid var(--color-text-info,#0ea5e9);
-          color:var(--color-text-info,#0ea5e9);
-          background:none;font-size:0.8rem;cursor:pointer">🚚 التوصيل</button>
-        <button onclick="askFAQ('هل المنتجات أصلية؟')"
-          style="padding:6px 12px;border-radius:20px;
-          border:1px solid var(--color-text-info,#0ea5e9);
-          color:var(--color-text-info,#0ea5e9);
-          background:none;font-size:0.8rem;cursor:pointer">✅ الجودة</button>
+      <div class="sz-faq-toolbar">
+        <div class="sz-faq-search-wrap">
+          <input id="faqBotInput" class="sz-faq-search" type="text" placeholder="ابحث في الأسئلة الشائعة..." oninput="updateFAQSearch(this.value)" onkeydown="if(event.key==='Enter'){sendFAQMessage();}">
+          <button type="button" class="sz-faq-search-btn" onclick="sendFAQMessage()" aria-label="بحث">🔍</button>
+        </div>
+        <div class="sz-faq-quick-actions">
+          <button type="button" class="sz-faq-pill" onclick="askFAQ('كيف أتتبع طلبي؟')">📦 تتبع الطلب</button>
+          <button type="button" class="sz-faq-pill" onclick="askFAQ('ما هي طرق الدفع المتاحة؟')">💳 الدفع</button>
+          <button type="button" class="sz-faq-pill" onclick="askFAQ('كيف أرجع منتج؟')">↩️ الإرجاع</button>
+          <button type="button" class="sz-faq-pill" onclick="askFAQ('كيف أستخدم نقاط الولاء؟')">⭐ النقاط</button>
+        </div>
+        <div id="faqBotCategories" class="sz-faq-categories" aria-label="تصنيفات الأسئلة الشائعة"></div>
       </div>
 
-      <div style="
-        padding:10px 12px;
-        border-top:1px solid var(--color-border-tertiary);
-        display:flex;gap:8px;
-      ">
-        <input id="faqBotInput" type="text"
-          placeholder="اكتب سؤالك..."
-          style="flex:1;padding:10px 14px;
-          border:1px solid var(--color-border-tertiary);
-          border-radius:20px;font-size:0.9rem;
-          outline:none;direction:rtl;"
-          onkeydown="if(event.key==='Enter')sendFAQMessage()">
-        <button onclick="sendFAQMessage()"
-          style="background:var(--color-text-info,#0ea5e9);
-          color:#fff;border:none;border-radius:50%;
-          width:42px;height:42px;cursor:pointer;
-          font-size:1rem;flex-shrink:0">➤</button>
+      <div id="faqBotMessages" class="sz-faq-body" aria-live="polite"></div>
+
+      <div class="sz-faq-footer">
+        <button type="button" class="sz-faq-support-btn" onclick="handleFaqSupportAction()">
+          💬 لم تجد الإجابة؟ ابدأ محادثة
+        </button>
+        <a href="https://wa.me/201018108979?text=مرحباً،%20أريد%20الاستفسار" target="_blank" onclick="closeFAQBot()" class="sz-faq-whatsapp-link">
+          📱 تواصل عبر واتساب
+        </a>
       </div>
-
-      <button onclick="if(currentUser){closeFAQBot();openMySupportConversation();}else{openTawkChat();closeFAQBot();}"
-        style="width:100%;padding:13px;
-        background:var(--color-background-secondary);
-        border:none;
-        border-top:1px solid var(--color-border-tertiary);
-        color:var(--color-text-secondary);
-        font-size:0.85rem;cursor:pointer;
-        display:flex;align-items:center;
-        justify-content:center;gap:8px;">🎧 تحدث مع خدمة العملاء مباشرة</button>
-
-      <a href="https://wa.me/201018108979?text=مرحباً،%20أريد%20الاستفسار"
-        target="_blank"
-        onclick="closeFAQBot()"
-        style="width:100%;padding:11px;
-        background:#e8fdf0;border:none;
-        border-top:1px solid var(--color-border-tertiary);
-        color:#128C7E;font-size:0.85rem;cursor:pointer;
-        display:flex;align-items:center;
-        justify-content:center;gap:8px;
-        text-decoration:none;">📱 تواصل عبر واتساب</a>
     </div>
 
     <div id="faqBotOverlay"
@@ -3167,6 +3331,23 @@
             notifications: [],
             notificationsUnreadCount: 0,
             notificationsInitialLoadDone: false
+        };
+        const DEFAULT_FAQ_ITEMS = [
+            { question: 'كيف أتتبع طلبي؟', answer: 'افتح حسابي ثم طلباتي، وبعدها اضغط على الطلب المطلوب لمتابعة حالته خطوة بخطوة.', category: 'الطلبات', order: 1, isActive: true, keywords: ['تتبع', 'الطلب', 'حالة الطلب'] },
+            { question: 'كيف أغير عنوان التوصيل؟', answer: 'افتح حسابي ثم بياناتي، اضغط تعديل البيانات، وبعدها حدّث عنوانك واحفظ التغييرات.', category: 'الحساب', order: 2, isActive: true, keywords: ['العنوان', 'التوصيل', 'تعديل البيانات'] },
+            { question: 'ما هي طرق الدفع المتاحة؟', answer: 'نقبل الدفع عند الاستلام، وبطاقات الائتمان، وأي طريقة دفع إضافية تظهر لك أثناء إنهاء الطلب.', category: 'الدفع', order: 3, isActive: true, keywords: ['الدفع', 'فيزا', 'كاش', 'بطاقة'] },
+            { question: 'كيف أرجع منتج؟', answer: 'تواصل معنا عبر الدردشة خلال 14 يوم من الاستلام، وسنوضح لك خطوات الإرجاع أو الاستبدال حسب حالتك.', category: 'الإرجاع', order: 4, isActive: true, keywords: ['إرجاع', 'استبدال', 'مرتجع'] },
+            { question: 'هل التوصيل مجاني؟', answer: 'التوصيل مجاني للطلبات التي تزيد عن 500 ج.م، وما دون ذلك تظهر لك قيمة التوصيل قبل تأكيد الطلب.', category: 'التوصيل', order: 5, isActive: true, keywords: ['التوصيل', 'مجاني', 'شحن'] },
+            { question: 'كيف أستخدم نقاط الولاء؟', answer: 'النقاط تُضاف تلقائياً بعد الطلبات المكتملة، وتظهر لك عند إنهاء الطلب ليتم خصمها مباشرة عند الاستحقاق.', category: 'نقاط الولاء', order: 6, isActive: true, keywords: ['النقاط', 'الولاء', 'خصم'] }
+        ];
+        let faqState = {
+            items: [],
+            filteredItems: [],
+            search: '',
+            activeCategory: 'all',
+            expandedId: '',
+            loaded: false,
+            loading: false
         };
         let storeAuthListenerBound = false;
         let storeAuthResolved = false;
@@ -7071,11 +7252,19 @@
             if (!uid) throw new Error('فشل إنشاء الحساب');
 
             let profile = registerResult && registerResult.profile ? registerResult.profile : null;
-            if (!profile && typeof upsertMyCustomerProfile === 'function') {
+            if (typeof upsertMyCustomerProfile === 'function') {
                 profile = await upsertMyCustomerProfile(uid, {
+                    email: emailNormalized,
                     phone,
                     address,
-                    displayName: name
+                    displayName: name,
+                    name,
+                    role: 'customer',
+                    loyaltyPoints: 0,
+                    points: 0,
+                    orders: 0,
+                    isActive: true,
+                    status: 'active'
                 });
             }
 
@@ -8509,9 +8698,9 @@
                 container.innerHTML = `
                     <div class="my-account-panel">
                         <h3 style="margin:0 0 8px;color:var(--account-text);">رسائلي</h3>
-                        <p class="my-account-muted-note">تعذر فتح الدردشة الداخلية من هذه الجلسة حالياً. سنحوّلك مباشرة إلى خدمة العملاء أو واتساب عند الحاجة.</p>
+                        <p class="my-account-muted-note">تعذر تشغيل الدردشة الداخلية حالياً من هذه الجلسة. يمكنك إعادة المحاولة أو استخدام FAQ وواتساب إلى أن تعود الخدمة.</p>
                         <div class="my-account-actions">
-                            <button type="button" class="my-account-primary-btn" onclick="openTawkChat()">🎧 فتح Tawk.to</button>
+                            <button type="button" class="my-account-primary-btn" onclick="retryMySupportConversation()">🔄 إعادة المحاولة</button>
                             <button type="button" class="my-account-ghost-btn" onclick="openStoreWhatsApp()">💬 واتساب</button>
                             <button type="button" class="my-account-ghost-btn" onclick="openFAQBot()">🤖 FAQ</button>
                         </div>
@@ -8869,12 +9058,13 @@
             return true;
         }
 
-                function buildMyAccountNotificationCardMarkup(item) {
+        function buildMyAccountNotificationCardMarkup(item) {
             const meta = getCustomerNotificationTypeMeta(item && item.type);
             const unread = item && item.readByCustomer !== true;
             const safeId = escapeHtml(String(item && item.id || ''));
+            const safeSignature = escapeHtml(getCustomerNotificationRenderSignature(item));
             return `
-                <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(item && item.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}">
+                <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(item && item.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}" data-notification-signature="${safeSignature}">
                     <div class="my-account-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
                     <div>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -8928,6 +9118,87 @@
             return container.querySelector('[data-my-account-notifications-panel="true"]');
         }
 
+        function getCustomerNotificationRenderSignature(item) {
+            const safeItem = item && typeof item === 'object' ? item : {};
+            return [
+                String(safeItem.id || ''),
+                String(safeItem.title || ''),
+                String(safeItem.body || ''),
+                String(safeItem.type || ''),
+                String(safeItem.createdAt || ''),
+                safeItem.readByCustomer === true ? '1' : '0'
+            ].join('|');
+        }
+
+        function createMyAccountNotificationCardNode(item) {
+            const template = document.createElement('template');
+            template.innerHTML = buildMyAccountNotificationCardMarkup(item).trim();
+            const node = template.content.firstElementChild;
+            if (node) {
+                node.dataset.notificationSignature = getCustomerNotificationRenderSignature(item);
+            }
+            return node;
+        }
+
+        function syncMyAccountNotificationsList(listNode, rows = []) {
+            if (!listNode) return;
+            const nextRows = Array.isArray(rows) ? rows : [];
+            if (!nextRows.length) {
+                if (!listNode.querySelector('.my-account-empty')) {
+                    listNode.innerHTML = getMyAccountNotificationsEmptyMarkup();
+                }
+                return;
+            }
+
+            const existingNodes = new Map();
+            listNode.querySelectorAll('[data-notification-id]').forEach((node) => {
+                const id = String(node.dataset.notificationId || '').trim();
+                if (id) existingNodes.set(id, node);
+            });
+            const expectedIds = new Set();
+
+            nextRows.forEach((row, index) => {
+                const notificationId = String(row && row.id || '').trim();
+                if (!notificationId) return;
+                expectedIds.add(notificationId);
+                const signature = getCustomerNotificationRenderSignature(row);
+                const currentNode = existingNodes.get(notificationId);
+                const nextSibling = listNode.children[index] || null;
+
+                if (!currentNode) {
+                    const created = createMyAccountNotificationCardNode(row);
+                    if (created) listNode.insertBefore(created, nextSibling);
+                    return;
+                }
+
+                if (String(currentNode.dataset.notificationSignature || '') !== signature) {
+                    const replacement = createMyAccountNotificationCardNode(row);
+                    if (replacement) {
+                        listNode.replaceChild(replacement, currentNode);
+                    }
+                    return;
+                }
+
+                if (currentNode !== nextSibling) {
+                    listNode.insertBefore(currentNode, nextSibling);
+                }
+            });
+
+            Array.from(listNode.querySelectorAll('[data-notification-id]')).forEach((node) => {
+                const id = String(node.dataset.notificationId || '').trim();
+                if (id && !expectedIds.has(id)) {
+                    node.remove();
+                }
+            });
+
+            const firstRenderableRow = listNode.querySelector('[data-notification-id]');
+            if (!firstRenderableRow && !listNode.querySelector('.my-account-empty')) {
+                listNode.innerHTML = getMyAccountNotificationsEmptyMarkup();
+            } else if (firstRenderableRow) {
+                listNode.querySelectorAll('.my-account-empty').forEach((node) => node.remove());
+            }
+        }
+
         function patchMyAccountNotificationsView(container, rows = [], options = {}) {
             if (!container) return;
             const renderOptions = options && typeof options === 'object' ? options : {};
@@ -8941,7 +9212,7 @@
             if (renderOptions.forceFullRender === true || myAccountState.notificationsInitialLoadDone !== true) {
                 listNode.innerHTML = Array.isArray(rows) && rows.length ? buildMyAccountNotificationsItemsMarkup(rows) : getMyAccountNotificationsEmptyMarkup();
             } else {
-                listNode.innerHTML = Array.isArray(rows) && rows.length ? buildMyAccountNotificationsItemsMarkup(rows) : getMyAccountNotificationsEmptyMarkup();
+                syncMyAccountNotificationsList(listNode, rows);
             }
             myAccountState.notificationsInitialLoadDone = true;
         }
@@ -9529,7 +9800,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         }
 
         function fallbackSupportChatToFaq(message = 'تم التحويل إلى FAQ.') {
-            if (message) addBotMessage(String(message));
+            if (message && typeof appendInternalChatMessage === 'function') {
+                appendInternalChatMessage(String(message), 'bot');
+            }
             return false;
         }
 
@@ -9537,6 +9810,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const normalizedSource = String(source || 'support');
             const code = getSupportErrorCode(error);
             const reason = code || String(error && error.message || error || 'support-unavailable');
+            const loggedIn = !!(currentUser && (currentUser.uid || currentUser.id));
             supportAccess.denied = true;
             supportAccess.reason = reason;
             supportAccess.source = normalizedSource;
@@ -9550,10 +9824,12 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                     ? 'يرجى تفعيل بريدك الإلكتروني أولاً لاستخدام الدردشة الداخلية.'
                     : code === 'not-authenticated'
                         ? 'سجّل دخولك أولاً لاستخدام الدردشة الداخلية.'
-                        : 'تعذر تشغيل الدردشة الداخلية الآن، سيتم تحويلك إلى خدمة العملاء المباشرة.';
+                        : 'تعذر تشغيل الدردشة الداخلية الآن. يمكنك إعادة المحاولة أو استخدام FAQ وواتساب مؤقتاً.';
                 showNotification('warning', 'الدعم المباشر', readableMessage);
             }
-            if (window.__STORE_TAWK_ENABLED__ !== false) {
+            if (loggedIn) {
+                hideTawkWidget();
+            } else if (window.__STORE_TAWK_ENABLED__ !== false) {
                 openTawkChat();
             } else {
                 openStoreWhatsApp();
@@ -9563,6 +9839,14 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 renderMyAccountMessagesTab(getMyAccountPanel('messages') || getMyAccountActivePanel()).catch(() => null);
             }
             return true;
+        }
+
+        function retryMySupportConversation() {
+            supportAccess.denied = false;
+            supportAccess.reason = '';
+            supportAccess.source = '';
+            supportAccess.notifiedReason = '';
+            return openMySupportConversation();
         }
 
         function applyTawkWidgetVisibility() {
@@ -9853,9 +10137,6 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 setChatStatus('جاري الاتصال بالدعم...', false);
                 const ready = await ensureSupportChatReady({ silent: options.silent === true });
                 if (!ready) {
-                    if (!options.silent) {
-                        openTawkChat();
-                    }
                     chatMode = 'bot';
                     botBtn && botBtn.classList.add('active');
                     supportBtn && supportBtn.classList.remove('active');
@@ -9948,7 +10229,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
             queueCustomerTypingState(false);
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
-                window.NavHistory.close('faqbot');
+                window.NavHistory.close('chat');
                 return true;
             }
             return setInternalChatPanelState(false);
@@ -9973,7 +10254,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 appendInternalChatMessage('سأحوّلك إلى خدمة العملاء الآن...', 'bot');
                 if (currentUser) {
                     window.setTimeout(function() {
-                        switchChatMode('support', { silent: true }).catch(() => null);
+                        switchChatMode('support', { silent: false }).catch(() => null);
                     }, 1200);
                     return;
                 }
@@ -10049,6 +10330,214 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             return Boolean(isOpen);
         }
 
+        function normalizeFaqText(value) {
+            return String(value || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[\u0610-\u061A\u064B-\u065F]/g, '')
+                .replace(/\s+/g, ' ');
+        }
+
+        function normalizeFaqCatalogItem(item, index = 0) {
+            const source = item && typeof item === 'object' ? item : {};
+            const question = String(source.question || source.title || '').trim();
+            const answer = String(source.answer || source.response || '').trim();
+            const category = String(source.category || 'عام').trim() || 'عام';
+            return {
+                id: String(source.id || `faq_${index + 1}`).trim(),
+                question,
+                answer,
+                category,
+                order: Number.isFinite(Number(source.order)) ? Number(source.order) : index + 1,
+                isActive: source.isActive !== false,
+                keywords: Array.isArray(source.keywords)
+                    ? source.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean)
+                    : []
+            };
+        }
+
+        function buildFaqCatalogFromIntents(intents = []) {
+            return (Array.isArray(intents) ? intents : []).map((item, index) => normalizeFaqCatalogItem({
+                id: String(item && item.id || `faq_intent_${index + 1}`),
+                question: String(item && item.question || item && item.keywords && item.keywords[0] || `سؤال ${index + 1}`),
+                answer: String(item && item.answer || item && item.response || ''),
+                category: String(item && item.category || 'عام'),
+                order: Number(item && item.order || index + 1),
+                isActive: item && item.isActive !== false,
+                keywords: Array.isArray(item && item.keywords) ? item.keywords : []
+            }, index)).filter((item) => item.question && item.answer && item.isActive !== false);
+        }
+
+        function getFallbackFaqCatalog() {
+            const configured = buildFaqCatalogFromIntents(storeSettings && storeSettings.faqIntents);
+            if (configured.length) return configured;
+            return DEFAULT_FAQ_ITEMS.map((item, index) => normalizeFaqCatalogItem(item, index));
+        }
+
+        async function ensureFaqCatalogLoaded(force = false) {
+            if (!force && faqState.loaded && Array.isArray(faqState.items) && faqState.items.length) {
+                return faqState.items;
+            }
+            if (faqState.loading) {
+                return faqState.items;
+            }
+            faqState.loading = true;
+            try {
+                let rows = [];
+                if (typeof listFAQItems === 'function') {
+                    rows = await listFAQItems({ activeOnly: true, limit: 200 }).catch(() => []);
+                }
+                faqState.items = (Array.isArray(rows) && rows.length ? rows : getFallbackFaqCatalog())
+                    .map((item, index) => normalizeFaqCatalogItem(item, index))
+                    .filter((item) => item.question && item.answer && item.isActive !== false)
+                    .sort((a, b) => Number(a && a.order || 0) - Number(b && b.order || 0));
+                faqState.loaded = true;
+                if (!faqState.expandedId && faqState.items.length) {
+                    faqState.expandedId = String(faqState.items[0].id || '');
+                }
+            } finally {
+                faqState.loading = false;
+            }
+            return faqState.items;
+        }
+
+        function getFaqCategories() {
+            const categories = Array.from(new Set((faqState.items || []).map((item) => String(item && item.category || 'عام').trim()).filter(Boolean)));
+            return ['all'].concat(categories);
+        }
+
+        function getFilteredFaqItems() {
+            const normalizedSearch = normalizeFaqText(faqState.search);
+            return (faqState.items || []).filter((item) => {
+                if (!item || item.isActive === false) return false;
+                if (faqState.activeCategory !== 'all' && String(item.category || '') !== String(faqState.activeCategory || '')) {
+                    return false;
+                }
+                if (!normalizedSearch) return true;
+                const haystack = normalizeFaqText([
+                    item.question,
+                    item.answer,
+                    item.category,
+                    Array.isArray(item.keywords) ? item.keywords.join(' ') : ''
+                ].join(' '));
+                return haystack.includes(normalizedSearch);
+            });
+        }
+
+        function renderFaqCategories() {
+            const categoriesNode = document.getElementById('faqBotCategories');
+            if (!categoriesNode) return;
+            categoriesNode.innerHTML = getFaqCategories().map((category) => {
+                const active = String(faqState.activeCategory || 'all') === String(category);
+                const label = category === 'all' ? 'الكل' : category;
+                return `<button type="button" class="sz-faq-category ${active ? 'active' : ''}" onclick="setFAQCategory(this.dataset.faqCategory)" data-faq-category="${escapeHtml(String(category))}">${escapeHtml(String(label))}</button>`;
+            }).join('');
+        }
+
+        function buildFaqAccordionMarkup(rows = []) {
+            const items = Array.isArray(rows) ? rows : [];
+            if (!items.length) {
+                return `
+                    <div class="sz-faq-empty">
+                        <div style="font-size:1.8rem;">🤝</div>
+                        <strong>لم نجد إجابة مطابقة</strong>
+                        <span>جرّب كلمة أخرى أو ابدأ محادثة مباشرة وسنساعدك فوراً.</span>
+                    </div>
+                `;
+            }
+            return items.map((item) => {
+                const safeId = escapeHtml(String(item && item.id || ''));
+                const expanded = String(faqState.expandedId || '') === String(item && item.id || '');
+                return `
+                    <article class="sz-faq-accordion-item ${expanded ? 'active' : ''}" data-faq-item-id="${safeId}">
+                        <button type="button" class="sz-faq-accordion-toggle" onclick="toggleFaqAccordion(this.dataset.faqItemId)" data-faq-item-id="${safeId}" aria-expanded="${expanded ? 'true' : 'false'}">
+                            <span class="sz-faq-accordion-copy">
+                                <span class="sz-faq-accordion-question">${escapeHtml(String(item && item.question || ''))}</span>
+                                <span class="sz-faq-accordion-meta">${escapeHtml(String(item && item.category || 'عام'))}</span>
+                            </span>
+                            <span class="sz-faq-accordion-arrow" aria-hidden="true">⌄</span>
+                        </button>
+                        <div class="sz-faq-accordion-answer">${escapeHtml(String(item && item.answer || ''))}</div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function renderFAQBotPanel() {
+            const body = document.getElementById('faqBotMessages');
+            const input = document.getElementById('faqBotInput');
+            if (input) input.value = String(faqState.search || '');
+            renderFaqCategories();
+            if (!body) return;
+            faqState.filteredItems = getFilteredFaqItems();
+            body.innerHTML = buildFaqAccordionMarkup(faqState.filteredItems);
+        }
+
+        function setFAQCategory(category = 'all') {
+            faqState.activeCategory = String(category || 'all').trim() || 'all';
+            if (faqState.activeCategory === 'all' && !faqState.expandedId && faqState.items.length) {
+                faqState.expandedId = String(faqState.items[0].id || '');
+            }
+            renderFAQBotPanel();
+        }
+
+        function updateFAQSearch(value = '') {
+            faqState.search = String(value || '').trim();
+            renderFAQBotPanel();
+        }
+
+        function toggleFaqAccordion(itemId = '') {
+            const normalizedId = String(itemId || '').trim();
+            faqState.expandedId = faqState.expandedId === normalizedId ? '' : normalizedId;
+            renderFAQBotPanel();
+        }
+
+        function addBotMessage(text) {
+            faqState.search = String(text || '').trim();
+            renderFAQBotPanel();
+        }
+
+        function addUserMessage(text) {
+            faqState.search = String(text || '').trim();
+            renderFAQBotPanel();
+        }
+
+        function sendFAQMessage() {
+            const input = document.getElementById('faqBotInput');
+            const msg = String(input && input.value || '').trim();
+            updateFAQSearch(msg);
+            if (!msg) return false;
+            const firstMatch = getFilteredFaqItems()[0];
+            if (firstMatch && firstMatch.id) {
+                faqState.expandedId = String(firstMatch.id);
+                renderFAQBotPanel();
+            }
+            return true;
+        }
+
+        function askFAQ(question) {
+            const cleanQuestion = String(question || '').trim();
+            if (!cleanQuestion) return false;
+            const input = document.getElementById('faqBotInput');
+            if (input) input.value = cleanQuestion;
+            faqState.search = cleanQuestion;
+            const firstMatch = getFilteredFaqItems()[0];
+            if (firstMatch && firstMatch.id) {
+                faqState.expandedId = String(firstMatch.id);
+            }
+            renderFAQBotPanel();
+            return true;
+        }
+
+        function handleFaqSupportAction() {
+            closeFAQBot({ skipHistory: true });
+            if (currentUser) {
+                return openMySupportConversation();
+            }
+            openTawkChat();
+            return true;
+        }
+
         function openFAQBot(options = {}) {
             const widget = document.getElementById('faqBotWidget');
             const isOpen = widget && widget.style.display !== 'none';
@@ -10060,12 +10549,21 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             closeCart({ skipHistory: true });
             closeWishlist({ skipHistory: true });
             closeInternalChat({ skipHistory: true, silent: true });
+            if (options.preserveSearch !== true) {
+                faqState.search = '';
+                faqState.activeCategory = 'all';
+            }
             const opened = setFAQBotState(true);
             if (!opened) return false;
-            const messages = document.getElementById('faqBotMessages');
-            if (messages && messages.children.length === 0) {
-                addBotMessage(window._welcomeMessage || '\u0623\u0647\u0644\u0627\u064b \u0648\u0633\u0647\u0644\u0627\u064b! \uD83D\uDC4B\n\u0623\u0646\u0627 \u0645\u0633\u0627\u0639\u062F Sale Zone \u0627\u0644\u0630\u0643\u064A\n\u0643\u064A\u0641 \u0623\u0642\u062F\u0631 \u0623\u0633\u0627\u0639\u062F\u0643 \u0627\u0644\u064A\u0648\u0645\u061F');
+            const body = document.getElementById('faqBotMessages');
+            if (body) {
+                body.innerHTML = '<div class="sz-faq-empty"><div style="font-size:1.8rem;">⏳</div><strong>جاري تحميل الأسئلة الشائعة...</strong></div>';
             }
+            ensureFaqCatalogLoaded(options.force === true).then(() => renderFAQBotPanel()).catch(() => {
+                faqState.items = getFallbackFaqCatalog();
+                faqState.loaded = true;
+                renderFAQBotPanel();
+            });
             const input = document.getElementById('faqBotInput');
             if (input) setTimeout(() => input.focus(), 60);
             return true;
@@ -10087,74 +10585,6 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             if (overlay) overlay.style.display = 'none';
             syncSidePanelScrollLock();
             return true;
-        }
-
-        function addBotMessage(text) {
-            const msgs = document.getElementById('faqBotMessages');
-            if (!msgs) return;
-            const el = document.createElement('div');
-            el.style.cssText = [
-                'background:var(--color-background-secondary)',
-                'border-radius:12px 12px 12px 0',
-                'padding:10px 14px',
-                'max-width:85%',
-                'font-size:0.88rem',
-                'white-space:pre-line',
-                'align-self:flex-start',
-                'line-height:1.5'
-            ].join(';');
-            el.innerHTML = '\uD83E\uDD16 ' + String(text || '');
-            msgs.appendChild(el);
-            msgs.scrollTop = msgs.scrollHeight;
-        }
-
-        function addUserMessage(text) {
-            const msgs = document.getElementById('faqBotMessages');
-            if (!msgs) return;
-            const el = document.createElement('div');
-            el.style.cssText = [
-                'background:var(--color-text-info,#0ea5e9)',
-                'color:#fff',
-                'border-radius:12px 12px 0 12px',
-                'padding:10px 14px',
-                'max-width:85%',
-                'font-size:0.88rem',
-                'align-self:flex-end'
-            ].join(';');
-            el.textContent = String(text || '');
-            msgs.appendChild(el);
-            msgs.scrollTop = msgs.scrollHeight;
-        }
-
-        function sendFAQMessage() {
-            const input = document.getElementById('faqBotInput');
-            if (!input || !input.value.trim()) return;
-            const msg = input.value.trim();
-            input.value = '';
-            askFAQ(msg);
-        }
-
-        function askFAQ(question) {
-            const cleanQuestion = String(question || '').trim();
-            if (!cleanQuestion) return;
-            addUserMessage(cleanQuestion);
-            window.setTimeout(function() {
-                const reply = window.FAQBot ? window.FAQBot.respond(cleanQuestion) : null;
-                if (reply && reply.source !== 'escalate') {
-                    addBotMessage(reply.text);
-                    return;
-                }
-                addBotMessage('\u0633\u0624\u0627\u0644\u0643 \u0648\u0635\u0644\u0646\u0627! \uD83D\uDE0A\n\u0633\u0623\u062D\u0648\u0644\u0643 \u0644\u0645\u0648\u0638\u0641 \u062E\u062F\u0645\u0629 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0622\u0646...');
-                window.setTimeout(function() {
-                    if (currentUser) {
-                        closeFAQBot({ skipHistory: true });
-                        openMySupportConversation();
-                        return;
-                    }
-                    openTawkChat();
-                    closeFAQBot({ skipHistory: true });
-                }, 1500);
-            }, 600);
         }
 
         function openStoreWhatsApp() {

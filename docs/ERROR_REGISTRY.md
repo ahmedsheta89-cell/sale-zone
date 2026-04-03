@@ -724,6 +724,47 @@ On same-origin multi-surface apps, Firebase Auth must be the identity source of 
 **Severity:** Critical - security and profile-write integrity risk
 
 ---
+## ERR-020 — Logged-in support chat could fall back to Tawk instead of staying internal
+- **Date:** 2026-04-03
+- **Severity:** Critical
+- **Root Cause:** The storefront correctly preferred internal Firestore support for authenticated customers, but any support readiness error flowed into `handleSupportAccessError()` and auto-opened Tawk. That failure path overrode the routing decision and sent logged-in customers to the guest support channel.
+- **Fix:** Kept guest fallback to Tawk/WhatsApp only for unauthenticated users, removed automatic Tawk fallback for authenticated customers, added retry handling inside the account messages tab, and fixed chat history cleanup so the internal chat uses its own nav key.
+- **Files:** `متجر_2.HTML`
+- **PR:** `fix/chat-routing-faq-registration`
+
+## ERR-021 — Account notifications still flickered on mobile because “patch” logic re-rendered the whole list
+- **Date:** 2026-04-03
+- **Severity:** High
+- **Root Cause:** The notifications view had a `notificationsInitialLoadDone` flag, but the supposed patch path still replaced `innerHTML` on every realtime update. On mobile this made the notifications panel visibly flash and reflow.
+- **Fix:** Added stable notification signatures and DOM patching so only changed/new/deleted notification cards are updated after first render, without clearing the whole list.
+- **Files:** `متجر_2.HTML`
+- **PR:** `fix/chat-routing-faq-registration`
+
+## ERR-022 — FAQ existed only as bot intents and local storage, not as a managed knowledge base
+- **Date:** 2026-04-03
+- **Severity:** Medium
+- **Root Cause:** The previous FAQ implementation was only a lightweight keyword-response bot stored in `storeSettings.faqIntents` and `localStorage`. There was no Firestore-backed FAQ collection, no Arabic question/answer management UI, and no searchable customer FAQ experience.
+- **Fix:** Added Firestore-backed FAQ helpers on collection `faq`, upgraded the admin FAQ editor to manage question/answer/category/order/active fields, derived bot intents from those entries for compatibility, and rebuilt the customer FAQ trigger into a searchable accordion panel with Arabic defaults and support fallback.
+- **Files:** `assets/js/firebase-api.js`, `ادمن_2.HTML`, `متجر_2.HTML`
+- **PR:** `fix/chat-routing-faq-registration`
+
+## ERR-023 — New customer registrations were not guaranteed to appear immediately in admin
+- **Date:** 2026-04-03
+- **Severity:** High
+- **Root Cause:** Customer registration relied on profile creation paths that were usually correct, but the admin customers section itself had no realtime sync, so newly registered customers did not appear immediately unless the admin manually refreshed. Registration also needed a canonical post-auth upsert to guarantee all expected fields were present.
+- **Fix:** Forced a canonical customer profile upsert after successful registration and added admin realtime subscription for the `customers` collection so new registrations show up in the customers table immediately.
+- **Files:** `assets/js/firebase-api.js`, `ادمن_2.HTML`, `متجر_2.HTML`
+- **PR:** `fix/chat-routing-faq-registration`
+
+## ERR-024 — Internal chat close action was wired to FAQ history instead of chat history
+- **Date:** 2026-04-03
+- **Severity:** Medium
+- **Root Cause:** `closeInternalChat()` called `NavHistory.close('faqbot')` instead of `NavHistory.close('chat')`, which mixed chat and FAQ navigation state and made support/FAQ transitions harder to reason about on mobile.
+- **Fix:** Corrected the nav-history key so internal chat opens/closes on its own history channel and no longer interferes with the FAQ panel.
+- **Files:** `متجر_2.HTML`
+- **PR:** `fix/chat-routing-faq-registration`
+
+---
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
