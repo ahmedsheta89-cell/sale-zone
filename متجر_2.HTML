@@ -417,8 +417,9 @@
         .modal-overlay.active .modal { transform: scale(1); }
         .modal.large { max-width: 700px; }
         .modal.my-account-modal {
-            max-width: 1180px;
-            width: min(1180px, 100%);
+            max-width: 1400px;
+            width: min(92vw, 1400px);
+            min-height: 82vh;
             max-height: 94vh;
             direction: rtl;
             display: flex;
@@ -434,7 +435,7 @@
         }
         .my-account-layout {
             display: grid;
-            grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+            grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
             min-height: 0;
             flex: 1;
         }
@@ -502,6 +503,24 @@
         .my-account-identity {
             display: grid;
             gap: 8px;
+        }
+        .my-account-name {
+            font-size: clamp(1.45rem, 2vw, 1.9rem);
+            margin: 0;
+            color: var(--account-text);
+            line-height: 1.3;
+        }
+        .my-account-email {
+            margin: 0;
+            color: var(--account-text-muted);
+            font-size: 0.94rem;
+            line-height: 1.7;
+        }
+        .my-account-summary {
+            margin: 0;
+            color: var(--account-text-muted);
+            font-size: 0.94rem;
+            line-height: 1.75;
         }
         .my-account-sidebar h3 {
             font-size: clamp(1.45rem, 2vw, 1.9rem);
@@ -638,7 +657,7 @@
             box-shadow: 0 18px 30px rgba(0,0,0,0.18);
         }
         .my-account-scroll {
-            padding: 20px 22px 24px;
+            padding: 24px 28px 28px;
             overflow-y: auto;
             overflow-x: hidden;
             min-height: 0;
@@ -1253,23 +1272,55 @@
             .my-account-layout { grid-template-columns: 1fr; }
             .my-account-sidebar { padding: 16px 12px 12px; gap: 14px; }
             .my-account-hero {
-                padding: 16px;
+                padding: 16px 12px;
                 border-radius: 18px;
                 text-align: center;
                 justify-items: center;
+                gap: 12px;
             }
             .my-account-avatar {
-                width: 60px;
-                height: 60px;
-                font-size: 1.5rem;
+                width: 56px;
+                height: 56px;
+                font-size: 1.3rem;
             }
             .my-account-identity { justify-items: center; }
-            .my-account-meta-list,
+            .my-account-name { font-size: 1rem; margin-top: 8px; }
+            .my-account-email { font-size: 0.8rem; }
+            .my-account-summary { font-size: 0.82rem; }
+            .my-account-meta-list {
+                justify-content: center;
+                gap: 6px;
+                margin-top: 8px;
+            }
+            .my-account-meta-chip {
+                min-height: 0;
+                padding: 4px 8px;
+                border-radius: 20px;
+                font-size: 0.7rem;
+                gap: 6px;
+            }
             .my-account-header-actions,
-            .my-account-actions { flex-direction: column; }
+            .my-account-actions {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 8px;
+                margin-top: 12px;
+            }
             .my-account-header-actions > *,
-            .my-account-actions > * { width: 100%; }
-            .my-account-meta-list { justify-content: center; }
+            .my-account-actions > * {
+                width: auto;
+                flex: 1 1 calc(50% - 8px);
+                min-width: 120px;
+            }
+            .my-account-header-btn,
+            .my-account-ghost-btn,
+            .my-account-primary-btn,
+            .my-account-danger-btn {
+                font-size: 0.75rem;
+                padding: 6px 12px;
+                justify-content: center;
+            }
             .my-account-tabs {
                 gap: 8px;
                 padding: 12px 12px 0;
@@ -1289,9 +1340,25 @@
             }
             .my-account-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
             .my-account-stat-card {
-                min-height: 106px;
-                padding: 14px 12px;
+                min-height: 0;
+                padding: 10px 8px;
                 border-radius: 16px;
+                gap: 6px;
+            }
+            .my-account-stat-card strong {
+                font-size: 1.2rem;
+            }
+            .my-account-field {
+                gap: 6px;
+            }
+            .my-account-field label {
+                font-size: 0.8rem;
+            }
+            .my-account-field input,
+            .my-account-field textarea,
+            .my-account-readonly {
+                font-size: 0.85rem;
+                padding: 8px 12px;
             }
             .my-account-grid { grid-template-columns: 1fr; }
             .my-account-products { grid-template-columns: 1fr; }
@@ -5144,7 +5211,7 @@
             const name = String(product.nameAr || product.name || '').trim();
             const url = `https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML#product/${encodeURIComponent(String(product.id || ''))}`;
             const text = `🛍️ ${name}\n💰 ${t('sharePriceLabel')}: ${price}\n🔗 ${url}`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            openWindowWithFocus(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         }
 
         function sendCartToWhatsApp() {
@@ -5179,7 +5246,7 @@
             lines.push('');
             lines.push('📦 يرجى تأكيد الطلب وإرسال عنوان التوصيل');
 
-            window.open(
+            openWindowWithFocus(
                 'https://wa.me/' + getStoreWhatsappNumber() + '?text=' + encodeURIComponent(lines.join('\n')),
                 '_blank'
             );
@@ -5488,6 +5555,38 @@
             return digits;
         }
 
+        function resolveCustomerPhoneValue(record, fallback = '') {
+            const source = record && typeof record === 'object' ? record : {};
+            const candidates = [
+                source.phone,
+                source.phoneNumber,
+                source.mobile,
+                source['هاتف'],
+                source.customerPhone,
+                fallback
+            ];
+            for (const candidate of candidates) {
+                const value = String(candidate || '').trim();
+                if (value) return value;
+            }
+            return '';
+        }
+
+        function openWindowWithFocus(url = '', target = '_blank', features) {
+            let opened = null;
+            try {
+                opened = typeof features === 'string'
+                    ? window.open(url, target, features)
+                    : window.open(url, target);
+            } catch (_) {
+                opened = null;
+            }
+            if (opened && typeof opened.focus === 'function') {
+                try { opened.focus(); } catch (_) {}
+            }
+            return opened;
+        }
+
         function normalizeCustomerCreatedAt(value) {
             if (!value) return '';
             if (typeof value === 'string') return value;
@@ -5511,14 +5610,15 @@
             const patch = overrides && typeof overrides === 'object' ? overrides : {};
             const pick = (key, fallback = '') => (key in patch ? patch[key] : source[key]) ?? fallback;
             const toText = (value, max = 300) => String(value == null ? '' : value).trim().slice(0, max);
-            const normalizedPhone = normalizePhone(pick('phoneNormalized', pick('phone', '')));
+            const rawPhone = resolveCustomerPhoneValue({ ...(source || {}), ...(patch || {}) }, '');
+            const normalizedPhone = normalizePhone(pick('phoneNormalized', rawPhone));
             const createdAt = normalizeCustomerCreatedAt(pick('createdAt', '')) || new Date().toISOString();
 
             return {
                 id: toText(pick('id', ''), 120),
                 uid: toText(pick('uid', ''), 200),
                 name: toText(pick('name', ''), 200),
-                phone: toText(pick('phone', normalizedPhone), 50),
+                phone: toText(pick('phone', rawPhone || normalizedPhone), 50),
                 phoneNormalized: normalizedPhone,
                 email: toText(pick('email', ''), 200),
                 authMethod: toText(pick('authMethod', ''), 40),
@@ -6487,7 +6587,7 @@
                 id: String(authUid || profile && profile.id || currentUser && currentUser.id || uid),
                 uid: String(authUid || profile && profile.uid || currentUser && currentUser.uid || uid),
                 name: String(profile && (profile.displayName || profile.name) || currentUser && currentUser.name || authUser && (authUser.displayName || authUser.email && String(authUser.email).split('@')[0]) || 'عميل'),
-                phone: String(profile && profile.phone || currentUser && currentUser.phone || ''),
+                phone: resolveCustomerPhoneValue(profile || currentUser || {}, resolveCustomerPhoneValue(currentUser || {}, '')),
                 email: String(profile && profile.email || authUser && authUser.email || currentUser && currentUser.email || '').trim().toLowerCase(),
                 address: String(profile && profile.address || currentUser && currentUser.address || ''),
                 loyaltyPoints: Number(profile && profile.loyaltyPoints != null ? profile.loyaltyPoints : currentUser && currentUser.loyaltyPoints || 0),
@@ -6540,7 +6640,7 @@
             const firstLetter = escapeHtml(String(profile && profile.name || 'ع').trim().charAt(0) || 'ع');
             const safeName = escapeHtml(String(profile && profile.name || 'عميل'));
             const safeEmail = escapeHtml(String(profile && profile.email || ''));
-            const safePhone = escapeHtml(String(profile && profile.phone || 'غير مضاف'));
+            const safePhone = escapeHtml(String(resolveCustomerPhoneValue(profile, '') || 'غير مضاف'));
             const safeAddress = escapeHtml(String(profile && profile.address || 'القاهرة - مصر'));
             const points = Number(profile && profile.loyaltyPoints || 0);
             const unreadMessages = Number(myAccountState.supportThread && myAccountState.supportThread.unreadForCustomer || 0);
@@ -6551,8 +6651,8 @@
                     <div class="my-account-identity">
                         <span class="my-account-kicker">مساحتك الشخصية</span>
                         <div>
-                            <h3>${safeName}</h3>
-                            <p>${safeEmail || 'بدون بريد إلكتروني'}</p>
+                            <h3 class="my-account-name">${safeName}</h3>
+                            <p class="my-account-email">${safeEmail || 'بدون بريد إلكتروني'}</p>
                         </div>
                     </div>
                     <div class="my-account-meta-list">
@@ -6560,7 +6660,7 @@
                         <span class="my-account-meta-chip">📍 ${safeAddress}</span>
                         <span class="my-account-meta-chip">⭐ ${escapeHtml(String(points))} نقطة</span>
                     </div>
-                    <p>${unreadMessages > 0 ? `لديك ${escapeHtml(String(unreadMessages))} رسائل غير مقروءة` : 'كل تفاعلاتك وطلباتك محفوظة هنا بشكل منظم.'}${unreadNotifications > 0 ? ` • ${escapeHtml(String(unreadNotifications))} إشعار جديد` : ''}</p>
+                    <p class="my-account-summary">${unreadMessages > 0 ? `لديك ${escapeHtml(String(unreadMessages))} رسائل غير مقروءة` : 'كل تفاعلاتك وطلباتك محفوظة هنا بشكل منظم.'}${unreadNotifications > 0 ? ` • ${escapeHtml(String(unreadNotifications))} إشعار جديد` : ''}</p>
                     <div class="my-account-header-actions">
                         <button type="button" class="my-account-header-btn" onclick="showEditProfileForm()" aria-label="تعديل بيانات الحساب">✏️ تعديل البيانات</button>
                         <button type="button" class="my-account-header-btn is-notifications" onclick="setMyAccountTab('notifications')" aria-label="فتح الإشعارات">🔔 الإشعارات${unreadNotifications > 0 ? ` <span class="my-account-badge">${escapeHtml(String(unreadNotifications))}</span>` : ''}</button>
@@ -6664,7 +6764,7 @@
             const modal = document.getElementById('myAccountModal');
             if (modal) modal.setAttribute('aria-hidden', 'false');
             openModal('myAccountModal');
-            await loadProfileData();
+            await loadProfileData(true);
             renderMyAccountChrome();
             await setMyAccountTab(options && options.tab || myAccountState.activeTab || 'data', { force: true });
             return true;
@@ -6716,6 +6816,7 @@
         function renderMyAccountDataTab(container) {
             if (!container) return;
             const profile = myAccountState.profile || currentUser || {};
+            const resolvedPhone = resolveCustomerPhoneValue(profile, '');
             const canChangeEmail = isPasswordAccount();
             container.innerHTML = `
                 <div class="my-account-panel">
@@ -6735,7 +6836,7 @@
                                 </div>
                                 <div class="my-account-field">
                                     <label for="accountPhoneInput">الهاتف</label>
-                                    <input id="accountPhoneInput" type="tel" value="${escapeHtml(String(profile.phone || ''))}" autocomplete="tel">
+                                    <input id="accountPhoneInput" type="tel" value="${escapeHtml(String(resolvedPhone || ''))}" autocomplete="tel">
                                 </div>
                                 <div class="my-account-field" style="grid-column:1 / -1;">
                                     <label for="accountAddressInput">العنوان</label>
@@ -6754,7 +6855,7 @@
                     ` : `
                         <div class="my-account-grid">
                             ${buildProfileReadonlyRow('الاسم', profile.name || '')}
-                            ${buildProfileReadonlyRow('الهاتف', profile.phone || '')}
+                            ${buildProfileReadonlyRow('الهاتف', resolvedPhone || '')}
                             ${buildProfileReadonlyRow('البريد الإلكتروني', profile.email || '')}
                             ${buildProfileReadonlyRow('العنوان', profile.address || '')}
                         </div>
@@ -8417,7 +8518,7 @@ ${order.pointsDiscount > 0 ? `💎 *نقاط:* -${formatPrice(order.pointsDiscou
 
 ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`;
 
-            window.open(buildWhatsAppUrl(message), '_blank');
+            openWindowWithFocus(buildWhatsAppUrl(message), '_blank');
         }
 
         // ============================================
@@ -9240,7 +9341,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         function openStoreWhatsApp() {
             closeFAQBot({ skipHistory: true });
-            window.open(buildWhatsAppUrl('\u0645\u0631\u062D\u0628\u0627\u060C \u0623\u0631\u064A\u062F \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0639\u0646 \u0637\u0644\u0628'), '_blank');
+            openWindowWithFocus(buildWhatsAppUrl('\u0645\u0631\u062D\u0628\u0627\u060C \u0623\u0631\u064A\u062F \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0639\u0646 \u0637\u0644\u0628'), '_blank');
         }
 
         function registerFaqBotWithNavHistory() {
