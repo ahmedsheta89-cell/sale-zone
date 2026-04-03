@@ -1450,6 +1450,580 @@
             .modal-header h2 { font-size: 18px; }
             .modal-body { padding: 14px; }
         }
+        /* ===== Sale Zone Account Rebuild ===== */
+        #myAccountModal.sz-account-overlay {
+            padding: 18px;
+            background: rgba(5, 8, 20, 0.78);
+            backdrop-filter: blur(8px);
+            z-index: 2300;
+            overscroll-behavior: contain;
+        }
+        #myAccountModal .sz-account-shell,
+        #myAccountModal .sz-account-shell * {
+            box-sizing: border-box;
+        }
+        #myAccountModal .sz-account-shell {
+            width: min(94vw, 1560px);
+            max-width: 1560px;
+            min-height: min(88vh, 980px);
+            max-height: 92vh;
+            margin: 0;
+            border-radius: 28px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            direction: rtl;
+            background:
+                radial-gradient(circle at top right, rgba(200, 169, 94, 0.18), transparent 24%),
+                radial-gradient(circle at bottom left, rgba(233, 69, 96, 0.14), transparent 21%),
+                linear-gradient(180deg, #0f0f23 0%, #09101f 100%);
+            color: #ffffff;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 34px 80px rgba(4, 7, 20, 0.48);
+            contain: layout paint style;
+            will-change: transform;
+        }
+        #myAccountModal .sz-account-header {
+            position: relative;
+            padding: 26px 88px 22px 88px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0));
+            flex-shrink: 0;
+            will-change: opacity;
+        }
+        #myAccountModal .sz-account-header h2 {
+            margin: 0;
+            font-size: clamp(1.55rem, 2vw, 2rem);
+            font-family: var(--font-display);
+            color: #ffffff;
+        }
+        #myAccountModal .sz-account-header p {
+            margin: 8px auto 0;
+            max-width: 620px;
+            color: rgba(255,255,255,0.72);
+            font-size: 0.96rem;
+            line-height: 1.8;
+        }
+        #myAccountModal .sz-account-close {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.08);
+            color: #ffffff;
+            font-size: 1.08rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+        }
+        #myAccountModal .sz-account-close:hover {
+            transform: translateY(-1px);
+            background: rgba(255,255,255,0.14);
+            border-color: rgba(200,169,94,0.42);
+        }
+        #myAccountModal .sz-account-body {
+            display: grid;
+            grid-template-columns: minmax(330px, 390px) minmax(0, 1fr);
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #myAccountModal .sz-account-sidebar {
+            padding: 24px;
+            background: linear-gradient(180deg, rgba(10, 17, 40, 0.94), rgba(15, 15, 35, 0.92));
+            border-left: 1px solid rgba(255,255,255,0.08);
+            overflow-y: auto;
+            min-height: 0;
+        }
+        #myAccountModal .sz-sidebar-stack {
+            display: grid;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+        }
+        #myAccountModal .sz-profile-card {
+            position: relative;
+            display: grid;
+            gap: 16px;
+            padding: 22px;
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04));
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+        }
+        #myAccountModal .sz-profile-card::after {
+            content: '';
+            position: absolute;
+            inset: auto -40px -60px auto;
+            width: 170px;
+            height: 170px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(200,169,94,0.25), transparent 70%);
+            pointer-events: none;
+        }
+        #myAccountModal .sz-avatar {
+            width: 84px;
+            height: 84px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: #09101f;
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 18px 34px rgba(200, 169, 94, 0.24);
+        }
+        #myAccountModal .sz-profile-kicker {
+            display: inline-flex;
+            width: fit-content;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.09);
+            color: #f0d89a;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        #myAccountModal .sz-user-name {
+            margin: 0;
+            font-size: clamp(1.45rem, 2vw, 1.9rem);
+            line-height: 1.25;
+            color: #ffffff;
+        }
+        #myAccountModal .sz-user-email {
+            margin: 6px 0 0;
+            color: rgba(255,255,255,0.72);
+            font-size: 0.92rem;
+            line-height: 1.7;
+            word-break: break-word;
+        }
+        #myAccountModal .sz-profile-summary {
+            margin: 0;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.92rem;
+            line-height: 1.8;
+        }
+        #myAccountModal .sz-profile-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        #myAccountModal .sz-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 40px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #ffffff;
+            font-size: 0.82rem;
+            font-weight: 600;
+            max-width: 100%;
+        }
+        #myAccountModal .sz-profile-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        #myAccountModal .sz-action-btn,
+        #myAccountModal .sz-tab,
+        #myAccountModal .sz-stat-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+        }
+        #myAccountModal .sz-action-btn {
+            min-height: 46px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.07);
+            color: #ffffff;
+            padding: 10px 14px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+        }
+        #myAccountModal .sz-action-btn--primary {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: #09101f;
+            border: none;
+            box-shadow: 0 18px 34px rgba(200, 169, 94, 0.2);
+        }
+        #myAccountModal .sz-action-btn:hover,
+        #myAccountModal .sz-tab:hover,
+        #myAccountModal .sz-stat-card:hover {
+            transform: translateY(-2px);
+        }
+        #myAccountModal .sz-account-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+        #myAccountModal .sz-stat-card {
+            min-height: 118px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+            padding: 16px 14px;
+            display: grid;
+            gap: 8px;
+            align-content: start;
+            justify-items: start;
+            cursor: pointer;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+            color: #ffffff;
+            text-align: right;
+        }
+        #myAccountModal .sz-stat-card small {
+            color: rgba(255,255,255,0.68);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        #myAccountModal .sz-stat-card strong {
+            font-size: 1.6rem;
+            line-height: 1.05;
+            color: #ffffff;
+        }
+        #myAccountModal .sz-stat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.08);
+            font-size: 1.05rem;
+        }
+        #myAccountModal .sz-account-main {
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(15, 15, 35, 0.98), rgba(22, 33, 62, 0.98));
+        }
+        #myAccountModal .sz-tab-nav {
+            display: flex;
+            gap: 10px;
+            padding: 16px 22px 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            max-width: 100%;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x proximity;
+            flex-shrink: 0;
+            background: linear-gradient(180deg, rgba(15, 15, 35, 0.98), rgba(15, 15, 35, 0.82));
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        #myAccountModal .sz-tab-nav::-webkit-scrollbar {
+            display: none;
+        }
+        #myAccountModal .sz-tab {
+            flex: 0 0 auto;
+            min-width: fit-content;
+            scroll-snap-align: start;
+            white-space: nowrap;
+            min-height: 44px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.7);
+            padding: 10px 16px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        #myAccountModal .sz-tab.active {
+            color: #09101f;
+            background: linear-gradient(135deg, var(--gold), #efd087);
+            border-color: transparent;
+            box-shadow: 0 18px 34px rgba(200, 169, 94, 0.2);
+        }
+        #myAccountModal .sz-tab-panels {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            padding: 20px 22px 22px;
+        }
+        #myAccountModal .sz-tab-panel {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-inline-end: 4px;
+            will-change: opacity, transform;
+            transform: translateZ(0);
+        }
+        #myAccountModal .sz-tab-panel.active {
+            display: block;
+            animation: accountFadeUp 0.28s ease;
+        }
+        #myAccountModal .sz-loading-state,
+        #myAccountModal .sz-empty-state {
+            min-height: min(58vh, 520px);
+            display: grid;
+            place-items: center;
+            text-align: center;
+            padding: 28px;
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+            color: rgba(255,255,255,0.74);
+        }
+        #myAccountModal .sz-loading-state .icon,
+        #myAccountModal .sz-empty-state .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        #myAccountModal .sz-loading-state h3,
+        #myAccountModal .sz-empty-state h3 {
+            margin: 0;
+            color: #ffffff;
+        }
+        #myAccountModal .sz-account-shell .my-account-panel {
+            background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 22px 46px rgba(6, 9, 20, 0.18);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            animation: none;
+        }
+        #myAccountModal .sz-account-shell .my-account-panel + .my-account-panel {
+            margin-top: 16px;
+        }
+        #myAccountModal .sz-account-shell .my-account-grid {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        #myAccountModal .sz-account-shell .my-account-field {
+            display: grid;
+            gap: 8px;
+        }
+        #myAccountModal .sz-account-shell .my-account-field label,
+        #myAccountModal .sz-account-shell .my-account-muted-note {
+            color: rgba(255,255,255,0.68);
+        }
+        #myAccountModal .sz-account-shell .my-account-field input,
+        #myAccountModal .sz-account-shell .my-account-field textarea,
+        #myAccountModal .sz-account-shell .my-account-readonly {
+            min-height: 48px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.07);
+            color: #ffffff;
+        }
+        #myAccountModal .sz-account-shell .my-account-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        #myAccountModal .sz-account-shell .my-account-products {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        #myAccountModal .sz-account-shell .my-account-product-card,
+        #myAccountModal .sz-account-shell .my-account-order-card,
+        #myAccountModal .sz-account-shell .my-account-thread-card,
+        #myAccountModal .sz-account-shell .my-account-points-card,
+        #myAccountModal .sz-account-shell .my-account-settings-card,
+        #myAccountModal .sz-account-shell .my-account-notification-card {
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        #myAccountModal .sz-account-shell .my-account-order-card,
+        #myAccountModal .sz-account-shell .my-account-thread-card,
+        #myAccountModal .sz-account-shell .my-account-points-card,
+        #myAccountModal .sz-account-shell .my-account-settings-card,
+        #myAccountModal .sz-account-shell .my-account-notification-card {
+            padding: 16px;
+        }
+        #myAccountModal .sz-account-shell .my-account-notification-list {
+            display: grid;
+            gap: 12px;
+        }
+        #myAccountModal .sz-account-shell .my-account-notification-card.unread {
+            background: linear-gradient(180deg, rgba(200,169,94,0.14), rgba(255,255,255,0.04));
+            border-color: rgba(212, 175, 55, 0.45);
+        }
+        #myAccountModal .sz-account-shell .my-account-empty {
+            min-height: 300px;
+            display: grid;
+            place-items: center;
+            text-align: center;
+            color: rgba(255,255,255,0.72);
+        }
+        #myAccountModal .sz-account-shell .my-account-empty h3,
+        #myAccountModal .sz-account-shell .my-account-panel h3,
+        #myAccountModal .sz-account-shell .my-account-panel strong {
+            color: #ffffff;
+        }
+        #myAccountModal .sz-account-shell .my-account-ghost-btn,
+        #myAccountModal .sz-account-shell .my-account-primary-btn,
+        #myAccountModal .sz-account-shell .my-account-danger-btn {
+            min-height: 44px;
+            border-radius: 14px;
+        }
+        #myAccountModal .sz-account-shell .my-account-ghost-btn {
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.07);
+            color: #ffffff;
+        }
+        #myAccountModal .sz-account-shell .my-account-primary-btn {
+            border: none;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: #09101f;
+            box-shadow: 0 16px 30px rgba(200,169,94,0.18);
+        }
+        #myAccountModal .sz-account-shell .my-account-danger-btn {
+            border: none;
+            background: rgba(233, 69, 96, 0.16);
+            color: #ffd6de;
+        }
+        @media (max-width: 1024px) {
+            #myAccountModal .sz-account-shell {
+                width: min(96vw, 1320px);
+            }
+            #myAccountModal .sz-account-body {
+                grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            #myAccountModal.sz-account-overlay {
+                padding: 0;
+            }
+            #myAccountModal .sz-account-shell {
+                width: 100vw;
+                max-width: 100vw;
+                min-height: 100dvh;
+                max-height: 100dvh;
+                border-radius: 0;
+            }
+            #myAccountModal .sz-account-header {
+                padding: 18px 60px 16px;
+            }
+            #myAccountModal .sz-account-header h2 {
+                font-size: 1.35rem;
+            }
+            #myAccountModal .sz-account-header p {
+                font-size: 0.84rem;
+            }
+            #myAccountModal .sz-account-close {
+                top: 12px;
+                left: 12px;
+                width: 38px;
+                height: 38px;
+            }
+            #myAccountModal .sz-account-body {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            #myAccountModal .sz-account-sidebar {
+                padding: 14px 12px 12px;
+                border-left: none;
+                border-bottom: 1px solid rgba(255,255,255,0.08);
+                max-height: 290px;
+            }
+            #myAccountModal .sz-sidebar-stack {
+                position: static;
+            }
+            #myAccountModal .sz-profile-card {
+                padding: 16px 12px;
+                gap: 12px;
+                text-align: center;
+                justify-items: center;
+            }
+            #myAccountModal .sz-avatar {
+                width: 56px;
+                height: 56px;
+                font-size: 1.35rem;
+            }
+            #myAccountModal .sz-user-name {
+                font-size: 1rem;
+            }
+            #myAccountModal .sz-user-email,
+            #myAccountModal .sz-profile-summary {
+                font-size: 0.8rem;
+            }
+            #myAccountModal .sz-profile-meta {
+                justify-content: center;
+                gap: 6px;
+            }
+            #myAccountModal .sz-chip {
+                min-height: 0;
+                padding: 4px 8px;
+                font-size: 0.72rem;
+            }
+            #myAccountModal .sz-profile-actions {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                width: 100%;
+            }
+            #myAccountModal .sz-action-btn {
+                font-size: 0.76rem;
+                padding: 8px 10px;
+            }
+            #myAccountModal .sz-account-stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+            #myAccountModal .sz-stat-card {
+                min-height: 0;
+                padding: 10px 10px;
+                border-radius: 16px;
+            }
+            #myAccountModal .sz-stat-card strong {
+                font-size: 1.2rem;
+            }
+            #myAccountModal .sz-tab-nav {
+                gap: 8px;
+                padding: 10px 12px 0;
+                scroll-snap-type: x mandatory;
+            }
+            #myAccountModal .sz-tab {
+                padding: 8px 14px;
+                font-size: 0.78rem;
+            }
+            #myAccountModal .sz-tab-panels {
+                padding: 12px;
+            }
+            #myAccountModal .sz-account-shell .my-account-panel {
+                padding: 16px;
+                border-radius: 18px;
+            }
+            #myAccountModal .sz-account-shell .my-account-grid {
+                grid-template-columns: 1fr;
+            }
+            #myAccountModal .sz-account-shell .my-account-products {
+                grid-template-columns: 1fr;
+            }
+            #myAccountModal .sz-account-shell .my-account-actions {
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2043,22 +2617,32 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="myAccountModal" aria-hidden="true">
-        <div class="modal my-account-modal">
-            <div class="modal-header">
-                <button class="close-modal" type="button" aria-label="إغلاق حسابي" onclick="closeMyAccount()">✕</button>
-                <h2>👤 <span data-i18n="account">حسابي</span></h2>
+    <div class="modal-overlay sz-account-overlay" id="myAccountModal" aria-hidden="true">
+        <div class="modal my-account-modal sz-account-shell">
+            <div class="sz-account-header">
+                <button class="sz-account-close" type="button" aria-label="إغلاق حسابي" onclick="closeMyAccount()">✕</button>
+                <h2>حسابي</h2>
                 <p id="myAccountSubtitle">كل بياناتك وطلباتك ومحادثاتك في مكان واحد</p>
             </div>
-            <div class="my-account-layout">
-                <aside class="my-account-sidebar">
-                    <div id="myAccountHeader"></div>
-                    <div id="myAccountStats" class="my-account-stats"></div>
+            <div class="sz-account-body">
+                <aside class="sz-account-sidebar">
+                    <div class="sz-sidebar-stack">
+                        <div id="myAccountHeader"></div>
+                        <div id="myAccountStats" class="sz-account-stats"></div>
+                    </div>
                 </aside>
-                <section class="my-account-body">
-                    <div id="myAccountTabs" class="my-account-tabs" role="tablist" aria-label="تبويبات حسابي"></div>
-                    <div id="myAccountContent" class="my-account-scroll"></div>
-                </section>
+                <main class="sz-account-main">
+                    <nav id="myAccountTabs" class="sz-tab-nav" role="tablist" aria-label="تبويبات حسابي"></nav>
+                    <div id="myAccountPanels" class="sz-tab-panels">
+                        <section id="myAccountPanel-data" class="sz-tab-panel active" data-account-panel="data" role="tabpanel" aria-labelledby="myAccountTab-data"></section>
+                        <section id="myAccountPanel-orders" class="sz-tab-panel" data-account-panel="orders" role="tabpanel" aria-labelledby="myAccountTab-orders" hidden></section>
+                        <section id="myAccountPanel-favorites" class="sz-tab-panel" data-account-panel="favorites" role="tabpanel" aria-labelledby="myAccountTab-favorites" hidden></section>
+                        <section id="myAccountPanel-points" class="sz-tab-panel" data-account-panel="points" role="tabpanel" aria-labelledby="myAccountTab-points" hidden></section>
+                        <section id="myAccountPanel-messages" class="sz-tab-panel" data-account-panel="messages" role="tabpanel" aria-labelledby="myAccountTab-messages" hidden></section>
+                        <section id="myAccountPanel-notifications" class="sz-tab-panel" data-account-panel="notifications" role="tabpanel" aria-labelledby="myAccountTab-notifications" hidden></section>
+                        <section id="myAccountPanel-settings" class="sz-tab-panel" data-account-panel="settings" role="tabpanel" aria-labelledby="myAccountTab-settings" hidden></section>
+                    </div>
+                </main>
             </div>
         </div>
     </div>
@@ -2390,7 +2974,8 @@
             supportMessages: [],
             supportMessagesCount: 0,
             notifications: [],
-            notificationsUnreadCount: 0
+            notificationsUnreadCount: 0,
+            notificationsInitialLoadDone: false
         };
         let storeAuthListenerBound = false;
         let storeAuthResolved = false;
@@ -6536,6 +7121,7 @@
             if (target === 'all' || target === 'notifications') {
                 myAccountState.notifications = [];
                 myAccountState.notificationsUnreadCount = 0;
+                myAccountState.notificationsInitialLoadDone = false;
                 myAccountState.loadedTabs.delete('notifications');
             }
         }
@@ -6561,7 +7147,7 @@
             } catch (_) {}
 
             if (isMyAccountOpen() && myAccountState.activeTab === 'settings') {
-                renderMyAccountSettingsTab(document.getElementById('myAccountContent'));
+                renderMyAccountSettingsTab(getMyAccountPanel('settings') || getMyAccountActivePanel());
             }
         }
 
@@ -6626,7 +7212,7 @@
             const labels = {
                 data: 'بياناتي',
                 orders: 'طلباتي',
-                favorites: 'مفضلتي',
+                favorites: 'مفضلاتي',
                 points: 'نقاطي',
                 messages: 'رسائلي',
                 notifications: 'الإشعارات',
@@ -6635,61 +7221,88 @@
             return labels[tab] || tab;
         }
 
-        function buildMyAccountHeaderMarkup() {
+                function buildMyAccountHeaderMarkup() {
             const profile = myAccountState.profile || currentUser || {};
             const firstLetter = escapeHtml(String(profile && profile.name || 'ع').trim().charAt(0) || 'ع');
             const safeName = escapeHtml(String(profile && profile.name || 'عميل'));
             const safeEmail = escapeHtml(String(profile && profile.email || ''));
             const safePhone = escapeHtml(String(resolveCustomerPhoneValue(profile, '') || 'غير مضاف'));
-            const safeAddress = escapeHtml(String(profile && profile.address || 'القاهرة - مصر'));
-            const points = Number(profile && profile.loyaltyPoints || 0);
+            const safeAddress = escapeHtml(String(profile && profile.address || 'غير مضاف'));
+            const points = Number(profile && profile.loyaltyPoints || currentUser && currentUser.loyaltyPoints || 0);
             const unreadMessages = Number(myAccountState.supportThread && myAccountState.supportThread.unreadForCustomer || 0);
             const unreadNotifications = getMyAccountUnreadNotificationsCount();
             return `
-                <div class="my-account-hero">
-                    <div class="my-account-avatar" aria-hidden="true">${firstLetter}</div>
-                    <div class="my-account-identity">
-                        <span class="my-account-kicker">مساحتك الشخصية</span>
-                        <div>
-                            <h3 class="my-account-name">${safeName}</h3>
-                            <p class="my-account-email">${safeEmail || 'بدون بريد إلكتروني'}</p>
-                        </div>
+                <div class="sz-profile-card">
+                    <div class="sz-avatar" aria-hidden="true">${firstLetter}</div>
+                    <div>
+                        <span class="sz-profile-kicker">مساحتك الشخصية</span>
+                        <h3 class="sz-user-name">${safeName}</h3>
+                        <p class="sz-user-email">${safeEmail || 'بدون بريد إلكتروني'}</p>
                     </div>
-                    <div class="my-account-meta-list">
-                        <span class="my-account-meta-chip">📱 ${safePhone}</span>
-                        <span class="my-account-meta-chip">📍 ${safeAddress}</span>
-                        <span class="my-account-meta-chip">⭐ ${escapeHtml(String(points))} نقطة</span>
+                    <p class="sz-profile-summary">${unreadMessages > 0 ? `لديك ${escapeHtml(String(unreadMessages))} رسائل غير مقروءة` : 'كل بياناتك وطلباتك ومحادثاتك في مكان واحد، بتجربة أكثر هدوءاً وترتيباً.'}${unreadNotifications > 0 ? ` • ${escapeHtml(String(unreadNotifications))} إشعار جديد` : ''}</p>
+                    <div class="sz-profile-meta">
+                        <span class="sz-chip">📱 ${safePhone}</span>
+                        <span class="sz-chip">📍 ${safeAddress}</span>
+                        <span class="sz-chip">⭐ ${escapeHtml(String(points))} نقطة</span>
                     </div>
-                    <p class="my-account-summary">${unreadMessages > 0 ? `لديك ${escapeHtml(String(unreadMessages))} رسائل غير مقروءة` : 'كل تفاعلاتك وطلباتك محفوظة هنا بشكل منظم.'}${unreadNotifications > 0 ? ` • ${escapeHtml(String(unreadNotifications))} إشعار جديد` : ''}</p>
-                    <div class="my-account-header-actions">
-                        <button type="button" class="my-account-header-btn" onclick="showEditProfileForm()" aria-label="تعديل بيانات الحساب">✏️ تعديل البيانات</button>
-                        <button type="button" class="my-account-header-btn is-notifications" onclick="setMyAccountTab('notifications')" aria-label="فتح الإشعارات">🔔 الإشعارات${unreadNotifications > 0 ? ` <span class="my-account-badge">${escapeHtml(String(unreadNotifications))}</span>` : ''}</button>
-                        <button type="button" class="my-account-header-btn" onclick="openMySupportConversation()" aria-label="فتح محادثة الدعم">💬 افتح الدعم</button>
+                    <div class="sz-profile-actions">
+                        <button type="button" class="sz-action-btn sz-action-btn--primary" onclick="showEditProfileForm()">✏️ تعديل البيانات</button>
+                        <button type="button" class="sz-action-btn" onclick="setMyAccountTab('notifications')">🔔 الإشعارات${unreadNotifications > 0 ? ` <span class="my-account-badge">${escapeHtml(String(unreadNotifications))}</span>` : ''}</button>
+                        <button type="button" class="sz-action-btn" onclick="openMySupportConversation()">💬 افتح الدعم</button>
                     </div>
                 </div>
             `;
         }
 
         function buildMyAccountStatsMarkup() {
+            const profile = myAccountState.profile || currentUser || {};
             const orderCount = Array.isArray(myAccountState.orders) ? myAccountState.orders.length : '—';
             const favoritesCount = Array.isArray(favorites) ? favorites.length : 0;
-            const pointsBalance = Number(currentUser && currentUser.loyaltyPoints || 0);
+            const pointsBalance = Number(profile && profile.loyaltyPoints || 0);
             const messagesCount = getMyAccountActiveMessagesCount();
             const notificationsCount = getMyAccountUnreadNotificationsCount();
             const stats = [
-                { label: 'الطلبات', value: orderCount, icon: '🛒' },
-                { label: 'المفضلة', value: favoritesCount, icon: '❤️' },
-                { label: 'النقاط', value: pointsBalance, icon: '⭐' },
-                { label: 'الرسائل', value: messagesCount, icon: '💬' },
-                { label: 'الإشعارات', value: notificationsCount, icon: '🔔' }
+                { tab: 'orders', label: 'الطلبات', value: orderCount, icon: '🛒' },
+                { tab: 'favorites', label: 'المفضلة', value: favoritesCount, icon: '❤️' },
+                { tab: 'points', label: 'النقاط', value: pointsBalance, icon: '⭐' },
+                { tab: 'messages', label: 'الرسائل', value: messagesCount, icon: '💬' },
+                { tab: 'notifications', label: 'الإشعارات', value: notificationsCount, icon: '🔔' }
             ];
             return stats.map((item) => `
-                <div class="my-account-stat-card">
-                    <span class="my-account-stat-icon" aria-hidden="true">${item.icon}</span>
+                <button type="button" class="sz-stat-card" data-account-tab="${escapeHtml(String(item.tab))}" onclick="setMyAccountTab(this.dataset.accountTab)" aria-label="فتح ${item.label}">
+                    <span class="sz-stat-icon" aria-hidden="true">${item.icon}</span>
                     <small>${item.label}</small>
                     <strong>${escapeHtml(String(item.value))}</strong>
-                </div>
+                </button>
             `).join('');
+        }
+
+        function getMyAccountPanelId(tab) {
+            return `myAccountPanel-${String(tab || '').trim()}`;
+        }
+
+        function getMyAccountPanel(tab) {
+            return document.getElementById(getMyAccountPanelId(tab));
+        }
+
+        function getMyAccountActivePanel() {
+            return getMyAccountPanel(myAccountState.activeTab || 'data');
+        }
+
+        function syncMyAccountPanelState() {
+            const activeTab = MY_ACCOUNT_TABS.includes(myAccountState.activeTab) ? myAccountState.activeTab : 'data';
+            document.querySelectorAll('#myAccountTabs [data-account-tab]').forEach((button) => {
+                const isActive = button.dataset.accountTab === activeTab;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                button.setAttribute('tabindex', isActive ? '0' : '-1');
+            });
+            document.querySelectorAll('#myAccountPanels [data-account-panel]').forEach((panel) => {
+                const isActive = panel.dataset.accountPanel === activeTab;
+                panel.classList.toggle('active', isActive);
+                panel.hidden = !isActive;
+                panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+            });
         }
 
         function renderMyAccountChrome() {
@@ -6705,14 +7318,17 @@
                 return `
                 <button
                     type="button"
-                    class="my-account-tab ${myAccountState.activeTab === tab ? 'active' : ''}"
+                    id="myAccountTab-${tab}"
+                    class="sz-tab ${myAccountState.activeTab === tab ? 'active' : ''}"
                     role="tab"
                     aria-selected="${myAccountState.activeTab === tab ? 'true' : 'false'}"
+                    aria-controls="${getMyAccountPanelId(tab)}"
                     aria-label="${escapeHtml(buildMyAccountTabLabel(tab))}"
                     onclick="setMyAccountTab(this.dataset.accountTab)"
                     data-account-tab="${tab}"
                 >${escapeHtml(buildMyAccountTabLabel(tab))}${unreadNotifications > 0 ? `<span class="my-account-tab-badge">${escapeHtml(String(unreadNotifications))}</span>` : ''}</button>`;
             }).join('');
+            syncMyAccountPanelState();
         }
 
         function refreshMyAccountChrome() {
@@ -6724,13 +7340,15 @@
             return true;
         }
 
-        function renderMyAccountLoading(message = 'جاري التحميل...') {
-            const container = document.getElementById('myAccountContent');
-            if (!container) return;
-            container.innerHTML = `
-                <div class="my-account-panel my-account-empty">
-                    <div class="icon">⏳</div>
-                    <p>${escapeHtml(message)}</p>
+        function renderMyAccountLoading(message = 'جاري التحميل...', container = null) {
+            const target = container || getMyAccountActivePanel();
+            if (!target) return;
+            target.innerHTML = `
+                <div class="sz-loading-state">
+                    <div>
+                        <div class="icon">⏳</div>
+                        <h3>${escapeHtml(message)}</h3>
+                    </div>
                 </div>
             `;
         }
@@ -6774,6 +7392,7 @@
             const normalizedTab = MY_ACCOUNT_TABS.includes(String(tab || '').trim()) ? String(tab || '').trim() : 'data';
             myAccountState.activeTab = normalizedTab;
             renderMyAccountChrome();
+            syncMyAccountPanelState();
             await renderMyAccountActiveTab(options);
         }
 
@@ -6795,19 +7414,19 @@
         function cancelEditProfile() {
             myAccountState.profileEditMode = false;
             myAccountState.emailEditMode = false;
-            renderMyAccountDataTab(document.getElementById('myAccountContent'));
+            renderMyAccountDataTab(getMyAccountPanel('data') || getMyAccountActivePanel());
         }
 
         function toggleEmailEditMode(force) {
             if (!isPasswordAccount()) return;
             myAccountState.emailEditMode = typeof force === 'boolean' ? force : !myAccountState.emailEditMode;
-            renderMyAccountDataTab(document.getElementById('myAccountContent'));
+            renderMyAccountDataTab(getMyAccountPanel('data') || getMyAccountActivePanel());
         }
 
         function buildProfileReadonlyRow(label, value) {
             return `
                 <div class="my-account-field">
-                    <label>${escapeHtml(label)}</label>
+                    <label>${escapeHtml(String(label || ''))}</label>
                     <div class="my-account-readonly">${escapeHtml(String(value || 'غير مضاف'))}</div>
                 </div>
             `;
@@ -6948,7 +7567,7 @@
                 myAccountState.profileEditMode = false;
                 updateUserUI();
                 renderMyAccountChrome();
-                renderMyAccountDataTab(document.getElementById('myAccountContent'));
+                renderMyAccountDataTab(getMyAccountPanel('data') || getMyAccountActivePanel());
                 showNotification('success', 'تم الحفظ', 'تم تحديث بيانات الحساب بنجاح');
             } catch (error) {
                 console.error('submitMyAccountProfile error:', error);
@@ -7015,7 +7634,7 @@
                 myAccountState.emailEditMode = false;
                 updateUserUI();
                 renderMyAccountChrome();
-                renderMyAccountDataTab(document.getElementById('myAccountContent'));
+                renderMyAccountDataTab(getMyAccountPanel('data') || getMyAccountActivePanel());
                 showNotification('success', 'تم تحديث البريد', 'تم تغيير البريد الإلكتروني. يرجى تفعيل البريد الجديد.');
             } catch (error) {
                 console.error('submitMyAccountEmailChange error:', error);
@@ -7064,7 +7683,7 @@
 
         async function renderMyAccountOrdersTab(container) {
             if (!container) return;
-            renderMyAccountLoading('جاري تحميل طلباتك...');
+            renderMyAccountLoading('جاري تحميل طلباتك...', container);
             const myOrders = await ensureMyOrdersLoaded();
             renderMyAccountChrome();
             if (!Array.isArray(myOrders) || myOrders.length === 0) {
@@ -7124,7 +7743,7 @@
             toggleFav(productId);
             renderMyAccountChrome();
             if (myAccountState.activeTab === 'favorites') {
-                renderMyAccountFavoritesTab(document.getElementById('myAccountContent'));
+                renderMyAccountFavoritesTab(getMyAccountPanel('favorites') || getMyAccountActivePanel());
             }
         }
 
@@ -7147,7 +7766,7 @@
                 <div class="my-account-panel">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
                         <div>
-                            <h3 style="margin:0;color:var(--account-text);">مفضلتي</h3>
+                            <h3 style="margin:0;color:var(--account-text);">مفضلاتي</h3>
                             <p class="my-account-muted-note">نفس المنتجات المخزنة في القائمة الجانبية، لكن بطريقة أسهل داخل حسابك.</p>
                         </div>
                         <button type="button" class="my-account-ghost-btn" onclick="toggleFavorites()">فتح القائمة الجانبية</button>
@@ -7210,7 +7829,7 @@
 
         async function renderMyAccountPointsTab(container) {
             if (!container) return;
-            renderMyAccountLoading('جاري تجهيز نقاط الولاء...');
+            renderMyAccountLoading('جاري تجهيز نقاط الولاء...', container);
             const myOrders = await ensureMyOrdersLoaded();
             const balance = Number(currentUser && currentUser.loyaltyPoints || 0);
             const baseMilestone = Math.floor(balance / 100) * 100;
@@ -7472,7 +8091,7 @@
                 myAccountState.supportThread = activeSupportThread;
                 renderSupportThreadBanner(activeSupportThread);
                 if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
-                    renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
+                    renderMyAccountMessagesTab(getMyAccountPanel('messages') || getMyAccountActivePanel()).catch(() => null);
                 }
                 showNotification('success', 'شكرًا لتقييمك.');
                 return true;
@@ -7492,7 +8111,7 @@
                 myAccountState.supportThread = activeSupportThread;
                 renderSupportThreadBanner(activeSupportThread);
                 if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
-                    renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
+                    renderMyAccountMessagesTab(getMyAccountPanel('messages') || getMyAccountActivePanel()).catch(() => null);
                 }
                 showNotification('success', 'تمت إعادة فتح المحادثة.');
                 return true;
@@ -7680,7 +8299,7 @@
         async function renderMyAccountMessagesTab(container) {
             if (!container) return;
             ensureSupportEnhancementStyles();
-            renderMyAccountLoading('جاري تحميل الرسائل...');
+            renderMyAccountLoading('جاري تحميل الرسائل...', container);
             const thread = await loadSupportThreadSummary();
             renderMyAccountChrome();
 
@@ -7849,7 +8468,7 @@
             customerNotificationSeenIds = nextIds;
             refreshMyAccountChrome();
             if (isMyAccountOpen() && myAccountState.activeTab === 'notifications') {
-                renderMyAccountNotificationsTab(document.getElementById('myAccountContent'), { preserveView: true }).catch(() => null);
+                renderMyAccountNotificationsTab(getMyAccountPanel('notifications') || getMyAccountActivePanel(), { preserveView: true }).catch(() => null);
             }
             if (newUnread.length) {
                 toastCustomerNotifications(newUnread);
@@ -8024,7 +8643,7 @@
                 await markAllCustomerNotificationsRead(uid).catch(() => null);
             }
             if (isMyAccountOpen() && myAccountState.activeTab === 'notifications') {
-                renderMyAccountNotificationsTab(document.getElementById('myAccountContent'), { preserveView: true }).catch(() => null);
+                renderMyAccountNotificationsTab(getMyAccountPanel('notifications') || getMyAccountActivePanel(), { preserveView: true }).catch(() => null);
             }
             return true;
         }
@@ -8048,34 +8667,36 @@
             return true;
         }
 
-        function buildMyAccountNotificationsItemsMarkup(rows = []) {
-            return (Array.isArray(rows) ? rows : []).map((item) => {
-                const meta = getCustomerNotificationTypeMeta(item && item.type);
-                const unread = item && item.readByCustomer !== true;
-                const safeId = escapeHtml(String(item && item.id || ''));
-                return `
-                    <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(item && item.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}">
-                        <div class="my-account-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
-                        <div>
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <strong style="color:var(--account-text);">${escapeHtml(String(item && item.title || ''))}</strong>
-                                ${unread ? '<span class="my-account-unread-dot" aria-label="غير مقروء"></span>' : ''}
-                            </div>
-                            <div class="my-account-notification-body">${escapeHtml(String(item && item.body || ''))}</div>
-                            <div class="my-account-muted-note" style="margin-top:6px;">${escapeHtml(getCustomerNotificationActionSummary(item))}</div>
+                function buildMyAccountNotificationCardMarkup(item) {
+            const meta = getCustomerNotificationTypeMeta(item && item.type);
+            const unread = item && item.readByCustomer !== true;
+            const safeId = escapeHtml(String(item && item.id || ''));
+            return `
+                <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(item && item.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}">
+                    <div class="my-account-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
+                    <div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <strong style="color:var(--account-text);">${escapeHtml(String(item && item.title || ''))}</strong>
+                            ${unread ? '<span class="my-account-unread-dot" aria-label="غير مقروء"></span>' : ''}
                         </div>
-                        <div class="my-account-notification-meta">
-                            <span class="my-account-muted-note">${escapeHtml(formatDateTime(item && item.createdAt || ''))}</span>
-                            ${unread ? `<button type="button" class="my-account-ghost-btn" data-notification-id="${safeId}" onclick="event.stopPropagation(); markCustomerNotificationAsRead(this.dataset.notificationId).then(() => renderMyAccountNotificationsTab(document.getElementById('myAccountContent'), { preserveView: true }));">تمت قراءته</button>` : '<span class="my-account-pill success">مقروء</span>'}
-                        </div>
+                        <div class="my-account-notification-body">${escapeHtml(String(item && item.body || ''))}</div>
+                        <div class="my-account-muted-note" style="margin-top:6px;">${escapeHtml(getCustomerNotificationActionSummary(item))}</div>
                     </div>
-                `;
-            }).join('');
+                    <div class="my-account-notification-meta">
+                        <span class="my-account-muted-note">${escapeHtml(formatDateTime(item && item.createdAt || ''))}</span>
+                        ${unread ? `<button type="button" class="my-account-ghost-btn" data-notification-id="${safeId}" onclick="event.stopPropagation(); markCustomerNotificationAsRead(this.dataset.notificationId).then(() => renderMyAccountNotificationsTab(getMyAccountPanel('notifications') || getMyAccountActivePanel(), { preserveView: true }));">تمت قراءته</button>` : '<span class="my-account-pill success">مقروء</span>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildMyAccountNotificationsItemsMarkup(rows = []) {
+            return (Array.isArray(rows) ? rows : []).map((item) => buildMyAccountNotificationCardMarkup(item)).join('');
         }
 
         function getMyAccountNotificationsEmptyMarkup() {
             return `
-                <div class="my-account-panel my-account-empty">
+                <div class="my-account-empty" style="padding:24px 0;">
                     <div class="icon">🔔</div>
                     <h3>لا توجد إشعارات حتى الآن</h3>
                     <p>ستظهر هنا تحديثات الطلبات، رسائل الدعم، ونقاط الولاء الجديدة.</p>
@@ -8083,67 +8704,59 @@
             `;
         }
 
-        function patchMyAccountNotificationsView(container, rows = []) {
-            if (!container) return;
-            const unreadCount = getMyAccountUnreadNotificationsCount();
-            const panel = container.querySelector('[data-my-account-notifications-panel="true"]');
-
-            if ((!Array.isArray(rows) || rows.length === 0) && !panel) {
-                container.innerHTML = getMyAccountNotificationsEmptyMarkup();
-                container.dataset.accountView = 'notifications';
-                return;
-            }
-
-            if (!panel) {
-                container.innerHTML = `
-                    <div class="my-account-panel my-account-notifications-panel" data-my-account-notifications-panel="true">
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-                            <div>
-                                <h3 style="margin:0;color:var(--account-text);">🔔 الإشعارات</h3>
-                                <p class="my-account-muted-note">كل تحديثات الطلبات والدعم ونقاط الولاء في مكان واحد.</p>
-                            </div>
-                            <div class="my-account-actions" style="margin-top:0;">
-                                <span class="my-account-badge" data-my-account-notification-count>${escapeHtml(String(unreadCount))}</span>
-                                <button type="button" class="my-account-ghost-btn" onclick="markAllMyAccountNotificationsRead()">تمت قراءة الكل</button>
-                            </div>
+        function ensureMyAccountNotificationsPanel(container) {
+            if (!container) return null;
+            let panel = container.querySelector('[data-my-account-notifications-panel="true"]');
+            if (panel) return panel;
+            container.innerHTML = `
+                <div class="my-account-panel my-account-notifications-panel" data-my-account-notifications-panel="true">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <h3 style="margin:0;color:var(--account-text);">🔔 الإشعارات</h3>
+                            <p class="my-account-muted-note">كل تحديثات الطلبات والدعم ونقاط الولاء في مكان واحد.</p>
                         </div>
-                        <div class="my-account-notification-list" data-my-account-notification-list style="margin-top:16px;">
-                            ${Array.isArray(rows) && rows.length ? buildMyAccountNotificationsItemsMarkup(rows) : ''}
+                        <div class="my-account-actions" style="margin-top:0;">
+                            <span class="my-account-badge" data-my-account-notification-count>0</span>
+                            <button type="button" class="my-account-ghost-btn" onclick="markAllMyAccountNotificationsRead()">تمت قراءة الكل</button>
                         </div>
                     </div>
-                `;
-                container.dataset.accountView = 'notifications';
-                if (!Array.isArray(rows) || rows.length === 0) {
-                    container.innerHTML = getMyAccountNotificationsEmptyMarkup();
-                }
-                return;
-            }
+                    <div class="my-account-notification-list" data-my-account-notification-list style="margin-top:16px;"></div>
+                </div>
+            `;
+            return container.querySelector('[data-my-account-notifications-panel="true"]');
+        }
 
+        function patchMyAccountNotificationsView(container, rows = [], options = {}) {
+            if (!container) return;
+            const renderOptions = options && typeof options === 'object' ? options : {};
+            const unreadCount = getMyAccountUnreadNotificationsCount();
+            const panel = ensureMyAccountNotificationsPanel(container);
+            if (!panel) return;
             const countNode = panel.querySelector('[data-my-account-notification-count]');
-            if (countNode) countNode.textContent = String(unreadCount);
             const listNode = panel.querySelector('[data-my-account-notification-list]');
-            if (!Array.isArray(rows) || rows.length === 0) {
-                container.innerHTML = getMyAccountNotificationsEmptyMarkup();
-                container.dataset.accountView = 'notifications';
-                return;
+            if (countNode) countNode.textContent = String(unreadCount);
+            if (!listNode) return;
+            if (renderOptions.forceFullRender === true || myAccountState.notificationsInitialLoadDone !== true) {
+                listNode.innerHTML = Array.isArray(rows) && rows.length ? buildMyAccountNotificationsItemsMarkup(rows) : getMyAccountNotificationsEmptyMarkup();
+            } else {
+                listNode.innerHTML = Array.isArray(rows) && rows.length ? buildMyAccountNotificationsItemsMarkup(rows) : getMyAccountNotificationsEmptyMarkup();
             }
-            if (listNode) {
-                listNode.innerHTML = buildMyAccountNotificationsItemsMarkup(rows);
-            }
-            container.dataset.accountView = 'notifications';
+            myAccountState.notificationsInitialLoadDone = true;
         }
 
         async function renderMyAccountNotificationsTab(container, options = {}) {
             if (!container) return;
             const renderOptions = options && typeof options === 'object' ? options : {};
-            const preserveView = renderOptions.preserveView === true && container.dataset.accountView === 'notifications';
-            if (!preserveView) {
-                renderMyAccountLoading('جاري تحميل الإشعارات...');
+            const preserveView = renderOptions.preserveView === true && myAccountState.notificationsInitialLoadDone === true;
+            if (!preserveView && myAccountState.notificationsInitialLoadDone !== true) {
+                renderMyAccountLoading('جاري تحميل الإشعارات...', container);
             }
             const previousScrollTop = preserveView ? container.scrollTop : 0;
             const rows = await ensureCustomerNotificationsLoaded(renderOptions.force === true);
             renderMyAccountChrome();
-            patchMyAccountNotificationsView(container, rows);
+            patchMyAccountNotificationsView(container, rows, {
+                forceFullRender: myAccountState.notificationsInitialLoadDone !== true || renderOptions.force === true
+            });
             if (preserveView) {
                 container.scrollTop = previousScrollTop;
             }
@@ -8206,17 +8819,20 @@
             `;
         }
 
-        async function renderMyAccountActiveTab(options = {}) {
-            const container = document.getElementById('myAccountContent');
-            if (!container) return;
+                async function renderMyAccountActiveTab(options = {}) {
             const activeTab = MY_ACCOUNT_TABS.includes(myAccountState.activeTab) ? myAccountState.activeTab : 'data';
+            const container = getMyAccountPanel(activeTab);
+            if (!container) return;
             myAccountState.loadedTabs.add(activeTab);
+            syncMyAccountPanelState();
 
             if (!currentUser) {
                 container.innerHTML = `
-                    <div class="my-account-panel my-account-empty">
-                        <div class="icon">🔐</div>
-                        <p>سجل دخولك أولاً لعرض حسابك.</p>
+                    <div class="sz-empty-state">
+                        <div>
+                            <div class="icon">🔐</div>
+                            <h3>سجل دخولك أولاً لعرض حسابك.</h3>
+                        </div>
                     </div>
                 `;
                 return;
@@ -8245,7 +8861,7 @@
                 return;
             }
             if (activeTab === 'notifications') {
-                await renderMyAccountNotificationsTab(container);
+                await renderMyAccountNotificationsTab(container, options);
                 return;
             }
             renderMyAccountSettingsTab(container);
@@ -8741,7 +9357,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
             refreshMyAccountChrome();
             if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
-                renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
+                renderMyAccountMessagesTab(getMyAccountPanel('messages') || getMyAccountActivePanel()).catch(() => null);
             }
             return true;
         }
@@ -8934,7 +9550,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                         updateSupportComposerState();
                         refreshMyAccountChrome();
                         if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
-                            renderMyAccountMessagesTab(document.getElementById('myAccountContent')).catch(() => null);
+                            renderMyAccountMessagesTab(getMyAccountPanel('messages') || getMyAccountActivePanel()).catch(() => null);
                         }
                     },
                     (error) => handleSupportAccessError(error, 'support-thread-listener')
