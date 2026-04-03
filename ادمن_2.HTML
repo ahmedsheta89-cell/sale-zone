@@ -2370,27 +2370,32 @@
                                 <div class="form-group">
                                     <div id="faqBotEditor">
                                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                                            <h4 style="margin:0">🤖 FAQ Bot — الأسئلة الشائعة</h4>
-                                            <button type="button" onclick="addFAQItem()" style="background:var(--color-text-info);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.85rem">
-                                                + إضافة سؤال
-                                            </button>
+                                            <h4 style="margin:0">❓ إدارة الأسئلة الشائعة</h4>
+                                            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+                                                <button type="button" onclick="loadSuggestedFAQItems()" style="background:var(--color-warning);color:#111827;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.85rem">
+                                                    تحميل المقترحات
+                                                </button>
+                                                <button type="button" onclick="addFAQItem()" style="background:var(--color-text-info);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.85rem">
+                                                    + إضافة سؤال
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div id="faqItemsList"></div>
 
                                         <div style="margin-top:16px;padding:12px;background:var(--color-background-secondary);border-radius:8px;font-size:0.8rem;color:var(--color-text-secondary)">
-                                            💡 الـ Bot يجاوب تلقائياً لما الزبون يكتب كلمة من الـ Keywords. لو مش لاقي إجابة → يحوله لـ tawk.to
+                                            💡 تُحفظ الأسئلة الشائعة الآن في Firestore Collection باسم <code>faq</code>، ويُشتق منها FAQ سريع للواجهة تلقائياً.
                                         </div>
 
                                         <button type="button" onclick="saveFAQBot()" style="margin-top:12px;background:var(--color-text-success);color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">
-                                            💾 حفظ FAQ Bot
+                                            💾 حفظ FAQ
                                         </button>
 
                                         <details style="margin-top:12px">
                                             <summary style="cursor:pointer;font-size:0.8rem;color:var(--color-text-secondary)">
                                                 عرض/تعديل JSON مباشرة
                                             </summary>
-                                            <textarea id="faqBotJSON" style="width:100%;height:200px;margin-top:8px;font-family:monospace;font-size:0.75rem;border-radius:8px;padding:8px;border:1px solid var(--color-border-tertiary)" onchange="syncFAQFromJSON(this.value)" placeholder='[{"keywords":["سعر"],"response":"..."}]'></textarea>
+                                            <textarea id="faqBotJSON" style="width:100%;height:200px;margin-top:8px;font-family:monospace;font-size:0.75rem;border-radius:8px;padding:8px;border:1px solid var(--color-border-tertiary)" onchange="syncFAQFromJSON(this.value)" placeholder='[{"question":"كيف أتتبع طلبي؟","answer":"...","category":"الطلبات","order":1,"isActive":true}]'></textarea>
                                         </details>
                                     </div>
                                 </div>
@@ -3227,6 +3232,7 @@
         let customersTotalLoaded = 0;
         let customersPageSize = 20;
         let customersLoading = false;
+        let customersRealtimeUnsubscribe = null;
         let ordersPageCursor = '';
         let ordersHasMore = false;
         let ordersTotalLoaded = 0;
@@ -4484,15 +4490,72 @@
             }
         }
 
+        const DEFAULT_FAQ_CATALOG = [
+            { question: 'كيف أتتبع طلبي؟', answer: 'افتح حسابي ثم طلباتي، وبعدها اضغط على الطلب المطلوب لمتابعة الحالة الحالية.', category: 'الطلبات', order: 1, isActive: true, keywords: ['تتبع', 'الطلب', 'الحالة'] },
+            { question: 'كيف أغير عنوان التوصيل؟', answer: 'افتح حسابي ثم بياناتي واضغط تعديل البيانات لتحديث العنوان وحفظه.', category: 'الحساب', order: 2, isActive: true, keywords: ['العنوان', 'التوصيل', 'البيانات'] },
+            { question: 'ما هي طرق الدفع المتاحة؟', answer: 'نقبل الدفع عند الاستلام وبطاقات الائتمان، وتظهر الطرق المتاحة في صفحة إنهاء الطلب.', category: 'الدفع', order: 3, isActive: true, keywords: ['الدفع', 'فيزا', 'بطاقة', 'كاش'] },
+            { question: 'كيف أرجع منتج؟', answer: 'تواصل معنا عبر الدردشة خلال 14 يوم من الاستلام وسنساعدك في الإرجاع أو الاستبدال.', category: 'الإرجاع', order: 4, isActive: true, keywords: ['إرجاع', 'استبدال', 'مرتجع'] },
+            { question: 'هل التوصيل مجاني؟', answer: 'التوصيل مجاني للطلبات التي تزيد عن 500 ج.م، وما دون ذلك تظهر قيمة التوصيل قبل تأكيد الطلب.', category: 'التوصيل', order: 5, isActive: true, keywords: ['التوصيل', 'شحن', 'مجاني'] },
+            { question: 'كيف أستخدم نقاط الولاء؟', answer: 'النقاط تُخصم تلقائياً عند إتمام الطلب عندما يصبح لديك رصيد كافٍ.', category: 'نقاط الولاء', order: 6, isActive: true, keywords: ['نقاط', 'ولاء', 'خصم'] }
+        ];
         var _faqItems = [];
 
+        function buildFAQKeywords(question, category, explicitKeywords) {
+            var fromExplicit = Array.isArray(explicitKeywords)
+                ? explicitKeywords.map(function(keyword) { return String(keyword || '').trim(); }).filter(Boolean)
+                : [];
+            if (fromExplicit.length) return fromExplicit;
+            return Array.from(new Set(
+                [String(question || ''), String(category || '')]
+                    .join(' ')
+                    .split(/[\s،,:;.!?؟\\/_-]+/)
+                    .map(function(chunk) { return String(chunk || '').trim(); })
+                    .filter(function(chunk) { return chunk.length >= 2; })
+            )).slice(0, 12);
+        }
+
+        function normalizeFAQAdminItem(item, index) {
+            var source = item && typeof item === 'object' ? item : {};
+            var question = String(source.question || source.title || '').trim();
+            var answer = String(source.answer || source.response || '').trim();
+            var category = String(source.category || 'عام').trim() || 'عام';
+            var parsedOrder = Number(source.order);
+            return {
+                id: String(source.id || '').trim(),
+                question: question,
+                answer: answer,
+                category: category,
+                order: Number.isFinite(parsedOrder) ? parsedOrder : (index + 1),
+                isActive: source.isActive !== false,
+                keywords: buildFAQKeywords(question, category, source.keywords)
+            };
+        }
+
+        function buildFAQIntentsFromEntries(entries) {
+            return (Array.isArray(entries) ? entries : [])
+                .map(function(item, index) {
+                    var normalized = normalizeFAQAdminItem(item, index);
+                    return {
+                        id: normalized.id,
+                        question: normalized.question,
+                        answer: normalized.answer,
+                        category: normalized.category,
+                        order: normalized.order,
+                        isActive: normalized.isActive,
+                        keywords: normalized.keywords,
+                        response: normalized.answer
+                    };
+                })
+                .filter(function(item) {
+                    return item.question && item.response && item.isActive !== false;
+                });
+        }
+
         function getValidatedFAQItems() {
-            return (_faqItems || []).map((item) => ({
-                keywords: Array.isArray(item && item.keywords)
-                    ? item.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean)
-                    : [],
-                response: String(item && item.response || '').trim()
-            })).filter((item) => item.keywords.length > 0 && item.response);
+            return (_faqItems || [])
+                .map(function(item, index) { return normalizeFAQAdminItem(item, index); })
+                .filter(function(item) { return item.question && item.answer; })
+                .sort(function(a, b) { return Number(a.order || 0) - Number(b.order || 0); });
         }
 
         function syncJSONDisplay() {
@@ -4507,33 +4570,55 @@
             if (!list) return;
 
             if (!_faqItems.length) {
-                list.innerHTML = '<p style="color:var(--color-text-tertiary);text-align:center;padding:20px">لا توجد أسئلة بعد — اضغط + إضافة</p>';
+                list.innerHTML = '<p style="color:var(--color-text-tertiary);text-align:center;padding:20px">لا توجد أسئلة بعد — اضغط + إضافة أو حمّل الأسئلة المقترحة.</p>';
                 syncJSONDisplay();
                 return;
             }
 
             list.innerHTML = _faqItems.map(function(item, index) {
-                var keywords = Array.isArray(item && item.keywords) ? item.keywords.join(', ') : '';
-                var response = String(item && item.response || '');
-                return '<div style="border:1px solid var(--color-border-tertiary);border-radius:10px;padding:12px;margin-bottom:10px">'
-                    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
-                    + '<div style="flex:1">'
-                    + '<label style="font-size:0.8rem;color:var(--color-text-secondary)">الكلمات المفتاحية (افصل بفاصلة)</label>'
-                    + '<input type="text" value="' + escapeHtml(keywords) + '" onchange="_faqItems[' + index + '].keywords=this.value.split(\',\').map(function(k){return k.trim();}).filter(Boolean);syncJSONDisplay();" style="width:100%;margin-top:4px;padding:6px;border:1px solid var(--color-border-tertiary);border-radius:6px">'
-                    + '<label style="font-size:0.8rem;color:var(--color-text-secondary);margin-top:8px;display:block">الإجابة</label>'
-                    + '<textarea onchange="_faqItems[' + index + '].response=this.value;syncJSONDisplay();" style="width:100%;margin-top:4px;padding:6px;height:70px;border:1px solid var(--color-border-tertiary);border-radius:6px;resize:vertical">'
-                    + escapeHtml(response)
+                var normalized = normalizeFAQAdminItem(item, index);
+                return '<div style="border:1px solid var(--color-border-tertiary);border-radius:14px;padding:14px;margin-bottom:12px;background:var(--color-background-secondary)">'
+                    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
+                    + '<div style="flex:1;display:grid;gap:10px">'
+                    + '<div class="form-group" style="margin:0">'
+                    + '<label style="font-size:0.82rem;color:var(--color-text-secondary)">السؤال</label>'
+                    + '<input type="text" value="' + escapeHtml(normalized.question) + '" onchange="_faqItems[' + index + '].question=this.value;syncJSONDisplay();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
+                    + '</div>'
+                    + '<div class="form-group" style="margin:0">'
+                    + '<label style="font-size:0.82rem;color:var(--color-text-secondary)">الإجابة</label>'
+                    + '<textarea onchange="_faqItems[' + index + '].answer=this.value;syncJSONDisplay();" style="width:100%;margin-top:4px;padding:8px;height:88px;border:1px solid var(--color-border-tertiary);border-radius:8px;resize:vertical">'
+                    + escapeHtml(normalized.answer)
                     + '</textarea>'
                     + '</div>'
-                    + '<button type="button" onclick="removeFAQItem(' + index + ')" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;flex-shrink:0">✕</button>'
+                    + '<div class="form-row" style="display:grid;grid-template-columns:1fr 120px 120px;gap:10px">'
+                    + '<div class="form-group" style="margin:0">'
+                    + '<label style="font-size:0.82rem;color:var(--color-text-secondary)">التصنيف</label>'
+                    + '<input type="text" value="' + escapeHtml(normalized.category) + '" onchange="_faqItems[' + index + '].category=this.value;syncJSONDisplay();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
+                    + '</div>'
+                    + '<div class="form-group" style="margin:0">'
+                    + '<label style="font-size:0.82rem;color:var(--color-text-secondary)">الترتيب</label>'
+                    + '<input type="number" min="1" value="' + escapeHtml(String(normalized.order || index + 1)) + '" onchange="_faqItems[' + index + '].order=Number(this.value)||' + (index + 1) + ';syncJSONDisplay();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
+                    + '</div>'
+                    + '<div class="form-group" style="margin:0;display:flex;align-items:end">'
+                    + '<label style="display:flex;align-items:center;gap:8px;margin:0;font-size:0.85rem;color:var(--color-text-secondary)"><input type="checkbox" ' + (normalized.isActive ? 'checked' : '') + ' onchange="_faqItems[' + index + '].isActive=this.checked;syncJSONDisplay();"> نشط</label>'
+                    + '</div>'
+                    + '</div>'
+                    + '</div>'
+                    + '<button type="button" onclick="removeFAQItem(' + index + ')" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;flex-shrink:0">✕</button>'
                     + '</div></div>';
             }).join('');
             syncJSONDisplay();
         }
 
-        function addFAQItem() {
-            _faqItems.push({ keywords: [''], response: '' });
+        function addFAQItem(seed) {
+            _faqItems.push(normalizeFAQAdminItem(seed || { question: '', answer: '', category: 'عام', order: (_faqItems.length + 1), isActive: true }, _faqItems.length));
             renderFAQEditor();
+        }
+
+        function loadSuggestedFAQItems() {
+            _faqItems = DEFAULT_FAQ_CATALOG.map(function(item, index) { return normalizeFAQAdminItem(item, index); });
+            renderFAQEditor();
+            showNotification('success', 'تم تحميل الأسئلة المقترحة');
         }
 
         function removeFAQItem(index) {
@@ -4544,23 +4629,68 @@
         function syncFAQFromJSON(value) {
             try {
                 var parsed = JSON.parse(value);
-                _faqItems = Array.isArray(parsed) ? parsed : [];
+                _faqItems = Array.isArray(parsed)
+                    ? parsed.map(function(item, index) { return normalizeFAQAdminItem(item, index); })
+                    : [];
                 renderFAQEditor();
             } catch (error) {
                 showNotification('error', 'JSON غير صحيح');
             }
         }
 
-        function saveFAQBot() {
-            var valid = getValidatedFAQItems();
-            _faqItems = valid.slice();
-            storeSettings.faqIntents = valid;
+        async function loadFAQCatalogAdmin(force) {
+            if (!force && _faqItems.length) {
+                renderFAQEditor();
+                return _faqItems;
+            }
+            let rows = [];
+            if (typeof listFAQItems === 'function') {
+                rows = await listFAQItems({ activeOnly: false, limit: 200 }).catch(() => []);
+            }
+            if (Array.isArray(rows) && rows.length) {
+                _faqItems = rows.map(function(item, index) { return normalizeFAQAdminItem(item, index); });
+            } else {
+                var fallback = buildFAQIntentsFromEntries(storeSettings && storeSettings.faqIntents);
+                _faqItems = (fallback.length ? fallback : DEFAULT_FAQ_CATALOG).map(function(item, index) {
+                    return normalizeFAQAdminItem(item, index);
+                });
+            }
+            renderFAQEditor();
+            return _faqItems;
+        }
+
+        async function saveFAQBot() {
             try {
-                localStorage.setItem('salezone_faq_bot', JSON.stringify(valid));
-            } catch (_) {}
-            saveStoreSettings();
-            syncJSONDisplay();
-            showNotification('success', 'تم حفظ FAQ Bot ✅');
+                var valid = getValidatedFAQItems();
+                if (!valid.length) {
+                    showNotification('error', 'أضف سؤالاً واحداً على الأقل');
+                    return;
+                }
+                if (typeof saveFAQItems === 'function') {
+                    var savedRows = await saveFAQItems(valid).catch(function(error) {
+                        console.error('saveFAQItems failed:', error);
+                        throw error;
+                    });
+                    if (Array.isArray(savedRows) && savedRows.length) {
+                        _faqItems = savedRows.map(function(item, index) { return normalizeFAQAdminItem(item, index); });
+                    } else {
+                        _faqItems = valid.slice();
+                    }
+                } else {
+                    _faqItems = valid.slice();
+                }
+                storeSettings.faqIntents = buildFAQIntentsFromEntries(_faqItems);
+                try {
+                    localStorage.setItem('salezone_faq_bot', JSON.stringify(storeSettings.faqIntents));
+                } catch (_) {}
+                saveStoreSettings();
+                syncJSONDisplay();
+                renderFAQEditor();
+                showNotification('success', 'تم حفظ الأسئلة الشائعة ✅');
+            } catch (error) {
+                console.error('saveFAQBot error:', error);
+                showNotification('error', 'فشل حفظ الأسئلة الشائعة');
+            }
         }
 
         function renderAdminIdentity(user) {
@@ -4581,12 +4711,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            try {
-                var storedFaq = localStorage.getItem('salezone_faq_bot');
-                _faqItems = storedFaq ? JSON.parse(storedFaq) : [];
-            } catch (_) {
-                _faqItems = [];
-            }
+            _faqItems = [];
             renderFAQEditor();
             syncJSONDisplay();
             renderAdminIdentity(null);
@@ -4715,6 +4840,7 @@ async function handleLogin(e){
      initDashboard();
      await loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
      await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
+     startCustomersRealtimeSync();
      renderAdminIdentity(user);
      
      showNotification('success', 'تم تسجيل الدخول بنجاح');
@@ -4813,7 +4939,10 @@ async function sendPasswordReset() {
              await loadOrdersPage({ reset: true, showToast: false }).catch(() => null);
              autoPurgeSamplesOnce();
              await loadCustomersPage({ reset: true, showToast: false }).catch(() => null);
+             startCustomersRealtimeSync();
            });
+        } else {
+            startCustomersRealtimeSync();
          }
       } else {
         await firebase.auth().signOut();
@@ -8501,10 +8630,33 @@ function adminLogout(){
         }
 
         function startCustomersRealtimeSync() {
-            return null;
+            if (customersRealtimeUnsubscribe || typeof subscribeCustomersRealtime !== 'function') {
+                return customersRealtimeUnsubscribe;
+            }
+            customersRealtimeUnsubscribe = subscribeCustomersRealtime(
+                function(rows) {
+                    const liveRows = (Array.isArray(rows) ? rows : []).map((row) => ({ id: String(row && row.id || row && row.uid || ''), ...row }));
+                    const liveIds = new Set(liveRows.map((row) => String(row && row.id || '')).filter(Boolean));
+                    const preserved = (Array.isArray(users) ? users : []).filter((row) => !liveIds.has(String(row && row.id || '')));
+                    users = liveRows.concat(preserved);
+                    customersTotalLoaded = Array.isArray(users) ? users.length : 0;
+                    renderUsersTable();
+                    renderLoyaltySection();
+                    updateStats();
+                },
+                function(error) {
+                    console.warn('customers realtime warning:', error && error.message ? error.message : error);
+                },
+                { limit: Math.max(customersPageSize, 50) }
+            );
+            return customersRealtimeUnsubscribe;
         }
 
         function stopCustomersRealtimeSync() {
+            if (typeof customersRealtimeUnsubscribe === 'function') {
+                try { customersRealtimeUnsubscribe(); } catch (_) {}
+            }
+            customersRealtimeUnsubscribe = null;
             return null;
         }
 
@@ -9707,9 +9859,9 @@ function adminLogout(){
             document.getElementById('storeName').value = storeSettings.name || '';
             document.getElementById('storeTagline').value = storeSettings.tagline || '';
             document.getElementById('storeDescription').value = storeSettings.description || '';
-            _faqItems = Array.isArray(storeSettings.faqIntents) ? storeSettings.faqIntents.slice() : [];
-            renderFAQEditor();
-            syncJSONDisplay();
+            loadFAQCatalogAdmin(true).catch((error) => {
+                console.warn('loadFAQCatalogAdmin warning:', error && error.message ? error.message : error);
+            });
             document.getElementById('tawkPropertyId').value = storeSettings.chatSupport?.tawkPropertyId || '';
             document.getElementById('tawkWidgetId').value = storeSettings.chatSupport?.tawkWidgetId || '';
             document.getElementById('tawkEnabled').checked = storeSettings.chatSupport?.enableTawk === true;
@@ -9734,8 +9886,10 @@ function adminLogout(){
             storeSettings.name = document.getElementById('storeName').value.trim();
             storeSettings.tagline = document.getElementById('storeTagline').value.trim();
             storeSettings.description = document.getElementById('storeDescription').value.trim();
-            storeSettings.faqIntents = getValidatedFAQItems();
-            _faqItems = storeSettings.faqIntents.slice();
+            const nextFaqIntents = buildFAQIntentsFromEntries(getValidatedFAQItems());
+            if (nextFaqIntents.length) {
+                storeSettings.faqIntents = nextFaqIntents;
+            }
             syncJSONDisplay();
             storeSettings.chatSupport = {
                 enableTawk: document.getElementById('tawkEnabled').checked,

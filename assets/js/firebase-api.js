@@ -1551,16 +1551,30 @@ function normalizeCustomerProfilePayload(payload, defaults = {}, options = {}) {
     const loyaltyPoints = Number.isFinite(parsedPoints)
         ? Math.max(0, parsedPoints)
         : (Number.isFinite(basePoints) ? Math.max(0, basePoints) : 0);
+    const parsedOrders = Number(source.orders);
+    const baseOrders = Number(base.orders);
+    const orders = Number.isFinite(parsedOrders)
+        ? Math.max(0, parsedOrders)
+        : (Number.isFinite(baseOrders) ? Math.max(0, baseOrders) : 0);
     const status = String(source.status || base.status || 'active').trim() || 'active';
+    const displayName = String(source.displayName || base.displayName || source.name || base.name || '').trim();
+    const normalizedName = displayName || String(source.name || base.name || '').trim();
+    const explicitIsActive = typeof source.isActive === 'boolean'
+        ? source.isActive
+        : (typeof base.isActive === 'boolean' ? base.isActive : status !== 'inactive');
 
     return {
         uid,
         email,
         phone: String(source.phone || base.phone || '').trim(),
         address: String(source.address || base.address || '').trim(),
-        displayName: String(source.displayName || base.displayName || source.name || base.name || '').trim(),
+        displayName,
+        name: normalizedName,
         role: role === 'admin' ? 'admin' : 'customer',
         loyaltyPoints,
+        points: Number.isFinite(Number(source.points)) ? Math.max(0, Number(source.points)) : (Number.isFinite(Number(base.points)) ? Math.max(0, Number(base.points)) : loyaltyPoints),
+        orders,
+        isActive: explicitIsActive,
         status,
         createdAt: String(base.createdAt || source.createdAt || nowIso).trim() || nowIso,
         updatedAt: nowIso
@@ -1706,6 +1720,30 @@ async function listCustomersPage(options = {}) {
         hasMore,
         nextCursor
     };
+}
+
+function subscribeCustomersRealtime(onData, onError, options = {}) {
+    try {
+        const db = getFirebaseDB();
+        const settings = options && typeof options === 'object' ? options : {};
+        const safeLimit = Math.max(1, Math.min(100, Number(settings.limit) || 40));
+        return db
+            .collection('customers')
+            .orderBy('createdAt', 'desc')
+            .limit(safeLimit)
+            .onSnapshot(
+                (snapshot) => {
+                    const items = (snapshot.docs || []).map((doc) => ({ id: doc.id, ...doc.data() }));
+                    if (typeof onData === 'function') onData(items);
+                },
+                (error) => {
+                    if (typeof onError === 'function') onError(normalizeFirebaseError(error, 'subscribeCustomersRealtime.listener'));
+                }
+            );
+    } catch (e) {
+        if (typeof onError === 'function') onError(normalizeFirebaseError(e, 'subscribeCustomersRealtime.setup'));
+        return null;
+    }
 }
 
 async function searchProductsIndexed(query, filters = {}, sort = 'default', page = 1, pageSize = 24) {
@@ -2112,6 +2150,112 @@ async function updateStoreSettings(updates) {
     }
 }
 
+// ==========================================
+// FAQ
+// ==========================================
+const FAQ_COLLECTION = 'faq';
+
+function normalizeFaqKeywords(keywords, question = '', category = '') {
+    const explicit = Array.isArray(keywords)
+        ? keywords.map((item) => String(item || '').trim()).filter(Boolean)
+        : [];
+    if (explicit.length) return explicit;
+
+    const generated = [question, category]
+        .join(' ')
+        .split(/[\s،,:;.!?؟\-_/\\]+/)
+        .map((item) => String(item || '').trim())
+        .filter((item) => item.length >= 2);
+    return Array.from(new Set(generated)).slice(0, 12);
+}
+
+function normalizeFaqEntryPayload(payload = {}, defaults = {}) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    const base = defaults && typeof defaults === 'object' ? defaults : {};
+    const nowIso = new Date().toISOString();
+    const question = String(source.question || base.question || '').trim();
+    const answer = String(source.answer || base.answer || source.response || base.response || '').trim();
+    const category = String(source.category || base.category || 'عام').trim() || 'عام';
+    const parsedOrder = Number(source.order);
+    const baseOrder = Number(base.order);
+    const order = Number.isFinite(parsedOrder)
+        ? Math.max(0, parsedOrder)
+        : (Number.isFinite(baseOrder) ? Math.max(0, baseOrder) : 0);
+    const isActive = typeof source.isActive === 'boolean'
+        ? source.isActive
+        : (typeof base.isActive === 'boolean' ? base.isActive : true);
+    const id = String(source.id || base.id || '').trim();
+    return {
+        id,
+        question,
+        answer,
+        category,
+        order,
+        isActive,
+        keywords: normalizeFaqKeywords(source.keywords || base.keywords, question, category),
+        createdAt: String(base.createdAt || source.createdAt || nowIso).trim() || nowIso,
+        updatedAt: nowIso
+    };
+}
+
+async function listFAQItems(options = {}) {
+    const db = getFirebaseDB();
+    const settings = options && typeof options === 'object' ? options : {};
+    const activeOnly = settings.activeOnly === true;
+    const safeLimit = Math.max(1, Math.min(500, Number(settings.limit) || 200));
+
+    try {
+        let query = db.collection(FAQ_COLLECTION);
+        if (activeOnly) query = query.where('isActive', '==', true);
+        query = query.orderBy('order', 'asc').limit(safeLimit);
+        const snapshot = await query.get();
+        return snapshot.docs.map((doc) => normalizeFaqEntryPayload({ id: doc.id, ...doc.data() }, { id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.warn('listFAQItems warning:', error && error.message ? error.message : error);
+        const snapshot = await db.collection(FAQ_COLLECTION).limit(safeLimit).get();
+        return snapshot.docs
+            .map((doc) => normalizeFaqEntryPayload({ id: doc.id, ...doc.data() }, { id: doc.id, ...doc.data() }))
+            .filter((item) => (activeOnly ? item.isActive === true : true))
+            .sort((a, b) => Number(a && a.order || 0) - Number(b && b.order || 0));
+    }
+}
+
+async function saveFAQItems(items = []) {
+    const db = getFirebaseDB();
+    const rows = (Array.isArray(items) ? items : [])
+        .map((item, index) => normalizeFaqEntryPayload(
+            { ...(item || {}), order: Number(item && item.order) || index + 1 },
+            item || {}
+        ))
+        .filter((item) => item.question && item.answer);
+
+    const snapshot = await db.collection(FAQ_COLLECTION).get();
+    const existingMap = new Map((snapshot.docs || []).map((doc) => [String(doc.id), doc]));
+    const batch = db.batch();
+    const keepIds = new Set();
+    const persistedRows = [];
+
+    rows.forEach((item, index) => {
+        const docId = String(item.id || '').trim() || db.collection(FAQ_COLLECTION).doc().id;
+        const existing = existingMap.get(docId);
+        const normalized = normalizeFaqEntryPayload(
+            { ...item, id: docId, order: index + 1 },
+            existing ? { id: docId, ...existing.data() } : {}
+        );
+        keepIds.add(docId);
+        persistedRows.push(normalized);
+        batch.set(db.collection(FAQ_COLLECTION).doc(docId), normalized, { merge: true });
+    });
+
+    existingMap.forEach((doc, docId) => {
+        if (keepIds.has(docId)) return;
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+    return persistedRows;
+}
+
 if (typeof window !== 'undefined') {
     window.getStoreSettings = getStoreSettings;
     window.updateStoreSettings = updateStoreSettings;
@@ -2128,6 +2272,9 @@ if (typeof window !== 'undefined') {
     window.markAllCustomerNotificationsRead = markAllCustomerNotificationsRead;
     window.markAdminNotificationRead = markAdminNotificationRead;
     window.markAllAdminNotificationsRead = markAllAdminNotificationsRead;
+    window.subscribeCustomersRealtime = subscribeCustomersRealtime;
+    window.listFAQItems = listFAQItems;
+    window.saveFAQItems = saveFAQItems;
     window.ReleaseGateStateAPI = {
         getReleaseGateState,
         saveReleaseGateState
@@ -2149,6 +2296,9 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports.markAllCustomerNotificationsRead = markAllCustomerNotificationsRead;
     module.exports.markAdminNotificationRead = markAdminNotificationRead;
     module.exports.markAllAdminNotificationsRead = markAllAdminNotificationsRead;
+    module.exports.subscribeCustomersRealtime = subscribeCustomersRealtime;
+    module.exports.listFAQItems = listFAQItems;
+    module.exports.saveFAQItems = saveFAQItems;
     module.exports.ReleaseGateStateAPI = {
         getReleaseGateState,
         saveReleaseGateState
