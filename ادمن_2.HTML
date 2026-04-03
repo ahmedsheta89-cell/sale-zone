@@ -1335,6 +1335,99 @@
             .support-layout { grid-template-columns: 1fr; }
             .support-threads-panel, .support-messages-panel { min-height: 380px; }
         }
+        /* ===== Sale Zone Admin Mobile Polish ===== */
+        @media (max-width: 768px) {
+            html, body {
+                overflow-x: hidden;
+                max-width: 100vw;
+            }
+            .dashboard,
+            .main-content,
+            .section-card,
+            .chart-card,
+            .settings-card,
+            .analytics-panel {
+                min-width: 0;
+                overflow-x: hidden;
+            }
+            .top-bar {
+                position: sticky;
+                top: 0;
+                z-index: 30;
+            }
+            .sidebar {
+                width: min(86vw, 320px);
+                max-width: 320px;
+                border-radius: 0 0 0 28px;
+            }
+            .table-container {
+                margin: 0 -14px;
+                padding: 0 14px 14px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .data-table {
+                min-width: 720px;
+            }
+            .data-table th,
+            .data-table td {
+                white-space: nowrap;
+            }
+            .modal-overlay {
+                align-items: stretch;
+                justify-content: stretch;
+                padding: 0;
+            }
+            .modal,
+            .modal.large {
+                width: 100vw;
+                max-width: 100vw;
+                min-height: 100dvh;
+                max-height: 100dvh;
+                margin: 0;
+                border-radius: 0;
+                display: flex;
+                flex-direction: column;
+            }
+            .modal-header {
+                position: sticky;
+                top: 0;
+                z-index: 4;
+                padding: 18px 16px;
+            }
+            .modal-body {
+                flex: 1;
+                max-height: none;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                padding: 16px;
+            }
+            .modal-body form {
+                display: grid;
+                gap: 12px;
+            }
+            .modal-body input,
+            .modal-body select,
+            .modal-body textarea,
+            .section-body input,
+            .section-body select,
+            .section-body textarea {
+                width: 100%;
+                font-size: 16px;
+                min-height: 46px;
+            }
+            .modal-body textarea,
+            .section-body textarea {
+                min-height: 120px;
+            }
+            .btn,
+            .submit-btn,
+            .action-btn,
+            .close-modal {
+                min-height: 46px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -4542,6 +4635,11 @@
             }
             if (opened && typeof opened.focus === 'function') {
                 try { opened.focus(); } catch (_) {}
+                setTimeout(function() {
+                    try {
+                        if (!opened.closed) opened.focus();
+                    } catch (_) {}
+                }, 120);
             }
             return opened;
         }
