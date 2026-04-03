@@ -1416,6 +1416,25 @@
                 visibility: visible !important;
                 pointer-events: auto !important;
             }
+            #checkoutModal {
+                z-index: 12010 !important;
+                align-items: stretch !important;
+                justify-content: stretch !important;
+            }
+            #checkoutModal .modal {
+                width: 100vw !important;
+                max-width: 100vw !important;
+                min-height: 100vh !important;
+                max-height: 100vh !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            #checkoutModal .modal-body {
+                flex: 1 1 auto;
+                overflow-y: auto;
+            }
             .cart-header, .fav-header {
                 position: sticky !important;
                 top: 0 !important;
@@ -2113,6 +2132,50 @@
             .cart-header,
             .fav-header {
                 padding: 16px;
+            }
+            .chat-widget.chat-widget-panel {
+                z-index: 12020 !important;
+            }
+            .chat-widget.chat-widget-panel .chat-panel-backdrop {
+                position: fixed;
+                inset: 0;
+            }
+            .chat-widget.chat-widget-panel .chat-box {
+                position: fixed;
+                inset: 0;
+                width: 100vw;
+                max-width: 100vw;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+                bottom: 0;
+                left: 0;
+            }
+            .chat-box-header {
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                border-radius: 0;
+            }
+            .chat-messages {
+                padding: 14px;
+                padding-bottom: calc(88px + env(safe-area-inset-bottom));
+            }
+            .chat-input-container {
+                position: sticky;
+                bottom: 0;
+                background: var(--white);
+                padding: 12px;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
+                z-index: 2;
+            }
+            .chat-input {
+                font-size: 16px;
+                min-height: 44px;
+            }
+            .chat-send {
+                min-width: 44px;
+                min-height: 44px;
             }
             #checkoutForm,
             #loginForm,
@@ -4426,8 +4489,9 @@
             }
 
             if (chatPanel) {
-                chatPanel.classList.toggle('feature-hidden', flags.internalChatEnabled !== true);
-                if (flags.internalChatEnabled !== true) {
+                const hasCustomerSession = !!(currentUser && (currentUser.uid || currentUser.id));
+                chatPanel.classList.toggle('feature-hidden', !hasCustomerSession);
+                if (!hasCustomerSession) {
                     setInternalChatPanelState(false);
                 }
             }
@@ -6443,7 +6507,7 @@
             updateUserUI();
 
             if (typeof ensureFirebaseSessionPersistence === 'function') {
-                await ensureFirebaseSessionPersistence().catch(() => null);
+                await ensureFirebaseSessionPersistence('local').catch(() => null);
             }
 
             const auth = getFirebaseAuthInstance();
@@ -6693,7 +6757,7 @@
                 }
 
                 if (typeof ensureFirebaseSessionPersistence === 'function') {
-                    await ensureFirebaseSessionPersistence().catch(() => null);
+                    await ensureFirebaseSessionPersistence('local').catch(() => null);
                 }
 
                 if (typeof authUser.reload === 'function') {
@@ -8418,12 +8482,17 @@
                 showAuthModal('magic');
                 return false;
             }
-            closeMyAccount();
             Promise.resolve(ensureSupportChatReady({ silent: false }))
                 .then((ready) => {
                     if (!ready) return false;
+                    const panel = document.getElementById('internalChatPanel');
+                    panel?.classList.remove('feature-hidden');
                     return Promise.resolve(switchChatMode('support', { silent: true }))
-                        .then(() => openInternalChat({ skipHistory: true, silent: true }));
+                        .then((mode) => {
+                            if (mode !== 'support') return false;
+                            closeMyAccount();
+                            return openInternalChat({ skipHistory: true, silent: false });
+                        });
                 })
                 .catch(() => null);
             return true;
@@ -9077,6 +9146,7 @@
                 document.getElementById('checkoutName').value = currentUser.name || '';
                 document.getElementById('checkoutPhone').value = currentUser.phone || '';
                 document.getElementById('checkoutAddress').value = currentUser.address || '';
+                closeCart({ skipHistory: true });
                 openModal('checkoutModal');
             } catch (error) {
                 console.error('showCheckout failed:', error);
@@ -9550,8 +9620,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function applyInternalChatAvailability() {
             const panel = document.getElementById('internalChatPanel');
             if (!panel) return false;
-            const flags = storeSettings.featureFlags || {};
-            const enabled = flags.internalChatEnabled !== false && !!currentUser;
+            const enabled = !!(currentUser && (currentUser.uid || currentUser.id));
             panel.classList.toggle('feature-hidden', !enabled);
             const supportBtn = document.getElementById('chatModeSupportBtn');
             if (supportBtn) supportBtn.disabled = !enabled;

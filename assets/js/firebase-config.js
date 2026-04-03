@@ -90,22 +90,41 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-function getFirebaseSessionPersistenceConstant() {
+function resolveFirebasePersistenceMode(requestedMode = 'auto') {
+    const normalizedMode = String(requestedMode || 'auto').trim().toLowerCase();
+    if (normalizedMode === 'local' || normalizedMode === 'session') {
+        return normalizedMode;
+    }
+    try {
+        const decodedPath = decodeURIComponent(String(window.location && window.location.pathname || '')).toLowerCase();
+        if (decodedPath.includes('ادمن_2.html')) return 'session';
+        if (decodedPath.includes('متجر_2.html')) return 'local';
+    } catch (_) {}
+    return 'session';
+}
+
+function getFirebaseSessionPersistenceConstant(requestedMode = 'auto') {
     try {
         return firebase && firebase.auth && firebase.auth.Auth && firebase.auth.Auth.Persistence
-            ? firebase.auth.Auth.Persistence.SESSION
+            ? (resolveFirebasePersistenceMode(requestedMode) === 'local'
+                ? firebase.auth.Auth.Persistence.LOCAL
+                : firebase.auth.Auth.Persistence.SESSION)
             : null;
     } catch (_) {
         return null;
     }
 }
 
-async function ensureFirebaseSessionPersistence() {
-    if (window.__SALEZONE_AUTH_PERSISTENCE_PROMISE__) {
-        return window.__SALEZONE_AUTH_PERSISTENCE_PROMISE__;
+async function ensureFirebaseSessionPersistence(requestedMode = 'auto') {
+    const resolvedMode = resolveFirebasePersistenceMode(requestedMode);
+    const promiseBucket = window.__SALEZONE_AUTH_PERSISTENCE_PROMISES__
+        || (window.__SALEZONE_AUTH_PERSISTENCE_PROMISES__ = {});
+
+    if (promiseBucket[resolvedMode]) {
+        return promiseBucket[resolvedMode];
     }
 
-    window.__SALEZONE_AUTH_PERSISTENCE_PROMISE__ = (async () => {
+    promiseBucket[resolvedMode] = (async () => {
         try {
             if (!(firebase && firebase.auth)) {
                 return { ok: false, reason: 'auth-not-available' };
@@ -115,23 +134,23 @@ async function ensureFirebaseSessionPersistence() {
                 return { ok: false, reason: 'set-persistence-unavailable' };
             }
 
-            const sessionPersistence = getFirebaseSessionPersistenceConstant();
+            const sessionPersistence = getFirebaseSessionPersistenceConstant(resolvedMode);
             if (!sessionPersistence) {
                 return { ok: false, reason: 'session-persistence-unavailable' };
             }
 
             await auth.setPersistence(sessionPersistence);
-            window.__SALEZONE_AUTH_PERSISTENCE_MODE__ = 'session';
-            return { ok: true, mode: 'session' };
+            window.__SALEZONE_AUTH_PERSISTENCE_MODE__ = resolvedMode;
+            return { ok: true, mode: resolvedMode };
         } catch (error) {
             const message = error && error.message ? String(error.message) : String(error || '');
             window.__SALEZONE_AUTH_PERSISTENCE_MODE__ = 'default';
-            console.warn('[Auth] Failed to enforce session persistence:', message);
+            console.warn(`[Auth] Failed to enforce ${resolvedMode} persistence:`, message);
             return { ok: false, reason: 'set-persistence-failed', error: message };
         }
     })();
 
-    return window.__SALEZONE_AUTH_PERSISTENCE_PROMISE__;
+    return promiseBucket[resolvedMode];
 }
 
 window.ensureFirebaseSessionPersistence = ensureFirebaseSessionPersistence;

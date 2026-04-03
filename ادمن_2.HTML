@@ -3326,7 +3326,7 @@
             chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' },
             featureFlags: {
                 tawktoEnabled: true,
-                internalChatEnabled: false,
+                internalChatEnabled: true,
                 whatsappEnabled: true,
                 faqBotEnabled: true,
                 pullToRefreshEnabled: true,
@@ -4672,7 +4672,7 @@ async function handleLogin(e){
 
   try{
     if (typeof ensureFirebaseSessionPersistence === 'function') {
-      await ensureFirebaseSessionPersistence().catch(() => null);
+      await ensureFirebaseSessionPersistence('session').catch(() => null);
     }
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
     const user = userCred.user;
@@ -4741,7 +4741,7 @@ async function sendVerificationLink() {
 
   try {
     if (typeof ensureFirebaseSessionPersistence === 'function') {
-      await ensureFirebaseSessionPersistence().catch(() => null);
+      await ensureFirebaseSessionPersistence('session').catch(() => null);
     }
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, pass);
     const user = userCred.user;
@@ -9674,7 +9674,7 @@ function adminLogout(){
         function ensureControlCenterDefaults() {
             storeSettings.featureFlags = {
                 tawktoEnabled: true,
-                internalChatEnabled: false,
+                internalChatEnabled: true,
                 whatsappEnabled: true,
                 faqBotEnabled: true,
                 pullToRefreshEnabled: true,
