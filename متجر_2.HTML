@@ -2024,6 +2024,134 @@
                 justify-content: center;
             }
         }
+        /* ===== Sale Zone Store Mobile Polish ===== */
+        @media (max-width: 768px) {
+            .modal-overlay:not(#myAccountModal) {
+                align-items: stretch;
+                justify-content: stretch;
+                padding: 0;
+            }
+            .modal-overlay:not(#myAccountModal) .modal,
+            .modal-overlay:not(#myAccountModal) .modal.large,
+            .modal-overlay:not(#myAccountModal) .auth-modal,
+            .modal-overlay:not(#myAccountModal) .product-modal-dialog {
+                width: 100vw;
+                max-width: 100vw;
+                min-height: 100dvh;
+                max-height: 100dvh;
+                margin: 0;
+                border-radius: 0;
+                display: flex;
+                flex-direction: column;
+                overscroll-behavior: contain;
+            }
+            .modal-overlay:not(#myAccountModal) .modal-header {
+                position: sticky;
+                top: 0;
+                z-index: 4;
+                padding: 18px 16px;
+                border-radius: 0;
+                box-shadow: 0 10px 30px rgba(8, 15, 33, 0.2);
+            }
+            .modal-overlay:not(#myAccountModal) .modal-body {
+                flex: 1;
+                max-height: none;
+                padding: 16px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+            }
+            .products-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+            .product-card,
+            .product-info,
+            .product-modal-text,
+            .product-modal-description {
+                min-width: 0;
+            }
+            .product-info {
+                padding: 12px;
+            }
+            .product-actions {
+                position: static;
+                transform: none;
+                opacity: 1;
+                justify-content: center;
+                margin-top: 10px;
+            }
+            .product-modal-content {
+                min-height: calc(100dvh - 84px);
+                padding: 18px 16px 24px;
+                gap: 16px;
+                align-content: start;
+            }
+            .product-modal-image {
+                min-height: 220px;
+                border-radius: 18px;
+            }
+            .product-modal-thumbs {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                padding-bottom: 4px;
+            }
+            .product-modal-thumb {
+                flex: 0 0 auto;
+            }
+            .cart-sidebar,
+            .fav-sidebar,
+            #cartPanel,
+            .cart-panel {
+                border-radius: 0;
+                box-shadow: none;
+            }
+            .cart-items,
+            .fav-items {
+                padding: 12px;
+            }
+            .cart-header,
+            .fav-header {
+                padding: 16px;
+            }
+            #checkoutForm,
+            #loginForm,
+            #registerForm,
+            #magicLinkForm {
+                display: grid;
+                gap: 12px;
+            }
+            .form-group input,
+            .form-group select,
+            .form-group textarea,
+            .auth-modal input,
+            .auth-modal textarea,
+            .auth-modal select {
+                width: 100%;
+                font-size: 16px;
+                min-height: 46px;
+            }
+            .form-group textarea,
+            #checkoutAddress,
+            #checkoutNotes,
+            #registerAddress {
+                min-height: 120px;
+            }
+            .submit-btn,
+            .btn-google,
+            .btn-magic-link,
+            .add-to-cart-btn,
+            .product-modal-qty button,
+            .auth-tab,
+            .password-auth-tab {
+                min-height: 46px;
+            }
+            .close-modal,
+            .close-cart {
+                min-width: 46px;
+                min-height: 46px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -6168,6 +6296,11 @@
             }
             if (opened && typeof opened.focus === 'function') {
                 try { opened.focus(); } catch (_) {}
+                setTimeout(function() {
+                    try {
+                        if (!opened.closed) opened.focus();
+                    } catch (_) {}
+                }, 120);
             }
             return opened;
         }
