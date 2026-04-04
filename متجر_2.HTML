@@ -857,12 +857,19 @@
             font-size: 0.92rem;
             line-height: 1.7;
             margin-top: 4px;
+            font-family: var(--font-arabic);
+            unicode-bidi: plaintext;
         }
         .my-account-notification-meta {
             display: grid;
             gap: 8px;
             justify-items: end;
             min-width: 72px;
+        }
+        .my-account-notification-title {
+            color: var(--account-text);
+            font-family: var(--font-arabic);
+            unicode-bidi: plaintext;
         }
         .my-account-unread-dot {
             width: 10px;
@@ -1312,6 +1319,17 @@
             gap: 12px;
             min-height: 220px;
             -webkit-overflow-scrolling: touch;
+        }
+        .sz-faq-group {
+            display: grid;
+            gap: 10px;
+        }
+        .sz-faq-group-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--gold-light);
+            letter-spacing: 0.01em;
+            padding-inline: 4px;
         }
         .sz-faq-accordion-item {
             border-radius: 18px;
@@ -8780,6 +8798,65 @@
             return 'فتح';
         }
 
+        function isUnreadableCustomerNotificationText(text = '') {
+            const value = String(text || '').trim();
+            if (!value) return false;
+            const compact = value.replace(/\s+/g, '');
+            if (!compact) return false;
+            if (/^[\u0600-\u06FF0-9A-Za-z\u0660-\u0669\s.,!?،:;()#%+\-_/]+$/.test(value)) return false;
+            if (/^[\u00BF?؟!.,:;_\-()[\]#0-9]+$/.test(compact)) return true;
+            return /(ط|ظ|Ø|Ù|Ã|Â|\?{3,})/.test(value);
+        }
+
+        function getCustomerNotificationDisplayCopy(item) {
+            const source = item && typeof item === 'object' ? item : {};
+            const rawTitle = String(source.title || '').trim();
+            const rawBody = String(source.body || '').trim();
+            const action = source.action && typeof source.action === 'object' ? source.action : {};
+            const type = String(source.type || '').trim().toLowerCase();
+            const orderNumber = String(action.orderNumber || source.orderNumber || source.orderId || '').trim();
+            const status = String(action.status || source.status || '').trim();
+            const hasCorruptedTitle = isUnreadableCustomerNotificationText(rawTitle);
+            const hasCorruptedBody = isUnreadableCustomerNotificationText(rawBody);
+
+            if (!hasCorruptedTitle && !hasCorruptedBody) {
+                return {
+                    title: rawTitle || 'إشعار جديد',
+                    body: rawBody
+                };
+            }
+
+            if (type === 'order') {
+                const readableStatus = status ? getStatusName(String(status).trim().toLowerCase()) : '';
+                return {
+                    title: `تحديث الطلب${orderNumber ? ` #${orderNumber}` : ''}`,
+                    body: readableStatus ? `الحالة الحالية: ${readableStatus}` : 'يوجد تحديث جديد على طلبك.'
+                };
+            }
+            if (type === 'point') {
+                return {
+                    title: rawTitle && !hasCorruptedTitle ? rawTitle : 'تحديث نقاط الولاء',
+                    body: rawBody && !hasCorruptedBody ? rawBody : 'تم تحديث نقاط الولاء الخاصة بك.'
+                };
+            }
+            if (type === 'chat') {
+                return {
+                    title: rawTitle && !hasCorruptedTitle ? rawTitle : 'رسالة جديدة من الدعم',
+                    body: rawBody && !hasCorruptedBody ? rawBody : 'هناك رسالة جديدة في محادثة الدعم.'
+                };
+            }
+            if (type === 'stock') {
+                return {
+                    title: rawTitle && !hasCorruptedTitle ? rawTitle : 'تنبيه بخصوص المخزون',
+                    body: rawBody && !hasCorruptedBody ? rawBody : 'يوجد تحديث جديد بخصوص توفر أحد المنتجات.'
+                };
+            }
+            return {
+                title: rawTitle && !hasCorruptedTitle ? rawTitle : 'إشعار جديد',
+                body: rawBody && !hasCorruptedBody ? rawBody : 'تم استلام إشعار جديد. راجع التفاصيل من حسابك.'
+            };
+        }
+
         function stopCustomerNotificationsRealtime() {
             if (typeof customerNotificationsUnsubscribe === 'function') {
                 try { customerNotificationsUnsubscribe(); } catch (_) {}
@@ -8821,8 +8898,9 @@
                 if (!getMyAccountNotificationEnabled()) return false;
                 if (!('Notification' in window) || Notification.permission !== 'granted') return false;
                 if (document.visibilityState === 'visible') return false;
-                new Notification(String(notification && notification.title || 'إشعار جديد'), {
-                    body: String(notification && notification.body || ''),
+                const displayCopy = getCustomerNotificationDisplayCopy(notification);
+                new Notification(String(displayCopy.title || 'إشعار جديد'), {
+                    body: String(displayCopy.body || ''),
                     icon: '/assets/placeholder.svg',
                     tag: String(notification && notification.id || Date.now())
                 });
@@ -8836,7 +8914,8 @@
             const rows = Array.isArray(newItems) ? newItems : [];
             rows.forEach((notification) => {
                 const meta = getCustomerNotificationTypeMeta(notification && notification.type);
-                showNotification(meta.toastType, String(notification && notification.title || 'إشعار جديد'), String(notification && notification.body || ''));
+                const displayCopy = getCustomerNotificationDisplayCopy(notification);
+                showNotification(meta.toastType, String(displayCopy.title || 'إشعار جديد'), String(displayCopy.body || ''));
                 maybeShowBrowserNotification(notification);
                 playNotificationChime();
             });
@@ -9060,18 +9139,19 @@
 
         function buildMyAccountNotificationCardMarkup(item) {
             const meta = getCustomerNotificationTypeMeta(item && item.type);
+            const displayCopy = getCustomerNotificationDisplayCopy(item);
             const unread = item && item.readByCustomer !== true;
             const safeId = escapeHtml(String(item && item.id || ''));
             const safeSignature = escapeHtml(getCustomerNotificationRenderSignature(item));
             return `
-                <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(item && item.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}" data-notification-signature="${safeSignature}">
+                <div class="my-account-notification-card ${unread ? 'unread' : ''}" tabindex="0" role="button" aria-label="فتح الإشعار ${escapeHtml(String(displayCopy.title || ''))}" onclick="openCustomerNotification(this.dataset.notificationId)" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openCustomerNotification(this.dataset.notificationId); }" data-notification-id="${safeId}" data-notification-signature="${safeSignature}">
                     <div class="my-account-notification-icon ${meta.typeClass}" aria-hidden="true">${meta.icon}</div>
                     <div>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                            <strong style="color:var(--account-text);">${escapeHtml(String(item && item.title || ''))}</strong>
+                            <strong class="my-account-notification-title">${escapeHtml(String(displayCopy.title || ''))}</strong>
                             ${unread ? '<span class="my-account-unread-dot" aria-label="غير مقروء"></span>' : ''}
                         </div>
-                        <div class="my-account-notification-body">${escapeHtml(String(item && item.body || ''))}</div>
+                        <div class="my-account-notification-body">${escapeHtml(String(displayCopy.body || ''))}</div>
                         <div class="my-account-muted-note" style="margin-top:6px;">${escapeHtml(getCustomerNotificationActionSummary(item))}</div>
                     </div>
                     <div class="my-account-notification-meta">
@@ -10445,20 +10525,34 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                     </div>
                 `;
             }
-            return items.map((item) => {
-                const safeId = escapeHtml(String(item && item.id || ''));
-                const expanded = String(faqState.expandedId || '') === String(item && item.id || '');
+            const grouped = items.reduce((acc, item) => {
+                const category = String(item && item.category || 'عام').trim() || 'عام';
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(item);
+                return acc;
+            }, {});
+            return Object.keys(grouped).map((category) => {
+                const categoryItems = grouped[category] || [];
                 return `
-                    <article class="sz-faq-accordion-item ${expanded ? 'active' : ''}" data-faq-item-id="${safeId}">
-                        <button type="button" class="sz-faq-accordion-toggle" onclick="toggleFaqAccordion(this.dataset.faqItemId)" data-faq-item-id="${safeId}" aria-expanded="${expanded ? 'true' : 'false'}">
-                            <span class="sz-faq-accordion-copy">
-                                <span class="sz-faq-accordion-question">${escapeHtml(String(item && item.question || ''))}</span>
-                                <span class="sz-faq-accordion-meta">${escapeHtml(String(item && item.category || 'عام'))}</span>
-                            </span>
-                            <span class="sz-faq-accordion-arrow" aria-hidden="true">⌄</span>
-                        </button>
-                        <div class="sz-faq-accordion-answer">${escapeHtml(String(item && item.answer || ''))}</div>
-                    </article>
+                    <section class="sz-faq-group" data-faq-group="${escapeHtml(String(category))}">
+                        <div class="sz-faq-group-title">${escapeHtml(String(category))}</div>
+                        ${categoryItems.map((item) => {
+                            const safeId = escapeHtml(String(item && item.id || ''));
+                            const expanded = String(faqState.expandedId || '') === String(item && item.id || '');
+                            return `
+                                <article class="sz-faq-accordion-item ${expanded ? 'active' : ''}" data-faq-item-id="${safeId}">
+                                    <button type="button" class="sz-faq-accordion-toggle" onclick="toggleFaqAccordion(this.dataset.faqItemId)" data-faq-item-id="${safeId}" aria-expanded="${expanded ? 'true' : 'false'}">
+                                        <span class="sz-faq-accordion-copy">
+                                            <span class="sz-faq-accordion-question">${escapeHtml(String(item && item.question || ''))}</span>
+                                            <span class="sz-faq-accordion-meta">${escapeHtml(String(item && item.category || 'عام'))}</span>
+                                        </span>
+                                        <span class="sz-faq-accordion-arrow" aria-hidden="true">⌄</span>
+                                    </button>
+                                    <div class="sz-faq-accordion-answer">${escapeHtml(String(item && item.answer || ''))}</div>
+                                </article>
+                            `;
+                        }).join('')}
+                    </section>
                 `;
             }).join('');
         }

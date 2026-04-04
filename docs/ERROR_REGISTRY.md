@@ -2,7 +2,7 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 18
+> Total errors logged: 21
 > Total patterns discovered: 8
 
 ---
@@ -27,7 +27,7 @@
 | Category | Count | Last Added |
 |----------|-------|------------|
 | [Firebase Auth](#firebase-auth) | 3 | 2025-01 |
-| [Firestore Rules](#firestore-rules) | 2 | 2025-01 |
+| [Firestore Rules](#firestore-rules) | 4 | 2026-04 |
 | [Firestore Indexes](#firestore-indexes) | 1 | 2025-01 |
 | [Deployment Pipeline](#deployment-pipeline) | 3 | 2026-03 |
 | [Git & Branching](#git--branching) | 2 | 2025-01 |
@@ -765,6 +765,30 @@ On same-origin multi-surface apps, Firebase Auth must be the identity source of 
 - **PR:** `fix/chat-routing-faq-registration`
 
 ---
+## ERR-025 — Customer notifications could render unreadable Arabic copy from older corrupted records
+- **Date:** 2026-04-04
+- **Severity:** High
+- **Root Cause:** Some historical notification documents already stored mojibake/corrupted Arabic in `title` or `body`. Admin notifications had a defensive display fallback, but the storefront account notifications rendered raw customer copy directly, so live users saw `??????`-style text even though the surrounding UI font stack was correct.
+- **Fix:** Added storefront unreadable-text detection plus customer notification display fallback derived from notification type/action metadata, and applied explicit Arabic typography to notification title/body nodes so live users see readable Arabic copy even when old records are malformed.
+- **Files:** `متجر_2.HTML`
+- **PR:** `fix/critical-font-chat-faq-rules`
+
+## ERR-026 — Support chat rules required verified email, blocking normal signed-in customers
+- **Date:** 2026-04-04
+- **Severity:** Critical
+- **Root Cause:** Firestore rules for `support_threads` and customer support messages required `isVerifiedUser()`. The storefront support flow only requires an authenticated customer session, so non-verified but valid customer accounts hit `Missing or insufficient permissions` on thread create/read-write.
+- **Fix:** Relaxed customer-owned support thread/message writes from `isVerifiedUser()` to `isSignedIn()` while keeping owner checks, schema validation, and admin-only moderation paths intact.
+- **Files:** `firestore.rules`
+- **PR:** `fix/critical-font-chat-faq-rules`
+
+## ERR-027 — FAQ collection had no public read rule, so customer FAQ always fell back or failed
+- **Date:** 2026-04-04
+- **Severity:** High
+- **Root Cause:** The codebase already used a Firestore collection named `faq`, but `firestore.rules` had no match block for it. Customer-side FAQ queries therefore failed with `Missing or insufficient permissions`, and admin saves depended entirely on local fallbacks instead of an explicitly governed collection.
+- **Fix:** Added an explicit `match /faq/{itemId}` rule with public read, admin-only write/delete, and schema validation. Also upgraded the admin FAQ manager with bulk activate/deactivate, reordering, and live preview so the Firestore-backed FAQ workflow is complete once rules are deployed.
+- **Files:** `firestore.rules`, `ادمن_2.HTML`, `متجر_2.HTML`
+- **PR:** `fix/critical-font-chat-faq-rules`
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]

@@ -485,7 +485,7 @@ service cloud.firestore {
 
     function isValidSupportThreadOwnerCreate(threadId) {
       return isOwner(threadId)
-      && isVerifiedUser()
+      && isSignedIn()
       && isValidSupportThreadData(threadId)
       && request.resource.data.status in ["open", "active", "waiting"]
       && (!("typing" in request.resource.data) || request.resource.data.typing == null || request.resource.data.typing.role == "customer")
@@ -494,7 +494,7 @@ service cloud.firestore {
 
     function isValidSupportThreadOwnerUpdate(threadId) {
       return isOwner(threadId)
-      && isVerifiedUser()
+      && isSignedIn()
       && isValidSupportThreadData(threadId)
       && request.resource.data.uid == resource.data.uid
       && (
@@ -681,6 +681,56 @@ service cloud.firestore {
         && isValidNotificationDocument(expectedUid);
     }
 
+    function isValidFaqKeywords(value) {
+      return value is list
+        && value.size() <= 20;
+    }
+
+    function isValidFaqItemData() {
+      return request.resource.data.keys().hasOnly([
+        "id",
+        "question",
+        "answer",
+        "category",
+        "order",
+        "isActive",
+        "keywords",
+        "createdAt",
+        "updatedAt"
+      ])
+      && request.resource.data.keys().hasAll([
+        "question",
+        "answer",
+        "category",
+        "order",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      ])
+      && request.resource.data.question is string
+      && request.resource.data.question.size() > 0
+      && request.resource.data.question.size() <= 300
+      && request.resource.data.answer is string
+      && request.resource.data.answer.size() > 0
+      && request.resource.data.answer.size() <= 4000
+      && request.resource.data.category is string
+      && request.resource.data.category.size() > 0
+      && request.resource.data.category.size() <= 120
+      && request.resource.data.order is number
+      && request.resource.data.order >= 0
+      && request.resource.data.isActive is bool
+      && (!("id" in request.resource.data) || request.resource.data.id is string)
+      && (!("keywords" in request.resource.data) || isValidFaqKeywords(request.resource.data.keywords))
+      && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
+      && (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp);
+    }
+
+    match /faq/{itemId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidFaqItemData();
+      allow delete: if isAdmin();
+    }
+
     match /products/{productId} {
       allow read: if (resource.data.isPublished != false) || isAdmin();
       allow create, update: if isAdmin() && isValidProductWrite();
@@ -825,7 +875,7 @@ service cloud.firestore {
           && (
             (
               isOwner(uid)
-              && isVerifiedUser()
+              && isSignedIn()
               && request.resource.data.senderRole == "customer"
               && request.resource.data.senderUid == request.auth.uid
             )

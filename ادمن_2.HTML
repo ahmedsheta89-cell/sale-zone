@@ -2378,10 +2378,25 @@
                                                 <button type="button" onclick="addFAQItem()" style="background:var(--color-text-info);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.85rem">
                                                     + إضافة سؤال
                                                 </button>
+                                                <button type="button" onclick="setFAQItemsActiveState(true)" style="background:#0f9b58;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.85rem">
+                                                    تفعيل الكل
+                                                </button>
+                                                <button type="button" onclick="setFAQItemsActiveState(false)" style="background:#6b7280;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.85rem">
+                                                    تعطيل الكل
+                                                </button>
                                             </div>
                                         </div>
 
                                         <div id="faqItemsList"></div>
+                                        <datalist id="faqCategoryOptions"></datalist>
+
+                                        <div style="margin-top:14px;border:1px solid var(--color-border-tertiary);border-radius:12px;padding:12px;background:var(--color-background-secondary)">
+                                            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+                                                <strong style="color:var(--color-text-primary)">👁️ معاينة واجهة العميل</strong>
+                                                <span style="font-size:0.8rem;color:var(--color-text-secondary)">تظهر هنا نفس الأسئلة بعد التجميع حسب التصنيف كما ستظهر للعميل.</span>
+                                            </div>
+                                            <div id="faqPreviewList" style="margin-top:12px;display:grid;gap:10px"></div>
+                                        </div>
 
                                         <div style="margin-top:16px;padding:12px;background:var(--color-background-secondary);border-radius:8px;font-size:0.8rem;color:var(--color-text-secondary)">
                                             💡 تُحفظ الأسئلة الشائعة الآن في Firestore Collection باسم <code>faq</code>، ويُشتق منها FAQ سريع للواجهة تلقائياً.
@@ -4499,6 +4514,8 @@
             { question: 'كيف أستخدم نقاط الولاء؟', answer: 'النقاط تُخصم تلقائياً عند إتمام الطلب عندما يصبح لديك رصيد كافٍ.', category: 'نقاط الولاء', order: 6, isActive: true, keywords: ['نقاط', 'ولاء', 'خصم'] }
         ];
         var _faqItems = [];
+        var _faqPreviewExpandedId = '';
+        var FAQ_CATEGORY_OPTIONS = ['الطلبات', 'الدفع', 'التوصيل', 'المنتجات', 'الحساب', 'عام'];
 
         function buildFAQKeywords(question, category, explicitKeywords) {
             var fromExplicit = Array.isArray(explicitKeywords)
@@ -4565,6 +4582,85 @@
             }
         }
 
+        function normalizeFAQSequence() {
+            _faqItems = (_faqItems || []).map(function(item, index) {
+                return normalizeFAQAdminItem({ ...(item || {}), order: index + 1 }, index);
+            });
+            return _faqItems;
+        }
+
+        function moveFAQItem(index, direction) {
+            var fromIndex = Number(index);
+            var step = Number(direction);
+            if (!Number.isFinite(fromIndex) || !Number.isFinite(step)) return false;
+            var toIndex = fromIndex + step;
+            if (toIndex < 0 || toIndex >= _faqItems.length) return false;
+            var nextItems = _faqItems.slice();
+            var temp = nextItems[fromIndex];
+            nextItems[fromIndex] = nextItems[toIndex];
+            nextItems[toIndex] = temp;
+            _faqItems = nextItems;
+            normalizeFAQSequence();
+            renderFAQEditor();
+            return true;
+        }
+
+        function setFAQItemsActiveState(nextState) {
+            var enabled = nextState !== false;
+            _faqItems = (_faqItems || []).map(function(item, index) {
+                return normalizeFAQAdminItem({ ...(item || {}), isActive: enabled }, index);
+            });
+            renderFAQEditor();
+            showNotification('success', enabled ? 'تم تفعيل كل الأسئلة' : 'تم تعطيل كل الأسئلة');
+            return true;
+        }
+
+        function toggleFAQPreviewItem(itemId) {
+            var normalizedId = String(itemId || '').trim();
+            _faqPreviewExpandedId = _faqPreviewExpandedId === normalizedId ? '' : normalizedId;
+            renderFAQPreview();
+            return true;
+        }
+
+        function buildFAQPreviewMarkup(items) {
+            var rows = Array.isArray(items) ? items : [];
+            if (!rows.length) {
+                return '<div style="padding:12px;border-radius:10px;background:rgba(255,255,255,0.04);color:var(--color-text-secondary);text-align:center">لا توجد أسئلة جاهزة للمعاينة بعد.</div>';
+            }
+            var groups = rows.reduce(function(acc, item) {
+                var category = String(item && item.category || 'عام').trim() || 'عام';
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(item);
+                return acc;
+            }, {});
+            return Object.keys(groups).map(function(category) {
+                return '<section style="display:grid;gap:8px">'
+                    + '<div style="font-size:0.82rem;font-weight:700;color:var(--color-text-info)">' + escapeHtml(String(category)) + '</div>'
+                    + groups[category].map(function(item) {
+                        var itemId = String(item && item.id || '');
+                        var expanded = _faqPreviewExpandedId === itemId;
+                        return '<article style="border:1px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.03)">'
+                            + '<button type="button" onclick="toggleFAQPreviewItem(\'' + escapeHtml(itemId) + '\')" style="width:100%;text-align:right;background:none;border:none;color:var(--color-text-primary);padding:12px;display:flex;justify-content:space-between;gap:10px;cursor:pointer;font:inherit">'
+                            + '<span>' + escapeHtml(String(item.question || '')) + '</span>'
+                            + '<span style="color:var(--color-text-secondary)">' + (expanded ? '−' : '+') + '</span>'
+                            + '</button>'
+                            + '<div style="display:' + (expanded ? 'block' : 'none') + ';padding:0 12px 12px;color:var(--color-text-secondary);line-height:1.8">' + escapeHtml(String(item.answer || '')) + '</div>'
+                            + '</article>';
+                    }).join('')
+                    + '</section>';
+            }).join('');
+        }
+
+        function renderFAQPreview() {
+            var preview = document.getElementById('faqPreviewList');
+            if (!preview) return;
+            var valid = getValidatedFAQItems().filter(function(item) { return item.isActive !== false; });
+            if (!_faqPreviewExpandedId && valid.length) {
+                _faqPreviewExpandedId = String(valid[0].id || '');
+            }
+            preview.innerHTML = buildFAQPreviewMarkup(valid);
+        }
+
         function renderFAQEditor() {
             var list = document.getElementById('faqItemsList');
             if (!list) return;
@@ -4572,6 +4668,7 @@
             if (!_faqItems.length) {
                 list.innerHTML = '<p style="color:var(--color-text-tertiary);text-align:center;padding:20px">لا توجد أسئلة بعد — اضغط + إضافة أو حمّل الأسئلة المقترحة.</p>';
                 syncJSONDisplay();
+                renderFAQPreview();
                 return;
             }
 
@@ -4582,47 +4679,61 @@
                     + '<div style="flex:1;display:grid;gap:10px">'
                     + '<div class="form-group" style="margin:0">'
                     + '<label style="font-size:0.82rem;color:var(--color-text-secondary)">السؤال</label>'
-                    + '<input type="text" value="' + escapeHtml(normalized.question) + '" onchange="_faqItems[' + index + '].question=this.value;syncJSONDisplay();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
+                    + '<input type="text" value="' + escapeHtml(normalized.question) + '" onchange="_faqItems[' + index + '].question=this.value;syncJSONDisplay();renderFAQPreview();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
                     + '</div>'
                     + '<div class="form-group" style="margin:0">'
                     + '<label style="font-size:0.82rem;color:var(--color-text-secondary)">الإجابة</label>'
-                    + '<textarea onchange="_faqItems[' + index + '].answer=this.value;syncJSONDisplay();" style="width:100%;margin-top:4px;padding:8px;height:88px;border:1px solid var(--color-border-tertiary);border-radius:8px;resize:vertical">'
+                    + '<textarea onchange="_faqItems[' + index + '].answer=this.value;syncJSONDisplay();renderFAQPreview();" style="width:100%;margin-top:4px;padding:8px;height:88px;border:1px solid var(--color-border-tertiary);border-radius:8px;resize:vertical">'
                     + escapeHtml(normalized.answer)
                     + '</textarea>'
                     + '</div>'
                     + '<div class="form-row" style="display:grid;grid-template-columns:1fr 120px 120px;gap:10px">'
                     + '<div class="form-group" style="margin:0">'
                     + '<label style="font-size:0.82rem;color:var(--color-text-secondary)">التصنيف</label>'
-                    + '<input type="text" value="' + escapeHtml(normalized.category) + '" onchange="_faqItems[' + index + '].category=this.value;syncJSONDisplay();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
+                    + '<input list="faqCategoryOptions" type="text" value="' + escapeHtml(normalized.category) + '" onchange="_faqItems[' + index + '].category=this.value;syncJSONDisplay();renderFAQPreview();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
                     + '</div>'
                     + '<div class="form-group" style="margin:0">'
                     + '<label style="font-size:0.82rem;color:var(--color-text-secondary)">الترتيب</label>'
-                    + '<input type="number" min="1" value="' + escapeHtml(String(normalized.order || index + 1)) + '" onchange="_faqItems[' + index + '].order=Number(this.value)||' + (index + 1) + ';syncJSONDisplay();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
+                    + '<input type="number" min="1" value="' + escapeHtml(String(normalized.order || index + 1)) + '" onchange="_faqItems[' + index + '].order=Number(this.value)||' + (index + 1) + ';syncJSONDisplay();renderFAQPreview();" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--color-border-tertiary);border-radius:8px">'
                     + '</div>'
                     + '<div class="form-group" style="margin:0;display:flex;align-items:end">'
-                    + '<label style="display:flex;align-items:center;gap:8px;margin:0;font-size:0.85rem;color:var(--color-text-secondary)"><input type="checkbox" ' + (normalized.isActive ? 'checked' : '') + ' onchange="_faqItems[' + index + '].isActive=this.checked;syncJSONDisplay();"> نشط</label>'
+                    + '<label style="display:flex;align-items:center;gap:8px;margin:0;font-size:0.85rem;color:var(--color-text-secondary)"><input type="checkbox" ' + (normalized.isActive ? 'checked' : '') + ' onchange="_faqItems[' + index + '].isActive=this.checked;syncJSONDisplay();renderFAQPreview();"> نشط</label>'
                     + '</div>'
                     + '</div>'
                     + '</div>'
-                    + '<button type="button" onclick="removeFAQItem(' + index + ')" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;flex-shrink:0">✕</button>'
+                    + '<div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">'
+                    + '<button type="button" onclick="moveFAQItem(' + index + ', -1)" style="background:#1f2937;color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer">↑</button>'
+                    + '<button type="button" onclick="moveFAQItem(' + index + ', 1)" style="background:#1f2937;color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer">↓</button>'
+                    + '<button type="button" onclick="removeFAQItem(' + index + ')" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer">✕</button>'
+                    + '</div>'
                     + '</div></div>';
             }).join('');
+            var categoryDatalist = document.getElementById('faqCategoryOptions');
+            if (categoryDatalist) {
+                categoryDatalist.innerHTML = FAQ_CATEGORY_OPTIONS.map(function(option) {
+                    return '<option value="' + escapeHtml(String(option)) + '"></option>';
+                }).join('');
+            }
             syncJSONDisplay();
+            renderFAQPreview();
         }
 
         function addFAQItem(seed) {
             _faqItems.push(normalizeFAQAdminItem(seed || { question: '', answer: '', category: 'عام', order: (_faqItems.length + 1), isActive: true }, _faqItems.length));
+            normalizeFAQSequence();
             renderFAQEditor();
         }
 
         function loadSuggestedFAQItems() {
             _faqItems = DEFAULT_FAQ_CATALOG.map(function(item, index) { return normalizeFAQAdminItem(item, index); });
+            normalizeFAQSequence();
             renderFAQEditor();
             showNotification('success', 'تم تحميل الأسئلة المقترحة');
         }
 
         function removeFAQItem(index) {
             _faqItems.splice(index, 1);
+            normalizeFAQSequence();
             renderFAQEditor();
         }
 
@@ -4632,6 +4743,7 @@
                 _faqItems = Array.isArray(parsed)
                     ? parsed.map(function(item, index) { return normalizeFAQAdminItem(item, index); })
                     : [];
+                normalizeFAQSequence();
                 renderFAQEditor();
             } catch (error) {
                 showNotification('error', 'JSON غير صحيح');
@@ -4655,6 +4767,7 @@
                     return normalizeFAQAdminItem(item, index);
                 });
             }
+            normalizeFAQSequence();
             renderFAQEditor();
             return _faqItems;
         }
@@ -4679,6 +4792,7 @@
                 } else {
                     _faqItems = valid.slice();
                 }
+                normalizeFAQSequence();
                 storeSettings.faqIntents = buildFAQIntentsFromEntries(_faqItems);
                 try {
                     localStorage.setItem('salezone_faq_bot', JSON.stringify(storeSettings.faqIntents));
