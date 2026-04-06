@@ -3337,6 +3337,7 @@
             name: 'Sale Zone Store',
             tagline: 'التسوق الفاخر الذكي',
             description: '',
+            catalogVersion: '',
             topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
             contact: { phone: '01018108979', whatsapp: '201018108979', email: 'info@salezone.com', address: 'مصر' },
             footer: { about: '', workingHoursWeekdays: 'السبت - الخميس: 9 ص - 10 م', workingHoursFriday: 'الجمعة: 2 م - 10 م', workingHoursNote: '🔔 خدمة 24/7', copyright: '© 2026 Sale Zone Store ❤️' },
@@ -3346,6 +3347,7 @@
             cannedResponses: DEFAULT_SUPPORT_CANNED_RESPONSES.slice(),
             chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' },
             featureFlags: {
+                catalogCacheEnabled: false,
                 tawktoEnabled: true,
                 internalChatEnabled: true,
                 whatsappEnabled: true,
@@ -12113,6 +12115,7 @@ function adminLogout(){
             if (online && totalOperations > 0) {
                 try {
                     await requireAdminPermission();
+                    await cancelPendingFeedRegenerationOnAdmin();
                 } catch (error) {
                     console.error('Import permission check failed:', error);
                     setWizardProgress(0, 'تعذر التحقق من صلاحيات الاستيراد.');
@@ -12139,14 +12142,14 @@ function adminLogout(){
                         isPublished: publishAfterImport
                     });
                     const updatePayload = { ...merged };
-                    delete updatePayload.id;
+                        delete updatePayload.id;
 
                     try {
                         if (writeOnline && !existingId.startsWith('tmp_')) {
                             if (typeof updateProduct !== 'function') {
                                 throw new Error('updateProduct unavailable');
                             }
-                            await updateProduct(existingId, updatePayload);
+                            await updateProduct(existingId, updatePayload, { suppressFeedRegen: true });
                             syncedCount += 1;
                         } else if (existingId.startsWith('tmp_')) {
                             patchPendingAddByTempId(existingId, (draft) => ({ ...draft, ...updatePayload }));
@@ -12181,6 +12184,7 @@ function adminLogout(){
                         try {
                             if (typeof addProductsBatch === 'function') {
                                 createdIds = await addProductsBatch(payloadChunk, {
+                                    suppressFeedRegen: true,
                                     // WHY: keep Firestore in sync with the chosen mobile import publish mode.
                                     isPublished: publishAfterImport,
                                     importBatchId,
@@ -12189,7 +12193,7 @@ function adminLogout(){
                                 });
                             } else if (typeof addProduct === 'function') {
                                 for (const payload of payloadChunk) {
-                                    createdIds.push(await addProduct(payload));
+                                    createdIds.push(await addProduct(payload, { suppressFeedRegen: true }));
                                 }
                             } else {
                                 throw new Error('addProduct API unavailable');
@@ -12236,6 +12240,9 @@ function adminLogout(){
 
                 if (queuedCount > 0 && navigator.onLine) {
                     await flushPendingProductOps();
+                }
+                if (writeOnline && totalOperations > 0) {
+                    await flushFeedRegenerationAfterBulk(products);
                 }
                 if (writeOnline && typeof loadAllData === 'function') {
                     // WHY: refresh from Firestore after a successful online import so the admin table reflects server truth immediately.

@@ -317,9 +317,12 @@ function createResubscribingSnapshot(source, queryFactory, onData) {
 }
 
 async function pullStoreCollectionsFromFirebase(source = 'poll') {
-    const productReader = (isStorePage && typeof getPublishedProducts === 'function')
-        ? getPublishedProducts
-        : (typeof getAllProducts === 'function' ? getAllProducts : null);
+    // WHY: storefront products now use a settings-first catalog pipeline in متجر_2.HTML.
+    // firebase-data.js must not compete for ownership of the public product list on store pages.
+    const shouldSyncProducts = !isStorePage;
+    const productReader = shouldSyncProducts
+        ? ((typeof getAllProducts === 'function') ? getAllProducts : null)
+        : null;
     const tasks = [
         typeof productReader === 'function' ? productReader() : Promise.resolve(null),
         typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null),
@@ -330,7 +333,7 @@ async function pullStoreCollectionsFromFirebase(source = 'poll') {
     let syncedCollections = 0;
     const details = { products: null, coupons: null, banners: null };
 
-    if (productsResult.status === 'fulfilled' && Array.isArray(productsResult.value)) {
+    if (shouldSyncProducts && productsResult.status === 'fulfilled' && Array.isArray(productsResult.value)) {
         products = productsResult.value;
         details.products = products.length;
         syncedCollections++;
@@ -632,10 +635,8 @@ function setupRealtimeListeners() {
         markFirebaseSyncSuccess('realtime:coupons', { coupons: coupons.length });
     });
 
-    const unsubProducts = createResubscribingSnapshot('realtime:products', () => (
-        isStorePage
-            ? db.collection('products').where('isPublished', '==', true)
-            : db.collection('products')
+    const unsubProducts = isStorePage ? null : createResubscribingSnapshot('realtime:products', () => (
+        db.collection('products')
     ), (snapshot) => {
         products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         silentProductionLog('🛍️ Products updated in real-time:', products.length);
@@ -655,7 +656,7 @@ function setupRealtimeListeners() {
         markFirebaseSyncSuccess('realtime:products', { products: products.length });
     });
 
-    realtimeUnsubscribers = [unsubBanners, unsubCoupons, unsubProducts];
+    realtimeUnsubscribers = [unsubBanners, unsubCoupons, unsubProducts].filter(Boolean);
     silentProductionLog('🔄 Real-time listeners setup complete');
 }
 

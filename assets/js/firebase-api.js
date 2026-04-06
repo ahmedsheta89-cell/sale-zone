@@ -545,6 +545,13 @@ function cleanImageField(value) {
 let feedRegenerationTimer = null;
 let pendingFeedProducts = null;
 const FEED_REGEN_DEBOUNCE_MS = 3000;
+const CATALOG_VERSION_DEBOUNCE_MS = FEED_REGEN_DEBOUNCE_MS;
+const STORE_SETTINGS_COLLECTION = 'settings';
+const STORE_SETTINGS_DOC_ID = 'store';
+const CATALOG_VERSION_FIELD = 'catalogVersion';
+const CATALOG_CACHE_FEATURE_FLAG_FIELD = 'featureFlags.catalogCacheEnabled';
+let catalogVersionTimer = null;
+let pendingCatalogVersion = '';
 
 function clearPendingFeedRegeneration() {
     if (feedRegenerationTimer) {
@@ -571,21 +578,83 @@ async function runFeedRegeneration(products = null) {
     return false;
 }
 
+function buildCatalogVersionToken() {
+    return new Date().toISOString();
+}
+
+function clearPendingCatalogVersionUpdate() {
+    if (catalogVersionTimer) {
+        clearTimeout(catalogVersionTimer);
+        catalogVersionTimer = null;
+    }
+    pendingCatalogVersion = '';
+}
+
+async function writeCatalogVersionToSettings(versionToken = '') {
+    try {
+        const db = getFirebaseDB();
+        const nextVersion = String(versionToken || buildCatalogVersionToken()).trim() || buildCatalogVersionToken();
+        await db.collection(STORE_SETTINGS_COLLECTION).doc(STORE_SETTINGS_DOC_ID).set({
+            [CATALOG_VERSION_FIELD]: nextVersion
+        }, {
+            mergeFields: [CATALOG_VERSION_FIELD]
+        });
+        return nextVersion;
+    } catch (error) {
+        console.warn('[CatalogVersion] Failed to persist settings marker:', error && error.message ? error.message : error);
+        return '';
+    }
+}
+
+function queueCatalogVersionUpdate(versionToken = '') {
+    pendingCatalogVersion = String(versionToken || pendingCatalogVersion || buildCatalogVersionToken()).trim() || buildCatalogVersionToken();
+    if (catalogVersionTimer) clearTimeout(catalogVersionTimer);
+    catalogVersionTimer = setTimeout(() => {
+        const queuedVersion = String(pendingCatalogVersion || buildCatalogVersionToken()).trim() || buildCatalogVersionToken();
+        catalogVersionTimer = null;
+        pendingCatalogVersion = '';
+        writeCatalogVersionToSettings(queuedVersion).catch(() => '');
+    }, CATALOG_VERSION_DEBOUNCE_MS);
+    return true;
+}
+
+async function flushCatalogVersionUpdate(versionToken = '') {
+    clearPendingCatalogVersionUpdate();
+    const committed = await writeCatalogVersionToSettings(versionToken);
+    return Boolean(committed);
+}
+
 async function triggerFeedRegenerationAfterProductChange(options = {}) {
     const settings = options && typeof options === 'object' ? options : {};
     if (typeof window === 'undefined') return false;
     if (settings.cancelPending === true) {
         clearPendingFeedRegeneration();
+        clearPendingCatalogVersionUpdate();
         return false;
     }
-    if (settings.suppressFeedRegen === true) return false;
+    // WHY: existing bulk callers already pass suppressFeedRegen on inner item writes.
+    // Treat those writes as "suppress catalogVersion too" unless the caller explicitly opts out.
+    const suppressCatalogVersion = settings.suppressCatalogVersion === true
+        || (settings.suppressFeedRegen === true && settings.suppressCatalogVersion !== false);
+    const suppressFeedRegen = settings.suppressFeedRegen === true;
 
     const explicitProducts = Array.isArray(settings.products) ? settings.products : null;
+    const explicitCatalogVersion = String(settings.catalogVersion || '').trim();
 
     if (settings.immediate === true) {
         clearPendingFeedRegeneration();
-        return runFeedRegeneration(explicitProducts);
+        const [catalogUpdated, feedUpdated] = await Promise.all([
+            suppressCatalogVersion ? Promise.resolve(false) : flushCatalogVersionUpdate(explicitCatalogVersion),
+            suppressFeedRegen ? Promise.resolve(false) : runFeedRegeneration(explicitProducts)
+        ]);
+        return catalogUpdated || feedUpdated;
     }
+
+    let scheduled = false;
+    if (!suppressCatalogVersion) {
+        scheduled = queueCatalogVersionUpdate(explicitCatalogVersion) || scheduled;
+    }
+    if (suppressFeedRegen) return scheduled;
 
     if (explicitProducts) {
         pendingFeedProducts = explicitProducts;
@@ -880,7 +949,7 @@ async function deleteProductFromFirebase(id, options = {}) {
     }
 }
 
-async function deleteProductImage(productId) {
+async function deleteProductImage(productId, options = {}) {
     try {
         // WHY: Cloudinary asset deletion requires backend signing, which is unavailable on Spark.
         // Remove image references from Firestore so the UI stops rendering the broken CDN asset.
@@ -895,6 +964,7 @@ async function deleteProductImage(productId) {
             images: [],
             updatedAt: new Date().toISOString()
         }, { merge: true });
+        await triggerFeedRegenerationAfterProductChange(options);
         return { success: true };
     } catch (e) {
         console.error('deleteProductImage error:', e);
@@ -2112,7 +2182,18 @@ async function getSettings() {
     try {
         const db = getFirebaseDB();
         const doc = await db.collection('settings').doc('store').get();
-        return doc.exists ? doc.data() : null;
+        if (!doc.exists) return null;
+        const data = doc.data() || {};
+        return {
+            ...data,
+            catalogVersion: String(data.catalogVersion || '').trim(),
+            featureFlags: {
+                ...((data && data.featureFlags) || {}),
+                catalogCacheEnabled: data && data.featureFlags && Object.prototype.hasOwnProperty.call(data.featureFlags, 'catalogCacheEnabled')
+                    ? data.featureFlags.catalogCacheEnabled !== false
+                    : false
+            }
+        };
     } catch (e) {
         console.error('getSettings error:', e);
         return null;
@@ -2123,7 +2204,17 @@ async function saveSettings(settings) {
     // WHY: removed Backend API dependency (Spark plan - no Functions)
     try {
         const db = getFirebaseDB();
-        await db.collection('settings').doc('store').set(settings, { merge: true });
+        const input = settings && typeof settings === 'object' ? settings : {};
+        const featureFlags = input.featureFlags && typeof input.featureFlags === 'object'
+            ? { ...input.featureFlags }
+            : {};
+        if (!Object.prototype.hasOwnProperty.call(featureFlags, 'catalogCacheEnabled')) {
+            featureFlags.catalogCacheEnabled = false;
+        }
+        await db.collection('settings').doc('store').set({
+            ...input,
+            featureFlags
+        }, { merge: true });
         return { success: true };
     } catch (e) {
         console.error('saveSettings error:', e);

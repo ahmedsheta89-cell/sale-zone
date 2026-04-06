@@ -3398,6 +3398,7 @@
             name: 'Sale Zone Store',
             tagline: 'التسوق الفاخر الذكي',
             description: '',
+            catalogVersion: '',
             whatsappNumber: '201018108979',
             topBar: { enabled: true, text: '🎉 خصومات حصرية!', bgColor: '#0A1128', textColor: '#F4E4BC' },
             contact: { phone: '01018108979', whatsapp: '201018108979', email: 'info@salezone.com', address: 'مصر' },
@@ -3407,6 +3408,7 @@
             faqIntents: [],
             chatSupport: { enableTawk: false, tawkPropertyId: '', tawkWidgetId: '' },
             featureFlags: {
+                catalogCacheEnabled: false,
                 tawktoEnabled: true,
                 internalChatEnabled: true,
                 whatsappEnabled: true,
@@ -3936,6 +3938,9 @@
             const profitMarginActual = Number.isFinite(Number(source.profitMarginActual))
                 ? Number(source.profitMarginActual)
                 : (sellPrice > 0 ? Number(((profitValue / sellPrice) * 100).toFixed(2)) : 0);
+            const fallbackSearchTokens = (typeof buildProductSearchTokens === 'function')
+                ? buildProductSearchTokens(source)
+                : [];
 
             return {
                 ...source,
@@ -3961,7 +3966,9 @@
                 profitMarginActual,
                 manualPriceOverride: source.manualPriceOverride === true,
                 manualPriceReason: String(source.manualPriceReason || ''),
-                searchTokens: Array.isArray(source.searchTokens) ? source.searchTokens : [],
+                searchTokens: Array.isArray(source.searchTokens) && source.searchTokens.length
+                    ? source.searchTokens
+                    : fallbackSearchTokens,
                 isPublished,
                 visibilityState: isPublished ? 'published' : 'hidden'
             };
@@ -4059,7 +4066,7 @@
                         localStorage.setItem(storageKey, incomingVersion);
                         // Hard refresh on version change: clear SW caches + stale synced data.
                         try {
-                            ['sale_zone_products', 'sale_zone_coupons', 'sale_zone_banners', 'sale_zone_settings', 'sale_zone_last_update', 'sale_zone_orders']
+                            ['sale_zone_products', 'sale_zone_coupons', 'sale_zone_banners', 'sale_zone_settings', 'sale_zone_last_update', 'sale_zone_orders', 'PUBLIC_CATALOG_CACHE_V1']
                                 .forEach((k) => localStorage.removeItem(k));
                         } catch (_) {}
                         try {
@@ -4111,7 +4118,6 @@
             safeRun('renderBanners', renderBanners);
             safeRun('renderSupplierFilters', renderSupplierFilters);
             safeRun('showSkeletonLoader', showSkeletonLoader);
-            safeRun('buildSearchIndexAsync', buildSearchIndexAsync);
             safeRun('renderCoupons', renderCoupons);
             safeRun('updateCategoryCounts', updateCategoryCounts);
             safeRun('updateStats', updateStats);
@@ -4276,6 +4282,213 @@
         // 🔥 Firebase + LocalStorage Hybrid Data Loading
         // ============================================
         const STORE_COLLECTION_SIGNATURES = {};
+        const PUBLIC_CATALOG_CACHE_KEY = 'PUBLIC_CATALOG_CACHE_V1';
+        const PUBLIC_CATALOG_CACHE_SCHEMA_VERSION = '1';
+
+        function mergeStoreSettingsPayload(settings, options = {}) {
+            const source = settings && typeof settings === 'object' ? settings : {};
+            storeSettings = {
+                ...storeSettings,
+                ...source,
+                catalogVersion: String(source.catalogVersion || storeSettings.catalogVersion || '').trim(),
+                featureFlags: { ...(storeSettings.featureFlags || {}), ...((source && source.featureFlags) || {}) },
+                content: { ...(storeSettings.content || {}), ...((source && source.content) || {}) },
+                appearance: { ...(storeSettings.appearance || {}), ...((source && source.appearance) || {}) },
+                chatSupport: { ...(storeSettings.chatSupport || {}), ...((source && source.chatSupport) || {}) }
+            };
+            if (!Object.prototype.hasOwnProperty.call(storeSettings.featureFlags || {}, 'catalogCacheEnabled')) {
+                storeSettings.featureFlags.catalogCacheEnabled = false;
+            }
+            if (options.persist === true) {
+                setStorageData('SETTINGS', storeSettings);
+            }
+            return storeSettings;
+        }
+
+        function resolveCatalogCacheEnabled(settings = storeSettings) {
+            const featureFlags = settings && settings.featureFlags && typeof settings.featureFlags === 'object'
+                ? settings.featureFlags
+                : {};
+            return Object.prototype.hasOwnProperty.call(featureFlags, 'catalogCacheEnabled')
+                && featureFlags.catalogCacheEnabled === true;
+        }
+
+        function normalizeCatalogVersionValue(value) {
+            return String(value || '').trim();
+        }
+
+        function compareCatalogVersions(left, right) {
+            const a = normalizeCatalogVersionValue(left);
+            const b = normalizeCatalogVersionValue(right);
+            if (!a && !b) return 0;
+            if (!a) return -1;
+            if (!b) return 1;
+            if (/^\d+$/.test(a) && /^\d+$/.test(b)) {
+                const aNum = Number(a);
+                const bNum = Number(b);
+                if (Number.isFinite(aNum) && Number.isFinite(bNum)) {
+                    if (aNum === bNum) return 0;
+                    return aNum > bNum ? 1 : -1;
+                }
+            }
+            return a.localeCompare(b);
+        }
+
+        function buildPublicCatalogCacheProduct(product) {
+            const item = normalizeStoreProduct(product);
+            return {
+                id: String(item.id || ''),
+                name: String(item.name || ''),
+                desc: String(item.desc || ''),
+                category: String(item.category || ''),
+                price: Number.isFinite(Number(item.price)) ? Number(item.price) : 0,
+                sellPrice: Number.isFinite(Number(item.sellPrice)) ? Number(item.sellPrice) : 0,
+                oldPrice: Number.isFinite(Number(item.oldPrice)) ? Number(item.oldPrice) : null,
+                image: String(item.image || item.imageUrl || ''),
+                code: String(item.code || ''),
+                stock: Number.isFinite(Number(item.stock)) ? Number(item.stock) : -1,
+                trackInventory: item.trackInventory === true,
+                isPublished: item.isPublished === true,
+                visibilityState: String(item.visibilityState || (item.isPublished === true ? 'published' : 'hidden')),
+                supplierId: String(item.supplierId || ''),
+                supplierName: String(item.supplierName || ''),
+                rating: Number.isFinite(Number(item.rating)) ? Number(item.rating) : 4.5,
+                ratingCount: Number.isFinite(Number(item.ratingCount)) ? Number(item.ratingCount) : 0,
+                updatedAt: String(item.updatedAt || '')
+            };
+        }
+
+        function buildPublicCatalogCachePayload(catalogVersion, rows) {
+            const normalizedProducts = normalizeStoreProducts(Array.isArray(rows) ? rows : []);
+            const trimmedProducts = normalizedProducts.map(buildPublicCatalogCacheProduct);
+            return {
+                cacheSchemaVersion: PUBLIC_CATALOG_CACHE_SCHEMA_VERSION,
+                catalogVersion: normalizeCatalogVersionValue(catalogVersion),
+                cachedAt: new Date().toISOString(),
+                productCount: trimmedProducts.length,
+                products: trimmedProducts
+            };
+        }
+
+        function validatePublicCatalogCachePayload(payload) {
+            const source = payload && typeof payload === 'object' ? payload : null;
+            if (!source) return null;
+            if (String(source.cacheSchemaVersion || '') !== PUBLIC_CATALOG_CACHE_SCHEMA_VERSION) return null;
+            if (!Array.isArray(source.products)) return null;
+            if (Number(source.productCount || 0) !== source.products.length) return null;
+            const validProducts = source.products.every((item) => (
+                item
+                && typeof item === 'object'
+                && String(item.id || '').trim()
+                && String(item.name || '').trim()
+            ));
+            if (!validProducts) return null;
+            return {
+                cacheSchemaVersion: PUBLIC_CATALOG_CACHE_SCHEMA_VERSION,
+                catalogVersion: normalizeCatalogVersionValue(source.catalogVersion),
+                cachedAt: String(source.cachedAt || ''),
+                productCount: source.products.length,
+                products: source.products
+            };
+        }
+
+        function readPublicCatalogCache() {
+            try {
+                const raw = localStorage.getItem(PUBLIC_CATALOG_CACHE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                const validated = validatePublicCatalogCachePayload(parsed);
+                if (!validated) {
+                    localStorage.removeItem(PUBLIC_CATALOG_CACHE_KEY);
+                    return null;
+                }
+                return validated;
+            } catch (error) {
+                console.warn('[CatalogCache] Failed to read cache, ignoring it:', error && error.message ? error.message : error);
+                try { localStorage.removeItem(PUBLIC_CATALOG_CACHE_KEY); } catch (_) {}
+                return null;
+            }
+        }
+
+        function writePublicCatalogCache(payload) {
+            const validated = validatePublicCatalogCachePayload(payload);
+            if (!validated) return false;
+            try {
+                const existing = readPublicCatalogCache();
+                if (existing && compareCatalogVersions(existing.catalogVersion, validated.catalogVersion) > 0) {
+                    console.warn('[CatalogCache] Skipping stale overwrite from an older tab/session.');
+                    return false;
+                }
+                localStorage.setItem(PUBLIC_CATALOG_CACHE_KEY, JSON.stringify(validated));
+                window.dispatchEvent(new CustomEvent('storageUpdated', {
+                    detail: {
+                        key: 'PUBLIC_CATALOG_CACHE_V1',
+                        storageKey: PUBLIC_CATALOG_CACHE_KEY,
+                        data: validated,
+                        timestamp: Date.now()
+                    }
+                }));
+                return true;
+            } catch (error) {
+                console.warn('[CatalogCache] Failed to persist cache:', error && error.message ? error.message : error);
+                return false;
+            }
+        }
+
+        function readCatalogProductsFromCache() {
+            const cachePayload = readPublicCatalogCache();
+            if (!cachePayload) return { payload: null, products: [] };
+            return {
+                payload: cachePayload,
+                products: normalizeStoreProducts(cachePayload.products)
+            };
+        }
+
+        async function readLiveStoreSettingsFirst(localSettings = null) {
+            const localPayload = localSettings && typeof localSettings === 'object' ? localSettings : getStorageData('SETTINGS');
+            let liveSettings = null;
+            let liveLoaded = false;
+
+            if (typeof getSettings === 'function') {
+                try {
+                    liveSettings = await getSettings();
+                    if (liveSettings && typeof liveSettings === 'object') {
+                        liveLoaded = true;
+                        mergeStoreSettingsPayload(liveSettings, { persist: true });
+                        logStore('info', 'STORE_SETTINGS_REMOTE_OK', 'Settings loaded from Firebase', { source: 'firebase' });
+                    }
+                } catch (error) {
+                    logStore('warn', 'STORE_SETTINGS_REMOTE_FAIL', 'Settings read from Firebase failed', {
+                        error: error && error.message ? String(error.message) : String(error)
+                    });
+                }
+            }
+
+            if (!liveLoaded && localPayload && typeof localPayload === 'object') {
+                mergeStoreSettingsPayload(localPayload);
+                logStore('info', 'STORE_SETTINGS_LOCAL_FALLBACK', 'Settings loaded from localStorage', { source: 'localStorage' });
+            }
+
+            return {
+                liveLoaded,
+                settings: storeSettings,
+                catalogVersion: normalizeCatalogVersionValue(storeSettings.catalogVersion),
+                cacheEnabled: resolveCatalogCacheEnabled(storeSettings)
+            };
+        }
+
+        async function fetchPublishedStoreCatalogFromFirebase() {
+            const productsReader = (typeof getPublishedProducts === 'function')
+                ? getPublishedProducts
+                : (typeof getAllProducts === 'function' ? getAllProducts : null);
+            if (typeof productsReader !== 'function') {
+                throw new Error('Published products reader unavailable');
+            }
+            return normalizeStoreProducts(await readPublishedProductsWithRetry(productsReader, {
+                maxAttempts: 3,
+                delayMs: 1200
+            }));
+        }
 
         function buildCollectionSignature(collectionKey, rows) {
             const list = Array.isArray(rows) ? rows : [];
@@ -4352,31 +4565,29 @@
         }
 
         async function loadData() {
-            const storedProducts = getStorageData('PRODUCTS');
             const storedCoupons = getStorageData('COUPONS');
             const storedBanners = getStorageData('BANNERS');
-            const localProducts = normalizeStoreProducts(
-                Array.isArray(storedProducts) ? storedProducts : (allowLocalSeedDefaults ? [...defaultProducts] : [])
-            );
             const localCoupons = Array.isArray(storedCoupons) ? storedCoupons : (allowLocalSeedDefaults ? [...defaultCoupons] : []);
             const localBanners = Array.isArray(storedBanners) ? storedBanners : (allowLocalSeedDefaults ? [...defaultBanners] : []);
             const localSettings = getStorageData('SETTINGS');
+            const cachedCatalog = readCatalogProductsFromCache();
+            let catalogSource = 'firebase';
 
             const resolveList = (result, storageKey, localFallback, label) => {
                 if (result.status === 'fulfilled' && Array.isArray(result.value)) {
                     return result.value;
                 }
                 if (result.status === 'fulfilled' && !Array.isArray(result.value)) {
-                    console.warn(`${label} firebase returned non-array payload, using empty list (Server Truth Only).`);
+                    console.warn(`${label} firebase returned non-array payload, using local fallback.`);
                 }
                 if (result.status === 'rejected') {
-                    console.warn(`${label} firebase read failed, using empty list (Server Truth Only):`, result.reason);
+                    console.warn(`${label} firebase read failed, using local fallback:`, result.reason);
                 }
-                return [];
+                return Array.isArray(localFallback) ? localFallback : [];
             };
 
             try {
-                if (typeof getAllProducts !== 'function') {
+                if (typeof getAllProducts !== 'function' && typeof getPublishedProducts !== 'function') {
                     throw new Error('Firebase not available');
                 }
 
@@ -4385,64 +4596,74 @@
                     await window.waitForAppCheck(3000);
                 }
 
-                const productsReader = (typeof getPublishedProducts === 'function')
-                    ? getPublishedProducts
-                    : (typeof getAllProducts === 'function' ? getAllProducts : null);
-                const [productsResult, couponsResult, bannersResult, settingsResult] = await Promise.allSettled([
-                    (typeof productsReader === 'function'
-                        ? readPublishedProductsWithRetry(productsReader, { maxAttempts: 3, delayMs: 1200 })
-                        : Promise.resolve(null)),
+                // WHY: settings/store is authoritative for both the cache kill switch and the catalogVersion marker.
+                // We do not decide "cache vs Firestore" until this live settings read has completed or failed.
+                const liveSettingsState = await readLiveStoreSettingsFirst(localSettings);
+                const liveCatalogVersion = normalizeCatalogVersionValue(liveSettingsState.catalogVersion);
+                const cacheEnabled = liveSettingsState.cacheEnabled === true;
+                const hasCache = !!(cachedCatalog.payload && cachedCatalog.products.length);
+                const hasVersionMatch = hasCache
+                    && !!liveCatalogVersion
+                    && compareCatalogVersions(cachedCatalog.payload.catalogVersion, liveCatalogVersion) === 0;
+
+                if (cacheEnabled && hasVersionMatch) {
+                    products = cachedCatalog.products;
+                    catalogSource = 'cache';
+                    logStore('info', 'STORE_CATALOG_CACHE_HIT', 'Loaded published catalog from local cache', {
+                        catalogVersion: liveCatalogVersion,
+                        products: products.length
+                    });
+                } else if (cacheEnabled && !liveSettingsState.liveLoaded && hasCache) {
+                    products = cachedCatalog.products;
+                    catalogSource = 'cache-fallback';
+                    logStore('warn', 'STORE_CATALOG_CACHE_FRESHNESS_UNKNOWN', 'Using cached catalog because live settings were unavailable', {
+                        catalogVersion: cachedCatalog.payload.catalogVersion,
+                        products: products.length
+                    });
+                } else {
+                    // WHY: only one code path is allowed to own the storefront product catalog.
+                    // If cache cannot be trusted, fetch the published catalog from Firestore once and optionally refresh the cache.
+                    try {
+                        products = await fetchPublishedStoreCatalogFromFirebase();
+                        catalogSource = 'firebase';
+                        if (cacheEnabled && liveCatalogVersion) {
+                            writePublicCatalogCache(buildPublicCatalogCachePayload(liveCatalogVersion, products));
+                        }
+                    } catch (productError) {
+                        if (cacheEnabled && hasCache) {
+                            products = cachedCatalog.products;
+                            catalogSource = 'cache-fallback';
+                            logStore('warn', 'STORE_CATALOG_CACHE_FALLBACK', 'Using cached catalog because live product fetch failed', {
+                                catalogVersion: cachedCatalog.payload.catalogVersion,
+                                products: products.length,
+                                error: productError && productError.message ? String(productError.message) : String(productError)
+                            });
+                        } else {
+                            throw productError;
+                        }
+                    }
+                }
+
+                const [couponsResult, bannersResult] = await Promise.allSettled([
                     (typeof getCoupons === 'function' ? getCoupons() : Promise.resolve(null)),
-                    (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null)),
-                    (typeof getSettings === 'function' ? getSettings() : Promise.resolve(null))
+                    (typeof getBanners === 'function' ? getBanners() : Promise.resolve(null))
                 ]);
 
-                products = normalizeStoreProducts(resolveList(productsResult, 'PRODUCTS', localProducts, 'Products'));
                 coupons = resolveList(couponsResult, 'COUPONS', localCoupons, 'Coupons');
                 banners = resolveList(bannersResult, 'BANNERS', localBanners, 'Banners');
-
-                if (settingsResult.status === 'fulfilled' && settingsResult.value && typeof settingsResult.value === 'object') {
-                    storeSettings = {
-                        ...storeSettings,
-                        ...settingsResult.value,
-                        featureFlags: { ...(storeSettings.featureFlags || {}), ...((settingsResult.value && settingsResult.value.featureFlags) || {}) },
-                        content: { ...(storeSettings.content || {}), ...((settingsResult.value && settingsResult.value.content) || {}) },
-                        appearance: { ...(storeSettings.appearance || {}), ...((settingsResult.value && settingsResult.value.appearance) || {}) },
-                        chatSupport: { ...(storeSettings.chatSupport || {}), ...((settingsResult.value && settingsResult.value.chatSupport) || {}) }
-                    };
-                    setStorageData('SETTINGS', storeSettings);
-                    logStore('info', 'STORE_SETTINGS_REMOTE_OK', 'Settings loaded from Firebase', { source: 'firebase' });
-                } else if (localSettings && typeof localSettings === 'object') {
-                    storeSettings = {
-                        ...storeSettings,
-                        ...localSettings,
-                        featureFlags: { ...(storeSettings.featureFlags || {}), ...((localSettings && localSettings.featureFlags) || {}) },
-                        content: { ...(storeSettings.content || {}), ...((localSettings && localSettings.content) || {}) },
-                        appearance: { ...(storeSettings.appearance || {}), ...((localSettings && localSettings.appearance) || {}) },
-                        chatSupport: { ...(storeSettings.chatSupport || {}), ...((localSettings && localSettings.chatSupport) || {}) }
-                    };
-                    logStore('info', 'STORE_SETTINGS_LOCAL_FALLBACK', 'Settings loaded from localStorage', { source: 'localStorage' });
-                }
-
                 users = [];
             } catch (error) {
-                console.warn('⚠️ Firebase error, using empty lists (Server Truth Only):', error);
-                trackStoreEvent('DATA_SYNC_FALLBACK', 'Firebase read failed, empty lists used (Server Truth Only)', 'warning', {
+                console.warn('⚠️ Firebase error, using available local fallbacks:', error);
+                trackStoreEvent('DATA_SYNC_FALLBACK', 'Firebase read failed, local fallbacks used where available', 'warning', {
                     error: error && error.message ? String(error.message) : String(error)
                 });
-                products = [];
-                coupons = [];
-                banners = [];
+                products = cachedCatalog.products.length ? cachedCatalog.products : [];
+                coupons = localCoupons;
+                banners = localBanners;
                 if (localSettings && typeof localSettings === 'object') {
-                    storeSettings = {
-                        ...storeSettings,
-                        ...localSettings,
-                        featureFlags: { ...(storeSettings.featureFlags || {}), ...((localSettings && localSettings.featureFlags) || {}) },
-                        content: { ...(storeSettings.content || {}), ...((localSettings && localSettings.content) || {}) },
-                        appearance: { ...(storeSettings.appearance || {}), ...((localSettings && localSettings.appearance) || {}) },
-                        chatSupport: { ...(storeSettings.chatSupport || {}), ...((localSettings && localSettings.chatSupport) || {}) }
-                    };
+                    mergeStoreSettingsPayload(localSettings);
                 }
+                catalogSource = cachedCatalog.products.length ? 'cache-fallback' : 'empty';
                 users = [];
             }
 
@@ -4466,12 +4687,16 @@
             ).values());
 
             triggerFeedRegeneration(products);
+            window.__PUBLIC_CATALOG_SOURCE__ = catalogSource;
+            window.__PUBLIC_CATALOG_COUNT__ = Array.isArray(products) ? products.length : 0;
+            window.__PUBLIC_CATALOG_VERSION__ = normalizeCatalogVersionValue(storeSettings.catalogVersion);
 
             // Firebase remains source of truth for products/coupons/banners.
             updateLiveSessionState({
                 customerId: currentUser && currentUser.id ? String(currentUser.id) : ''
             });
             trackStoreEvent('STORE_DATA_SYNC', 'Store data synchronized', 'info', {
+                catalogSource,
                 products: products.length,
                 coupons: coupons.length,
                 banners: banners.length,
@@ -9509,17 +9734,139 @@
             showAuthModal('login');
         }
 
+        async function revalidateCartItemsBeforeCheckout() {
+            // WHY: browsing can safely use cached catalog data, but order creation must verify current price and availability live.
+            const cartItems = Array.isArray(cart) ? cart : [];
+            if (!cartItems.length) {
+                return {
+                    ok: false,
+                    cartChanged: false,
+                    items: [],
+                    message: 'السلة فارغة.',
+                    issues: ['السلة فارغة.']
+                };
+            }
+            if (typeof getFirebaseDB !== 'function') {
+                throw new Error('Firebase product validation unavailable');
+            }
+
+            const db = getFirebaseDB();
+            const uniqueIds = Array.from(new Set(
+                cartItems.map((item) => String(item && item.id || '').trim()).filter(Boolean)
+            ));
+            const snapshots = await Promise.all(uniqueIds.map((id) => db.collection('products').doc(id).get()));
+            const liveProductsMap = new Map();
+            snapshots.forEach((snapshot) => {
+                if (!snapshot || !snapshot.exists) return;
+                liveProductsMap.set(String(snapshot.id || ''), normalizeStoreProduct({
+                    id: snapshot.id,
+                    ...(snapshot.data() || {})
+                }));
+            });
+
+            const issues = [];
+            const nextCart = [];
+            let cartChanged = false;
+
+            for (const entry of cartItems) {
+                const cartItem = entry && typeof entry === 'object' ? entry : {};
+                const itemId = String(cartItem.id || '').trim();
+                const requestedQuantity = Math.max(1, Number(cartItem.quantity || 1));
+                const fallbackName = String(cartItem.name || 'هذا المنتج').trim() || 'هذا المنتج';
+                const liveProduct = liveProductsMap.get(itemId);
+
+                if (!liveProduct || liveProduct.isPublished !== true) {
+                    cartChanged = true;
+                    issues.push(`تمت إزالة "${fallbackName}" من السلة لأنه لم يعد متاحًا.`);
+                    continue;
+                }
+
+                const livePrice = resolveDisplayPrice(liveProduct);
+                if (!Number.isFinite(livePrice)) {
+                    cartChanged = true;
+                    issues.push(`تمت إزالة "${liveProduct.name}" من السلة لأن السعر الحالي غير متاح.`);
+                    continue;
+                }
+
+                const liveStockValue = getProductStockValue(liveProduct);
+                if (liveStockValue !== null && liveStockValue <= 0) {
+                    cartChanged = true;
+                    issues.push(`تمت إزالة "${liveProduct.name}" من السلة لأنه نفد من المخزون.`);
+                    continue;
+                }
+
+                let approvedQuantity = requestedQuantity;
+                if (liveStockValue !== null && approvedQuantity > liveStockValue) {
+                    approvedQuantity = liveStockValue;
+                    cartChanged = true;
+                    issues.push(`تم تعديل كمية "${liveProduct.name}" إلى ${approvedQuantity} حسب المخزون المتاح.`);
+                }
+
+                if (Number(cartItem.price) !== Number(livePrice)) {
+                    cartChanged = true;
+                    issues.push(`تم تحديث سعر "${liveProduct.name}" إلى ${formatPrice(livePrice)}.`);
+                }
+
+                nextCart.push({
+                    ...cartItem,
+                    id: liveProduct.id,
+                    name: liveProduct.name,
+                    price: Number(livePrice),
+                    image: getSafeImageUrl(liveProduct, 240),
+                    quantity: approvedQuantity
+                });
+            }
+
+            if (cartChanged) {
+                cart = nextCart;
+                saveCart();
+                updateCartUI();
+            }
+
+            return {
+                ok: !cartChanged,
+                cartChanged,
+                items: nextCart,
+                message: cartChanged
+                    ? (nextCart.length
+                        ? 'تم تحديث السلة بآخر الأسعار والمخزون. راجع الطلب ثم أعد المحاولة.'
+                        : 'تم تفريغ السلة لأن المنتجات المختارة لم تعد متاحة حالياً.')
+                    : '',
+                issues
+            };
+        }
+
         async function handleCheckout(e) {
             e.preventDefault();
             const verified = await ensureVerifiedForSensitiveAction('checkout-submit');
             if (!verified) return;
+
+            let validatedCartState = null;
+            try {
+                validatedCartState = await revalidateCartItemsBeforeCheckout();
+            } catch (error) {
+                console.error('checkout cart revalidation failed:', error);
+                showNotification('error', 'تعذر التحقق من الطلب', 'تعذر التحقق من أحدث الأسعار والمخزون. حاول مرة أخرى خلال لحظات.');
+                return;
+            }
+
+            if (!validatedCartState || validatedCartState.ok !== true) {
+                const message = validatedCartState && validatedCartState.message
+                    ? validatedCartState.message
+                    : 'تم تحديث السلة. راجع المنتجات ثم أعد المحاولة.';
+                showNotification('warning', 'راجِع السلة', message);
+                return;
+            }
 
             const name = document.getElementById('checkoutName').value.trim();
             const phone = document.getElementById('checkoutPhone').value.trim();
             const address = document.getElementById('checkoutAddress').value.trim();
             const notes = document.getElementById('checkoutNotes').value.trim();
 
-            const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+            const checkoutItems = Array.isArray(validatedCartState.items) && validatedCartState.items.length
+                ? validatedCartState.items
+                : [...cart];
+            const subtotal = checkoutItems.reduce((s, i) => s + (i.price * i.quantity), 0);
             let discount = appliedCoupon ? (appliedCoupon.type === 'percentage' ? subtotal * (appliedCoupon.value / 100) : appliedCoupon.value) : 0;
             const totalAfterCoupon = Math.max(0, subtotal - discount);
             const total = Math.max(0, totalAfterCoupon - pointsDiscount);
@@ -9538,7 +9885,7 @@
                 email: String(currentUser?.email || '').trim().toLowerCase(),
                 deviceId: STORE_SESSION_ID,
                 customer: { name, phone, address, notes },
-                items: [...cart],
+                items: checkoutItems,
                 subtotal, discount,
                 couponCode: appliedCoupon?.code || null,
                 usedPoints, pointsDiscount, total, earnedPoints,
