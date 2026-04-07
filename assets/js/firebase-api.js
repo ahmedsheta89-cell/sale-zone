@@ -4153,7 +4153,8 @@ async function markSupportThreadReadByCustomer(threadId) {
         if (!normalizedThreadId) return false;
         await db.collection('support_threads').doc(normalizedThreadId).set({
             unreadForCustomer: 0,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
+            typing: null
         }, { merge: true });
         return true;
     } catch (e) {
