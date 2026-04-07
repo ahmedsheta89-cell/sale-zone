@@ -9478,7 +9478,7 @@
 
                 if (String(currentNode.dataset.notificationSignature || '') !== signature) {
                     const replacement = createMyAccountNotificationCardNode(row);
-                    if (replacement) {
+                    if (replacement && currentNode.parentNode === listNode) {
                         listNode.replaceChild(replacement, currentNode);
                     }
                     return;
