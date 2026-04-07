@@ -3856,19 +3856,27 @@ async function getOrCreateSupportThread(customerProfile) {
             base = {};
         }
 
-        const normalized = normalizeSupportThreadPayload({
-            ...base,
-            uid: customerUid,
-            customerName: profile.customerName || profile.name || base.customerName || '',
-            customerPhone: profile.customerPhone || profile.phone || profile.phoneNormalized || base.customerPhone || '',
-            customerEmail: profile.customerEmail || profile.email || base.customerEmail || '',
-            status: base.status || 'active',
-            updatedAt: new Date().toISOString()
-        }, base);
-
-        if (!(snapshot && snapshot.exists)) {
-            normalized.createdAt = normalized.updatedAt;
+        if (snapshot && snapshot.exists) {
+            const uiRecord = normalizeSupportThreadPayload({
+                ...base,
+                uid: customerUid,
+                customerName: profile.customerName || profile.name || base.customerName || '',
+                customerPhone: profile.customerPhone || profile.phone || profile.phoneNormalized || base.customerPhone || '',
+                customerEmail: profile.customerEmail || profile.email || base.customerEmail || ''
+            }, base);
+            return normalizeSupportThreadRecord(uiRecord, threadId);
         }
+
+        const nowIso = new Date().toISOString();
+        const normalized = normalizeSupportThreadPayload({
+            uid: customerUid,
+            customerName: profile.customerName || profile.name || '',
+            customerPhone: profile.customerPhone || profile.phone || profile.phoneNormalized || '',
+            customerEmail: profile.customerEmail || profile.email || '',
+            status: 'active',
+            createdAt: nowIso,
+            updatedAt: nowIso
+        }, {});
 
         await ref.set(normalized, { merge: true });
         return normalizeSupportThreadRecord(normalized, threadId);
