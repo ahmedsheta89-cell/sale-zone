@@ -3884,6 +3884,9 @@ async function getOrCreateSupportThread(customerProfile) {
             createdAt: nowIso,
             updatedAt: nowIso
         }, {});
+        if (normalized.rating == null) {
+            delete normalized.rating;
+        }
 
         await ref.set(normalized, { merge: true });
         return normalizeSupportThreadRecord(normalized, threadId);
