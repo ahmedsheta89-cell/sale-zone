@@ -4516,6 +4516,32 @@
             await new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
         }
 
+        async function upsertCustomerProfileWithRetry(profileData, context, orderId) {
+            const source = profileData && typeof profileData === 'object' ? profileData : {};
+            const uid = String(source.uid || source.id || '').trim();
+            if (!uid || typeof upsertMyCustomerProfile !== 'function') return null;
+            const payload = { ...source };
+            delete payload.uid;
+            delete payload.id;
+
+            try {
+                return await upsertMyCustomerProfile(uid, payload);
+            } catch (firstError) {
+                await waitForStoreDelay(600);
+                try {
+                    return await upsertMyCustomerProfile(uid, payload);
+                } catch (secondError) {
+                    const warn = '[CustomerProfile] upsert failed after retry'
+                        + ' | context: ' + String(context || 'unknown')
+                        + (orderId ? ' | order: ' + String(orderId) : '')
+                        + ' | uid: ' + (uid || 'unknown');
+                    console.warn(warn);
+                    if (typeof logStore === 'function') logStore('warn', warn);
+                    return null;
+                }
+            }
+        }
+
         async function readPublishedProductsWithRetry(reader, options = {}) {
             const maxAttempts = Math.max(1, Number(options.maxAttempts || 3));
             const delayMs = Math.max(250, Number(options.delayMs || 1200));
@@ -7204,7 +7230,8 @@
                 }
 
                 if (!profile && typeof upsertMyCustomerProfile === 'function') {
-                    profile = await upsertMyCustomerProfile(uid, {
+                    profile = await upsertCustomerProfileWithRetry({
+                        uid,
                         phone: String(config.phone || '').trim(),
                         address: String(config.address || '').trim(),
                         displayName: String(
@@ -7213,7 +7240,7 @@
                             || (authUser.email ? String(authUser.email).split('@')[0] : '')
                             || 'عميل'
                         ).trim()
-                    }).catch(() => null);
+                    }, 'finalize-auth');
                 }
 
                 clearAdminSessionArtifacts();
@@ -9979,11 +10006,12 @@
                 });
                 updateLoyaltyDisplay();
                 if (typeof upsertMyCustomerProfile === 'function') {
-                    upsertMyCustomerProfile(String(currentUser.uid || currentUser.id || ''), {
+                    await upsertCustomerProfileWithRetry({
+                        uid: String(currentUser.uid || currentUser.id || ''),
                         phone: String(currentUser.phone || ''),
                         address: String(currentUser.address || ''),
                         displayName: String(currentUser.name || '')
-                    }).catch(() => null);
+                    }, 'checkout-post-order', order.orderNumber);
                 }
             }
 
