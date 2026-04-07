@@ -1612,6 +1612,7 @@ function normalizeCustomerProfilePayload(payload, defaults = {}, options = {}) {
     const base = defaults && typeof defaults === 'object' ? defaults : {};
     const opts = options && typeof options === 'object' ? options : {};
     const nowIso = new Date().toISOString();
+    const includeAdminFields = opts.includeAdminFields === true;
 
     const uid = String(opts.uid || source.uid || base.uid || '').trim();
     const email = String(opts.email || source.email || base.email || '').trim().toLowerCase();
@@ -1633,22 +1634,27 @@ function normalizeCustomerProfilePayload(payload, defaults = {}, options = {}) {
         ? source.isActive
         : (typeof base.isActive === 'boolean' ? base.isActive : status !== 'inactive');
 
-    return {
+    const normalized = {
         uid,
         email,
         phone: String(source.phone || base.phone || '').trim(),
         address: String(source.address || base.address || '').trim(),
         displayName,
-        name: normalizedName,
         role: role === 'admin' ? 'admin' : 'customer',
         loyaltyPoints,
-        points: Number.isFinite(Number(source.points)) ? Math.max(0, Number(source.points)) : (Number.isFinite(Number(base.points)) ? Math.max(0, Number(base.points)) : loyaltyPoints),
-        orders,
-        isActive: explicitIsActive,
         status,
         createdAt: String(base.createdAt || source.createdAt || nowIso).trim() || nowIso,
         updatedAt: nowIso
     };
+
+    if (includeAdminFields) {
+        normalized.name = normalizedName;
+        normalized.points = Number.isFinite(Number(source.points)) ? Math.max(0, Number(source.points)) : (Number.isFinite(Number(base.points)) ? Math.max(0, Number(base.points)) : loyaltyPoints);
+        normalized.orders = orders;
+        normalized.isActive = explicitIsActive;
+    }
+
+    return normalized;
 }
 
 async function registerCustomerByEmail(payload = {}) {
@@ -2108,7 +2114,8 @@ async function updateCustomer(id, data) {
         const existing = snapshot.exists ? (snapshot.data() || {}) : {};
         const normalized = normalizeCustomerProfilePayload(data, existing, {
             uid: String(existing.uid || docId),
-            email: String(existing.email || data && data.email || '')
+            email: String(existing.email || data && data.email || ''),
+            includeAdminFields: true
         });
         await db.collection('customers').doc(docId).set(normalized, { merge: true });
     } catch (e) {
@@ -4146,7 +4153,8 @@ async function markSupportThreadReadByCustomer(threadId) {
         if (!normalizedThreadId) return false;
         await db.collection('support_threads').doc(normalizedThreadId).set({
             unreadForCustomer: 0,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
+            typing: null
         }, { merge: true });
         return true;
     } catch (e) {
