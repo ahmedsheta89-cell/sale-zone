@@ -291,6 +291,121 @@
         .banner-arrow.prev { right: 15px; }
         .banner-arrow.next { left: 15px; }
 
+        /* ===== HERO BANNER ===== */
+        .banner-hero {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            direction: rtl;
+            aspect-ratio: 4/5;
+        }
+        @media (min-width: 768px) {
+            .banner-hero { aspect-ratio: 16/9; }
+        }
+        @media (min-width: 1024px) {
+            .banner-hero { aspect-ratio: 16/7; }
+        }
+        .banner-hero-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: transform 0.6s ease;
+        }
+        .banner-hero:hover .banner-hero-bg { transform: scale(1.02); }
+        .banner-hero-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+        }
+        .banner-hero.dark .banner-hero-overlay {
+            background: linear-gradient(to top, rgba(26,26,46,0.85) 0%, rgba(26,26,46,0.4) 50%, rgba(26,26,46,0.1) 100%);
+        }
+        .banner-hero.light .banner-hero-overlay {
+            background: linear-gradient(to top, rgba(245,240,239,0.9) 0%, rgba(245,240,239,0.5) 50%, transparent 100%);
+        }
+        .banner-hero-content {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            height: 100%;
+            padding: 28px;
+            box-sizing: border-box;
+        }
+        .banner-hero-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            width: fit-content;
+            margin-bottom: 12px;
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-hero-title {
+            font-size: clamp(1.2rem, 4vw, 2.5rem);
+            font-weight: 700;
+            line-height: 1.4;
+            margin-bottom: 8px;
+            margin-top: 0;
+        }
+        .banner-hero.dark .banner-hero-title {
+            color: var(--banner-dark-text);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .banner-hero.light .banner-hero-title { color: var(--banner-light-text); }
+        .banner-hero-text {
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            line-height: 1.7;
+            margin-bottom: 20px;
+            margin-top: 0;
+            max-width: 500px;
+        }
+        .banner-hero.dark .banner-hero-text { color: var(--banner-dark-text-muted); }
+        .banner-hero.light .banner-hero-text { color: var(--banner-light-text-muted); }
+        .banner-hero-cta {
+            display: inline-block;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+            width: fit-content;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+        .banner-hero-cta:hover { transform: translateY(-2px); }
+        .banner-hero.dark .banner-hero-cta {
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-hero.dark .banner-hero-cta:hover {
+            background: var(--banner-dark-accent-hover);
+        }
+        .banner-hero.light .banner-hero-cta {
+            background: var(--banner-light-accent);
+            color: #fff;
+        }
+        .banner-hero.light .banner-hero-cta:hover {
+            background: var(--banner-light-accent-hover);
+        }
+        .banner-hero-content > * {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+        .banner-slide-active .banner-hero-content > *:nth-child(1) { transition-delay: 0.05s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(2) { transition-delay: 0.15s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(3) { transition-delay: 0.25s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(4) { transition-delay: 0.35s; opacity: 1; transform: none; }
+
         /* Categories */
         .categories-section { padding: 40px 20px; background: var(--white); }
         .section-title { text-align: center; margin-bottom: 35px; }
@@ -5180,6 +5295,45 @@
                     const orderB = Number(b && b.order);
                     return (Number.isFinite(orderA) ? orderA : 0) - (Number.isFinite(orderB) ? orderB : 0);
                 });
+        }
+
+        function renderHeroBanner(banner, index) {
+            const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
+            const imageUrl = String(banner && banner.imageUrl || '').trim();
+            const badge = escapeHtml(String(banner && banner.badge || '').trim());
+            const title = escapeHtml(String(banner && banner.title || ''));
+            const text = escapeHtml(String(banner && banner.text || ''));
+            const btn = escapeHtml(String(banner && banner.btn || ''));
+            const category = escapeHtml(String(banner && banner.category || 'all'));
+            const isFirst = index === 0;
+            const safeImageUrl = imageUrl.replace(/'/g, "\\'");
+            const bgStyle = safeImageUrl ? `background-image: url('${safeImageUrl}')` : '';
+            const badgeHtml = badge ? `<span class="banner-hero-badge">${badge}</span>` : '';
+            const btnHtml = btn
+                ? `<button class="banner-hero-cta" data-category="${category}" onclick="filterByCategory(this.dataset.category)">${btn}</button>`
+                : '';
+
+            return `
+                <div class="banner-hero ${colorMode} ${isFirst ? 'banner-slide-active' : ''}">
+                    <div class="banner-hero-bg" style="${bgStyle}" data-src="${escapeHtml(imageUrl)}" ${isFirst ? '' : 'data-lazy="true"'}></div>
+                    <div class="banner-hero-overlay"></div>
+                    <div class="banner-hero-content">
+                        ${badgeHtml}
+                        <h2 class="banner-hero-title">${title}</h2>
+                        <p class="banner-hero-text">${text}</p>
+                        ${btnHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function applyBannerImageFallback(el, colorMode) {
+            const bg = el && el.querySelector ? el.querySelector('.banner-hero-bg') : null;
+            if (!bg) return;
+            bg.style.backgroundImage = 'none';
+            bg.style.background = colorMode === 'dark'
+                ? 'linear-gradient(135deg, #1a1a2e, #16213e)'
+                : 'linear-gradient(135deg, #f8f4ef, #f0e9df)';
         }
 
         function renderBanners() {
