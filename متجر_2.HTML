@@ -5391,16 +5391,16 @@
             const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
             const imageUrl = String(banner && banner.imageUrl || '').trim();
             const badge = escapeHtml(String(banner && banner.badge || '').trim());
-            const title = escapeHtml(String(banner && banner.title || ''));
-            const text = escapeHtml(String(banner && banner.text || ''));
-            const btn = escapeHtml(String(banner && banner.btn || ''));
-            const category = escapeHtml(String(banner && banner.category || 'all'));
+            const safeTitle = escapeHtml(String(banner && banner.title || ''));
+            const safeText = escapeHtml(String(banner && banner.text || ''));
+            const safeButton = escapeHtml(String(banner && banner.btn || ''));
+            const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
             const isFirst = index === 0;
             const safeImageUrl = imageUrl.replace(/'/g, "\\'");
             const bgStyle = safeImageUrl ? `background-image: url('${safeImageUrl}')` : '';
             const badgeHtml = badge ? `<span class="banner-hero-badge">${badge}</span>` : '';
-            const btnHtml = btn
-                ? `<button class="banner-hero-cta" data-category="${category}" onclick="filterByCategory(this.dataset.category)">${btn}</button>`
+            const btnHtml = safeButton
+                ? `<button class="banner-hero-cta" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</button>`
                 : '';
 
             return `
@@ -5409,8 +5409,8 @@
                     <div class="banner-hero-overlay"></div>
                     <div class="banner-hero-content">
                         ${badgeHtml}
-                        <h2 class="banner-hero-title">${title}</h2>
-                        <p class="banner-hero-text">${text}</p>
+                        <h2 class="banner-hero-title">${safeTitle}</h2>
+                        <p class="banner-hero-text">${safeText}</p>
                         ${btnHtml}
                     </div>
                 </div>
@@ -5429,21 +5429,21 @@
         function renderPromoBanner(banner, index) {
             const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
             const icon = escapeHtml(String(banner && banner.icon || '').trim());
-            const title = escapeHtml(String(banner && banner.title || ''));
-            const text = escapeHtml(String(banner && banner.text || ''));
-            const btn = escapeHtml(String(banner && banner.btn || ''));
-            const category = escapeHtml(String(banner && banner.category || 'all'));
+            const safeTitle = escapeHtml(String(banner && banner.title || ''));
+            const safeText = escapeHtml(String(banner && banner.text || ''));
+            const safeButton = escapeHtml(String(banner && banner.btn || ''));
+            const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
             const iconHtml = icon ? `<div class="banner-promo-icon">${icon}</div>` : '';
-            const btnHtml = btn
-                ? `<button class="banner-promo-cta" data-category="${category}" onclick="filterByCategory(this.dataset.category)">${btn}</button>`
+            const btnHtml = safeButton
+                ? `<button class="banner-promo-cta" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</button>`
                 : '';
 
             return `
                 <div class="banner-promo ${colorMode} ${index === 0 ? 'banner-slide-active' : ''}">
                     ${iconHtml}
                     <div class="banner-promo-body">
-                        <p class="banner-promo-title">${title}</p>
-                        <p class="banner-promo-text">${text}</p>
+                        <p class="banner-promo-title">${safeTitle}</p>
+                        <p class="banner-promo-text">${safeText}</p>
                     </div>
                     ${btnHtml}
                 </div>
