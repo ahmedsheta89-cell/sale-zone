@@ -8703,6 +8703,31 @@ function adminLogout(){
             renderBannersTable();
             showNotification('success', '\u062a\u0645 \u0627\u0644\u062d\u0630\u0641 \u2705');
         }
+
+        async function auditBannerData() {
+            const db = getFirebaseDB();
+            const snapshot = await db.collection('banners').get();
+            const issues = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data() || {};
+                const problems = [];
+                if (data.title === '0' || data.title === 0) problems.push('title=0');
+                if (data.text === '0' || data.text === 0) problems.push('text=0');
+                if (!data.title || (typeof data.title === 'string' && data.title.trim() === '')) problems.push('empty title');
+                if (problems.length > 0) {
+                    issues.push({ id: doc.id, problems, data });
+                }
+            });
+            console.table(issues.map((item) => ({
+                id: item.id,
+                problems: item.problems.join(', '),
+                title: String(item && item.data && item.data.title || ''),
+                text: String(item && item.data && item.data.text || '')
+            })));
+            console.log('Total banners:', snapshot.size);
+            console.log('Corrupted:', issues.length);
+            return issues;
+        }
         initializeBannerPreviewBindings();
 
         // ============================================
