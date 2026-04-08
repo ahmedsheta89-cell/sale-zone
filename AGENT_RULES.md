@@ -69,3 +69,26 @@ node tools/smoke-check.js      ← MUST PASS
 4. If governance fails, fix YOUR code, not the tools
 5. Protected files: tools/*.js, .github/workflows/*.yml
 ```
+
+## LIVE VALIDATION GATE — MANDATORY
+
+Before declaring any branch "ready to merge",
+ALL of the following must be confirmed by the
+store owner on the actual live/deployed environment:
+
+□ CREATE: new record appears on storefront
+□ EDIT: changes persist after page refresh
+□ DELETE: record gone after page refresh
+□ No new console errors on admin or storefront
+□ No regression on existing features
+
+A branch is NOT ready to merge based on:
+- Local governance checks alone
+- Code review alone
+- Simulated or mocked tests alone
+- Agent judgment alone without owner confirmation
+
+BLOCKED status is honest and acceptable.
+"Ready" without live CRUD evidence is not acceptable.
+
+This rule applies to ALL branches, not just banners.

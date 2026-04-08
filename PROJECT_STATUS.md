@@ -74,6 +74,67 @@ The following fix families have been verified on `origin/main`:
 - Branch protection, deployed Firebase rules/indexes state, and live release state are commonly `MANUAL` unless directly verified.
 - Legacy docs may contain outdated operational or security guidance. The operating layer introduced by this file, [PROMPT_CATALOG.md](PROMPT_CATALOG.md), [WORKFLOW_RUNBOOK.md](WORKFLOW_RUNBOOK.md), [ENGINEERING_OPERATING_STANDARD.md](ENGINEERING_OPERATING_STANDARD.md), and [AGENT_RULES.md](AGENT_RULES.md) takes precedence.
 
+# KNOWN FAILURE PATTERNS — LEARNED IN SESSION
+
+## Pattern 1: Parser AST/Fallback Divergence
+
+Date: April 2026  
+Branch: feat/banner-phase1-clean
+
+What happened:
+- Local parser used fallback mode when AST packages were unavailable.
+- CI used AST mode because packages were installed via `npm ci`.
+- Different function counts were produced: `533` vs `525`.
+- This caused `hash-stability` and `admin-function-monitor` to fail on GitHub CI even after the local gate passed.
+
+Fix applied:
+- AST and fallback parsers were aligned to produce identical deterministic output regardless of which packages are available.
+
+File changed:
+- `tools/lib/admin-source-parser.js`
+
+Prevention:
+- Always run `npm ci` before push to simulate CI.
+- Test with both AST and fallback modes when parser-sensitive governance is involved.
+
+## Pattern 2: Name Collision in Global Scope
+
+Date: April 2026
+
+What happened:
+- `assets/js/firebase-api.js` had `deleteBanner()`.
+- `ادمن_2.HTML` also had `deleteBanner()`.
+- When the admin script loaded, the global `deleteBanner` was overridden by the admin handler.
+- `deleteBannerFromFirebase()` ended up calling the admin handler recursively instead of Firestore.
+- Result: confirm dialog looped, delete never reached Firestore, and the banner returned after refresh.
+
+Fix applied:
+- Added `deleteBannerRecord()` as a collision-safe helper in `assets/js/firebase-api.js`.
+- Both delete paths now route through that helper.
+
+Prevention:
+- Never reuse function names across `firebase-api.js` and admin HTML global scope.
+- Naming convention: API helpers use the `Record` suffix when needed to distinguish them from admin UI handlers.
+
+## Pattern 3: Live CRUD Not Tested Before Merge
+
+Date: April 2026
+
+What happened:
+- A branch was declared ready based on local tests only.
+- A live delete bug was reported after PR #150 merged.
+- Delete appeared to work because the local array updated, but live CRUD behavior had not been proven with real credentials on the deployed environment.
+
+Root cause:
+- Live CRUD was `BLOCKED` during agent testing because real admin credentials were not available in the agent environment.
+- Readiness was overstated anyway, which was incorrect.
+
+Fix applied:
+- A mandatory Live Validation Gate was added to `AGENT_RULES.md`.
+
+Prevention:
+- Never declare ready without store owner confirmation of live CRUD with real credentials.
+
 # Manual / External Checks Still Required
 
 - GitHub branch protection live settings on `main`
