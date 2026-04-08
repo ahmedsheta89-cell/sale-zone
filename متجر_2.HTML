@@ -5504,12 +5504,13 @@
         }
 
         function renderBanners() {
+            const section = document.getElementById('bannerSection') || document.querySelector('.banner-section');
             const slider = document.getElementById('bannerSlider');
             const dots = document.getElementById('bannerDots');
             const renderableBanners = getRenderableBanners();
             
             // التحقق من وجود العناصر قبل استخدامها
-            if (!slider || !dots) {
+            if (!section || !slider || !dots) {
                 console.warn('⚠️ Banner elements not found, skipping render');
                 return;
             }
@@ -5517,30 +5518,36 @@
             currentBanner = 0;
 
             if (renderableBanners.length === 0) {
-                slider.innerHTML = `<div class="banner-slide"><div class="banner-content"><div class="banner-icon">🛍️</div><div class="banner-title">${escapeHtml(currentLang === 'ar' ? 'مرحباً بك' : 'Welcome')}</div></div></div>`;
+                stopBannerSlider();
+                section.style.display = 'none';
+                slider.style.transform = 'translateX(0)';
+                slider.innerHTML = '';
                 dots.innerHTML = '';
                 return;
             }
 
-            slider.innerHTML = renderableBanners.map((b) => {
-                const safeIcon = escapeHtml(b && b.icon || '🎉');
-                const safeTitle = escapeHtml(b && b.title || '');
-                const safeText = escapeHtml(b && b.text || '');
-                const safeButton = escapeHtml(b && b.btn || (currentLang === 'ar' ? 'تسوق الآن' : 'Shop Now'));
-                const safeCategory = escapeHtml(b && b.category || 'all');
-                return `
-                <div class="banner-slide">
-                    <div class="banner-content">
-                        <div class="banner-icon">${safeIcon}</div>
-                        <div class="banner-title">${safeTitle}</div>
-                        <div class="banner-text">${safeText}</div>
-                        <a href="#" class="banner-btn" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</a>
-                    </div>
-                </div>
-            `;
+            section.style.display = '';
+            slider.innerHTML = renderableBanners.map((banner, index) => {
+                const type = String(banner && banner.type || 'promo').trim().toLowerCase() === 'hero' ? 'hero' : 'promo';
+                const slideHtml = type === 'hero'
+                    ? renderHeroBanner(banner, index)
+                    : renderPromoBanner(banner, index);
+                return `<div class="banner-slide">${slideHtml}</div>`;
             }).join('');
 
-            dots.innerHTML = renderableBanners.map((_, i) => `<div class="banner-dot ${i === 0 ? 'active' : ''}" onclick="goToBanner(${i})"></div>`).join('');
+            slider.querySelectorAll('.banner-hero').forEach((el) => {
+                const bg = el.querySelector('.banner-hero-bg');
+                const hasLoadedImage = bg && String(bg.style.backgroundImage || '').trim() !== '';
+                const hasDeferredImage = bg && String(bg.dataset.src || '').trim() !== '';
+                if (!hasLoadedImage && !hasDeferredImage) {
+                    const colorMode = el.classList.contains('light') ? 'light' : 'dark';
+                    applyBannerImageFallback(el, colorMode);
+                }
+            });
+
+            dots.innerHTML = renderableBanners.length <= 1
+                ? ''
+                : renderableBanners.map((_, i) => `<button class="banner-dot ${i === 0 ? 'active' : ''}" aria-label="بانر ${i + 1}" onclick="goToBanner(${i})"></button>`).join('');
             goToBanner(currentBanner);
             startBannerSlider();
         }
