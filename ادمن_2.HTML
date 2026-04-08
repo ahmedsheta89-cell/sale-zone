@@ -68,6 +68,18 @@
             --text-secondary: #64748b;
             --text-on-dark: #ffffff;
             --text-on-dark-muted: rgba(255, 255, 255, 0.74);
+            --banner-dark-bg: #1a1a2e;
+            --banner-dark-bg-alt: #16213e;
+            --banner-dark-text: #ffffff;
+            --banner-dark-text-muted: rgba(255,255,255,0.75);
+            --banner-dark-accent: #d4a574;
+            --banner-dark-accent-hover: #c4955f;
+            --banner-light-bg: #f8f4ef;
+            --banner-light-bg-alt: #f0e9df;
+            --banner-light-text: #1a1a2e;
+            --banner-light-text-muted: rgba(26,26,46,0.7);
+            --banner-light-accent: #d4a574;
+            --banner-light-accent-hover: #c4955f;
             --font-display: 'Cairo', 'Tajawal', sans-serif;
             --font-arabic: 'Tajawal', 'Cairo', sans-serif;
             --radius-sm: 12px;
@@ -149,6 +161,205 @@
         .login-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(212,175,55,0.4); }
         .login-error { background: #fee; color: var(--error); padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; font-size: 13px; }
         .back-link { margin-top: 20px; color: var(--gold-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+
+        /* Banner Preview */
+        .banner-hero {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            direction: rtl;
+            aspect-ratio: 4 / 5;
+        }
+        @media (min-width: 768px) {
+            .banner-hero { aspect-ratio: 16 / 9; }
+        }
+        @media (min-width: 1024px) {
+            .banner-hero { aspect-ratio: 16 / 7; }
+        }
+        .banner-hero-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: transform 0.6s ease;
+        }
+        .banner-hero.dark .banner-hero-bg {
+            background: linear-gradient(135deg, var(--banner-dark-bg), var(--banner-dark-bg-alt));
+        }
+        .banner-hero.light .banner-hero-bg {
+            background: linear-gradient(135deg, var(--banner-light-bg), var(--banner-light-bg-alt));
+        }
+        .banner-hero:hover .banner-hero-bg { transform: scale(1.02); }
+        .banner-hero-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+        }
+        .banner-hero.dark .banner-hero-overlay {
+            background: linear-gradient(to top, rgba(26,26,46,0.85) 0%, rgba(26,26,46,0.4) 50%, rgba(26,26,46,0.1) 100%);
+        }
+        .banner-hero.light .banner-hero-overlay {
+            background: linear-gradient(to top, rgba(245,240,239,0.9) 0%, rgba(245,240,239,0.5) 50%, transparent 100%);
+        }
+        .banner-hero-content {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            height: 100%;
+            padding: 28px;
+            box-sizing: border-box;
+        }
+        .banner-hero-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            width: fit-content;
+            margin-bottom: 12px;
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-hero-title {
+            font-size: clamp(1.2rem, 4vw, 2.5rem);
+            font-weight: 700;
+            line-height: 1.4;
+            margin-bottom: 8px;
+            margin-top: 0;
+        }
+        .banner-hero.dark .banner-hero-title {
+            color: var(--banner-dark-text);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .banner-hero.light .banner-hero-title { color: var(--banner-light-text); }
+        .banner-hero-text {
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            line-height: 1.7;
+            margin-bottom: 20px;
+            margin-top: 0;
+            max-width: 500px;
+        }
+        .banner-hero.dark .banner-hero-text { color: var(--banner-dark-text-muted); }
+        .banner-hero.light .banner-hero-text { color: var(--banner-light-text-muted); }
+        .banner-hero-cta {
+            display: inline-block;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+            width: fit-content;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+        .banner-hero-cta:hover { transform: translateY(-2px); }
+        .banner-hero.dark .banner-hero-cta {
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-hero.dark .banner-hero-cta:hover { background: var(--banner-dark-accent-hover); }
+        .banner-hero.light .banner-hero-cta {
+            background: var(--banner-light-accent);
+            color: #fff;
+        }
+        .banner-hero.light .banner-hero-cta:hover { background: var(--banner-light-accent-hover); }
+        .banner-hero-content > * {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+        .banner-slide-active .banner-hero-content > *:nth-child(1) { transition-delay: 0.05s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(2) { transition-delay: 0.15s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(3) { transition-delay: 0.25s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(4) { transition-delay: 0.35s; opacity: 1; transform: none; }
+
+        .banner-promo {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            direction: rtl;
+            padding: 28px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-sizing: border-box;
+        }
+        .banner-promo.dark {
+            background: linear-gradient(135deg, var(--banner-dark-bg), var(--banner-dark-bg-alt));
+        }
+        .banner-promo.light {
+            background: linear-gradient(135deg, var(--banner-light-bg), var(--banner-light-bg-alt));
+        }
+        .banner-promo-icon {
+            font-size: 52px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .banner-promo-body {
+            flex: 1;
+            min-width: 200px;
+        }
+        .banner-promo-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+        }
+        .banner-promo.dark .banner-promo-title { color: var(--banner-dark-text); }
+        .banner-promo.light .banner-promo-title { color: var(--banner-light-text); }
+        .banner-promo-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .banner-promo.dark .banner-promo-text { color: var(--banner-dark-text-muted); }
+        .banner-promo.light .banner-promo-text { color: var(--banner-light-text-muted); }
+        .banner-promo-cta {
+            padding: 10px 28px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+            flex-shrink: 0;
+            font-family: inherit;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .banner-promo.dark .banner-promo-cta {
+            border: 2px solid var(--banner-dark-accent);
+            color: var(--banner-dark-accent);
+        }
+        .banner-promo.dark .banner-promo-cta:hover {
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-promo.light .banner-promo-cta {
+            border: 2px solid var(--banner-light-accent);
+            color: var(--banner-light-text);
+        }
+        .banner-promo.light .banner-promo-cta:hover {
+            background: var(--banner-light-accent);
+            color: #fff;
+        }
+        @media (max-width: 600px) {
+            .banner-promo {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px;
+            }
+            .banner-promo-cta {
+                width: 100%;
+                text-align: center;
+            }
+        }
 
         /* Dashboard */
         .dashboard {
@@ -3193,7 +3404,7 @@
                         <div id="bannerImageUploadStatus" style="font-size:12px; color:#64748b;">يمكنك إدخال رابط مباشر أو رفع صورة إلى Cloudinary.</div>
                     </div>
                     <div id="bannerPreviewSection" style="margin: 20px 0; padding: 16px; border: 1px dashed #ccc; border-radius: 8px;">
-                        <h4 style="margin-bottom: 12px;">معاينة مبدئية — الشكل النهائي قد يختلف</h4>
+                        <h4 style="margin-bottom: 12px;">معاينة البانر</h4>
                         <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                             <div>
                                 <small>سطح المكتب</small>
@@ -8440,27 +8651,6 @@ function adminLogout(){
             };
         }
 
-        function getBannerPreviewTheme(colorMode) {
-            if (colorMode === 'light') {
-                return {
-                    background: 'linear-gradient(135deg, #f8f4ef, #f0e9df)',
-                    textColor: '#1a1a2e',
-                    mutedTextColor: 'rgba(26, 26, 46, 0.78)',
-                    accentColor: '#d4a574',
-                    buttonTextColor: '#ffffff',
-                    overlay: 'linear-gradient(135deg, rgba(248,244,239,0.88), rgba(240,233,223,0.74))'
-                };
-            }
-            return {
-                background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
-                textColor: '#ffffff',
-                mutedTextColor: 'rgba(255, 255, 255, 0.82)',
-                accentColor: '#d4a574',
-                buttonTextColor: '#1a1a2e',
-                overlay: 'linear-gradient(135deg, rgba(26,26,46,0.82), rgba(22,33,62,0.68))'
-            };
-        }
-
         const bannerImageUploadState = {
             uploading: false,
             previewObjectUrl: '',
@@ -8609,43 +8799,59 @@ function adminLogout(){
             }
         }
 
-        function buildBannerPreviewMarkup(data, isMobile) {
-            const theme = getBannerPreviewTheme(data.colorMode);
-            const title = escapeHtml(data.title || 'عنوان البانر');
-            const text = escapeHtml(data.text || 'وصف مختصر سيظهر هنا بمجرد إدخال النص.');
-            const button = escapeHtml(data.btn || 'تسوق الآن');
-            const badge = escapeHtml(data.badge || '');
-            const icon = escapeHtml(data.icon || '🎉');
-            const safeImageUrl = /^https?:\/\//i.test(String(data.imageUrl || '').trim())
-                ? String(data.imageUrl || '').trim().replace(/"/g, '&quot;')
+        function renderBannerPreviewHTML(data, isMobile = false) {
+            const type = data.type || 'promo';
+            const colorMode = data.colorMode || 'dark';
+            const rawImageUrl = String(data.imageUrl || '').trim();
+            const safeImageUrl = /^(https?:\/\/|blob:)/i.test(rawImageUrl)
+                ? rawImageUrl.replace(/'/g, '%27')
                 : '';
-            const minHeight = isMobile ? '280px' : '180px';
-            const padding = isMobile ? '20px' : '24px';
-            const textMaxWidth = isMobile ? '100%' : '70%';
-            return `
-                <div class="banner-preview-card" data-image-url="${safeImageUrl}" data-overlay="${theme.overlay.replace(/"/g, '&quot;')}" style="position: relative; min-height: ${minHeight}; padding: ${padding}; border-radius: 8px; overflow: hidden; background: ${theme.background}; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px;">
-                    <div class="banner-preview-overlay" style="position: absolute; inset: 0; background: ${theme.overlay};"></div>
-                    <div style="position: relative; z-index: 1; max-width: ${textMaxWidth}; display: flex; flex-direction: column; gap: 10px;">
-                        ${badge ? `<span style="display: inline-flex; width: fit-content; align-items: center; justify-content: center; padding: 4px 12px; border-radius: 999px; background: ${theme.accentColor}; color: ${theme.buttonTextColor}; font-size: 12px; font-weight: 700;">${badge}</span>` : ''}
-                        <div style="display: flex; align-items: center; gap: 10px; color: ${theme.textColor};">
-                            <span style="font-size: ${isMobile ? '24px' : '28px'}; line-height: 1;">${icon}</span>
-                            <strong style="font-size: ${isMobile ? '18px' : '22px'}; line-height: 1.5;">${title}</strong>
+            const badge = escapeHtml(data.badge || '');
+            const title = escapeHtml(data.title || 'عنوان البانر');
+            const text = escapeHtml(data.text || 'وصف البانر');
+            const btn = escapeHtml(data.btn || '');
+            const icon = escapeHtml(data.icon || '');
+
+            if (type === 'hero') {
+                const bgStyle = safeImageUrl ? `background-image:url('${safeImageUrl}')` : '';
+                const badgeHtml = badge
+                    ? `<span class="banner-hero-badge">${badge}</span>`
+                    : '';
+                const btnHtml = btn
+                    ? `<button class="banner-hero-cta" type="button">${btn}</button>`
+                    : '';
+
+                return `
+                    <div class="banner-hero ${colorMode} banner-slide-active" style="${isMobile ? 'aspect-ratio:4/5;' : 'aspect-ratio:16/7;'} border-radius:8px;">
+                        <div class="banner-hero-bg" style="${bgStyle}"></div>
+                        <div class="banner-hero-overlay"></div>
+                        <div class="banner-hero-content">
+                            ${badgeHtml}
+                            <h2 class="banner-hero-title">${title}</h2>
+                            <p class="banner-hero-text">${text}</p>
+                            ${btnHtml}
                         </div>
-                        <div style="color: ${theme.mutedTextColor}; font-size: ${isMobile ? '13px' : '14px'}; line-height: 1.7;">${text}</div>
-                        ${data.btn ? `<span style="display: inline-flex; width: fit-content; align-items: center; justify-content: center; padding: 10px 18px; border-radius: 999px; background: ${theme.accentColor}; color: ${theme.buttonTextColor}; font-size: 13px; font-weight: 700;">${button}</span>` : ''}
                     </div>
+                `;
+            }
+
+            const iconHtml = icon
+                ? `<div class="banner-promo-icon">${icon}</div>`
+                : '';
+            const btnHtml = btn
+                ? `<button class="banner-promo-cta" type="button">${btn}</button>`
+                : '';
+
+            return `
+                <div class="banner-promo ${colorMode}">
+                    ${iconHtml}
+                    <div class="banner-promo-body">
+                        <p class="banner-promo-title">${title}</p>
+                        <p class="banner-promo-text">${text}</p>
+                    </div>
+                    ${btnHtml}
                 </div>
             `;
-        }
-
-        function applyBannerPreviewBackground(surface) {
-            if (!surface) return;
-            const imageUrl = String(surface.dataset.imageUrl || '').trim();
-            const overlay = String(surface.dataset.overlay || '').trim();
-            if (!imageUrl) return;
-            surface.style.backgroundImage = `${overlay}, url("${imageUrl}")`;
-            surface.style.backgroundSize = 'cover';
-            surface.style.backgroundPosition = 'center';
         }
 
         function updateBannerPreview() {
@@ -8653,10 +8859,8 @@ function adminLogout(){
             const mobileEl = document.getElementById('previewMobile');
             if (!desktopEl || !mobileEl) return;
             const data = getBannerPreviewData();
-            desktopEl.innerHTML = buildBannerPreviewMarkup(data, false);
-            mobileEl.innerHTML = buildBannerPreviewMarkup(data, true);
-            applyBannerPreviewBackground(desktopEl.querySelector('.banner-preview-card'));
-            applyBannerPreviewBackground(mobileEl.querySelector('.banner-preview-card'));
+            desktopEl.innerHTML = renderBannerPreviewHTML(data, false);
+            mobileEl.innerHTML = renderBannerPreviewHTML(data, true);
         }
 
         function initializeBannerPreviewBindings() {
