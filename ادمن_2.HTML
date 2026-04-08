@@ -8803,8 +8803,13 @@ function adminLogout(){
             const type = data.type || 'promo';
             const colorMode = data.colorMode || 'dark';
             const rawImageUrl = String(data.imageUrl || '').trim();
-            const safeImageUrl = /^(https?:\/\/|blob:)/i.test(rawImageUrl)
-                ? rawImageUrl.replace(/'/g, '%27')
+            const previewImageUrl = rawImageUrl.startsWith('blob:')
+                ? rawImageUrl
+                : (typeof optimizeBannerImageUrl === 'function'
+                    ? String(optimizeBannerImageUrl(rawImageUrl, 'preview') || '').trim()
+                    : rawImageUrl);
+            const safeImageUrl = /^(https?:\/\/|blob:)/i.test(previewImageUrl)
+                ? previewImageUrl.replace(/'/g, '%27')
                 : '';
             const badge = escapeHtml(data.badge || '');
             const title = escapeHtml(data.title || 'عنوان البانر');

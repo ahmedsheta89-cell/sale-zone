@@ -5390,13 +5390,17 @@
         function renderHeroBanner(banner, index) {
             const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
             const imageUrl = String(banner && banner.imageUrl || '').trim();
+            const bannerImageContext = window.innerWidth < 768 ? 'mobile' : 'desktop';
+            const optimizedImageUrl = typeof optimizeBannerImageUrl === 'function'
+                ? String(optimizeBannerImageUrl(imageUrl, bannerImageContext) || '').trim()
+                : imageUrl;
             const badge = escapeHtml(String(banner && banner.badge || '').trim());
             const safeTitle = escapeHtml(String(banner && banner.title || ''));
             const safeText = escapeHtml(String(banner && banner.text || ''));
             const safeButton = escapeHtml(String(banner && banner.btn || ''));
             const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
             const isFirst = index === 0;
-            const safeImageUrl = imageUrl.replace(/'/g, "\\'");
+            const safeImageUrl = optimizedImageUrl.replace(/'/g, "\\'");
             const bgStyle = safeImageUrl ? `background-image: url('${safeImageUrl}')` : '';
             const badgeHtml = badge ? `<span class="banner-hero-badge">${badge}</span>` : '';
             const btnHtml = safeButton
@@ -5405,7 +5409,7 @@
 
             return `
                 <div class="banner-hero ${colorMode} ${isFirst ? 'banner-slide-active' : ''}">
-                    <div class="banner-hero-bg" style="${bgStyle}" data-src="${escapeHtml(imageUrl)}" ${isFirst ? '' : 'data-lazy="true"'}></div>
+                    <div class="banner-hero-bg" style="${bgStyle}" data-src="${escapeHtml(optimizedImageUrl)}" ${isFirst ? '' : 'data-lazy="true"'}></div>
                     <div class="banner-hero-overlay"></div>
                     <div class="banner-hero-content">
                         ${badgeHtml}
@@ -5468,7 +5472,11 @@
         function loadSlideImage(slide) {
             if (!slide || !slide.querySelectorAll) return;
             slide.querySelectorAll('[data-lazy="true"]').forEach((bg) => {
-                const src = String(bg.dataset.src || '').trim();
+                const rawSrc = String(bg.dataset.src || '').trim();
+                const context = window.innerWidth < 768 ? 'mobile' : 'desktop';
+                const src = typeof optimizeBannerImageUrl === 'function'
+                    ? String(optimizeBannerImageUrl(rawSrc, context) || '').trim()
+                    : rawSrc;
                 if (!src) return;
                 bg.style.backgroundImage = `url('${src.replace(/'/g, "\\'")}')`;
                 bg.removeAttribute('data-lazy');
