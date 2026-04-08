@@ -367,13 +367,22 @@ async function getBanners() {
         const snapshot = await db.collection('banners').get();
         const banners = snapshot.docs.map(doc => {
             const data = doc.data();
+            const parsedOrder = Number(data.order);
             return { 
                 id: doc.id, 
                 icon: data.icon || '🛍️',
                 title: data.title || '',
                 text: data.text || '',
                 btn: data.btn || 'تسوق الآن',
-                category: data.category || 'all'
+                category: data.category || 'all',
+                type: data.type || 'promo',
+                active: data.active !== undefined ? data.active : true,
+                order: Number.isFinite(parsedOrder) ? parsedOrder : 0,
+                colorMode: data.colorMode || 'dark',
+                imageUrl: data.imageUrl || '',
+                badge: data.badge || '',
+                createdAt: data.createdAt || '',
+                updatedAt: data.updatedAt || ''
             };
         });
         return banners;

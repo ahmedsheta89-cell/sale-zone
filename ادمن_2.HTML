@@ -3143,6 +3143,42 @@
                         <label>نص الزر</label>
                         <input type="text" id="bannerBtn" placeholder="تسوق الآن" autocomplete="off">
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>نوع البانر</label>
+                            <select id="bannerType">
+                                <option value="promo">Promo</option>
+                                <option value="hero">Hero</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>وضع الألوان</label>
+                            <select id="bannerColorMode">
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>ترتيب العرض</label>
+                            <input type="number" id="bannerOrder" min="0" step="1" value="0" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px; min-height: 44px;">
+                                <input type="checkbox" id="bannerActive" checked>
+                                <span>مفعل على المتجر</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>شارة البانر</label>
+                        <input type="text" id="bannerBadge" placeholder="مثال: خصم 20%" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>رابط الصورة (اختياري)</label>
+                        <input type="url" id="bannerImageUrl" placeholder="https://example.com/banner.jpg" autocomplete="off">
+                    </div>
                     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                         <button type="submit" id="bannerSaveBtn" class="submit-btn" style="flex: 1 1 220px;">💾 حفظ</button>
                         <button type="button" id="bannerCancelEditBtn" class="btn btn-light" style="display: none; flex: 1 1 180px;" onclick="resetBannerForm()">إلغاء التعديل</button>
@@ -8338,6 +8374,68 @@ function adminLogout(){
         // ============================================
         // Banners
         // ============================================
+        const MAX_ACTIVE_BANNERS = 5;
+
+        function normalizeBannerType(value) {
+            return String(value || '').trim() === 'hero' ? 'hero' : 'promo';
+        }
+
+        function normalizeBannerColorMode(value) {
+            return String(value || '').trim() === 'light' ? 'light' : 'dark';
+        }
+
+        function normalizeBannerOrder(value) {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+        }
+
+        function isBannerActiveState(value) {
+            return value !== undefined ? Boolean(value) : true;
+        }
+
+        function getBannerFormData() {
+            const iconValue = String(document.getElementById('bannerIcon').value || '').trim();
+            const titleValue = String(document.getElementById('bannerTitle').value || '').trim();
+            const textValue = String(document.getElementById('bannerText').value || '').trim();
+            const btnValue = String(document.getElementById('bannerBtn').value || '').trim();
+            const categoryValue = String(document.getElementById('bannerCategory').value || 'all').trim() || 'all';
+            return {
+                icon: iconValue,
+                title: titleValue,
+                text: textValue,
+                btn: btnValue,
+                category: categoryValue,
+                type: normalizeBannerType(document.getElementById('bannerType').value),
+                active: document.getElementById('bannerActive').checked,
+                order: normalizeBannerOrder(document.getElementById('bannerOrder').value),
+                colorMode: normalizeBannerColorMode(document.getElementById('bannerColorMode').value),
+                imageUrl: String(document.getElementById('bannerImageUrl').value || '').trim(),
+                badge: String(document.getElementById('bannerBadge').value || '').trim()
+            };
+        }
+
+        async function canActivateBanner() {
+            let source = Array.isArray(banners) ? banners : [];
+            if (typeof getAllBanners === 'function') {
+                try {
+                    const latest = await getAllBanners();
+                    if (Array.isArray(latest)) source = latest;
+                } catch (error) {
+                    console.warn('⚠️ Falling back to local banners for active-count check:', error);
+                }
+            }
+            const currentId = String(editingBannerId || '');
+            const activeCount = source.filter((item) => {
+                const itemId = String(item && item.id || '');
+                return itemId !== currentId && isBannerActiveState(item && item.active);
+            }).length;
+            if (activeCount >= MAX_ACTIVE_BANNERS) {
+                showNotification('error', 'لا يمكن تفعيل أكثر من 5 بانرات في نفس الوقت');
+                return false;
+            }
+            return true;
+        }
+
         function setBannerEditMode(isEditing) {
             const titleEl = document.getElementById('bannerModalTitle');
             const saveBtn = document.getElementById('bannerSaveBtn');
@@ -8355,6 +8453,12 @@ function adminLogout(){
             document.getElementById('bannerText').value = '';
             document.getElementById('bannerBtn').value = '';
             document.getElementById('bannerCategory').value = 'all';
+            document.getElementById('bannerType').value = 'promo';
+            document.getElementById('bannerActive').checked = true;
+            document.getElementById('bannerOrder').value = '0';
+            document.getElementById('bannerColorMode').value = 'dark';
+            document.getElementById('bannerBadge').value = '';
+            document.getElementById('bannerImageUrl').value = '';
         }
 
         function openBannerModalForCreate() {
@@ -8375,6 +8479,12 @@ function adminLogout(){
             document.getElementById('bannerText').value = String(target.text || '');
             document.getElementById('bannerBtn').value = String(target.btn || '');
             document.getElementById('bannerCategory').value = String(target.category || 'all');
+            document.getElementById('bannerType').value = normalizeBannerType(target.type);
+            document.getElementById('bannerActive').checked = isBannerActiveState(target.active);
+            document.getElementById('bannerOrder').value = String(normalizeBannerOrder(target.order));
+            document.getElementById('bannerColorMode').value = normalizeBannerColorMode(target.colorMode);
+            document.getElementById('bannerBadge').value = String(target.badge || '');
+            document.getElementById('bannerImageUrl').value = String(target.imageUrl || '');
             openModal('bannerModal');
         }
 
@@ -8414,24 +8524,17 @@ function adminLogout(){
                 return;
             }
 
-            const iconValue = String(document.getElementById('bannerIcon').value || '').trim();
-            const titleValue = String(document.getElementById('bannerTitle').value || '').trim();
-            const textValue = String(document.getElementById('bannerText').value || '').trim();
-            const btnValue = String(document.getElementById('bannerBtn').value || '').trim();
-            const categoryValue = String(document.getElementById('bannerCategory').value || 'all').trim() || 'all';
+            const data = getBannerFormData();
 
-            if (!titleValue || !textValue) {
+            if (!data.title || !data.text) {
                 showNotification('error', 'يرجى ملء جميع الحقول المطلوبة');
                 return;
             }
 
-            const data = {
-                icon: iconValue,
-                title: titleValue,
-                text: textValue,
-                btn: btnValue,
-                category: categoryValue
-            };
+            if (data.active) {
+                const canActivate = await canActivateBanner();
+                if (!canActivate) return;
+            }
 
             try {
                 await requireAdminPermission();
