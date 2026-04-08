@@ -3402,6 +3402,7 @@
                             <div id="bannerImageUploadProgressBar" style="width:0%; height:100%; background:linear-gradient(135deg, var(--gold), var(--gold-dark)); transition:width 0.2s ease;"></div>
                         </div>
                         <div id="bannerImageUploadStatus" style="font-size:12px; color:#64748b;">يمكنك إدخال رابط مباشر أو رفع صورة إلى Cloudinary.</div>
+                        <div id="bannerImageInfo" style="font-size:13px;color:#64748b;margin-top:6px;direction:rtl;"></div>
                     </div>
                     <div id="bannerPreviewSection" style="margin: 20px 0; padding: 16px; border: 1px dashed #ccc; border-radius: 8px;">
                         <h4 style="margin-bottom: 12px;">معاينة البانر</h4>
@@ -8655,7 +8656,8 @@ function adminLogout(){
             uploading: false,
             previewObjectUrl: '',
             previewOverrideUrl: '',
-            selectedFileName: ''
+            selectedFileName: '',
+            estimateRequestId: 0
         };
 
         function getBannerImageUploadElements() {
@@ -8667,6 +8669,7 @@ function adminLogout(){
                 progressWrap: document.getElementById('bannerImageUploadProgressWrap'),
                 progressBar: document.getElementById('bannerImageUploadProgressBar'),
                 status: document.getElementById('bannerImageUploadStatus'),
+                info: document.getElementById('bannerImageInfo'),
                 saveButton: document.getElementById('bannerSaveBtn')
             };
         }
@@ -8709,6 +8712,23 @@ function adminLogout(){
                         : '#64748b';
         }
 
+        function setBannerImageInfo(message, tone = 'muted') {
+            const ui = getBannerImageUploadElements();
+            if (!ui.info) return;
+            ui.info.textContent = String(message || '');
+            ui.info.style.color = tone === 'error'
+                ? '#dc2626'
+                : tone === 'success'
+                    ? '#0f766e'
+                    : tone === 'warning'
+                        ? '#b45309'
+                        : '#64748b';
+        }
+
+        function formatBannerImageKilobytes(bytes) {
+            return `${(Number(bytes || 0) / 1024).toFixed(1)} KB`;
+        }
+
         function setBannerImageUploadBusy(isBusy) {
             const ui = getBannerImageUploadElements();
             bannerImageUploadState.uploading = isBusy === true;
@@ -8728,6 +8748,7 @@ function adminLogout(){
             if (ui.progressWrap) ui.progressWrap.style.display = 'none';
             if (ui.progressBar) ui.progressBar.style.width = '0%';
             setBannerImageUploadStatus('يمكنك إدخال رابط مباشر أو رفع صورة إلى Cloudinary.');
+            setBannerImageInfo('');
             setBannerImageUploadBusy(false);
         }
 
@@ -8735,6 +8756,8 @@ function adminLogout(){
             const file = input && input.files ? input.files[0] : null;
             const ui = getBannerImageUploadElements();
             const currentStoredValue = String(ui.urlInput?.value || '').trim();
+            const originalBytes = Number(file && file.size || 0);
+            const estimateRequestId = Date.now();
             if (!file) return;
 
             try {
@@ -8749,11 +8772,37 @@ function adminLogout(){
                     ui.warning.style.display = Number(file.size || 0) > 200 * 1024 ? 'block' : 'none';
                 }
 
+                bannerImageUploadState.estimateRequestId = estimateRequestId;
+                setBannerImageInfo(`الحجم الأصلي: ${formatBannerImageKilobytes(originalBytes)}`);
+
                 clearBannerImagePreviewObjectUrl();
                 bannerImageUploadState.previewObjectUrl = URL.createObjectURL(file);
                 bannerImageUploadState.selectedFileName = String(file.name || '').trim();
                 setBannerImagePreviewOverride(bannerImageUploadState.previewObjectUrl);
                 updateBannerPreview();
+
+                if (typeof compressImageBeforeUpload === 'function') {
+                    compressImageBeforeUpload(file, {
+                        maxWidth: 1920,
+                        maxHeight: 1080,
+                        quality: 0.85
+                    }).then((compressed) => {
+                        const estimatedBytes = Number(compressed && compressed.size || 0);
+                        const savedBytes = Math.max(0, originalBytes - estimatedBytes);
+                        let message;
+                        if (bannerImageUploadState.estimateRequestId !== estimateRequestId || !estimatedBytes) return;
+                        message = `الحجم الأصلي: ${formatBannerImageKilobytes(originalBytes)} ← بعد الضغط: ${formatBannerImageKilobytes(estimatedBytes)}`;
+                        if (savedBytes > 0) {
+                            message += ` (وفّر ${formatBannerImageKilobytes(savedBytes)})`;
+                        }
+                        if (estimatedBytes > 500 * 1024) {
+                            message += ' ⚠️ الملف لا يزال كبيراً. يُنصح بضغطه يدوياً قبل الرفع.';
+                            setBannerImageInfo(message, 'warning');
+                            return;
+                        }
+                        setBannerImageInfo(message, savedBytes > 0 ? 'success' : 'muted');
+                    }).catch(() => {});
+                }
 
                 setBannerImageUploadBusy(true);
                 setBannerImageUploadProgress(4);
@@ -8768,6 +8817,11 @@ function adminLogout(){
                 const uploaded = await uploadToCloudinary(file, {
                     folder: 'banners',
                     publicId,
+                    compress: {
+                        maxWidth: 1920,
+                        maxHeight: 1080,
+                        quality: 0.85
+                    },
                     onProgress(percent) {
                         setBannerImageUploadProgress(percent);
                         setBannerImageUploadStatus(`جارٍ رفع الصورة... ${Math.round(Number(percent || 0))}%`, 'muted');
@@ -8782,6 +8836,9 @@ function adminLogout(){
                 clearBannerImagePreviewObjectUrl();
                 setBannerImageUploadProgress(100);
                 setBannerImageUploadStatus('تم رفع صورة البانر بنجاح. يمكنك الآن حفظ البانر.', 'success');
+                if (Number(uploaded && uploaded.bytes || 0) > 0) {
+                    setBannerImageInfo(`✅ تم الرفع — الحجم النهائي: ${formatBannerImageKilobytes(uploaded.bytes)}`, 'success');
+                }
                 updateBannerPreview();
                 showNotification('success', 'تم رفع صورة البانر بنجاح.');
             } catch (error) {
@@ -8803,8 +8860,13 @@ function adminLogout(){
             const type = data.type || 'promo';
             const colorMode = data.colorMode || 'dark';
             const rawImageUrl = String(data.imageUrl || '').trim();
-            const safeImageUrl = /^(https?:\/\/|blob:)/i.test(rawImageUrl)
-                ? rawImageUrl.replace(/'/g, '%27')
+            const previewImageUrl = rawImageUrl.startsWith('blob:')
+                ? rawImageUrl
+                : (typeof optimizeBannerImageUrl === 'function'
+                    ? String(optimizeBannerImageUrl(rawImageUrl, 'preview') || '').trim()
+                    : rawImageUrl);
+            const safeImageUrl = /^(https?:\/\/|blob:)/i.test(previewImageUrl)
+                ? previewImageUrl.replace(/'/g, '%27')
                 : '';
             const badge = escapeHtml(data.badge || '');
             const title = escapeHtml(data.title || 'عنوان البانر');

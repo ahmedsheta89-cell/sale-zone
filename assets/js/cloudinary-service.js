@@ -310,9 +310,62 @@
     return enhanceProductImageUrl(source, size);
   }
 
+  function getBannerTransformPreset(context) {
+    var presets = {
+      desktop: 'w_1200,h_525,c_fill,q_auto,f_auto',
+      mobile: 'w_800,h_1000,c_fill,q_auto,f_auto',
+      preview: 'w_600,q_auto,f_auto'
+    };
+    return presets[String(context || '').trim()] || presets.desktop;
+  }
+
+  function hasCloudinaryTransforms(url) {
+    var rawUrl = String(url || '').trim();
+    var parsed;
+    var markerIndex;
+    var afterUpload;
+    var segments;
+    if (!rawUrl || rawUrl.indexOf('cloudinary.com') === -1) return false;
+
+    try {
+      parsed = new URL(rawUrl);
+      markerIndex = parsed.pathname.indexOf('/image/upload/');
+      if (markerIndex === -1) return false;
+      afterUpload = parsed.pathname.slice(markerIndex + '/image/upload/'.length);
+      segments = afterUpload.split('/').filter(Boolean);
+      if (!segments.length) return false;
+      if (isCloudinaryTransformSegment(segments[0])) return true;
+      if (segments.length > 1 && /^v\d+$/i.test(segments[0]) && isCloudinaryTransformSegment(segments[1])) {
+        return true;
+      }
+    } catch (_) {
+      return false;
+    }
+
+    return false;
+  }
+
+  function optimizeBannerImageUrl(url, context) {
+    var rawUrl = String(url || '').trim();
+    var transforms;
+    if (!rawUrl || rawUrl.indexOf('cloudinary.com') === -1) {
+      return rawUrl;
+    }
+
+    if (hasCloudinaryTransforms(rawUrl)) {
+      return rawUrl;
+    }
+
+    transforms = getBannerTransformPreset(context);
+    return rawUrl.replace('/image/upload/', '/image/upload/' + transforms + '/');
+  }
+
   function compressImageBeforeUpload(file, maxSizeKB) {
     var settings = (maxSizeKB && typeof maxSizeKB === 'object') ? maxSizeKB : {};
     var maxDimension = Math.max(120, Number(settings.maxDimension || MAX_COMPRESSED_DIMENSION));
+    var hasBannerBox = Number(settings.maxWidth || 0) > 0 && Number(settings.maxHeight || 0) > 0;
+    var maxWidth = Math.max(120, Number(settings.maxWidth || maxDimension));
+    var maxHeight = Math.max(120, Number(settings.maxHeight || maxDimension));
     var quality = Math.max(0.5, Math.min(0.95, Number(settings.quality || DEFAULT_UPLOAD_QUALITY)));
     var validated;
     if (!file || typeof document === 'undefined') return Promise.resolve(file);
@@ -354,8 +407,10 @@
       };
 
       img.onload = function () {
-        var widthScale = img.width > maxDimension ? (maxDimension / img.width) : 1;
-        var heightScale = img.height > maxDimension ? (maxDimension / img.height) : 1;
+        var targetWidth = hasBannerBox ? maxWidth : maxDimension;
+        var targetHeight = hasBannerBox ? maxHeight : maxDimension;
+        var widthScale = img.width > targetWidth ? (targetWidth / img.width) : 1;
+        var heightScale = img.height > targetHeight ? (targetHeight / img.height) : 1;
         var scale = Math.min(widthScale, heightScale, 1);
         canvas.width = Math.max(1, Math.round(img.width * scale));
         canvas.height = Math.max(1, Math.round(img.height * scale));
@@ -381,6 +436,9 @@
 
   function uploadToCloudinary(file, options) {
     var settings = options && typeof options === 'object' ? options : {};
+    var compressOptions = settings.compress && typeof settings.compress === 'object'
+      ? settings.compress
+      : null;
     try {
       validateUploadFile(file, { phase: 'precompress' });
     } catch (validationError) {
@@ -392,7 +450,7 @@
       }));
     }
 
-    return compressImageBeforeUpload(file).catch(function () {
+    return compressImageBeforeUpload(file, compressOptions || undefined).catch(function () {
       return file;
     }).then(function (uploadFile) {
       validateUploadFile(uploadFile, { phase: 'upload' });
@@ -617,6 +675,7 @@
     config: CLOUDINARY_CONFIG,
     transforms: TRANSFORMS,
     enhance: enhanceProductImageUrl,
+    optimizeBanner: optimizeBannerImageUrl,
     getOptimized: getOptimizedImageUrl,
     getSafe: getSafeImageUrl,
     validateUpload: validateUploadFile,
@@ -637,6 +696,7 @@
 
   global.CLOUDINARY_CONFIG = CLOUDINARY_CONFIG;
   global.enhanceProductImageUrl = enhanceProductImageUrl;
+  global.optimizeBannerImageUrl = optimizeBannerImageUrl;
   global.getOptimizedImageUrl = getOptimizedImageUrl;
   global.getSafeImageUrl = getSafeImageUrl;
   global.validateCloudinaryUploadFile = validateUploadFile;
