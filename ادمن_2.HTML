@@ -3179,6 +3179,19 @@
                         <label>رابط الصورة (اختياري)</label>
                         <input type="url" id="bannerImageUrl" placeholder="https://example.com/banner.jpg" autocomplete="off">
                     </div>
+                    <div id="bannerPreviewSection" style="margin: 20px 0; padding: 16px; border: 1px dashed #ccc; border-radius: 8px;">
+                        <h4 style="margin-bottom: 12px;">معاينة مبدئية — الشكل النهائي قد يختلف</h4>
+                        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                            <div>
+                                <small>سطح المكتب</small>
+                                <div id="previewDesktop" style="width: 500px; max-width: 100%; min-height: 180px; border-radius: 8px; overflow: hidden; border: 1px solid #eee;"></div>
+                            </div>
+                            <div>
+                                <small>الموبايل</small>
+                                <div id="previewMobile" style="width: 280px; min-height: 280px; border-radius: 8px; overflow: hidden; border: 1px solid #eee;"></div>
+                            </div>
+                        </div>
+                    </div>
                     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                         <button type="submit" id="bannerSaveBtn" class="submit-btn" style="flex: 1 1 220px;">💾 حفظ</button>
                         <button type="button" id="bannerCancelEditBtn" class="btn btn-light" style="display: none; flex: 1 1 180px;" onclick="resetBannerForm()">إلغاء التعديل</button>
@@ -8414,6 +8427,101 @@ function adminLogout(){
             };
         }
 
+        function getBannerPreviewTheme(colorMode) {
+            if (colorMode === 'light') {
+                return {
+                    background: 'linear-gradient(135deg, #f8f4ef, #f0e9df)',
+                    textColor: '#1a1a2e',
+                    mutedTextColor: 'rgba(26, 26, 46, 0.78)',
+                    accentColor: '#d4a574',
+                    buttonTextColor: '#ffffff',
+                    overlay: 'linear-gradient(135deg, rgba(248,244,239,0.88), rgba(240,233,223,0.74))'
+                };
+            }
+            return {
+                background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+                textColor: '#ffffff',
+                mutedTextColor: 'rgba(255, 255, 255, 0.82)',
+                accentColor: '#d4a574',
+                buttonTextColor: '#1a1a2e',
+                overlay: 'linear-gradient(135deg, rgba(26,26,46,0.82), rgba(22,33,62,0.68))'
+            };
+        }
+
+        function buildBannerPreviewMarkup(data, isMobile) {
+            const theme = getBannerPreviewTheme(data.colorMode);
+            const title = escapeHtml(data.title || 'عنوان البانر');
+            const text = escapeHtml(data.text || 'وصف مختصر سيظهر هنا بمجرد إدخال النص.');
+            const button = escapeHtml(data.btn || 'تسوق الآن');
+            const badge = escapeHtml(data.badge || '');
+            const icon = escapeHtml(data.icon || '🎉');
+            const safeImageUrl = /^https?:\/\//i.test(String(data.imageUrl || '').trim())
+                ? String(data.imageUrl || '').trim().replace(/"/g, '&quot;')
+                : '';
+            const minHeight = isMobile ? '280px' : '180px';
+            const padding = isMobile ? '20px' : '24px';
+            const textMaxWidth = isMobile ? '100%' : '70%';
+            return `
+                <div class="banner-preview-card" data-image-url="${safeImageUrl}" data-overlay="${theme.overlay.replace(/"/g, '&quot;')}" style="position: relative; min-height: ${minHeight}; padding: ${padding}; border-radius: 8px; overflow: hidden; background: ${theme.background}; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px;">
+                    <div class="banner-preview-overlay" style="position: absolute; inset: 0; background: ${theme.overlay};"></div>
+                    <div style="position: relative; z-index: 1; max-width: ${textMaxWidth}; display: flex; flex-direction: column; gap: 10px;">
+                        ${badge ? `<span style="display: inline-flex; width: fit-content; align-items: center; justify-content: center; padding: 4px 12px; border-radius: 999px; background: ${theme.accentColor}; color: ${theme.buttonTextColor}; font-size: 12px; font-weight: 700;">${badge}</span>` : ''}
+                        <div style="display: flex; align-items: center; gap: 10px; color: ${theme.textColor};">
+                            <span style="font-size: ${isMobile ? '24px' : '28px'}; line-height: 1;">${icon}</span>
+                            <strong style="font-size: ${isMobile ? '18px' : '22px'}; line-height: 1.5;">${title}</strong>
+                        </div>
+                        <div style="color: ${theme.mutedTextColor}; font-size: ${isMobile ? '13px' : '14px'}; line-height: 1.7;">${text}</div>
+                        ${data.btn ? `<span style="display: inline-flex; width: fit-content; align-items: center; justify-content: center; padding: 10px 18px; border-radius: 999px; background: ${theme.accentColor}; color: ${theme.buttonTextColor}; font-size: 13px; font-weight: 700;">${button}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function applyBannerPreviewBackground(surface) {
+            if (!surface) return;
+            const imageUrl = String(surface.dataset.imageUrl || '').trim();
+            const overlay = String(surface.dataset.overlay || '').trim();
+            if (!imageUrl) return;
+            surface.style.backgroundImage = `${overlay}, url("${imageUrl}")`;
+            surface.style.backgroundSize = 'cover';
+            surface.style.backgroundPosition = 'center';
+        }
+
+        function updateBannerPreview() {
+            const desktopEl = document.getElementById('previewDesktop');
+            const mobileEl = document.getElementById('previewMobile');
+            if (!desktopEl || !mobileEl) return;
+            const data = getBannerFormData();
+            desktopEl.innerHTML = buildBannerPreviewMarkup(data, false);
+            mobileEl.innerHTML = buildBannerPreviewMarkup(data, true);
+            applyBannerPreviewBackground(desktopEl.querySelector('.banner-preview-card'));
+            applyBannerPreviewBackground(mobileEl.querySelector('.banner-preview-card'));
+        }
+
+        function initializeBannerPreviewBindings() {
+            const fieldIds = [
+                'bannerIcon',
+                'bannerCategory',
+                'bannerTitle',
+                'bannerText',
+                'bannerBtn',
+                'bannerType',
+                'bannerActive',
+                'bannerOrder',
+                'bannerColorMode',
+                'bannerBadge',
+                'bannerImageUrl'
+            ];
+            fieldIds.forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el || el.dataset.previewBound === '1') return;
+                el.addEventListener('input', updateBannerPreview);
+                el.addEventListener('change', updateBannerPreview);
+                el.dataset.previewBound = '1';
+            });
+            updateBannerPreview();
+        }
+
         async function canActivateBanner() {
             let source = Array.isArray(banners) ? banners : [];
             if (typeof getAllBanners === 'function') {
@@ -8459,6 +8567,7 @@ function adminLogout(){
             document.getElementById('bannerColorMode').value = 'dark';
             document.getElementById('bannerBadge').value = '';
             document.getElementById('bannerImageUrl').value = '';
+            updateBannerPreview();
         }
 
         function openBannerModalForCreate() {
@@ -8485,6 +8594,7 @@ function adminLogout(){
             document.getElementById('bannerColorMode').value = normalizeBannerColorMode(target.colorMode);
             document.getElementById('bannerBadge').value = String(target.badge || '');
             document.getElementById('bannerImageUrl').value = String(target.imageUrl || '');
+            updateBannerPreview();
             openModal('bannerModal');
         }
 
@@ -8593,6 +8703,8 @@ function adminLogout(){
             renderBannersTable();
             showNotification('success', '\u062a\u0645 \u0627\u0644\u062d\u0630\u0641 \u2705');
         }
+        initializeBannerPreviewBindings();
+
         // ============================================
         // Coupons
         // ============================================
