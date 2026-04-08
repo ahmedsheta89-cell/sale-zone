@@ -8728,6 +8728,7 @@ function adminLogout(){
             console.log('Corrupted:', issues.length);
             return issues;
         }
+        window.auditBannerData = auditBannerData;
         initializeBannerPreviewBindings();
 
         // ============================================
