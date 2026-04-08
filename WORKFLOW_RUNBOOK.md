@@ -84,6 +84,34 @@ Use this when the merged change affects login, checkout, orders, admin access, o
 - Preserve evidence paths or copy artifacts before cleanup if the results may be needed later.
 - Do not delete a worktree that still contains the only copy of important evidence unless the user clearly prefers cleanup over retention.
 
+## BANNER DELETE BUG — ROOT CAUSE REGISTER
+
+Issue: `deleteBannerFromFirebase()` called the wrong function  
+Discovered: post-merge live test, April 2026  
+PR: #150
+
+Symptoms:
+- Banner disappears from admin list after delete
+- Banner returns after page refresh
+- No error shown to user
+
+Root cause:
+- Global scope name collision between
+  `assets/js/firebase-api.js:deleteBanner()` and
+  `ادمن_2.HTML:deleteBanner()`
+
+Fix:
+- `deleteBannerRecord()` in `assets/js/firebase-api.js`
+- Route both API and admin delete paths through the
+  collision-safe helper
+
+Status:
+- fixed in PR #150
+- live follow-up must still confirm:
+  1. GitHub Pages is serving the new code
+  2. deployed runtime matches the merged fix
+  3. live CRUD passes after refresh
+
 ## Failure Interpretation
 
 - Repo regression: code, rules, workflows, or governance actually fail on the content under test.
