@@ -2006,7 +2006,7 @@
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>أيقونة</th><th>العنوان</th><th>النص</th><th>القسم</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>أيقونة</th><th>العنوان</th><th>النص</th><th>النوع</th><th>الحالة</th><th>الترتيب</th><th>الألوان</th><th>القسم</th><th>إجراءات</th></tr></thead>
                                 <tbody id="bannersTable"></tbody>
                             </table>
                         </div>
@@ -8969,7 +8969,7 @@ function adminLogout(){
         function renderBannersTable() {
             const tbody = document.getElementById('bannersTable');
             if (banners.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎠</div><p>لا توجد بانرات حالياً</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">🎠</div><p>لا توجد بانرات حالياً</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = banners.map((b) => {
@@ -8978,11 +8978,23 @@ function adminLogout(){
                 const safeTitle = escapeHtml(b && b.title || '-');
                 const safeText = escapeHtml(b && b.text || '-');
                 const safeCategory = escapeHtml(getCategoryName(b && b.category) || 'الكل');
+                const typeLabel = b && b.type === 'hero'
+                    ? '<span style="background:#d4a574;color:#1a1a2e;padding:2px 8px;border-radius:4px;font-size:12px">رئيسي</span>'
+                    : '<span style="background:#e8f0fe;color:#1a1a2e;padding:2px 8px;border-radius:4px;font-size:12px">ترويجي</span>';
+                const activeLabel = b && b.active !== false
+                    ? '<span style="color:green">● فعّال</span>'
+                    : '<span style="color:red">○ معطّل</span>';
+                const orderLabel = escapeHtml(String(Number.isFinite(Number(b && b.order)) ? Number(b.order) : 0));
+                const modeLabel = normalizeBannerColorMode(b && b.colorMode) === 'light' ? 'فاتح' : 'داكن';
                 return `
                 <tr>
                     <td style="font-size: 24px;">${safeIcon}</td>
                     <td><strong>${safeTitle}</strong></td>
                     <td>${safeText}</td>
+                    <td>${typeLabel}</td>
+                    <td>${activeLabel}</td>
+                    <td>${orderLabel}</td>
+                    <td>${modeLabel}</td>
                     <td>${safeCategory}</td>
                     <td>
                         <div class="action-btns">
