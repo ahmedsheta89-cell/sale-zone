@@ -194,38 +194,74 @@ function maskCommentsAndLiterals(code) {
   const source = normalizeNewlines(code);
   const chars = source.split('');
   let i = 0;
-  let state = 'normal';
-  let quote = '';
+  const stateStack = [{ type: 'normal' }];
+
+  function currentState() {
+    return stateStack[stateStack.length - 1];
+  }
+
+  function pushState(nextState) {
+    stateStack.push(nextState);
+  }
+
+  function popState() {
+    if (stateStack.length > 1) stateStack.pop();
+  }
 
   while (i < source.length) {
     const ch = source[i];
     const next = source[i + 1] || '';
+    const state = currentState();
 
-    if (state === 'normal') {
-      if (ch === '"' || ch === '\'' || ch === '`') {
-        state = ch === '`' ? 'template' : 'string';
-        quote = ch;
+    if (state.type === 'normal' || state.type === 'template-expression') {
+      if (state.type === 'template-expression') {
+        if (ch === '{') {
+          state.depth += 1;
+          i += 1;
+          continue;
+        }
+        if (ch === '}') {
+          state.depth -= 1;
+          if (state.depth === 0) {
+            chars[i] = ' ';
+            popState();
+            i += 1;
+            continue;
+          }
+          i += 1;
+          continue;
+        }
+      }
+
+      if (ch === '"' || ch === '\'') {
         chars[i] = ' ';
+        pushState({ type: 'string', quote: ch });
+        i += 1;
+        continue;
+      }
+      if (ch === '`') {
+        chars[i] = ' ';
+        pushState({ type: 'template' });
         i += 1;
         continue;
       }
       if (ch === '/' && next === '/') {
-        state = 'line-comment';
         chars[i] = ' ';
         chars[i + 1] = ' ';
+        pushState({ type: 'line-comment' });
         i += 2;
         continue;
       }
       if (ch === '/' && next === '*') {
-        state = 'block-comment';
         chars[i] = ' ';
         chars[i + 1] = ' ';
+        pushState({ type: 'block-comment' });
         i += 2;
         continue;
       }
       if (ch === '/' && isRegexLiteralStart(source, i)) {
-        state = 'regex';
         chars[i] = ' ';
+        pushState({ type: 'regex' });
         i += 1;
         continue;
       }
@@ -235,69 +271,95 @@ function maskCommentsAndLiterals(code) {
 
     chars[i] = ch === '\n' ? '\n' : ' ';
 
-    if ((state === 'string' || state === 'template') && ch === '\\') {
-      if (i + 1 < source.length) {
-        chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+    if (state.type === 'string') {
+      if (ch === '\\') {
+        if (i + 1 < source.length) {
+          chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+        }
+        i += 2;
+        continue;
       }
-      i += 2;
-      continue;
-    }
-
-    if ((state === 'string' || state === 'template') && ch === quote) {
-      state = 'normal';
-      quote = '';
-      i += 1;
-      continue;
-    }
-
-    if (state === 'line-comment' && ch === '\n') {
-      state = 'normal';
-      i += 1;
-      continue;
-    }
-
-    if (state === 'block-comment' && ch === '*' && next === '/') {
-      chars[i + 1] = ' ';
-      state = 'normal';
-      i += 2;
-      continue;
-    }
-
-    if (state === 'regex' && ch === '\\') {
-      if (i + 1 < source.length) {
-        chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+      if (ch === state.quote) {
+        popState();
       }
-      i += 2;
-      continue;
-    }
-
-    if (state === 'regex' && ch === '[') {
-      state = 'regex-class';
       i += 1;
       continue;
     }
 
-    if (state === 'regex' && ch === '/') {
-      state = 'normal';
-      i += 1;
-      continue;
-    }
-
-    if (state === 'regex-class' && ch === '\\') {
-      if (i + 1 < source.length) {
-        chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+    if (state.type === 'template') {
+      if (ch === '\\') {
+        if (i + 1 < source.length) {
+          chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+        }
+        i += 2;
+        continue;
       }
-      i += 2;
-      continue;
-    }
-
-    if (state === 'regex-class' && ch === ']') {
-      state = 'regex';
+      if (ch === '$' && next === '{') {
+        chars[i + 1] = ' ';
+        pushState({ type: 'template-expression', depth: 1 });
+        i += 2;
+        continue;
+      }
+      if (ch === '`') {
+        popState();
+      }
       i += 1;
       continue;
     }
 
-    i += 1;
+    if (state.type === 'line-comment') {
+      if (ch === '\n') {
+        popState();
+      }
+      i += 1;
+      continue;
+    }
+
+    if (state.type === 'block-comment') {
+      if (ch === '*' && next === '/') {
+        chars[i + 1] = ' ';
+        popState();
+        i += 2;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (state.type === 'regex') {
+      if (ch === '\\') {
+        if (i + 1 < source.length) {
+          chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+        }
+        i += 2;
+        continue;
+      }
+      if (ch === '[') {
+        pushState({ type: 'regex-class' });
+        i += 1;
+        continue;
+      }
+      if (ch === '/') {
+        popState();
+      }
+      i += 1;
+      continue;
+    }
+
+    if (state.type === 'regex-class') {
+      if (ch === '\\') {
+        if (i + 1 < source.length) {
+          chars[i + 1] = source[i + 1] === '\n' ? '\n' : ' ';
+        }
+        i += 2;
+        continue;
+      }
+      if (ch === ']') {
+        popState();
+      }
+      i += 1;
+      continue;
+    }
   }
 
   return chars.join('');
