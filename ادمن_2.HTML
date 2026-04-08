@@ -3136,14 +3136,17 @@
                         <input type="text" id="bannerTitle" required autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label>النص</label>
+                        <label>النص *</label>
                         <input type="text" id="bannerText" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>نص الزر</label>
                         <input type="text" id="bannerBtn" placeholder="تسوق الآن" autocomplete="off">
                     </div>
-                    <button type="submit" class="submit-btn">💾 حفظ</button>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <button type="submit" id="bannerSaveBtn" class="submit-btn" style="flex: 1 1 220px;">💾 حفظ</button>
+                        <button type="button" id="bannerCancelEditBtn" class="btn btn-light" style="display: none; flex: 1 1 180px;" onclick="resetBannerForm()">إلغاء التعديل</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -8335,10 +8338,18 @@ function adminLogout(){
         // ============================================
         // Banners
         // ============================================
+        function setBannerEditMode(isEditing) {
+            const titleEl = document.getElementById('bannerModalTitle');
+            const saveBtn = document.getElementById('bannerSaveBtn');
+            const cancelBtn = document.getElementById('bannerCancelEditBtn');
+            if (titleEl) titleEl.textContent = isEditing ? '✏️ تعديل بانر' : '➕ بانر جديد';
+            if (saveBtn) saveBtn.textContent = isEditing ? '💾 تحديث البانر' : '💾 حفظ';
+            if (cancelBtn) cancelBtn.style.display = isEditing ? 'inline-flex' : 'none';
+        }
+
         function resetBannerForm() {
             editingBannerId = '';
-            const titleEl = document.getElementById('bannerModalTitle');
-            if (titleEl) titleEl.textContent = '➕ بانر جديد';
+            setBannerEditMode(false);
             document.getElementById('bannerIcon').value = '';
             document.getElementById('bannerTitle').value = '';
             document.getElementById('bannerText').value = '';
@@ -8358,12 +8369,11 @@ function adminLogout(){
                 return;
             }
             editingBannerId = String(target.id || '');
-            const titleEl = document.getElementById('bannerModalTitle');
-            if (titleEl) titleEl.textContent = '✏️ تعديل بانر';
-            document.getElementById('bannerIcon').value = String(target.icon || '🎉');
+            setBannerEditMode(true);
+            document.getElementById('bannerIcon').value = String(target.icon || '');
             document.getElementById('bannerTitle').value = String(target.title || '');
             document.getElementById('bannerText').value = String(target.text || '');
-            document.getElementById('bannerBtn').value = String(target.btn || 'تسوق الآن');
+            document.getElementById('bannerBtn').value = String(target.btn || '');
             document.getElementById('bannerCategory').value = String(target.category || 'all');
             openModal('bannerModal');
         }
@@ -8371,7 +8381,7 @@ function adminLogout(){
         function renderBannersTable() {
             const tbody = document.getElementById('bannersTable');
             if (banners.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎠</div><p>لا توجد بانرات</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎠</div><p>لا توجد بانرات حالياً</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = banners.map((b) => {
@@ -8404,12 +8414,23 @@ function adminLogout(){
                 return;
             }
 
+            const iconValue = String(document.getElementById('bannerIcon').value || '').trim();
+            const titleValue = String(document.getElementById('bannerTitle').value || '').trim();
+            const textValue = String(document.getElementById('bannerText').value || '').trim();
+            const btnValue = String(document.getElementById('bannerBtn').value || '').trim();
+            const categoryValue = String(document.getElementById('bannerCategory').value || 'all').trim() || 'all';
+
+            if (!titleValue || !textValue) {
+                showNotification('error', 'يرجى ملء جميع الحقول المطلوبة');
+                return;
+            }
+
             const data = {
-                icon: document.getElementById('bannerIcon').value || '\uD83C\uDF89',
-                title: document.getElementById('bannerTitle').value.trim(),
-                text: document.getElementById('bannerText').value.trim(),
-                btn: document.getElementById('bannerBtn').value.trim() || '\u062a\u0633\u0648\u0642 \u0627\u0644\u0622\u0646',
-                category: document.getElementById('bannerCategory').value
+                icon: iconValue,
+                title: titleValue,
+                text: textValue,
+                btn: btnValue,
+                category: categoryValue
             };
 
             try {
@@ -8442,7 +8463,7 @@ function adminLogout(){
             resetBannerForm();
         }
         async function deleteBanner(id) {
-            if (!confirm('\u062d\u0630\u0641 \u0627\u0644\u0628\u0627\u0646\u0631\u061f')) return;
+            if (!confirm('هل أنت متأكد من حذف هذا البانر؟')) return;
             if (navigator.onLine !== true) {
                 showNotification('error', '\u0644\u0627 \u064a\u0645\u0643\u0646 \u062d\u0630\u0641 \u0627\u0644\u0628\u0627\u0646\u0631 \u0628\u062f\u0648\u0646 \u0627\u062a\u0635\u0627\u0644 \u0625\u0646\u062a\u0631\u0646\u062a');
                 return;
