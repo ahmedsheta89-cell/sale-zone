@@ -3179,6 +3179,19 @@
                         <label>رابط الصورة (اختياري)</label>
                         <input type="url" id="bannerImageUrl" placeholder="https://example.com/banner.jpg" autocomplete="off">
                     </div>
+                    <div class="form-group">
+                        <label>رفع صورة البانر (اختياري)</label>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+                            <input type="file" id="bannerImageFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="uploadBannerImage(this)">
+                            <button type="button" id="bannerImageUploadBtn" class="btn btn-light" onclick="document.getElementById('bannerImageFile')?.click()">رفع صورة إلى Cloudinary</button>
+                            <span style="font-size:12px; color:#64748b;">الأبعاد المثالية: 1200×525 أو 800×1000 موبايل</span>
+                        </div>
+                        <div id="bannerImageUploadWarning" style="display:none; margin-bottom:8px; color:#b45309; background:#fff7ed; border:1px solid #fdba74; border-radius:8px; padding:8px 10px; font-size:12px;">حجم الصورة كبير. يُنصح بضغطها قبل الرفع</div>
+                        <div id="bannerImageUploadProgressWrap" style="display:none; margin-bottom:8px; width:100%; height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden;">
+                            <div id="bannerImageUploadProgressBar" style="width:0%; height:100%; background:linear-gradient(135deg, var(--gold), var(--gold-dark)); transition:width 0.2s ease;"></div>
+                        </div>
+                        <div id="bannerImageUploadStatus" style="font-size:12px; color:#64748b;">يمكنك إدخال رابط مباشر أو رفع صورة إلى Cloudinary.</div>
+                    </div>
                     <div id="bannerPreviewSection" style="margin: 20px 0; padding: 16px; border: 1px dashed #ccc; border-radius: 8px;">
                         <h4 style="margin-bottom: 12px;">معاينة مبدئية — الشكل النهائي قد يختلف</h4>
                         <div style="display: flex; gap: 16px; flex-wrap: wrap;">
@@ -8448,6 +8461,154 @@ function adminLogout(){
             };
         }
 
+        const bannerImageUploadState = {
+            uploading: false,
+            previewObjectUrl: '',
+            previewOverrideUrl: '',
+            selectedFileName: ''
+        };
+
+        function getBannerImageUploadElements() {
+            return {
+                fileInput: document.getElementById('bannerImageFile'),
+                urlInput: document.getElementById('bannerImageUrl'),
+                uploadButton: document.getElementById('bannerImageUploadBtn'),
+                warning: document.getElementById('bannerImageUploadWarning'),
+                progressWrap: document.getElementById('bannerImageUploadProgressWrap'),
+                progressBar: document.getElementById('bannerImageUploadProgressBar'),
+                status: document.getElementById('bannerImageUploadStatus'),
+                saveButton: document.getElementById('bannerSaveBtn')
+            };
+        }
+
+        function clearBannerImagePreviewObjectUrl() {
+            if (!bannerImageUploadState.previewObjectUrl) return;
+            try { URL.revokeObjectURL(bannerImageUploadState.previewObjectUrl); } catch (_) {}
+            bannerImageUploadState.previewObjectUrl = '';
+        }
+
+        function setBannerImagePreviewOverride(url) {
+            bannerImageUploadState.previewOverrideUrl = String(url || '').trim();
+        }
+
+        function getBannerPreviewData() {
+            const data = getBannerFormData();
+            if (bannerImageUploadState.previewOverrideUrl) {
+                data.imageUrl = bannerImageUploadState.previewOverrideUrl;
+            }
+            return data;
+        }
+
+        function setBannerImageUploadProgress(percent) {
+            const ui = getBannerImageUploadElements();
+            const normalized = Math.max(0, Math.min(100, Number(percent || 0)));
+            if (ui.progressWrap) ui.progressWrap.style.display = normalized > 0 ? 'block' : 'none';
+            if (ui.progressBar) ui.progressBar.style.width = `${normalized}%`;
+        }
+
+        function setBannerImageUploadStatus(message, tone = 'muted') {
+            const ui = getBannerImageUploadElements();
+            if (!ui.status) return;
+            ui.status.textContent = String(message || '');
+            ui.status.style.color = tone === 'error'
+                ? '#dc2626'
+                : tone === 'success'
+                    ? '#0f766e'
+                    : tone === 'warning'
+                        ? '#b45309'
+                        : '#64748b';
+        }
+
+        function setBannerImageUploadBusy(isBusy) {
+            const ui = getBannerImageUploadElements();
+            bannerImageUploadState.uploading = isBusy === true;
+            if (ui.uploadButton) ui.uploadButton.disabled = bannerImageUploadState.uploading;
+            if (ui.fileInput) ui.fileInput.disabled = bannerImageUploadState.uploading;
+            if (ui.saveButton) ui.saveButton.disabled = bannerImageUploadState.uploading;
+        }
+
+        function resetBannerImageUploadState() {
+            const ui = getBannerImageUploadElements();
+            bannerImageUploadState.uploading = false;
+            bannerImageUploadState.selectedFileName = '';
+            setBannerImagePreviewOverride('');
+            clearBannerImagePreviewObjectUrl();
+            if (ui.fileInput) ui.fileInput.value = '';
+            if (ui.warning) ui.warning.style.display = 'none';
+            if (ui.progressWrap) ui.progressWrap.style.display = 'none';
+            if (ui.progressBar) ui.progressBar.style.width = '0%';
+            setBannerImageUploadStatus('يمكنك إدخال رابط مباشر أو رفع صورة إلى Cloudinary.');
+            setBannerImageUploadBusy(false);
+        }
+
+        async function uploadBannerImage(input) {
+            const file = input && input.files ? input.files[0] : null;
+            const ui = getBannerImageUploadElements();
+            const currentStoredValue = String(ui.urlInput?.value || '').trim();
+            if (!file) return;
+
+            try {
+                if (typeof uploadToCloudinary !== 'function') {
+                    throw new Error('خدمة رفع الصور غير متاحة حالياً.');
+                }
+                if (typeof validateCloudinaryUploadFile === 'function') {
+                    validateCloudinaryUploadFile(file);
+                }
+
+                if (ui.warning) {
+                    ui.warning.style.display = Number(file.size || 0) > 200 * 1024 ? 'block' : 'none';
+                }
+
+                clearBannerImagePreviewObjectUrl();
+                bannerImageUploadState.previewObjectUrl = URL.createObjectURL(file);
+                bannerImageUploadState.selectedFileName = String(file.name || '').trim();
+                setBannerImagePreviewOverride(bannerImageUploadState.previewObjectUrl);
+                updateBannerPreview();
+
+                setBannerImageUploadBusy(true);
+                setBannerImageUploadProgress(4);
+                setBannerImageUploadStatus('جارٍ رفع صورة البانر إلى Cloudinary...', 'muted');
+
+                const publicId = `banner-${basenameWithoutExt(file.name)}`
+                    .replace(/\s+/g, '-')
+                    .replace(/[^a-zA-Z0-9_-]/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '');
+
+                const uploaded = await uploadToCloudinary(file, {
+                    folder: 'banners',
+                    publicId,
+                    onProgress(percent) {
+                        setBannerImageUploadProgress(percent);
+                        setBannerImageUploadStatus(`جارٍ رفع الصورة... ${Math.round(Number(percent || 0))}%`, 'muted');
+                    }
+                });
+
+                const secureUrl = String(uploaded && (uploaded.secure_url || uploaded.url) || '').trim();
+                if (!secureUrl) throw new Error('لم يرجع Cloudinary رابطًا صالحًا للصورة.');
+
+                if (ui.urlInput) ui.urlInput.value = secureUrl;
+                setBannerImagePreviewOverride('');
+                clearBannerImagePreviewObjectUrl();
+                setBannerImageUploadProgress(100);
+                setBannerImageUploadStatus('تم رفع صورة البانر بنجاح. يمكنك الآن حفظ البانر.', 'success');
+                updateBannerPreview();
+                showNotification('success', 'تم رفع صورة البانر بنجاح.');
+            } catch (error) {
+                console.error('[BANNER_IMAGE_UPLOAD] failed:', error);
+                setBannerImagePreviewOverride('');
+                clearBannerImagePreviewObjectUrl();
+                if (ui.urlInput) ui.urlInput.value = currentStoredValue;
+                setBannerImageUploadProgress(0);
+                setBannerImageUploadStatus(`فشل رفع الصورة: ${String(error && error.message || 'خطأ غير معروف')}`, 'error');
+                updateBannerPreview();
+                showNotification('error', `فشل رفع صورة البانر: ${String(error && error.message || 'خطأ غير معروف')}`);
+            } finally {
+                if (input) input.value = '';
+                setBannerImageUploadBusy(false);
+            }
+        }
+
         function buildBannerPreviewMarkup(data, isMobile) {
             const theme = getBannerPreviewTheme(data.colorMode);
             const title = escapeHtml(data.title || 'عنوان البانر');
@@ -8491,7 +8652,7 @@ function adminLogout(){
             const desktopEl = document.getElementById('previewDesktop');
             const mobileEl = document.getElementById('previewMobile');
             if (!desktopEl || !mobileEl) return;
-            const data = getBannerFormData();
+            const data = getBannerPreviewData();
             desktopEl.innerHTML = buildBannerPreviewMarkup(data, false);
             mobileEl.innerHTML = buildBannerPreviewMarkup(data, true);
             applyBannerPreviewBackground(desktopEl.querySelector('.banner-preview-card'));
@@ -8556,6 +8717,7 @@ function adminLogout(){
         function resetBannerForm() {
             editingBannerId = '';
             setBannerEditMode(false);
+            resetBannerImageUploadState();
             document.getElementById('bannerIcon').value = '';
             document.getElementById('bannerTitle').value = '';
             document.getElementById('bannerText').value = '';
@@ -8593,6 +8755,8 @@ function adminLogout(){
             document.getElementById('bannerOrder').value = String(normalizeBannerOrder(target.order));
             document.getElementById('bannerColorMode').value = normalizeBannerColorMode(target.colorMode);
             document.getElementById('bannerBadge').value = String(target.badge || '');
+            document.getElementById('bannerImageUrl').value = String(target.imageUrl || '');
+            resetBannerImageUploadState();
             document.getElementById('bannerImageUrl').value = String(target.imageUrl || '');
             updateBannerPreview();
             openModal('bannerModal');
