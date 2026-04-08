@@ -2,8 +2,8 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 25
-> Total patterns discovered: 8
+> Total errors logged: 26
+> Total patterns discovered: 9
 
 ---
 
@@ -30,7 +30,7 @@
 | [Firestore Rules](#firestore-rules) | 4 | 2026-04 |
 | [Firestore Indexes](#firestore-indexes) | 1 | 2025-01 |
 | [Deployment Pipeline](#deployment-pipeline) | 3 | 2026-03 |
-| [Git & Branching](#git--branching) | 2 | 2025-01 |
+| [Git & Branching](#git--branching) | 3 | 2026-04 |
 | [Governance Checks](#governance-checks) | 3 | 2026-03 |
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Catalog & Import](#catalog--import) | 1 | 2026-04 |
@@ -353,6 +353,44 @@ ELSE IF checkout is dirty
 ```
 
 **Severity:** ?? High � can corrupt code if not caught
+
+---
+
+### BUG-LOW: Win32 error 5 in local git hooks
+
+?? Date: 2026-04
+?? Batch: Banner Image Optimization V1
+??? Tags: #git #hooks #windows #env.exe #no-verify
+
+**Symptoms:**
+Local `git commit` fails before executing the repo hook chain even when governance checks pass manually.
+
+**Error Message:**
+```text
+env.exe: *** fatal error - couldn't create signal pipe, Win32 error 5
+```
+
+**Root Cause:**
+The local Windows Git hook shell (`env.exe`) cannot create the signal pipe required to start the hook process in this environment. This is a workstation/runtime issue, not a repository hook logic failure.
+
+**Temporary Solution:**
+Run the governance quartet manually, then use `--no-verify` for local commits only:
+
+```bash
+node tools/usage-check.js
+node tools/contracts-check.js
+node tools/snapshot-check.js --check
+node tools/smoke-check.js
+git commit -m "..." --no-verify
+```
+
+**Important Note:**
+The push-time release gate on GitHub continues to run normally and remains the authoritative verification path.
+
+**Prevention Rule:**
+Treat this as a local environment issue only. Do not bypass push-time checks, and do not classify it as a repo regression unless the same failure reproduces on GitHub CI.
+
+**Severity:** ?? Low ï؟½ local workaround exists and GitHub push gate still verifies the branch
 
 ---
 
