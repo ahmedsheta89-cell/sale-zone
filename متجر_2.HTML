@@ -406,6 +406,89 @@
         .banner-slide-active .banner-hero-content > *:nth-child(3) { transition-delay: 0.25s; opacity: 1; transform: none; }
         .banner-slide-active .banner-hero-content > *:nth-child(4) { transition-delay: 0.35s; opacity: 1; transform: none; }
 
+        /* ===== PROMO BANNER ===== */
+        .banner-promo {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            direction: rtl;
+            padding: 28px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-sizing: border-box;
+        }
+        .banner-promo.dark {
+            background: linear-gradient(135deg, var(--banner-dark-bg), var(--banner-dark-bg-alt));
+        }
+        .banner-promo.light {
+            background: linear-gradient(135deg, var(--banner-light-bg), var(--banner-light-bg-alt));
+        }
+        .banner-promo-icon {
+            font-size: 52px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .banner-promo-body {
+            flex: 1;
+            min-width: 200px;
+        }
+        .banner-promo-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+        }
+        .banner-promo.dark .banner-promo-title { color: var(--banner-dark-text); }
+        .banner-promo.light .banner-promo-title { color: var(--banner-light-text); }
+        .banner-promo-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .banner-promo.dark .banner-promo-text { color: var(--banner-dark-text-muted); }
+        .banner-promo.light .banner-promo-text { color: var(--banner-light-text-muted); }
+        .banner-promo-cta {
+            padding: 10px 28px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+            flex-shrink: 0;
+            font-family: inherit;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .banner-promo.dark .banner-promo-cta {
+            border: 2px solid var(--banner-dark-accent);
+            color: var(--banner-dark-accent);
+        }
+        .banner-promo.dark .banner-promo-cta:hover {
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-promo.light .banner-promo-cta {
+            border: 2px solid var(--banner-light-accent);
+            color: var(--banner-light-text);
+        }
+        .banner-promo.light .banner-promo-cta:hover {
+            background: var(--banner-light-accent);
+            color: #fff;
+        }
+        @media (max-width: 600px) {
+            .banner-promo {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px;
+            }
+            .banner-promo-cta {
+                width: 100%;
+                text-align: center;
+            }
+        }
+
         /* Categories */
         .categories-section { padding: 40px 20px; background: var(--white); }
         .section-title { text-align: center; margin-bottom: 35px; }
@@ -5334,6 +5417,30 @@
             bg.style.background = colorMode === 'dark'
                 ? 'linear-gradient(135deg, #1a1a2e, #16213e)'
                 : 'linear-gradient(135deg, #f8f4ef, #f0e9df)';
+        }
+
+        function renderPromoBanner(banner, index) {
+            const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
+            const icon = escapeHtml(String(banner && banner.icon || '').trim());
+            const title = escapeHtml(String(banner && banner.title || ''));
+            const text = escapeHtml(String(banner && banner.text || ''));
+            const btn = escapeHtml(String(banner && banner.btn || ''));
+            const category = escapeHtml(String(banner && banner.category || 'all'));
+            const iconHtml = icon ? `<div class="banner-promo-icon">${icon}</div>` : '';
+            const btnHtml = btn
+                ? `<button class="banner-promo-cta" data-category="${category}" onclick="filterByCategory(this.dataset.category)">${btn}</button>`
+                : '';
+
+            return `
+                <div class="banner-promo ${colorMode} ${index === 0 ? 'banner-slide-active' : ''}">
+                    ${iconHtml}
+                    <div class="banner-promo-body">
+                        <p class="banner-promo-title">${title}</p>
+                        <p class="banner-promo-text">${text}</p>
+                    </div>
+                    ${btnHtml}
+                </div>
+            `;
         }
 
         function renderBanners() {
