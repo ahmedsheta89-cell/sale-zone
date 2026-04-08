@@ -1,9 +1,9 @@
 {
   "generatorVersion": "1.0.0",
-  "generatedAt": "2026-04-08T13:11:16.477Z",
+  "generatedAt": "2026-04-08T15:07:56.541Z",
   "sourceFile": "ادمن_2.HTML",
   "policyFile": "monitoring/admin-function-policy.json",
-  "sourceHash": "2d42eb56460df2fbc95c9af300e9a75745f885408277b75e171a328946e639f6",
+  "sourceHash": "ddd3a718512bc194c3efe8a64dd5257827ff1265949c8045196dd5f297c782ce",
   "policyHash": "21916e642fd098fb48953ad7499534b0b8b158a786c8ea91f5aadbee472eddc4",
   "functions": [
     {
@@ -7469,5 +7469,5 @@
       "reasonText": "تم تسجيل الدالة ضمن المتابعة."
     }
   ],
-  "registryHash": "70d7d1c14a8a70ffc8434a5d7c3452e733408e0fcb89f01d309a90d678447fe2"
+  "registryHash": "2bfc133f15222bd9f758c20047624f78558a58fbf1b59de83b1a21e48ce847b6"
 }

@@ -173,18 +173,38 @@ function parseFunctionsFromScriptAst(script) {
   });
 
   const rows = [];
-  walkAst(ast, (node) => {
-    if (node.type !== 'FunctionDeclaration') return;
-    if (!node.id || !node.id.name || !node.loc || !node.loc.start) return;
-
+  function pushAstRow(name, isAsync, node) {
+    if (!name || !node || !node.loc || !node.loc.start) return;
+    const rawBody = normalizeNewlines(source.slice(Number(node.start || 0), Number(node.end || 0))).trim();
     rows.push({
-      name: String(node.id.name).trim(),
-      isAsync: Boolean(node.async),
+      name: String(name).trim(),
+      isAsync: Boolean(isAsync),
       line: Number(script.startLine + node.loc.start.line - 1),
       scriptIndex: Number(script.scriptIndex || 0),
-      canonicalBody: normalizeWhitespace(astring.generate(node)),
-      rawBody: normalizeNewlines(source.slice(Number(node.start || 0), Number(node.end || 0))).trim()
+      canonicalBody: normalizeWhitespace(rawBody),
+      rawBody
     });
+  }
+
+  walkAst(ast, (node) => {
+    if (node.type === 'FunctionDeclaration') {
+      if (!node.id || !node.id.name) return;
+      pushAstRow(node.id.name, node.async, node);
+      return;
+    }
+
+    if (node.type !== 'VariableDeclaration') return;
+    if (!Array.isArray(node.declarations) || node.declarations.length !== 1) return;
+
+    const declaration = node.declarations[0];
+    if (!declaration || !declaration.id || declaration.id.type !== 'Identifier') return;
+    if (!declaration.init) return;
+
+    const init = declaration.init;
+    if (init.type !== 'FunctionExpression' && init.type !== 'ArrowFunctionExpression') return;
+    if (init.type === 'ArrowFunctionExpression' && (!init.body || init.body.type !== 'BlockStatement')) return;
+
+    pushAstRow(declaration.id.name, init.async, node);
   });
 
   return rows;
