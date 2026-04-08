@@ -150,6 +150,18 @@
             --account-accent: #e94560;
             --account-success: #0f9b58;
             --account-shadow: 0 28px 60px rgba(6, 9, 20, 0.38);
+            --banner-dark-bg: #1a1a2e;
+            --banner-dark-bg-alt: #16213e;
+            --banner-dark-text: #ffffff;
+            --banner-dark-text-muted: rgba(255,255,255,0.75);
+            --banner-dark-accent: #d4a574;
+            --banner-dark-accent-hover: #c4955f;
+            --banner-light-bg: #f8f4ef;
+            --banner-light-bg-alt: #f0e9df;
+            --banner-light-text: #1a1a2e;
+            --banner-light-text-muted: rgba(26,26,46,0.7);
+            --banner-light-accent: #d4a574;
+            --banner-light-accent-hover: #c4955f;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -261,9 +273,11 @@
         .user-dropdown a:hover, .user-dropdown button:hover { background: var(--cream); color: var(--gold-dark); }
 
         /* Banner Slider */
-        .banner-section { position: relative; overflow: hidden; background: var(--navy); }
-        .banner-slider { display: flex; transition: transform 0.5s ease; }
-        .banner-slide { min-width: 100%; padding: 50px 20px; text-align: center; color: var(--white); position: relative; }
+        .banner-section,
+        .banner-slider-wrapper { position: relative; overflow: hidden; background: var(--navy); border-radius: 12px; margin-bottom: 24px; }
+        .banner-slider,
+        .banner-slider-track { display: flex; transition: transform 0.4s ease-out; will-change: transform; }
+        .banner-slide { flex: 0 0 100%; width: 100%; min-width: 100%; padding: 50px 20px; text-align: center; color: var(--white); position: relative; }
         .banner-slide::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(212,175,55,0.1), transparent); }
         .banner-content { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
         .banner-icon { font-size: 50px; margin-bottom: 15px; }
@@ -271,13 +285,214 @@
         .banner-text { font-size: clamp(12px, 3.5vw, 16px); color: var(--gold-light); margin-bottom: 20px; }
         .banner-btn { background: var(--gold); color: var(--navy); min-height: 44px; padding: 12px 30px; border-radius: 25px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: var(--transition); }
         .banner-btn:hover { transform: scale(1.05); box-shadow: var(--shadow-gold); }
-        .banner-dots { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
-        .banner-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: var(--transition); }
-        .banner-dot.active { background: var(--gold); width: 25px; border-radius: 5px; }
+        .banner-dots,
+        .banner-slider-dots { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; justify-content: center; align-items: center; gap: 8px; padding: 12px 0 4px; z-index: 4; }
+        .banner-dot,
+        .banner-slider-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); border: none; cursor: pointer; transition: all 0.25s ease; padding: 0; flex-shrink: 0; }
+        .banner-dot.active,
+        .banner-slider-dot.active { background: var(--banner-dark-accent); transform: scale(1.4); }
         .banner-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: var(--white); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); font-size: 18px; }
         .banner-arrow:hover { background: var(--gold); }
         .banner-arrow.prev { right: 15px; }
         .banner-arrow.next { left: 15px; }
+
+        /* ===== HERO BANNER ===== */
+        .banner-hero {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            direction: rtl;
+            aspect-ratio: 4/5;
+        }
+        @media (min-width: 768px) {
+            .banner-hero { aspect-ratio: 16/9; }
+        }
+        @media (min-width: 1024px) {
+            .banner-hero { aspect-ratio: 16/7; }
+        }
+        .banner-hero-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: transform 0.6s ease;
+        }
+        .banner-hero:hover .banner-hero-bg { transform: scale(1.02); }
+        .banner-hero-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+        }
+        .banner-hero.dark .banner-hero-overlay {
+            background: linear-gradient(to top, rgba(26,26,46,0.85) 0%, rgba(26,26,46,0.4) 50%, rgba(26,26,46,0.1) 100%);
+        }
+        .banner-hero.light .banner-hero-overlay {
+            background: linear-gradient(to top, rgba(245,240,239,0.9) 0%, rgba(245,240,239,0.5) 50%, transparent 100%);
+        }
+        .banner-hero-content {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            height: 100%;
+            padding: 28px;
+            box-sizing: border-box;
+        }
+        .banner-hero-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            width: fit-content;
+            margin-bottom: 12px;
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-hero-title {
+            font-size: clamp(1.2rem, 4vw, 2.5rem);
+            font-weight: 700;
+            line-height: 1.4;
+            margin-bottom: 8px;
+            margin-top: 0;
+        }
+        .banner-hero.dark .banner-hero-title {
+            color: var(--banner-dark-text);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .banner-hero.light .banner-hero-title { color: var(--banner-light-text); }
+        .banner-hero-text {
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            line-height: 1.7;
+            margin-bottom: 20px;
+            margin-top: 0;
+            max-width: 500px;
+        }
+        .banner-hero.dark .banner-hero-text { color: var(--banner-dark-text-muted); }
+        .banner-hero.light .banner-hero-text { color: var(--banner-light-text-muted); }
+        .banner-hero-cta {
+            display: inline-block;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+            width: fit-content;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+        .banner-hero-cta:hover { transform: translateY(-2px); }
+        .banner-hero.dark .banner-hero-cta {
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-hero.dark .banner-hero-cta:hover {
+            background: var(--banner-dark-accent-hover);
+        }
+        .banner-hero.light .banner-hero-cta {
+            background: var(--banner-light-accent);
+            color: #fff;
+        }
+        .banner-hero.light .banner-hero-cta:hover {
+            background: var(--banner-light-accent-hover);
+        }
+        .banner-hero-content > * {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+        .banner-slide-active .banner-hero-content > *:nth-child(1) { transition-delay: 0.05s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(2) { transition-delay: 0.15s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(3) { transition-delay: 0.25s; opacity: 1; transform: none; }
+        .banner-slide-active .banner-hero-content > *:nth-child(4) { transition-delay: 0.35s; opacity: 1; transform: none; }
+
+        /* ===== PROMO BANNER ===== */
+        .banner-promo {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            direction: rtl;
+            padding: 28px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-sizing: border-box;
+        }
+        .banner-promo.dark {
+            background: linear-gradient(135deg, var(--banner-dark-bg), var(--banner-dark-bg-alt));
+        }
+        .banner-promo.light {
+            background: linear-gradient(135deg, var(--banner-light-bg), var(--banner-light-bg-alt));
+        }
+        .banner-promo-icon {
+            font-size: 52px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .banner-promo-body {
+            flex: 1;
+            min-width: 200px;
+        }
+        .banner-promo-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+        }
+        .banner-promo.dark .banner-promo-title { color: var(--banner-dark-text); }
+        .banner-promo.light .banner-promo-title { color: var(--banner-light-text); }
+        .banner-promo-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .banner-promo.dark .banner-promo-text { color: var(--banner-dark-text-muted); }
+        .banner-promo.light .banner-promo-text { color: var(--banner-light-text-muted); }
+        .banner-promo-cta {
+            padding: 10px 28px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+            flex-shrink: 0;
+            font-family: inherit;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .banner-promo.dark .banner-promo-cta {
+            border: 2px solid var(--banner-dark-accent);
+            color: var(--banner-dark-accent);
+        }
+        .banner-promo.dark .banner-promo-cta:hover {
+            background: var(--banner-dark-accent);
+            color: var(--banner-dark-bg);
+        }
+        .banner-promo.light .banner-promo-cta {
+            border: 2px solid var(--banner-light-accent);
+            color: var(--banner-light-text);
+        }
+        .banner-promo.light .banner-promo-cta:hover {
+            background: var(--banner-light-accent);
+            color: #fff;
+        }
+        @media (max-width: 600px) {
+            .banner-promo {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px;
+            }
+            .banner-promo-cta {
+                width: 100%;
+                text-align: center;
+            }
+        }
 
         /* Categories */
         .categories-section { padding: 40px 20px; background: var(--white); }
@@ -2560,8 +2775,8 @@
 
     <main id="main-content" role="main">
     <!-- Banner Slider -->
-    <section class="banner-section">
-        <div class="banner-slider" id="bannerSlider">
+    <section class="banner-section banner-slider-wrapper" id="bannerSection">
+        <div class="banner-slider banner-slider-track" id="bannerSlider">
             <!-- Banners will be loaded here -->
         </div>
         <div class="banner-dots" id="bannerDots"></div>
@@ -3296,6 +3511,8 @@
         let searchDebounceTimer = null;
         let currentBanner = 0;
         let bannerInterval;
+        let bannerSliderInteractionsBound = false;
+        let bannerTouchStartX = 0;
         let liveSessionHeartbeatTimer = null;
         let authSubmitLock = false;
         const AUTH_TAB_DEFAULT = 'magic';
@@ -5170,13 +5387,130 @@
                 });
         }
 
+        function renderHeroBanner(banner, index) {
+            const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
+            const imageUrl = String(banner && banner.imageUrl || '').trim();
+            const badge = escapeHtml(String(banner && banner.badge || '').trim());
+            const safeTitle = escapeHtml(String(banner && banner.title || ''));
+            const safeText = escapeHtml(String(banner && banner.text || ''));
+            const safeButton = escapeHtml(String(banner && banner.btn || ''));
+            const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
+            const isFirst = index === 0;
+            const safeImageUrl = imageUrl.replace(/'/g, "\\'");
+            const bgStyle = safeImageUrl ? `background-image: url('${safeImageUrl}')` : '';
+            const badgeHtml = badge ? `<span class="banner-hero-badge">${badge}</span>` : '';
+            const btnHtml = safeButton
+                ? `<button class="banner-hero-cta" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</button>`
+                : '';
+
+            return `
+                <div class="banner-hero ${colorMode} ${isFirst ? 'banner-slide-active' : ''}">
+                    <div class="banner-hero-bg" style="${bgStyle}" data-src="${escapeHtml(imageUrl)}" ${isFirst ? '' : 'data-lazy="true"'}></div>
+                    <div class="banner-hero-overlay"></div>
+                    <div class="banner-hero-content">
+                        ${badgeHtml}
+                        <h2 class="banner-hero-title">${safeTitle}</h2>
+                        <p class="banner-hero-text">${safeText}</p>
+                        ${btnHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function applyBannerImageFallback(el, colorMode) {
+            const bg = el && el.querySelector ? el.querySelector('.banner-hero-bg') : null;
+            if (!bg) return;
+            bg.style.backgroundImage = 'none';
+            bg.style.background = colorMode === 'dark'
+                ? 'linear-gradient(135deg, #1a1a2e, #16213e)'
+                : 'linear-gradient(135deg, #f8f4ef, #f0e9df)';
+        }
+
+        function renderPromoBanner(banner, index) {
+            const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
+            const icon = escapeHtml(String(banner && banner.icon || '').trim());
+            const safeTitle = escapeHtml(String(banner && banner.title || ''));
+            const safeText = escapeHtml(String(banner && banner.text || ''));
+            const safeButton = escapeHtml(String(banner && banner.btn || ''));
+            const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
+            const iconHtml = icon ? `<div class="banner-promo-icon">${icon}</div>` : '';
+            const btnHtml = safeButton
+                ? `<button class="banner-promo-cta" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</button>`
+                : '';
+
+            return `
+                <div class="banner-promo ${colorMode} ${index === 0 ? 'banner-slide-active' : ''}">
+                    ${iconHtml}
+                    <div class="banner-promo-body">
+                        <p class="banner-promo-title">${safeTitle}</p>
+                        <p class="banner-promo-text">${safeText}</p>
+                    </div>
+                    ${btnHtml}
+                </div>
+            `;
+        }
+
+        function getBannerSliderElements() {
+            const section = document.getElementById('bannerSection') || document.querySelector('.banner-section');
+            const slider = document.getElementById('bannerSlider');
+            const dots = document.getElementById('bannerDots');
+            const slides = slider ? Array.from(slider.querySelectorAll('.banner-slide')) : [];
+            return { section, slider, dots, slides };
+        }
+
+        function stopBannerSlider() {
+            if (bannerInterval) {
+                clearInterval(bannerInterval);
+                bannerInterval = null;
+            }
+        }
+
+        function loadSlideImage(slide) {
+            if (!slide || !slide.querySelectorAll) return;
+            slide.querySelectorAll('[data-lazy="true"]').forEach((bg) => {
+                const src = String(bg.dataset.src || '').trim();
+                if (!src) return;
+                bg.style.backgroundImage = `url('${src.replace(/'/g, "\\'")}')`;
+                bg.removeAttribute('data-lazy');
+                bg.removeAttribute('data-src');
+            });
+        }
+
+        function bindBannerSliderInteractions() {
+            const { section } = getBannerSliderElements();
+            if (!section || bannerSliderInteractionsBound) return;
+
+            section.addEventListener('mouseenter', stopBannerSlider);
+            section.addEventListener('mouseleave', startBannerSlider);
+            section.addEventListener('touchstart', (event) => {
+                bannerTouchStartX = event && event.touches && event.touches[0]
+                    ? Number(event.touches[0].clientX || 0)
+                    : 0;
+                stopBannerSlider();
+            }, { passive: true });
+            section.addEventListener('touchend', (event) => {
+                const clientX = event && event.changedTouches && event.changedTouches[0]
+                    ? Number(event.changedTouches[0].clientX || 0)
+                    : bannerTouchStartX;
+                const delta = bannerTouchStartX - clientX;
+                if (Math.abs(delta) > 50) {
+                    if (delta > 0) nextBanner();
+                    else prevBanner();
+                }
+                startBannerSlider();
+            }, { passive: true });
+
+            bannerSliderInteractionsBound = true;
+        }
+
         function renderBanners() {
+            const section = document.getElementById('bannerSection') || document.querySelector('.banner-section');
             const slider = document.getElementById('bannerSlider');
             const dots = document.getElementById('bannerDots');
             const renderableBanners = getRenderableBanners();
             
             // التحقق من وجود العناصر قبل استخدامها
-            if (!slider || !dots) {
+            if (!section || !slider || !dots) {
                 console.warn('⚠️ Banner elements not found, skipping render');
                 return;
             }
@@ -5184,39 +5518,53 @@
             currentBanner = 0;
 
             if (renderableBanners.length === 0) {
-                slider.innerHTML = `<div class="banner-slide"><div class="banner-content"><div class="banner-icon">🛍️</div><div class="banner-title">${escapeHtml(currentLang === 'ar' ? 'مرحباً بك' : 'Welcome')}</div></div></div>`;
+                stopBannerSlider();
+                section.style.display = 'none';
+                slider.style.transform = 'translateX(0)';
+                slider.innerHTML = '';
                 dots.innerHTML = '';
                 return;
             }
 
-            slider.innerHTML = renderableBanners.map((b) => {
-                const safeIcon = escapeHtml(b && b.icon || '🎉');
-                const safeTitle = escapeHtml(b && b.title || '');
-                const safeText = escapeHtml(b && b.text || '');
-                const safeButton = escapeHtml(b && b.btn || (currentLang === 'ar' ? 'تسوق الآن' : 'Shop Now'));
-                const safeCategory = escapeHtml(b && b.category || 'all');
-                return `
-                <div class="banner-slide">
-                    <div class="banner-content">
-                        <div class="banner-icon">${safeIcon}</div>
-                        <div class="banner-title">${safeTitle}</div>
-                        <div class="banner-text">${safeText}</div>
-                        <a href="#" class="banner-btn" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</a>
-                    </div>
-                </div>
-            `;
+            section.style.display = '';
+            slider.innerHTML = renderableBanners.map((banner, index) => {
+                const type = String(banner && banner.type || 'promo').trim().toLowerCase() === 'hero' ? 'hero' : 'promo';
+                const slideHtml = type === 'hero'
+                    ? renderHeroBanner(banner, index)
+                    : renderPromoBanner(banner, index);
+                return `<div class="banner-slide">${slideHtml}</div>`;
             }).join('');
 
-            dots.innerHTML = renderableBanners.map((_, i) => `<div class="banner-dot ${i === 0 ? 'active' : ''}" onclick="goToBanner(${i})"></div>`).join('');
+            slider.querySelectorAll('.banner-hero').forEach((el) => {
+                const bg = el.querySelector('.banner-hero-bg');
+                const hasLoadedImage = bg && String(bg.style.backgroundImage || '').trim() !== '';
+                const hasDeferredImage = bg && String(bg.dataset.src || '').trim() !== '';
+                if (!hasLoadedImage && !hasDeferredImage) {
+                    const colorMode = el.classList.contains('light') ? 'light' : 'dark';
+                    applyBannerImageFallback(el, colorMode);
+                }
+            });
+
+            dots.innerHTML = renderableBanners.length <= 1
+                ? ''
+                : renderableBanners.map((_, i) => `<button class="banner-dot ${i === 0 ? 'active' : ''}" aria-label="بانر ${i + 1}" onclick="goToBanner(${i})"></button>`).join('');
             goToBanner(currentBanner);
+            startBannerSlider();
         }
 
         function goToBanner(index) {
-            const totalBanners = getRenderableBanners().length;
-            if (!totalBanners) return;
+            const { slider, slides, dots } = getBannerSliderElements();
+            const totalBanners = slides.length || getRenderableBanners().length;
+            if (!slider || !totalBanners) return;
             currentBanner = ((index % totalBanners) + totalBanners) % totalBanners;
-            document.getElementById('bannerSlider').style.transform = `translateX(${currentBanner * 100}%)`;
-            document.querySelectorAll('.banner-dot').forEach((d, i) => d.classList.toggle('active', i === currentBanner));
+            loadSlideImage(slides[currentBanner]);
+            slider.style.transform = `translateX(${currentBanner * 100}%)`;
+            slides.forEach((slide, i) => slide.classList.toggle('banner-slide-active', i === currentBanner));
+            if (dots) {
+                dots.querySelectorAll('.banner-dot, .banner-slider-dot').forEach((dot, i) => {
+                    dot.classList.toggle('active', i === currentBanner);
+                });
+            }
         }
 
         function nextBanner() {
@@ -5229,7 +5577,16 @@
             if (totalBanners <= 1) return;
             goToBanner(currentBanner - 1);
         }
-        function startBannerSlider() { bannerInterval = setInterval(nextBanner, 5000); }
+        function startBannerSlider() {
+            const { slides } = getBannerSliderElements();
+            bindBannerSliderInteractions();
+            stopBannerSlider();
+            if (slides[0]) {
+                loadSlideImage(slides[0]);
+            }
+            if (slides.length <= 1) return;
+            bannerInterval = setInterval(nextBanner, 5000);
+        }
 
         // ============================================
         // Image Sanitizer (avoid external ORB/CORS issues)

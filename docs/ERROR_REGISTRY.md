@@ -2,7 +2,7 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 21
+> Total errors logged: 25
 > Total patterns discovered: 8
 
 ---
@@ -35,6 +35,7 @@
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Catalog & Import](#catalog--import) | 1 | 2026-04 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
+| [Banners & Slider](#banners--slider) | 4 | 2026-04 |
 
 ---
 
@@ -788,6 +789,44 @@ On same-origin multi-surface apps, Firebase Auth must be the identity source of 
 - **Fix:** Added an explicit `match /faq/{itemId}` rule with public read, admin-only write/delete, and schema validation. Also upgraded the admin FAQ manager with bulk activate/deactivate, reordering, and live preview so the Firestore-backed FAQ workflow is complete once rules are deployed.
 - **Files:** `firestore.rules`, `ادمن_2.HTML`, `متجر_2.HTML`
 - **PR:** `fix/critical-font-chat-faq-rules`
+
+## Banners & Slider
+
+## BUG-P2-001 ? 0 active banners render a fallback card instead of hiding the section
+- **Date:** 2026-04-08
+- **Severity:** Medium
+- **File:** `????_2.HTML:5186`
+- **Root Cause:** `renderBanners()` injects a default welcome card when no renderable banners remain, so the banner section stays visible instead of hiding entirely.
+- **Evidence:** Empty-state branch writes a fallback slide with `?????? ??` into `#bannerSlider`.
+- **Fix applied:** `PENDING in Banner Phase 2`
+- **Status:** OPEN
+
+## BUG-P2-002 ? Slider has no hover or touch pause behavior
+- **Date:** 2026-04-08
+- **Severity:** Medium
+- **File:** `????_2.HTML:5232`
+- **Root Cause:** Auto-advance is implemented as a bare interval starter with no banner-scoped pause/resume listeners for hover or touch interactions.
+- **Evidence:** `startBannerSlider()` starts `setInterval(nextBanner, 5000)` and no banner `mouseenter`, `mouseleave`, `touchstart`, or `touchend` pause hooks exist nearby.
+- **Fix applied:** `PENDING in Banner Phase 2`
+- **Status:** OPEN
+
+## BUG-P2-003 ? Slider has no swipe support
+- **Date:** 2026-04-08
+- **Severity:** Medium
+- **File:** `????_2.HTML:5173`
+- **Root Cause:** Banner navigation currently depends on arrows and dots only; no horizontal touch delta handling is wired to slide navigation.
+- **Evidence:** No banner-specific `touchstart`/`touchend` listeners invoke `nextBanner()` or `prevBanner()`.
+- **Fix applied:** `PENDING in Banner Phase 2`
+- **Status:** OPEN
+
+## BUG-P2-004 ? Hero-style background images are not lazy loaded
+- **Date:** 2026-04-08
+- **Severity:** Low
+- **File:** `????_2.HTML:5192`
+- **Root Cause:** Current banner rendering is text-only and has no deferred image-loading mechanism for future hero backgrounds.
+- **Evidence:** Existing template renders icon/title/text/button only and never uses `data-src`, `data-lazy`, or a slide image loader.
+- **Fix applied:** `PENDING in Banner Phase 2`
+- **Status:** OPEN
 
 ## Template - Log a New Error
 
