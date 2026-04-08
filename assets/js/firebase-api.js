@@ -367,13 +367,22 @@ async function getBanners() {
         const snapshot = await db.collection('banners').get();
         const banners = snapshot.docs.map(doc => {
             const data = doc.data();
+            const parsedOrder = Number(data.order);
             return { 
                 id: doc.id, 
                 icon: data.icon || '🛍️',
                 title: data.title || '',
                 text: data.text || '',
                 btn: data.btn || 'تسوق الآن',
-                category: data.category || 'all'
+                category: data.category || 'all',
+                type: data.type || 'promo',
+                active: data.active !== undefined ? data.active : true,
+                order: Number.isFinite(parsedOrder) ? parsedOrder : 0,
+                colorMode: data.colorMode || 'dark',
+                imageUrl: data.imageUrl || '',
+                badge: data.badge || '',
+                createdAt: data.createdAt || '',
+                updatedAt: data.updatedAt || ''
             };
         });
         return banners;
@@ -418,7 +427,7 @@ async function updateBanner(id, data) {
     }
 }
 
-async function deleteBanner(id) {
+async function deleteBannerRecord(id) {
     try {
         // WHY: delete banners directly from Firestore.
         const db = getFirebaseDB();
@@ -429,6 +438,10 @@ async function deleteBanner(id) {
         console.error('deleteBanner error:', e);
         throw e;
     }
+}
+
+async function deleteBanner(id) {
+    return deleteBannerRecord(id);
 }
 
 // ==========================================
@@ -2175,7 +2188,7 @@ async function getAllBanners() {
 
 async function deleteBannerFromFirebase(id) {
     try {
-        await deleteBanner(id);
+        await deleteBannerRecord(id);
     } catch (e) {
         console.error('deleteBanner error:', e);
         throw e;

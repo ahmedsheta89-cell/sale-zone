@@ -5159,9 +5159,21 @@
         // ============================================
         // 🎠 Banner Slider
         // ============================================
+        function getRenderableBanners() {
+            return (Array.isArray(banners) ? banners : [])
+                .filter((item) => (item && item.active !== undefined ? Boolean(item.active) : true))
+                .slice()
+                .sort((a, b) => {
+                    const orderA = Number(a && a.order);
+                    const orderB = Number(b && b.order);
+                    return (Number.isFinite(orderA) ? orderA : 0) - (Number.isFinite(orderB) ? orderB : 0);
+                });
+        }
+
         function renderBanners() {
             const slider = document.getElementById('bannerSlider');
             const dots = document.getElementById('bannerDots');
+            const renderableBanners = getRenderableBanners();
             
             // التحقق من وجود العناصر قبل استخدامها
             if (!slider || !dots) {
@@ -5169,12 +5181,15 @@
                 return;
             }
             
-            if (banners.length === 0) {
+            currentBanner = 0;
+
+            if (renderableBanners.length === 0) {
                 slider.innerHTML = `<div class="banner-slide"><div class="banner-content"><div class="banner-icon">🛍️</div><div class="banner-title">${escapeHtml(currentLang === 'ar' ? 'مرحباً بك' : 'Welcome')}</div></div></div>`;
+                dots.innerHTML = '';
                 return;
             }
 
-            slider.innerHTML = banners.map((b) => {
+            slider.innerHTML = renderableBanners.map((b) => {
                 const safeIcon = escapeHtml(b && b.icon || '🎉');
                 const safeTitle = escapeHtml(b && b.title || '');
                 const safeText = escapeHtml(b && b.text || '');
@@ -5192,17 +5207,28 @@
             `;
             }).join('');
 
-            dots.innerHTML = banners.map((_, i) => `<div class="banner-dot ${i === 0 ? 'active' : ''}" onclick="goToBanner(${i})"></div>`).join('');
+            dots.innerHTML = renderableBanners.map((_, i) => `<div class="banner-dot ${i === 0 ? 'active' : ''}" onclick="goToBanner(${i})"></div>`).join('');
+            goToBanner(currentBanner);
         }
 
         function goToBanner(index) {
-            currentBanner = index;
-            document.getElementById('bannerSlider').style.transform = `translateX(${index * 100}%)`;
-            document.querySelectorAll('.banner-dot').forEach((d, i) => d.classList.toggle('active', i === index));
+            const totalBanners = getRenderableBanners().length;
+            if (!totalBanners) return;
+            currentBanner = ((index % totalBanners) + totalBanners) % totalBanners;
+            document.getElementById('bannerSlider').style.transform = `translateX(${currentBanner * 100}%)`;
+            document.querySelectorAll('.banner-dot').forEach((d, i) => d.classList.toggle('active', i === currentBanner));
         }
 
-        function nextBanner() { goToBanner((currentBanner + 1) % banners.length); }
-        function prevBanner() { goToBanner((currentBanner - 1 + banners.length) % banners.length); }
+        function nextBanner() {
+            const totalBanners = getRenderableBanners().length;
+            if (totalBanners <= 1) return;
+            goToBanner(currentBanner + 1);
+        }
+        function prevBanner() {
+            const totalBanners = getRenderableBanners().length;
+            if (totalBanners <= 1) return;
+            goToBanner(currentBanner - 1);
+        }
         function startBannerSlider() { bannerInterval = setInterval(nextBanner, 5000); }
 
         // ============================================
