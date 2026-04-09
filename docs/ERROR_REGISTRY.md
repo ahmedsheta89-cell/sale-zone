@@ -2,7 +2,7 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 27
+> Total errors logged: 29
 > Total patterns discovered: 9
 
 ---
@@ -35,7 +35,7 @@
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Catalog & Import](#catalog--import) | 1 | 2026-04 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
-| [Banners & Slider](#banners--slider) | 5 | 2026-04 |
+| [Banners & Slider](#banners--slider) | 7 | 2026-04 |
 
 ---
 
@@ -893,6 +893,52 @@ Fix applied:
 
 Status: FIXED
 Branch: `feat/banner-image-optimization-v3`
+
+## [BUG-V4-001] Vertical banner images cropped incorrectly - c_fill forces crop on all images
+
+Date: 2026-04-09
+Severity: HIGH
+File: `assets/js/cloudinary-service.js` `optimizeBannerImageUrl()` lines 348-381
+
+Description:
+  `optimizeBannerImageUrl()` uses `c_fill` in all delivery contexts.
+  Vertical or artistic banner images, such as the crescent moon artwork,
+  are therefore forced into the aspect-ratio box and can lose important
+  visual content on both desktop and mobile.
+
+Evidence:
+  Confirmed by the store owner via live screenshots.
+  Desktop - crescent image: cropped from sides.
+  Mobile  - crescent image: cropped from top.
+
+Fix applied:
+  Added `getUltimateBannerUrl()` with `fitMode` support.
+  Default `fitMode: 'auto'` uses `c_pad + b_auto:predominant`
+  so the full image is preserved with intelligent background fill.
+  `optimizeBannerImageUrl()` remains unchanged for backward safety.
+
+Status: FIXED via `getUltimateBannerUrl()`
+Branch: `feat/banner-image-v4-ultimate`
+
+## [BUG-V4-002] Admin banner preview uses background-image - cannot reflect fitMode
+
+Date: 2026-04-09
+Severity: MEDIUM
+File: `ادمن_2.HTML` line 8859+
+
+Description:
+  Admin hero preview still renders through `background-image` on a div.
+  After storefront hero rendering migrated to real `<img>` delivery,
+  preview fidelity diverged. `fitMode` strategies such as `pad` and
+  `scale` cannot be represented accurately through the current preview
+  background rendering path.
+
+Fix applied: DEFERRED
+  Documented for a later dedicated admin preview pass.
+  In V4, the `fitMode` selector is added to the admin form so the value
+  is persisted correctly even though preview fidelity remains approximate.
+
+Status: OPEN - deferred
 
 ## Template - Log a New Error
 
