@@ -2,7 +2,7 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 26
+> Total errors logged: 27
 > Total patterns discovered: 9
 
 ---
@@ -35,7 +35,7 @@
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Catalog & Import](#catalog--import) | 1 | 2026-04 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
-| [Banners & Slider](#banners--slider) | 4 | 2026-04 |
+| [Banners & Slider](#banners--slider) | 5 | 2026-04 |
 
 ---
 
@@ -865,6 +865,29 @@ On same-origin multi-surface apps, Firebase Auth must be the identity source of 
 - **Evidence:** Existing template renders icon/title/text/button only and never uses `data-src`, `data-lazy`, or a slide image loader.
 - **Fix applied:** `PENDING in Banner Phase 2`
 - **Status:** OPEN
+
+## [BUG-001] Banner image cropped incorrectly on desktop and mobile
+
+Date: 2026-04-09
+Severity: HIGH
+File: `assets/js/cloudinary-service.js` `optimizeBannerImageUrl()`
+
+Description:
+  `c_fill` with fixed width + height transforms caused Cloudinary
+  to crop banner images without smart subject awareness.
+  Desktop banners could feel over-expanded, while mobile banners
+  could cut important content from the sides.
+  Evidence: confirmed by the store owner via live screenshots.
+
+Fix applied:
+  Replace fixed `c_fill` transforms with aspect-ratio driven
+  banner transforms using AI smart gravity.
+  The upgraded implementation uses `ar_`, `g_auto:subject`,
+  responsive context presets, and `dpr_auto`.
+  `buildBannerSrcset()` was also added for responsive delivery.
+
+Status: FIXED
+Branch: `feat/banner-image-optimization-v3`
 
 ## Template - Log a New Error
 
