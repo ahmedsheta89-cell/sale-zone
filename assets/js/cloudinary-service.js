@@ -401,6 +401,72 @@
     };
   }
 
+  /**
+   * getUltimateBannerUrl
+   * V4 professional banner image delivery.
+   * Does NOT modify optimizeBannerImageUrl().
+   *
+   * @param {string} url Cloudinary asset URL
+   * @param {string} context 'desktop'|'tablet'|'mobile'|'preview'
+   * @param {object} options delivery options
+   * @param {string} options.fitMode 'auto'|'pad'|'crop'|'scale'
+   * @param {string} options.focalPoint
+   *   'subject'|'face'|'auto'|'center'|'top'|'bottom'
+   *   used only when fitMode is 'crop'
+   * @returns {string} optimized URL or original if not applicable
+   */
+  function getUltimateBannerUrl(url, context, options) {
+    if (!url || !url.includes('cloudinary.com')) {
+      return url;
+    }
+
+    if (/\/upload\/[whcqfagb]/.test(url)) {
+      return url;
+    }
+
+    var fitMode = options && options.fitMode ? options.fitMode : 'auto';
+    var focalPoint = options && options.focalPoint ? options.focalPoint : 'subject';
+    var gravityMap = {
+      face: 'g_auto:face',
+      subject: 'g_auto:subject',
+      auto: 'g_auto',
+      center: 'g_center',
+      top: 'g_north',
+      bottom: 'g_south'
+    };
+    var gravity = gravityMap[focalPoint] || 'g_auto:subject';
+    var quality = 'q_auto:best,f_auto,dpr_auto';
+    var contexts = {
+      desktop: { ar: '16:9', w: '1200' },
+      tablet: { ar: '4:3', w: '900' },
+      mobile: { ar: '4:5', w: '600' },
+      preview: { ar: '16:9', w: '400' }
+    };
+    var selectedContext = contexts[context] || contexts.desktop;
+    var qCtx = context === 'preview'
+      ? 'q_auto,f_auto'
+      : quality;
+    var transform;
+
+    switch (fitMode) {
+      case 'pad':
+        transform = 'ar_' + selectedContext.ar + ',c_pad,b_auto:predominant,w_' + selectedContext.w + ',' + qCtx;
+        break;
+      case 'crop':
+        transform = 'ar_' + selectedContext.ar + ',c_fill,' + gravity + ',w_' + selectedContext.w + ',' + qCtx;
+        break;
+      case 'scale':
+        transform = 'c_scale,w_' + selectedContext.w + ',' + qCtx;
+        break;
+      case 'auto':
+      default:
+        transform = 'ar_' + selectedContext.ar + ',c_pad,b_auto:predominant,' + gravity + ',w_' + selectedContext.w + ',' + qCtx;
+        break;
+    }
+
+    return url.replace('/upload/', '/upload/' + transform + '/');
+  }
+
   function compressImageBeforeUpload(file, maxSizeKB) {
     var settings = (maxSizeKB && typeof maxSizeKB === 'object') ? maxSizeKB : {};
     var maxDimension = Math.max(120, Number(settings.maxDimension || MAX_COMPRESSED_DIMENSION));
@@ -740,6 +806,7 @@
   global.enhanceProductImageUrl = enhanceProductImageUrl;
   global.optimizeBannerImageUrl = optimizeBannerImageUrl;
   global.buildBannerSrcset = buildBannerSrcset;
+  global.getUltimateBannerUrl = getUltimateBannerUrl;
   global.getOptimizedImageUrl = getOptimizedImageUrl;
   global.getSafeImageUrl = getSafeImageUrl;
   global.validateCloudinaryUploadFile = validateUploadFile;

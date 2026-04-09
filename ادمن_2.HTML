@@ -3403,11 +3403,21 @@
                         <small style="color:#999;font-size:11px">الذكاء الاصطناعي يحدد أهم جزء في الصورة ويحافظ عليه عند اختلاف أحجام الشاشات</small>
                     </div>
                     <div class="form-group">
+                        <label>طريقة ملاءمة الصورة للبانر</label>
+                        <select id="bannerFitMode" style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid #ddd;font-family:inherit;font-size:13px;direction:rtl;background:#fff">
+                            <option value="auto">تلقائي ذكي — مناسب لجميع الصور (موصى به)</option>
+                            <option value="pad">ملاءمة كاملة — خلفية بألوان الصورة (للصور العمودية والفنية)</option>
+                            <option value="crop">قطع ذكي — يركز على الموضوع الرئيسي (للصور الأفقية فقط)</option>
+                            <option value="scale">تناسب — يحافظ على النسبة الأصلية بدون قطع</option>
+                        </select>
+                        <small style="color:#999;font-size:11px;display:block;margin-top:4px;direction:rtl">الصور العمودية أو الفنية: اختر "ملاءمة كاملة"</small>
+                    </div>
+                    <div class="form-group">
                         <label>رفع صورة البانر (اختياري)</label>
                         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
                             <input type="file" id="bannerImageFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="uploadBannerImage(this)">
                             <button type="button" id="bannerImageUploadBtn" class="btn btn-light" onclick="document.getElementById('bannerImageFile')?.click()">رفع صورة إلى Cloudinary</button>
-                            <span style="font-size:12px; color:#64748b;">الأبعاد المثالية: 1200×525 أو 800×1000 موبايل</span>
+                            <span style="font-size:12px; color:#64748b;">الصورة المثالية: 1200×675 أفقية (16:9). الصور العمودية ستُعرض كاملة مع خلفية ذكية عند اختيار "تلقائي ذكي" أو "ملاءمة كاملة".</span>
                         </div>
                         <div id="bannerImageUploadWarning" style="display:none; margin-bottom:8px; color:#b45309; background:#fff7ed; border:1px solid #fdba74; border-radius:8px; padding:8px 10px; font-size:12px;">حجم الصورة كبير. يُنصح بضغطها قبل الرفع</div>
                         <div id="bannerImageUploadProgressWrap" style="display:none; margin-bottom:8px; width:100%; height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden;">
@@ -8661,7 +8671,8 @@ function adminLogout(){
                 colorMode: normalizeBannerColorMode(document.getElementById('bannerColorMode').value),
                 imageUrl: String(document.getElementById('bannerImageUrl').value || '').trim(),
                 badge: String(document.getElementById('bannerBadge').value || '').trim(),
-                focalPoint: String(document.getElementById('bannerFocalPoint')?.value || 'subject').trim() || 'subject'
+                focalPoint: String(document.getElementById('bannerFocalPoint')?.value || 'subject').trim() || 'subject',
+                fitMode: String(document.getElementById('bannerFitMode')?.value || 'auto').trim() || 'auto'
             };
         }
 
@@ -8874,11 +8885,14 @@ function adminLogout(){
             const colorMode = data.colorMode || 'dark';
             const rawImageUrl = String(data.imageUrl || '').trim();
             const focalPoint = String(data.focalPoint || 'subject').trim() || 'subject';
+            const fitMode = String(data.fitMode || 'auto').trim() || 'auto';
             const previewImageUrl = rawImageUrl.startsWith('blob:')
                 ? rawImageUrl
-                : (typeof optimizeBannerImageUrl === 'function'
-                    ? String(optimizeBannerImageUrl(rawImageUrl, 'preview', { focalPoint }) || '').trim()
-                    : rawImageUrl);
+                : (typeof getUltimateBannerUrl === 'function'
+                    ? String(getUltimateBannerUrl(rawImageUrl, 'preview', { fitMode, focalPoint }) || '').trim()
+                    : (typeof optimizeBannerImageUrl === 'function'
+                        ? String(optimizeBannerImageUrl(rawImageUrl, 'preview', { focalPoint }) || '').trim()
+                        : rawImageUrl));
             const safeImageUrl = /^(https?:\/\/|blob:)/i.test(previewImageUrl)
                 ? previewImageUrl.replace(/'/g, '%27')
                 : '';
@@ -8952,7 +8966,8 @@ function adminLogout(){
                 'bannerColorMode',
                 'bannerBadge',
                 'bannerImageUrl',
-                'bannerFocalPoint'
+                'bannerFocalPoint',
+                'bannerFitMode'
             ];
             fieldIds.forEach((id) => {
                 const el = document.getElementById(id);
@@ -9012,6 +9027,8 @@ function adminLogout(){
             document.getElementById('bannerImageUrl').value = '';
             const focalPointInput = document.getElementById('bannerFocalPoint');
             if (focalPointInput) focalPointInput.value = 'subject';
+            const fitModeEl = document.getElementById('bannerFitMode');
+            if (fitModeEl) fitModeEl.value = 'auto';
             updateBannerPreview();
         }
 
@@ -9041,6 +9058,8 @@ function adminLogout(){
             document.getElementById('bannerImageUrl').value = String(target.imageUrl || '');
             const focalPointInput = document.getElementById('bannerFocalPoint');
             if (focalPointInput) focalPointInput.value = String(target.focalPoint || 'subject');
+            const fitModeEl = document.getElementById('bannerFitMode');
+            if (fitModeEl) fitModeEl.value = String(target.fitMode || 'auto');
             resetBannerImageUploadState();
             document.getElementById('bannerImageUrl').value = String(target.imageUrl || '');
             updateBannerPreview();
