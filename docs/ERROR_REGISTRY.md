@@ -387,6 +387,11 @@ git commit -m "..." --no-verify
 **Important Note:**
 The push-time release gate on GitHub continues to run normally and remains the authoritative verification path.
 
+**V3 Cleanup Follow-up (2026-04-09):**
+- During `feat/banner-image-optimization-v3`, temporary local commit-message files (`commit-task2.txt`, `commit-task3.txt`) were used because the normal hook path was blocked by the same `env.exe` issue.
+- Those files were removed from the unpublished branch history before push so the final branch keeps the intended 3 clean feature commits only.
+- This was a local history-cleanup action, not a repository code fix or CI issue.
+
 **Prevention Rule:**
 Treat this as a local environment issue only. Do not bypass push-time checks, and do not classify it as a repo regression unless the same failure reproduces on GitHub CI.
 
