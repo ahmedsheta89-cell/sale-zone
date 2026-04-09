@@ -5443,12 +5443,13 @@
                         <img
                             class="banner-hero-img"
                             src="${escapeHtml(desktopUrl)}"
+                            data-original-src="${escapeHtml(imageUrl)}"
                             srcset="${escapeHtml(`${mobileUrl} 600w, ${tabletUrl} 900w, ${desktopUrl} 1200w`)}"
                             sizes="(max-width: 600px) 600px, (max-width: 900px) 900px, 1200px"
                             alt="${safeTitle}"
                             ${isFirst ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"'}
                             decoding="${isFirst ? 'sync' : 'async'}"
-                            onerror="this.style.display='none'; this.parentElement.classList.add('banner-hero-no-image');"
+                            onerror="handleBannerImageError(this)"
                         >
                     `;
                 } else if (isCloudinary && typeof buildBannerSrcset === 'function') {
@@ -5461,11 +5462,12 @@
                         <img
                             class="banner-hero-img"
                             src="${escapeHtml(desktopUrl)}"
+                            data-original-src="${escapeHtml(imageUrl)}"
                             ${srcsetData ? `srcset="${escapeHtml(srcsetData.srcset)}" sizes="${escapeHtml(srcsetData.sizes)}"` : ''}
                             alt="${safeTitle}"
                             ${isFirst ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"'}
                             decoding="${isFirst ? 'sync' : 'async'}"
-                            onerror="this.style.display='none'; this.parentElement.classList.add('banner-hero-no-image');"
+                            onerror="handleBannerImageError(this)"
                         >
                     `;
                 } else {
@@ -5473,10 +5475,11 @@
                         <img
                             class="banner-hero-img"
                             src="${escapeHtml(imageUrl)}"
+                            data-original-src="${escapeHtml(imageUrl)}"
                             alt="${safeTitle}"
                             ${isFirst ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"'}
                             decoding="${isFirst ? 'sync' : 'async'}"
-                            onerror="this.style.display='none'; this.parentElement.classList.add('banner-hero-no-image');"
+                            onerror="handleBannerImageError(this)"
                         >
                     `;
                 }
@@ -5503,6 +5506,19 @@
             if (img) {
                 img.style.display = 'none';
             }
+        }
+
+        function handleBannerImageError(img) {
+            if (!img) return;
+            const originalSrc = String(img.getAttribute('data-original-src') || '').trim();
+            const currentSrc = String(img.getAttribute('src') || '').trim();
+            if (originalSrc && currentSrc && currentSrc !== originalSrc && img.dataset.originalFallbackApplied !== '1') {
+                img.dataset.originalFallbackApplied = '1';
+                img.src = originalSrc;
+                return;
+            }
+            console.warn('[Banner] Failed to load image:', currentSrc || originalSrc || '(empty src)');
+            applyBannerImageFallback(img.parentElement);
         }
 
         function renderPromoBanner(banner, index) {

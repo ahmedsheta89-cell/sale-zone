@@ -940,6 +940,35 @@ Fix applied: DEFERRED
 
 Status: OPEN - deferred
 
+## [BUG-HOTFIX-400-001] Banner V4 Cloudinary transforms returned HTTP 400
+
+Date: 2026-04-10
+Severity: HIGH
+File: `assets/js/cloudinary-service.js` line 417+
+
+Description:
+  `getUltimateBannerUrl()` shipped with an aggressive transform chain:
+  `c_pad` plus `b_auto:predominant`, gravity tokens, `q_auto:best`,
+  and `dpr_auto`. On the live environment this generated Cloudinary
+  delivery URLs that returned HTTP 400 for banner images.
+
+Evidence:
+  Confirmed by store owner on the live site.
+  Broken banners failed to load after V4 merge, especially on the
+  hero path that now depends on `getUltimateBannerUrl()`.
+
+Fix applied:
+  Simplified the generated transforms to the safest supported set:
+  - `auto` / `pad`: `w_,c_pad,ar_,q_auto:good,f_auto`
+  - `crop`: `w_,c_fill,g_auto,ar_,q_auto:good,f_auto`
+  - `scale`: `w_,c_scale,q_auto:good,f_auto`
+  Also removed `b_auto:predominant`, `dpr_auto`, and `q_auto:best`,
+  and strengthened the storefront image error path to fall back once
+  to the original image URL before showing the gradient fallback.
+
+Status: FIXED
+Branch: `hotfix/banner-image-400-fix`
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
