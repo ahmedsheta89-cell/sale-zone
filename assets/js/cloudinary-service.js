@@ -310,11 +310,32 @@
     return enhanceProductImageUrl(source, size);
   }
 
-  function getBannerTransformPreset(context) {
+  function normalizeBannerFocalPoint(focalPoint) {
+    return String(focalPoint || 'subject').trim().toLowerCase() || 'subject';
+  }
+
+  function getBannerGravityTransform(focalPoint) {
+    var normalized = normalizeBannerFocalPoint(focalPoint);
+    var gravityMap = {
+      face: 'g_auto:face',
+      subject: 'g_auto:subject',
+      auto: 'g_auto',
+      center: 'g_center',
+      top: 'g_north',
+      north: 'g_north',
+      bottom: 'g_south',
+      south: 'g_south'
+    };
+    return gravityMap[normalized] || gravityMap.subject;
+  }
+
+  function getBannerTransformPreset(context, options) {
+    var gravity = getBannerGravityTransform(options && options.focalPoint);
     var presets = {
-      desktop: 'w_1200,h_525,c_fill,q_auto,f_auto',
-      mobile: 'w_800,h_1000,c_fill,q_auto,f_auto',
-      preview: 'w_600,q_auto,f_auto'
+      desktop: 'ar_16:9,c_fill,' + gravity + ',w_1200,q_auto:best,f_auto,dpr_auto',
+      tablet: 'ar_4:3,c_fill,' + gravity + ',w_900,q_auto:best,f_auto,dpr_auto',
+      mobile: 'ar_4:5,c_fill,' + gravity + ',w_600,q_auto:best,f_auto,dpr_auto',
+      preview: 'ar_16:9,c_fill,' + gravity + ',w_400,q_auto,f_auto'
     };
     return presets[String(context || '').trim()] || presets.desktop;
   }
@@ -345,7 +366,7 @@
     return false;
   }
 
-  function optimizeBannerImageUrl(url, context) {
+  function optimizeBannerImageUrl(url, context, options) {
     var rawUrl = String(url || '').trim();
     var transforms;
     if (!rawUrl || rawUrl.indexOf('cloudinary.com') === -1) {
@@ -356,8 +377,28 @@
       return rawUrl;
     }
 
-    transforms = getBannerTransformPreset(context);
+    transforms = getBannerTransformPreset(context, options);
     return rawUrl.replace('/image/upload/', '/image/upload/' + transforms + '/');
+  }
+
+  function buildBannerSrcset(url, focalPoint) {
+    var rawUrl = String(url || '').trim();
+    var safeFocalPoint = normalizeBannerFocalPoint(focalPoint);
+    var mobileUrl;
+    var tabletUrl;
+    var desktopUrl;
+    if (!rawUrl || rawUrl.indexOf('cloudinary.com') === -1) {
+      return null;
+    }
+
+    mobileUrl = optimizeBannerImageUrl(rawUrl, 'mobile', { focalPoint: safeFocalPoint });
+    tabletUrl = optimizeBannerImageUrl(rawUrl, 'tablet', { focalPoint: safeFocalPoint });
+    desktopUrl = optimizeBannerImageUrl(rawUrl, 'desktop', { focalPoint: safeFocalPoint });
+
+    return {
+      srcset: mobileUrl + ' 600w, ' + tabletUrl + ' 900w, ' + desktopUrl + ' 1200w',
+      sizes: '(max-width: 600px) 600px, (max-width: 900px) 900px, 1200px'
+    };
   }
 
   function compressImageBeforeUpload(file, maxSizeKB) {
@@ -676,6 +717,7 @@
     transforms: TRANSFORMS,
     enhance: enhanceProductImageUrl,
     optimizeBanner: optimizeBannerImageUrl,
+    buildBannerSrcset: buildBannerSrcset,
     getOptimized: getOptimizedImageUrl,
     getSafe: getSafeImageUrl,
     validateUpload: validateUploadFile,
@@ -697,6 +739,7 @@
   global.CLOUDINARY_CONFIG = CLOUDINARY_CONFIG;
   global.enhanceProductImageUrl = enhanceProductImageUrl;
   global.optimizeBannerImageUrl = optimizeBannerImageUrl;
+  global.buildBannerSrcset = buildBannerSrcset;
   global.getOptimizedImageUrl = getOptimizedImageUrl;
   global.getSafeImageUrl = getSafeImageUrl;
   global.validateCloudinaryUploadFile = validateUploadFile;

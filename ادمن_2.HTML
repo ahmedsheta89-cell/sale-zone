@@ -3391,6 +3391,18 @@
                         <input type="url" id="bannerImageUrl" placeholder="https://example.com/banner.jpg" autocomplete="off">
                     </div>
                     <div class="form-group">
+                        <label>نقطة التركيز في الصورة</label>
+                        <select id="bannerFocalPoint" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;font-family:inherit;direction:rtl">
+                            <option value="subject">ذكاء اصطناعي — كشف تلقائي للموضوع</option>
+                            <option value="face">ذكاء اصطناعي — تركيز على الوجه</option>
+                            <option value="auto">ذكاء اصطناعي — عام</option>
+                            <option value="center">مركز الصورة</option>
+                            <option value="top">أعلى الصورة</option>
+                            <option value="bottom">أسفل الصورة</option>
+                        </select>
+                        <small style="color:#999;font-size:11px">الذكاء الاصطناعي يحدد أهم جزء في الصورة ويحافظ عليه عند اختلاف أحجام الشاشات</small>
+                    </div>
+                    <div class="form-group">
                         <label>رفع صورة البانر (اختياري)</label>
                         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
                             <input type="file" id="bannerImageFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="uploadBannerImage(this)">
@@ -8648,7 +8660,8 @@ function adminLogout(){
                 order: normalizeBannerOrder(document.getElementById('bannerOrder').value),
                 colorMode: normalizeBannerColorMode(document.getElementById('bannerColorMode').value),
                 imageUrl: String(document.getElementById('bannerImageUrl').value || '').trim(),
-                badge: String(document.getElementById('bannerBadge').value || '').trim()
+                badge: String(document.getElementById('bannerBadge').value || '').trim(),
+                focalPoint: String(document.getElementById('bannerFocalPoint')?.value || 'subject').trim() || 'subject'
             };
         }
 
@@ -8860,10 +8873,11 @@ function adminLogout(){
             const type = data.type || 'promo';
             const colorMode = data.colorMode || 'dark';
             const rawImageUrl = String(data.imageUrl || '').trim();
+            const focalPoint = String(data.focalPoint || 'subject').trim() || 'subject';
             const previewImageUrl = rawImageUrl.startsWith('blob:')
                 ? rawImageUrl
                 : (typeof optimizeBannerImageUrl === 'function'
-                    ? String(optimizeBannerImageUrl(rawImageUrl, 'preview') || '').trim()
+                    ? String(optimizeBannerImageUrl(rawImageUrl, 'preview', { focalPoint }) || '').trim()
                     : rawImageUrl);
             const safeImageUrl = /^(https?:\/\/|blob:)/i.test(previewImageUrl)
                 ? previewImageUrl.replace(/'/g, '%27')
@@ -8937,7 +8951,8 @@ function adminLogout(){
                 'bannerOrder',
                 'bannerColorMode',
                 'bannerBadge',
-                'bannerImageUrl'
+                'bannerImageUrl',
+                'bannerFocalPoint'
             ];
             fieldIds.forEach((id) => {
                 const el = document.getElementById(id);
@@ -8995,6 +9010,8 @@ function adminLogout(){
             document.getElementById('bannerColorMode').value = 'dark';
             document.getElementById('bannerBadge').value = '';
             document.getElementById('bannerImageUrl').value = '';
+            const focalPointInput = document.getElementById('bannerFocalPoint');
+            if (focalPointInput) focalPointInput.value = 'subject';
             updateBannerPreview();
         }
 
@@ -9022,6 +9039,8 @@ function adminLogout(){
             document.getElementById('bannerColorMode').value = normalizeBannerColorMode(target.colorMode);
             document.getElementById('bannerBadge').value = String(target.badge || '');
             document.getElementById('bannerImageUrl').value = String(target.imageUrl || '');
+            const focalPointInput = document.getElementById('bannerFocalPoint');
+            if (focalPointInput) focalPointInput.value = String(target.focalPoint || 'subject');
             resetBannerImageUploadState();
             document.getElementById('bannerImageUrl').value = String(target.imageUrl || '');
             updateBannerPreview();

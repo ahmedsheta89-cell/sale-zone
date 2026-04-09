@@ -304,22 +304,31 @@
             overflow: hidden;
             direction: rtl;
             aspect-ratio: 4/5;
+            background: #1a1a2e;
+        }
+        @media (min-width: 600px) {
+            .banner-hero { aspect-ratio: 4/3; }
         }
         @media (min-width: 768px) {
             .banner-hero { aspect-ratio: 16/9; }
         }
-        @media (min-width: 1024px) {
-            .banner-hero { aspect-ratio: 16/7; }
-        }
-        .banner-hero-bg {
+        .banner-hero-img {
             position: absolute;
             inset: 0;
-            background-size: cover;
-            background-position: center;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
             z-index: 1;
-            transition: transform 0.6s ease;
+            transition: transform 0.6s ease, opacity 0.3s ease;
         }
-        .banner-hero:hover .banner-hero-bg { transform: scale(1.02); }
+        .banner-hero:hover .banner-hero-img { transform: scale(1.02); }
+        .banner-hero.dark.banner-hero-no-image {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+        }
+        .banner-hero.light.banner-hero-no-image {
+            background: linear-gradient(135deg, #f8f4ef, #f0e9df);
+        }
         .banner-hero-overlay {
             position: absolute;
             inset: 0;
@@ -5390,26 +5399,42 @@
         function renderHeroBanner(banner, index) {
             const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
             const imageUrl = String(banner && banner.imageUrl || '').trim();
-            const bannerImageContext = window.innerWidth < 768 ? 'mobile' : 'desktop';
-            const optimizedImageUrl = typeof optimizeBannerImageUrl === 'function'
-                ? String(optimizeBannerImageUrl(imageUrl, bannerImageContext) || '').trim()
-                : imageUrl;
+            const focalPoint = String(banner && banner.focalPoint || 'subject').trim() || 'subject';
             const badge = escapeHtml(String(banner && banner.badge || '').trim());
             const safeTitle = escapeHtml(String(banner && banner.title || ''));
             const safeText = escapeHtml(String(banner && banner.text || ''));
             const safeButton = escapeHtml(String(banner && banner.btn || ''));
             const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
             const isFirst = index === 0;
-            const safeImageUrl = optimizedImageUrl.replace(/'/g, "\\'");
-            const bgStyle = safeImageUrl ? `background-image: url('${safeImageUrl}')` : '';
+            const bannerImageContext = window.innerWidth < 600
+                ? 'mobile'
+                : (window.innerWidth < 768 ? 'tablet' : 'desktop');
+            const optimizedImageUrl = typeof optimizeBannerImageUrl === 'function'
+                ? String(optimizeBannerImageUrl(imageUrl, bannerImageContext, { focalPoint }) || '').trim()
+                : imageUrl;
+            const srcsetData = imageUrl && typeof buildBannerSrcset === 'function'
+                ? buildBannerSrcset(imageUrl, focalPoint)
+                : null;
             const badgeHtml = badge ? `<span class="banner-hero-badge">${badge}</span>` : '';
             const btnHtml = safeButton
                 ? `<button class="banner-hero-cta" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</button>`
                 : '';
+            const imageHtml = optimizedImageUrl
+                ? `
+                    <img
+                        class="banner-hero-img"
+                        src="${escapeHtml(optimizedImageUrl)}"
+                        ${srcsetData ? `srcset="${escapeHtml(srcsetData.srcset)}" sizes="${escapeHtml(srcsetData.sizes)}"` : ''}
+                        alt="${safeTitle}"
+                        ${isFirst ? 'fetchpriority="high" loading="eager" decoding="sync"' : 'loading="lazy" decoding="async"'}
+                        onerror="this.style.display='none'; this.parentElement.classList.add('banner-hero-no-image');"
+                    >
+                `
+                : '';
 
             return `
-                <div class="banner-hero ${colorMode} ${isFirst ? 'banner-slide-active' : ''}">
-                    <div class="banner-hero-bg" style="${bgStyle}" data-src="${escapeHtml(optimizedImageUrl)}" ${isFirst ? '' : 'data-lazy="true"'}></div>
+                <div class="banner-hero ${colorMode} ${isFirst ? 'banner-slide-active' : ''} ${optimizedImageUrl ? '' : 'banner-hero-no-image'}">
+                    ${imageHtml}
                     <div class="banner-hero-overlay"></div>
                     <div class="banner-hero-content">
                         ${badgeHtml}
@@ -5421,13 +5446,13 @@
             `;
         }
 
-        function applyBannerImageFallback(el, colorMode) {
-            const bg = el && el.querySelector ? el.querySelector('.banner-hero-bg') : null;
-            if (!bg) return;
-            bg.style.backgroundImage = 'none';
-            bg.style.background = colorMode === 'dark'
-                ? 'linear-gradient(135deg, #1a1a2e, #16213e)'
-                : 'linear-gradient(135deg, #f8f4ef, #f0e9df)';
+        function applyBannerImageFallback(el) {
+            if (!el || !el.classList) return;
+            el.classList.add('banner-hero-no-image');
+            const img = el.querySelector ? el.querySelector('.banner-hero-img') : null;
+            if (img) {
+                img.style.display = 'none';
+            }
         }
 
         function renderPromoBanner(banner, index) {
@@ -5470,18 +5495,15 @@
         }
 
         function loadSlideImage(slide) {
-            if (!slide || !slide.querySelectorAll) return;
-            slide.querySelectorAll('[data-lazy="true"]').forEach((bg) => {
-                const rawSrc = String(bg.dataset.src || '').trim();
-                const context = window.innerWidth < 768 ? 'mobile' : 'desktop';
-                const src = typeof optimizeBannerImageUrl === 'function'
-                    ? String(optimizeBannerImageUrl(rawSrc, context) || '').trim()
-                    : rawSrc;
-                if (!src) return;
-                bg.style.backgroundImage = `url('${src.replace(/'/g, "\\'")}')`;
-                bg.removeAttribute('data-lazy');
-                bg.removeAttribute('data-src');
-            });
+            if (!slide || !slide.querySelector) return;
+            const img = slide.querySelector('.banner-hero-img');
+            if (!img) return;
+            if (img.getAttribute('loading') === 'lazy') {
+                img.setAttribute('loading', 'eager');
+            }
+            if (typeof img.decode === 'function') {
+                img.decode().catch(() => null);
+            }
         }
 
         function bindBannerSliderInteractions() {
@@ -5544,12 +5566,9 @@
             }).join('');
 
             slider.querySelectorAll('.banner-hero').forEach((el) => {
-                const bg = el.querySelector('.banner-hero-bg');
-                const hasLoadedImage = bg && String(bg.style.backgroundImage || '').trim() !== '';
-                const hasDeferredImage = bg && String(bg.dataset.src || '').trim() !== '';
-                if (!hasLoadedImage && !hasDeferredImage) {
-                    const colorMode = el.classList.contains('light') ? 'light' : 'dark';
-                    applyBannerImageFallback(el, colorMode);
+                const img = el.querySelector('.banner-hero-img');
+                if (!img || !String(img.getAttribute('src') || '').trim()) {
+                    applyBannerImageFallback(el);
                 }
             });
 
