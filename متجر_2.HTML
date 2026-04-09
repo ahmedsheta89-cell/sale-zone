@@ -329,6 +329,24 @@
         .banner-hero.light.banner-hero-no-image {
             background: linear-gradient(135deg, #f8f4ef, #f0e9df);
         }
+        /* ===== BANNER FIT MODE VARIANTS ===== */
+        .banner-hero.banner-fit-auto .banner-hero-img {
+            object-fit: contain;
+            object-position: center;
+        }
+        .banner-hero.banner-fit-pad .banner-hero-img {
+            object-fit: contain;
+            object-position: center;
+        }
+        .banner-hero.banner-fit-crop .banner-hero-img {
+            object-fit: cover;
+            object-position: center;
+        }
+        .banner-hero.banner-fit-scale .banner-hero-img {
+            object-fit: contain;
+            object-position: center;
+            background: transparent;
+        }
         .banner-hero-overlay {
             position: absolute;
             inset: 0;
@@ -5400,40 +5418,72 @@
             const colorMode = (banner && banner.colorMode) === 'light' ? 'light' : 'dark';
             const imageUrl = String(banner && banner.imageUrl || '').trim();
             const focalPoint = String(banner && banner.focalPoint || 'subject').trim() || 'subject';
+            const fitMode = String(banner && banner.fitMode || 'auto').trim() || 'auto';
             const badge = escapeHtml(String(banner && banner.badge || '').trim());
             const safeTitle = escapeHtml(String(banner && banner.title || ''));
             const safeText = escapeHtml(String(banner && banner.text || ''));
             const safeButton = escapeHtml(String(banner && banner.btn || ''));
             const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
             const isFirst = index === 0;
-            const bannerImageContext = window.innerWidth < 600
-                ? 'mobile'
-                : (window.innerWidth < 768 ? 'tablet' : 'desktop');
-            const optimizedImageUrl = typeof optimizeBannerImageUrl === 'function'
-                ? String(optimizeBannerImageUrl(imageUrl, bannerImageContext, { focalPoint }) || '').trim()
-                : imageUrl;
-            const srcsetData = imageUrl && typeof buildBannerSrcset === 'function'
-                ? buildBannerSrcset(imageUrl, focalPoint)
-                : null;
             const badgeHtml = badge ? `<span class="banner-hero-badge">${badge}</span>` : '';
             const btnHtml = safeButton
                 ? `<button class="banner-hero-cta" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</button>`
                 : '';
-            const imageHtml = optimizedImageUrl
-                ? `
-                    <img
-                        class="banner-hero-img"
-                        src="${escapeHtml(optimizedImageUrl)}"
-                        ${srcsetData ? `srcset="${escapeHtml(srcsetData.srcset)}" sizes="${escapeHtml(srcsetData.sizes)}"` : ''}
-                        alt="${safeTitle}"
-                        ${isFirst ? 'fetchpriority="high" loading="eager" decoding="sync"' : 'loading="lazy" decoding="async"'}
-                        onerror="this.style.display='none'; this.parentElement.classList.add('banner-hero-no-image');"
-                    >
-                `
-                : '';
+            let imageHtml = '';
+
+            if (imageUrl) {
+                const isCloudinary = imageUrl.includes('cloudinary.com');
+
+                if (isCloudinary && typeof getUltimateBannerUrl === 'function') {
+                    const mobileUrl = getUltimateBannerUrl(imageUrl, 'mobile', { fitMode, focalPoint });
+                    const tabletUrl = getUltimateBannerUrl(imageUrl, 'tablet', { fitMode, focalPoint });
+                    const desktopUrl = getUltimateBannerUrl(imageUrl, 'desktop', { fitMode, focalPoint });
+
+                    imageHtml = `
+                        <img
+                            class="banner-hero-img"
+                            src="${escapeHtml(desktopUrl)}"
+                            srcset="${escapeHtml(`${mobileUrl} 600w, ${tabletUrl} 900w, ${desktopUrl} 1200w`)}"
+                            sizes="(max-width: 600px) 600px, (max-width: 900px) 900px, 1200px"
+                            alt="${safeTitle}"
+                            ${isFirst ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"'}
+                            decoding="${isFirst ? 'sync' : 'async'}"
+                            onerror="this.style.display='none'; this.parentElement.classList.add('banner-hero-no-image');"
+                        >
+                    `;
+                } else if (isCloudinary && typeof buildBannerSrcset === 'function') {
+                    const srcsetData = buildBannerSrcset(imageUrl, focalPoint);
+                    const desktopUrl = typeof optimizeBannerImageUrl === 'function'
+                        ? optimizeBannerImageUrl(imageUrl, 'desktop', { focalPoint })
+                        : imageUrl;
+
+                    imageHtml = `
+                        <img
+                            class="banner-hero-img"
+                            src="${escapeHtml(desktopUrl)}"
+                            ${srcsetData ? `srcset="${escapeHtml(srcsetData.srcset)}" sizes="${escapeHtml(srcsetData.sizes)}"` : ''}
+                            alt="${safeTitle}"
+                            ${isFirst ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"'}
+                            decoding="${isFirst ? 'sync' : 'async'}"
+                            onerror="this.style.display='none'; this.parentElement.classList.add('banner-hero-no-image');"
+                        >
+                    `;
+                } else {
+                    imageHtml = `
+                        <img
+                            class="banner-hero-img"
+                            src="${escapeHtml(imageUrl)}"
+                            alt="${safeTitle}"
+                            ${isFirst ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"'}
+                            decoding="${isFirst ? 'sync' : 'async'}"
+                            onerror="this.style.display='none'; this.parentElement.classList.add('banner-hero-no-image');"
+                        >
+                    `;
+                }
+            }
 
             return `
-                <div class="banner-hero ${colorMode} ${isFirst ? 'banner-slide-active' : ''} ${optimizedImageUrl ? '' : 'banner-hero-no-image'}">
+                <div class="banner-hero ${colorMode} ${isFirst ? 'banner-slide-active' : ''} ${imageUrl ? '' : 'banner-hero-no-image'} banner-fit-${escapeHtml(fitMode)}">
                     ${imageHtml}
                     <div class="banner-hero-overlay"></div>
                     <div class="banner-hero-content">
