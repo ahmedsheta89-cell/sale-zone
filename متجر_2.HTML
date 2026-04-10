@@ -524,17 +524,15 @@
             color: #fff;
         }
         @media (max-width: 600px) {
-            .banner-hero-content {
-                padding: 16px 20px;
-            }
             .banner-hero.banner-fit-pad,
             .banner-hero.banner-fit-auto {
-                aspect-ratio: 3 / 4;
-                background-color: #111111;
+                aspect-ratio: 1 / 1;
+                background: #080808;
             }
             .banner-hero.banner-fit-pad .banner-hero-img,
             .banner-hero.banner-fit-auto .banner-hero-img {
-                object-fit: contain;
+                object-fit: cover;
+                object-position: center;
                 width: 100%;
                 height: 100%;
             }
