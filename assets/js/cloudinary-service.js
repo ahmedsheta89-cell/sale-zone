@@ -420,22 +420,12 @@
       return url;
     }
 
-    if (/\/upload\/[whcqfagb]/.test(url)) {
+    var uploadPath = String(url.split('/upload/')[1] || '');
+    if (/(^|[,/])(ar_|c_|w_|h_|q_|f_|g_|b_)/.test(uploadPath)) {
       return url;
     }
 
     var fitMode = options && options.fitMode ? options.fitMode : 'auto';
-    var focalPoint = options && options.focalPoint ? options.focalPoint : 'subject';
-    var gravityMap = {
-      face: 'g_auto:face',
-      subject: 'g_auto:subject',
-      auto: 'g_auto',
-      center: 'g_center',
-      top: 'g_north',
-      bottom: 'g_south'
-    };
-    var gravity = gravityMap[focalPoint] || 'g_auto:subject';
-    var quality = 'q_auto:best,f_auto,dpr_auto';
     var contexts = {
       desktop: { ar: '16:9', w: '1200' },
       tablet: { ar: '4:3', w: '900' },
@@ -443,25 +433,26 @@
       preview: { ar: '16:9', w: '400' }
     };
     var selectedContext = contexts[context] || contexts.desktop;
-    var qCtx = context === 'preview'
-      ? 'q_auto,f_auto'
-      : quality;
     var transform;
 
     switch (fitMode) {
       case 'pad':
-        transform = 'ar_' + selectedContext.ar + ',c_pad,b_auto:predominant,w_' + selectedContext.w + ',' + qCtx;
+        transform = 'w_' + selectedContext.w + ',c_pad,ar_' + selectedContext.ar + ',q_auto:good,f_auto';
         break;
       case 'crop':
-        transform = 'ar_' + selectedContext.ar + ',c_fill,' + gravity + ',w_' + selectedContext.w + ',' + qCtx;
+        transform = 'w_' + selectedContext.w + ',c_fill,g_auto,ar_' + selectedContext.ar + ',q_auto:good,f_auto';
         break;
       case 'scale':
-        transform = 'c_scale,w_' + selectedContext.w + ',' + qCtx;
+        transform = 'w_' + selectedContext.w + ',c_scale,q_auto:good,f_auto';
         break;
       case 'auto':
       default:
-        transform = 'ar_' + selectedContext.ar + ',c_pad,b_auto:predominant,' + gravity + ',w_' + selectedContext.w + ',' + qCtx;
+        transform = 'w_' + selectedContext.w + ',c_pad,ar_' + selectedContext.ar + ',q_auto:good,f_auto';
         break;
+    }
+
+    if (transform.indexOf('undefined') !== -1) {
+      return url;
     }
 
     return url.replace('/upload/', '/upload/' + transform + '/');
