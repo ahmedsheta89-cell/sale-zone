@@ -969,6 +969,37 @@ Fix applied:
 Status: FIXED
 Branch: `hotfix/banner-image-400-fix`
 
+## [BUG-GATE-001] hash-stability failure after hotfix registry was generated in fallback mode
+
+Date: 2026-04-10
+Severity: MEDIUM
+File: `monitoring/admin-function-registry.json`
+
+Description:
+  PR #158 failed `hash-stability` and `release-gate` even though the local
+  Windows pre-push gate passed. The actual cause was not `git amend`.
+  The hotfix worktree generated `monitoring/admin-function-registry.json`
+  before `sale-zone` tooling dependencies were installed, so the registry
+  was produced via the fallback parser locally. GitHub Actions installs
+  `sale-zone` dependencies and generates the registry through the AST parser,
+  which changed `sourceHash` and `registryHash` on CI.
+
+Evidence:
+  GitHub `hash-stability` annotations:
+  - `Process completed with exit code 1.`
+  Local reproduction after `npm install --prefix sale-zone`:
+  - `Hash stability FAILED: committed registry content differs from generated deterministic content`
+  - `REGISTRY_DRIFT: Committed registry differs from generated artifact.`
+  - `REGISTRY_HASH_MISMATCH: Committed registry hash differs from generated hash.`
+
+Fix applied:
+  Installed `sale-zone` tooling dependencies in the hotfix worktree,
+  regenerated `monitoring/admin-function-registry.json` in AST mode,
+  restored unrelated `sale-zone/package.json` changes from `npm install`,
+  removed the generated `sale-zone/package-lock.json`, and re-ran governance.
+
+Status: FIXED
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
