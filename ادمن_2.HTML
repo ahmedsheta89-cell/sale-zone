@@ -8789,7 +8789,9 @@ function adminLogout(){
                     throw new Error('خدمة رفع الصور غير متاحة حالياً.');
                 }
                 if (typeof validateCloudinaryUploadFile === 'function') {
-                    validateCloudinaryUploadFile(file);
+                    validateCloudinaryUploadFile(file, {
+                        maxSize: 15 * 1024 * 1024
+                    });
                 }
 
                 if (ui.warning) {
@@ -8807,9 +8809,9 @@ function adminLogout(){
 
                 if (typeof compressImageBeforeUpload === 'function') {
                     compressImageBeforeUpload(file, {
-                        maxWidth: 1920,
-                        maxHeight: 1080,
-                        quality: 0.85
+                        maxWidth: 3840,
+                        maxHeight: 2160,
+                        quality: 0.92
                     }).then((compressed) => {
                         const estimatedBytes = Number(compressed && compressed.size || 0);
                         const savedBytes = Math.max(0, originalBytes - estimatedBytes);
@@ -8841,10 +8843,11 @@ function adminLogout(){
                 const uploaded = await uploadToCloudinary(file, {
                     folder: 'banners',
                     publicId,
+                    maxSize: 15 * 1024 * 1024,
                     compress: {
-                        maxWidth: 1920,
-                        maxHeight: 1080,
-                        quality: 0.85
+                        maxWidth: 3840,
+                        maxHeight: 2160,
+                        quality: 0.92
                     },
                     onProgress(percent) {
                         setBannerImageUploadProgress(percent);

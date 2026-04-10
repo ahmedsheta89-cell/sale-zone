@@ -105,6 +105,28 @@ Use this when the merged change affects login, checkout, orders, admin access, o
    - environment readiness
 4. Do not claim release readiness from code checks alone.
 
+## Banner Image Quality Standards
+
+### حدود الرفع
+  البانرات: 15MB maximum
+  المنتجات: 5MB maximum (لا تغيير)
+
+### إعدادات الضغط للبانرات
+  maxWidth:  3840 (4K)
+  maxHeight: 2160 (4K)
+  quality:   0.92 (عالية جداً)
+
+### لماذا 4K للبانرات؟
+  البانرات تُعرض على شاشات كبيرة
+  وعلى Retina/HiDPI displays
+  الجودة المرئية أولوية قصوى
+  Cloudinary يضغط للتسليم تلقائياً
+
+### قاعدة الجودة
+  الصورة الأصلية → أعلى جودة ممكنة
+  Cloudinary → يضغط للتسليم فقط
+  لا تضغط الأصل بشكل مفرط
+
 ## Browser Validation Flow
 
 - Use fixed branch content or merged `main`.
