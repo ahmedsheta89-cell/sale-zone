@@ -2,6 +2,62 @@
 
 This runbook defines the safe operational sequence for Sale Zone work. It is intentionally practical and assumes the root checkout may already be dirty.
 
+## ⚠️ CRITICAL: Registry Hash Parity
+## Mandatory Before Every Push
+
+### لماذا هذا مهم
+monitoring/admin-function-registry.json
+يجب أن يُولَّد في AST mode فقط.
+GitHub Actions يستخدم AST mode دائماً.
+إذا وُلِّد في fallback mode:
+  → sourceHash يختلف
+  → registryHash يختلف
+  → hash-stability يفشل
+  → admin-function-monitor يفشل
+  → release-gate يفشل
+  → PR يُحجب
+
+### الـ Pattern المتكرر
+هذا الخطأ حدث في:
+  PR #158 — hotfix/banner-image-400-fix
+  PR #160 — feat/banner-visual-polish-v4.2
+
+### الإجراء الإلزامي — كل worktree جديدة
+
+لا تبدأ العمل قبل هذه الخطوات:
+
+Step 1 — تثبيت deps:
+  npm ci
+  (لا npm install — npm ci فقط)
+
+Step 2 — توليد registry:
+  node tools/admin-function-monitor.js
+
+Step 3 — تحقق من hash:
+  node tools/snapshot-check.js --check
+  يجب PASS قبل المتابعة
+
+Step 4 — إذا FAIL:
+  أعد من Step 1
+  لا تتابع العمل إذا هذا يفشل
+
+### الفرق بين AST و Fallback
+AST mode (صح):
+  يتطلب: npm ci
+  ينتج:  registry دقيق مطابق لـ CI
+  متى:   GitHub Actions دائماً
+
+Fallback mode (خطأ):
+  يعمل:  بدون deps
+  ينتج:  registry مختلف
+  النتيجة: hash mismatch → CI failure
+
+### علامات الإصابة بالمشكلة
+❌ hash-stability: FAILING on GitHub
+❌ admin-function-monitor: FAILING on GitHub
+✅ نفس الـ checks تمر locally
+السبب دائماً: npm ci لم يُشغَّل أولاً
+
 ## When a Bug Is Found
 
 1. Read [AGENT_RULES.md](AGENT_RULES.md) and [PROJECT_STATUS.md](PROJECT_STATUS.md).
