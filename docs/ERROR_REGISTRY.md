@@ -2,7 +2,7 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 30
+> Total errors logged: 31
 > Total patterns discovered: 10
 
 ---
@@ -35,7 +35,7 @@
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Catalog & Import](#catalog--import) | 1 | 2026-04 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
-| [Banners & Slider](#banners--slider) | 7 | 2026-04 |
+| [Banners & Slider](#banners--slider) | 8 | 2026-04 |
 
 ---
 
@@ -1054,6 +1054,41 @@ without exception.
 
 Status: FIXED for PR #160
         PREVENTED for future via governance docs
+
+## [BUG-UPLOAD-001] Banner upload fails
+   for images > 5MB
+
+Date: 2026-04-10
+Severity: HIGH
+File: `assets/js/cloudinary-service.js`
+      `validateCloudinaryUploadFile()`
+      `ادمن_2.HTML` `uploadBannerImage()`
+
+Description:
+  Banner upload validation rejects files larger than 5MB.
+  High-quality 4K banner images can exceed that limit
+  before compression, which blocks professional-quality
+  banner uploads in admin.
+
+Evidence:
+  Console error: `BANNER_IMAGE_UPLOAD failed`
+  at `buildCloudinaryUploadError`
+  at `validateCloudinaryUploadFile`
+  Confirmed by owner screenshot.
+
+Fix applied:
+  Raised the banner-specific upload limit to 15MB
+  without changing the 5MB product image limit.
+  Added `maxSize` support to `validateCloudinaryUploadFile()`
+  so callers can set per-context upload limits.
+  Banner upload now passes `maxSize: 15MB`.
+  Banner compression settings upgraded for 4K quality:
+    `maxWidth: 3840`
+    `maxHeight: 2160`
+    `quality: 0.92`
+
+Status: FIXED
+Branch: `fix/banner-quality-v2`
 
 ## Template - Log a New Error
 

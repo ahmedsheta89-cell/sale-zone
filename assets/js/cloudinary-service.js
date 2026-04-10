@@ -120,6 +120,8 @@
     var settings;
     var maxBytes;
     var allowPrecompressLargeImage;
+    var customMaxBytes;
+    var limitLabel;
 
     if (!file || typeof file !== 'object') {
       throw buildCloudinaryUploadError('?? ??? ?????? ???? ?????.', {
@@ -133,7 +135,11 @@
     ext = getUploadFileExtension(file);
     size = Number(file.size || 0);
     allowPrecompressLargeImage = settings.phase === 'precompress' && isLikelyImageUploadFile(file);
-    maxBytes = allowPrecompressLargeImage ? MAX_PRECOMPRESS_IMAGE_BYTES : MAX_FINAL_UPLOAD_BYTES;
+    customMaxBytes = Math.max(0, Number(settings.maxSize || 0));
+    maxBytes = allowPrecompressLargeImage
+      ? Math.max(MAX_PRECOMPRESS_IMAGE_BYTES, customMaxBytes || 0)
+      : (customMaxBytes || MAX_FINAL_UPLOAD_BYTES);
+    limitLabel = String(Math.round(maxBytes / (1024 * 1024)));
 
     if (!(ALLOWED_UPLOAD_MIME_TYPES[type] === true || ALLOWED_UPLOAD_EXTENSIONS.indexOf(ext) !== -1)) {
       throw buildCloudinaryUploadError('???? ?????? ??? ??????. ?????? JPG ?? PNG ?? WebP ???.', {
@@ -144,8 +150,8 @@
 
     if (size > maxBytes) {
       throw buildCloudinaryUploadError(allowPrecompressLargeImage
-        ? '??? ?????? ??? ????? ???? ?? 20MB. ???? ????? ???? ?? ???? ????? ?????.'
-        : '??? ?????? ??? ????? ???? ?? 5MB. ???? ????? ?? ???? ????? ????.', {
+        ? 'حجم الصورة أكبر من ' + limitLabel + 'MB. اضغط الصورة أو اختر ملفاً أصغر.'
+        : 'حجم الصورة أكبر من ' + limitLabel + 'MB. اضغط الصورة ثم حاول مرة أخرى.', {
         code: 'CLOUDINARY_FILE_TOO_LARGE',
         transient: false
       });
@@ -538,7 +544,10 @@
       ? settings.compress
       : null;
     try {
-      validateUploadFile(file, { phase: 'precompress' });
+      validateUploadFile(file, {
+        phase: 'precompress',
+        maxSize: settings.maxSize
+      });
     } catch (validationError) {
       return Promise.reject(validationError);
     }
@@ -551,7 +560,10 @@
     return compressImageBeforeUpload(file, compressOptions || undefined).catch(function () {
       return file;
     }).then(function (uploadFile) {
-      validateUploadFile(uploadFile, { phase: 'upload' });
+      validateUploadFile(uploadFile, {
+        phase: 'upload',
+        maxSize: settings.maxSize
+      });
       var onProgress = typeof settings.onProgress === 'function' ? settings.onProgress : null;
       var folder = String(settings.folder || _folder()).trim();
       var publicId = String(settings.publicId || '')
