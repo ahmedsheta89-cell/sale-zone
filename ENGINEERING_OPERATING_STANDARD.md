@@ -64,6 +64,34 @@ Evidence rules:
 - `node tools/run-required-checks.js` is the broader gate, but it may require non-sandbox execution in restricted environments for truthful verification.
 - If governance fails, fix the change under test, not the governance tools, unless the task explicitly asks for tool work.
 
+## Registry Parity Standard
+
+### القاعدة
+كل agent يبدأ العمل يجب أن يشغّل:
+  npm ci
+قبل توليد أي registry artifact.
+
+### السبب
+الـ parser يعمل في وضعين:
+  AST mode:      يتطلب deps مثبتة
+  Fallback mode: يعمل بدون deps
+
+GitHub CI يستخدم AST mode دائماً.
+أي registry مولَّد بدون npm ci
+سيسبب hash mismatch وفشل الـ gate.
+
+### التطبيق
+هذه القاعدة تُطبَّق على:
+  - كل agent جديد
+  - كل worktree جديدة
+  - كل branch جديد
+  - بدون استثناء
+
+### التحقق
+بعد npm ci وتوليد الـ registry:
+  node tools/snapshot-check.js --check
+  يجب PASS قبل أي commit
+
 # Browser Verification Standard
 
 - Verify against fixed branch content or merged `main`.

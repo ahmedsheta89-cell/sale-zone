@@ -2,8 +2,8 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 29
-> Total patterns discovered: 9
+> Total errors logged: 30
+> Total patterns discovered: 10
 
 ---
 
@@ -31,7 +31,7 @@
 | [Firestore Indexes](#firestore-indexes) | 1 | 2025-01 |
 | [Deployment Pipeline](#deployment-pipeline) | 3 | 2026-03 |
 | [Git & Branching](#git--branching) | 3 | 2026-04 |
-| [Governance Checks](#governance-checks) | 3 | 2026-03 |
+| [Governance Checks](#governance-checks) | 4 | 2026-04 |
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Catalog & Import](#catalog--import) | 1 | 2026-04 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
@@ -999,6 +999,61 @@ Fix applied:
   removed the generated `sale-zone/package-lock.json`, and re-ran governance.
 
 Status: FIXED
+
+## [BUG-REGISTRY-DRIFT-002]
+## Registry Hash Drift — Recurring Pattern
+
+Date: 2026-04-10
+Severity: HIGH
+Type: PROCESS FAILURE — not code bug
+Pattern: RECURRING (3rd occurrence)
+
+### Affected PRs
+PR #158 — hotfix/banner-image-400-fix
+PR #160 — feat/banner-visual-polish-v4.2
+
+### Root Cause
+monitoring/admin-function-registry.json
+generated in fallback parser mode
+because npm ci was not run before
+registry generation in the local worktree.
+
+GitHub Actions CI installs full deps
+and runs AST parser exclusively.
+
+AST vs Fallback difference:
+  - sourceHash: different
+  - registryHash: different
+  → hash-stability: FAIL
+  → admin-function-monitor: FAIL
+  → release-gate: FAIL
+  → PR merge: BLOCKED
+
+### Fix Applied
+1. npm ci in affected worktree
+2. node tools/admin-function-monitor.js
+3. node tools/snapshot-check.js --check → PASS
+4. Committed updated registry
+5. Pushed to origin
+
+### Permanent Prevention
+Updated 4 governance files:
+  WORKFLOW_RUNBOOK.md
+    → added "Registry Hash Parity" section
+  SESSION_START_CHECKLIST.md
+    → added mandatory worktree setup checklist
+  ENGINEERING_OPERATING_STANDARD.md
+    → added Registry Parity Standard
+  docs/ERROR_REGISTRY.md
+    → this entry
+
+### Rule Added
+npm ci MUST run before any registry generation
+in every new worktree, every new branch,
+without exception.
+
+Status: FIXED for PR #160
+        PREVENTED for future via governance docs
 
 ## Template - Log a New Error
 

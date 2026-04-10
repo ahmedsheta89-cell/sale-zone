@@ -1,3 +1,28 @@
+## 🔴 MANDATORY WORKTREE SETUP
+## يجب قبل أي كود في أي branch
+
+```
+□ git checkout [branch]
+□ git pull origin main
+□ npm ci                    ← لا تتخطاه أبداً
+□ node tools/admin-function-monitor.js
+□ node tools/snapshot-check.js --check
+  → PASS مطلوب قبل المتابعة
+  → إذا FAIL: أعد npm ci ثم أعد التوليد
+```
+
+### العواقب إذا تخطيت npm ci
+  - registry يُولَّد في fallback mode
+  - hash-stability يفشل على GitHub
+  - PR يُحجب
+  - وقت ضائع في debugging
+
+### القاعدة الذهبية
+npm ci أولاً
+في كل worktree جديدة
+في كل branch جديد
+بدون أي استثناء
+
 1. Read [AGENT_RULES.md](AGENT_RULES.md) first.
 2. Read [PROJECT_STATUS.md](PROJECT_STATUS.md) to understand the current verified state and truth boundary.
 3. Read [PROMPT_CATALOG.md](PROMPT_CATALOG.md) and choose the operating mode before doing anything else.
