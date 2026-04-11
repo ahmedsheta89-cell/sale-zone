@@ -1059,7 +1059,7 @@ Status: FIXED for PR #160
 
 **Date:** 2026.04.11
 **Severity:** Medium (visual only)
-**Status:** FIXED in fix/banner-mobile-horizontal-v4.4
+**Status:** FIXED in fix/banner-mobile-horizontal-v4.4-final
 
 **Root Cause:**
 Double-crop mismatch:
@@ -1076,10 +1076,20 @@ Double-crop mismatch:
 - aspect-ratio: 1/1 → 4/5
 - object-position: center → center top
 
+**Fix Update (Final):**
+- Step 1: aspect-ratio 1/1 → 4/5 (partial improvement)
+- Step 2: aspect-ratio 4/5 → 16/9 (complete fix)
+- Reason: landscape images need landscape container
+- CSS change only — no JS or Cloudinary needed
+
 **Preventive Rule:**
 NEVER use aspect-ratio: 1/1 for mobile hero banners.
 NEVER mix c_pad delivery with square CSS container.
 Always test horizontal banners on real mobile before merge.
+Banner images designed for landscape display
+MUST use aspect-ratio: 16/9 on mobile container.
+NEVER use portrait ratio (4/5, 1/1) for landscape banners.
+Match container ratio to image design ratio always.
 
 ## [BUG-UPLOAD-001] Banner upload fails
    for images > 5MB
