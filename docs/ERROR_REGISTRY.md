@@ -2,7 +2,7 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 31
+> Total errors logged: 32
 > Total patterns discovered: 10
 
 ---
@@ -35,7 +35,7 @@
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Catalog & Import](#catalog--import) | 1 | 2026-04 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
-| [Banners & Slider](#banners--slider) | 8 | 2026-04 |
+| [Banners & Slider](#banners--slider) | 9 | 2026-04 |
 
 ---
 
@@ -1054,6 +1054,32 @@ without exception.
 
 Status: FIXED for PR #160
         PREVENTED for future via governance docs
+
+## BUG-MOBILE-001 — Mobile Horizontal Banner Composition Mismatch
+
+**Date:** 2026.04.11
+**Severity:** Medium (visual only)
+**Status:** FIXED in fix/banner-mobile-horizontal-v4.4
+
+**Root Cause:**
+Double-crop mismatch:
+- Cloudinary: c_pad + ar_4:5 (no gravity)
+- CSS: aspect-ratio: 1/1 + object-fit: cover
+- Result: horizontal images lose content from sides
+
+**Impact:**
+- Mobile horizontal banners: subject/text cropped
+- Vertical banners: unaffected
+- Desktop: unaffected
+
+**Fix:**
+- aspect-ratio: 1/1 → 4/5
+- object-position: center → center top
+
+**Preventive Rule:**
+NEVER use aspect-ratio: 1/1 for mobile hero banners.
+NEVER mix c_pad delivery with square CSS container.
+Always test horizontal banners on real mobile before merge.
 
 ## [BUG-UPLOAD-001] Banner upload fails
    for images > 5MB
