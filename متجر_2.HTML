@@ -655,6 +655,28 @@
             }
         }
 
+        /* ─── V4.5 Progress Bar ─── */
+        .banner-progress-bar {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            left: 0;
+            height: 3px;
+            background: rgba(255,255,255,0.12);
+            z-index: 4;
+            overflow: hidden;
+        }
+
+        .banner-progress-fill {
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                var(--banner-dark-accent, #d4a574),
+                rgba(255,255,255,0.85)
+            );
+            width: 0%;
+        }
+
         /* ─── V4.5 Ken Burns ─── */
         .banner-hero-img {
             animation: kenBurns 9s ease-in-out infinite alternate;
@@ -668,6 +690,40 @@
 
         @media (prefers-reduced-motion: reduce) {
             .banner-hero-img { animation: none; }
+        }
+
+        /* ─── V4.5 Swipe Hint ─── */
+        .banner-swipe-hint {
+            position: absolute;
+            bottom: 42px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255,255,255,0.72);
+            font-size: 0.75rem;
+            z-index: 5;
+            pointer-events: none;
+            white-space: nowrap;
+            animation: swipeHintLifecycle 3.5s ease-in-out forwards;
+        }
+
+        .banner-swipe-arrow {
+            display: inline-block;
+            animation: swipeArrowMove 1s ease-in-out infinite;
+        }
+
+        @keyframes swipeArrowMove {
+            0%, 100% { transform: translateX(0); }
+            50%      { transform: translateX(5px); }
+        }
+
+        @keyframes swipeHintLifecycle {
+            0%   { opacity: 0; }
+            15%  { opacity: 1; }
+            75%  { opacity: 1; }
+            100% { opacity: 0; }
         }
 
         /* Categories */
@@ -2954,6 +3010,9 @@
     <section class="banner-section banner-slider-wrapper" id="bannerSection">
         <div class="banner-slider banner-slider-track" id="bannerSlider">
             <!-- Banners will be loaded here -->
+        </div>
+        <div class="banner-progress-bar">
+            <div class="banner-progress-fill"></div>
         </div>
         <div class="banner-dots" id="bannerDots"></div>
         <div class="banner-arrow prev" onclick="prevBanner()">❮</div>
@@ -5576,7 +5635,7 @@
             const isFirst = index === 0;
             const badgeHtml = badge ? `<span class="banner-hero-badge">${badge}</span>` : '';
             const btnHtml = safeButton
-                ? `<button class="banner-hero-cta" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</button>`
+                ? `<button class="banner-hero-cta" data-category="${safeCategory}" onclick="navigateToBannerCategory(this.dataset.category)">${safeButton}</button>`
                 : '';
             let imageHtml = '';
 
@@ -5707,6 +5766,7 @@
                 clearInterval(bannerInterval);
                 bannerInterval = null;
             }
+            resetBannerProgress();
         }
 
         function loadSlideImage(slide) {
@@ -5792,6 +5852,7 @@
                 : renderableBanners.map((_, i) => `<button class="banner-dot ${i === 0 ? 'active' : ''}" aria-label="بانر ${i + 1}" onclick="goToBanner(${i})"></button>`).join('');
             goToBanner(currentBanner);
             startBannerSlider();
+            showBannerSwipeHintOnce();
         }
 
         function goToBanner(index) {
@@ -5806,6 +5867,9 @@
                 dots.querySelectorAll('.banner-dot, .banner-slider-dot').forEach((dot, i) => {
                     dot.classList.toggle('active', i === currentBanner);
                 });
+            }
+            if (totalBanners > 1) {
+                startBannerProgress(5000);
             }
         }
 
@@ -5827,8 +5891,73 @@
                 loadSlideImage(slides[0]);
             }
             if (slides.length <= 1) return;
+            startBannerProgress(5000);
             bannerInterval = setInterval(nextBanner, 5000);
         }
+
+        function startBannerProgress(duration) {
+            var fill = document.querySelector('.banner-progress-fill');
+            if (!fill) return;
+            fill.style.transition = 'none';
+            fill.style.width = '0%';
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    fill.style.transition = 'width ' + duration + 'ms linear';
+                    fill.style.width = '100%';
+                });
+            });
+        }
+        window.startBannerProgress = startBannerProgress;
+
+        function resetBannerProgress() {
+            var fill = document.querySelector('.banner-progress-fill');
+            if (!fill) return;
+            fill.style.transition = 'none';
+            fill.style.width = '0%';
+        }
+        window.resetBannerProgress = resetBannerProgress;
+
+        function navigateToBannerCategory(category) {
+            if (category && category !== 'all') {
+                if (typeof filterByCategory === 'function') {
+                    filterByCategory(category);
+                }
+            }
+            var target =
+                document.getElementById('category-section') ||
+                document.querySelector('.categories-section') ||
+                document.querySelector('.shop-by-category') ||
+                document.getElementById('products-section') ||
+                document.querySelector('.products-grid');
+            if (target) {
+                setTimeout(function () {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 80);
+            }
+        }
+        window.navigateToBannerCategory = navigateToBannerCategory;
+
+        function showBannerSwipeHintOnce() {
+            var HINT_KEY = 'sz_swipe_hint_v1';
+            if (localStorage.getItem(HINT_KEY)) return;
+            if (window.innerWidth > 768) return;
+            var sliderEl =
+                document.querySelector('.banner-slider') ||
+                document.querySelector('.banner-slider-wrapper');
+            if (!sliderEl) return;
+            var hint = document.createElement('div');
+            hint.className = 'banner-swipe-hint';
+            hint.innerHTML =
+                '<span class="banner-swipe-arrow">→</span>' +
+                '<span>اسحب للتنقل</span>' +
+                '<span class="banner-swipe-arrow">←</span>';
+            sliderEl.appendChild(hint);
+            setTimeout(function () {
+                if (hint.parentNode) hint.parentNode.removeChild(hint);
+                localStorage.setItem(HINT_KEY, '1');
+            }, 3600);
+        }
+        window.showBannerSwipeHintOnce = showBannerSwipeHintOnce;
 
         // ============================================
         // Image Sanitizer (avoid external ORB/CORS issues)
