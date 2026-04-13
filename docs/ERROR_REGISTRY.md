@@ -1126,6 +1126,47 @@ Fix applied:
 Status: FIXED
 Branch: `fix/banner-quality-v2`
 
+## [BUG-BANNER-POLISH-001] Banner visual polish
+   required stronger content contrast and guided CTA flow
+
+Date: 2026-04-13
+Severity: MEDIUM
+Type: VISUAL UX TUNING
+File: `متجر_2.HTML`
+
+Description:
+  Banner hero slides were functionally stable but still lacked
+  final visual polish for content readability and interaction cues.
+  The text needed a stronger underlay, the CTA needed clearer
+  emphasis, the dots needed a cleaner active state, and users had
+  no visual cue for swipe or slide timing.
+
+Root Cause:
+  Visual affordances were split across older banner styles without
+  a cohesive final polish layer. The slider had dots and auto-advance
+  logic, but no progress indicator, no first-use swipe hint, and the
+  hero content hierarchy was not strong enough on mixed imagery.
+
+Fix applied:
+  Added a dedicated hero overlay pseudo-element for stronger text contrast.
+  Tightened title/body typography for mobile-safe readability.
+  Upgraded the hero CTA styling and kept it wired to the existing
+  category filter flow through `navigateToBannerCategory()`.
+  Refined badge and dot styling, added a section-level progress bar,
+  added a subtle Ken Burns image motion treatment, and added a
+  one-time swipe hint for mobile users.
+
+Preventive Rule:
+  Banner UX polish must remain additive:
+  - do not rewrite slider core logic
+  - do not bypass `filterByCategory()`
+  - expose any new inline-callable JS on `window`
+  - pair motion with `prefers-reduced-motion` fallbacks
+  - validate hero readability on mixed dark/light images before merge
+
+Status: IMPLEMENTED — awaiting owner live validation
+Branch: `feat/banner-visual-polish-v4.5`
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
