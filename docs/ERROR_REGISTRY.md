@@ -2,7 +2,7 @@
 > Cumulative log of every error encountered + root cause + solution + lessons learned
 >
 > Last updated: auto
-> Total errors logged: 32
+> Total errors logged: 33
 > Total patterns discovered: 10
 
 ---
@@ -35,7 +35,7 @@
 | [Orders & Checkout](#orders--checkout) | 2 | 2026-03 |
 | [Catalog & Import](#catalog--import) | 1 | 2026-04 |
 | [Observability & Logging](#observability--logging) | 1 | 2026-03 |
-| [Banners & Slider](#banners--slider) | 9 | 2026-04 |
+| [Banners & Slider](#banners--slider) | 10 | 2026-04 |
 
 ---
 
@@ -1166,6 +1166,41 @@ Preventive Rule:
 
 Status: IMPLEMENTED — awaiting owner live validation
 Branch: `feat/banner-visual-polish-v4.5`
+
+## [BUG-BANNER-FULLHEIGHT-001] Banner height was locked to width
+   instead of viewport height
+
+Date: 2026-04-14
+Severity: MEDIUM
+Type: LAYOUT CONSTRAINT
+File: `ظ…طھط¬ط±_2.HTML`
+
+Description:
+  The storefront hero banner could not fill the device screen height
+  because its size was still controlled by fixed aspect ratios.
+  That kept the banner tied to viewport width instead of viewport height
+  on mobile, tablet, and desktop.
+
+Root Cause:
+  `.banner-hero` used fixed `aspect-ratio` values across the base rule
+  and responsive overrides, and the mobile `banner-fit-pad` /
+  `banner-fit-auto` override reintroduced another fixed ratio.
+  This forced the hero height to be derived from width, which blocked
+  full-screen banner behavior.
+
+Fix applied:
+  Removed the fixed banner `aspect-ratio` rules tied to `.banner-hero`
+  and the mobile fit override.
+  Added `height: 100svh`, `min-height: 100svh`, and `aspect-ratio: unset`
+  to the base `.banner-hero` rule so the hero now follows the viewport height
+  without touching protected banner JavaScript or image helpers.
+
+Preventive Rule:
+  If the requirement is a full-height hero banner,
+  control the container with viewport-height units instead of fixed aspect ratios.
+  Keep image fitting isolated to image rules, not to container height logic.
+
+Status: IMPLEMENTED â€” awaiting owner validation
 
 ## Template - Log a New Error
 

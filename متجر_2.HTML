@@ -332,7 +332,9 @@
             border-radius: 12px;
             overflow: hidden;
             direction: rtl;
-            aspect-ratio: 4/5;
+            height: 100svh;
+            min-height: 100svh;
+            aspect-ratio: unset;
             background: #1a1a2e;
         }
         /* ─── V4.5 Overlay: Strong gradient under content ─── */
@@ -359,12 +361,6 @@
                 rgba(245,240,239,0.10) 65%,
                 transparent 100%
             );
-        }
-        @media (min-width: 600px) {
-            .banner-hero { aspect-ratio: 4/3; }
-        }
-        @media (min-width: 768px) {
-            .banner-hero { aspect-ratio: 16/9; }
         }
         .banner-hero-img {
             position: absolute;
@@ -634,7 +630,6 @@
         @media (max-width: 600px) {
             .banner-hero.banner-fit-pad,
             .banner-hero.banner-fit-auto {
-                aspect-ratio: 16 / 9;
                 background-color: #080808;
             }
             .banner-hero.banner-fit-pad .banner-hero-img,
