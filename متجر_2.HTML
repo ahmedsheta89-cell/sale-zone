@@ -332,8 +332,8 @@
             border-radius: 12px;
             overflow: hidden;
             direction: rtl;
-            height: 100svh;
-            min-height: 100svh;
+            height: auto;
+            min-height: 300px;
             aspect-ratio: unset;
             background: #1a1a2e;
         }
@@ -658,13 +658,6 @@
             .banner-hero.banner-fit-pad,
             .banner-hero.banner-fit-auto {
                 background-color: #080808;
-            }
-            .banner-hero.banner-fit-pad .banner-hero-img,
-            .banner-hero.banner-fit-auto .banner-hero-img {
-                object-fit: cover;
-                object-position: center;
-                width: 100%;
-                height: 100%;
             }
             .banner-promo {
                 flex-direction: column;
@@ -5922,15 +5915,28 @@
         }
         function startBannerSlider() {
             document.querySelectorAll(
-                '.banner-fit-auto .banner-hero-img'
+                '.banner-hero .banner-hero-img'
             ).forEach(function(img) {
                 function detect() {
-                    if (img.naturalWidth > img.naturalHeight * 1.3) {
-                        img.closest('.banner-hero')
-                           .classList.add('banner-smart-landscape');
+                    const hero = img.closest('.banner-hero');
+                    const w = img.naturalWidth;
+                    const h = img.naturalHeight;
+                    if (!hero || w <= 0 || h <= 0) {
+                        return;
+                    }
+                    hero.style.aspectRatio = String(w / h);
+                    hero.style.height = 'auto';
+                    hero.style.minHeight = '300px';
+                    if (
+                        hero.classList.contains('banner-fit-auto') &&
+                        w > h * 1.3
+                    ) {
+                        hero.classList.add('banner-smart-landscape');
+                    } else {
+                        hero.classList.remove('banner-smart-landscape');
                     }
                 }
-                if (img.complete) {
+                if (img.complete && img.naturalWidth > 0) {
                     detect();
                 } else {
                     img.addEventListener('load', detect, { once: true });

@@ -1202,6 +1202,40 @@ Preventive Rule:
 
 Status: IMPLEMENTED â€” awaiting owner validation
 
+## [BUG-BANNER-DISPLAY-004] Banner auto-fit used a fixed viewport height
+   instead of each image ratio
+
+Date: 2026-04-16
+Severity: MEDIUM
+Type: DISPLAY FIT LOGIC
+File: `ط¸â€¦ط·ع¾ط·آ¬ط·آ±_2.HTML`
+
+Description:
+  Auto-fit banners were still constrained by a fixed `100svh` hero height,
+  which caused portrait images to crop vertically on mobile and caused
+  landscape infographic banners to lose content on desktop.
+
+Root Cause:
+  `.banner-hero` forced a viewport-tall container while the mobile
+  `banner-fit-auto` / `banner-fit-pad` override forced `object-fit: cover`.
+  The smart landscape class only changed `object-fit`, but it did not
+  change the container height, so the image always had to fit a mismatched
+  viewport-sized box.
+
+Fix applied:
+  Replaced the fixed hero height with `height: auto` and `min-height: 300px`.
+  Removed the mobile `cover` override for banner images.
+  Updated `startBannerSlider()` to wait for each image to load, then apply
+  the image's real width/height ratio directly to the `.banner-hero`
+  container while keeping smart-landscape behavior limited to `fitMode=auto`.
+
+Preventive Rule:
+  When banner images can be portrait or landscape, never lock the hero
+  container to viewport height. Compute the container ratio from the loaded
+  image instead, and keep mobile overrides from undoing fit-mode logic.
+
+Status: IMPLEMENTED — awaiting owner validation
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
