@@ -381,7 +381,7 @@
         }
         /* ===== BANNER FIT MODE VARIANTS ===== */
         .banner-hero.banner-fit-auto .banner-hero-img {
-            object-fit: contain;
+            object-fit: cover;
             object-position: center;
         }
         .banner-hero.banner-fit-pad .banner-hero-img {
@@ -396,6 +396,33 @@
             object-fit: contain;
             object-position: center;
             background: transparent;
+        }
+        /* BANNER-SMART-003: blur backdrop للصور landscape */
+        .banner-hero-backdrop {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            z-index: 0;
+            filter: blur(18px) brightness(0.7);
+            transform: scale(1.08);
+            pointer-events: none;
+        }
+
+        .banner-hero.banner-fit-auto.banner-smart-landscape .banner-hero-img {
+            object-fit: contain;
+            object-position: center;
+            z-index: 1;
+        }
+
+        .banner-smart-landscape .banner-hero-backdrop {
+            display: block;
+        }
+
+        .banner-hero-backdrop {
+            display: none;
         }
         .banner-hero-overlay {
             position: absolute;
@@ -5633,6 +5660,7 @@
                 ? `<button class="banner-hero-cta" data-category="${safeCategory}" onclick="navigateToBannerCategory(this.dataset.category)">${safeButton}</button>`
                 : '';
             let imageHtml = '';
+            let backdropHtml = '';
 
             if (imageUrl) {
                 const isCloudinary = imageUrl.includes('cloudinary.com');
@@ -5688,8 +5716,22 @@
                 }
             }
 
+            if (imageUrl && fitMode === 'auto') {
+                backdropHtml = `
+                    <img
+                        class="banner-hero-backdrop"
+                        src="${escapeHtml(imageUrl)}"
+                        alt=""
+                        aria-hidden="true"
+                        decoding="async"
+                        loading="lazy"
+                    >
+                `;
+            }
+
             return `
                 <div class="banner-hero ${colorMode} ${isFirst ? 'banner-slide-active' : ''} ${imageUrl ? '' : 'banner-hero-no-image'} banner-fit-${escapeHtml(fitMode)}">
+                    ${backdropHtml}
                     ${imageHtml}
                     <div class="banner-hero-overlay"></div>
                     <div class="banner-hero-content">
@@ -5879,6 +5921,21 @@
             goToBanner(currentBanner - 1);
         }
         function startBannerSlider() {
+            document.querySelectorAll(
+                '.banner-fit-auto .banner-hero-img'
+            ).forEach(function(img) {
+                function detect() {
+                    if (img.naturalWidth > img.naturalHeight * 1.3) {
+                        img.closest('.banner-hero')
+                           .classList.add('banner-smart-landscape');
+                    }
+                }
+                if (img.complete) {
+                    detect();
+                } else {
+                    img.addEventListener('load', detect, { once: true });
+                }
+            });
             const { slides } = getBannerSliderElements();
             bindBannerSliderInteractions();
             stopBannerSlider();
