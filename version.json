@@ -1,6 +1,6 @@
 {
-  "version": "2026.04.14.0015",
+  "version": "2026.04.14.0016",
   "updatedAt": "2026-04-15T00:00:00.000Z",
   "lastUpdate": "2026-04-15",
-  "changes": "feat(banner): smart-landscape-backdrop [BANNER-003]"
+  "changes": "fix(banner): auto default cover [BANNER-003-HOTFIX]"
 }
