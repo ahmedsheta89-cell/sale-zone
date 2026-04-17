@@ -1236,6 +1236,41 @@ Preventive Rule:
 
 Status: IMPLEMENTED — awaiting owner validation
 
+## [BUG-BANNER-PERFECTION-005] Desktop portrait banners showed side gaps
+   and refresh jump after dynamic ratio sizing
+
+Date: 2026-04-17
+Severity: MEDIUM
+Type: DISPLAY STABILITY
+File: `ط·آ¸أ¢â‚¬آ¦ط·آ·ط¹آ¾ط·آ·ط¢آ¬ط·آ·ط¢آ±_2.HTML`
+
+Description:
+  Portrait banners on desktop could render with black side gaps and then
+  visually jump after refresh because the hero size was being rewritten from
+  image dimensions after load. The auto-landscape contain override also fought
+  the goal of keeping banners fully filled.
+
+Root Cause:
+  BANNER-004 wrote inline `aspect-ratio`, `height`, and `min-height` values
+  onto `.banner-hero` after image load. That delayed the final layout until
+  runtime and allowed portrait images to preserve a portrait box on desktop.
+  At the same time, `banner-smart-landscape` still forced `contain` for auto
+  banners, which conflicted with a cover-first display goal.
+
+Fix applied:
+  Replaced runtime sizing with fixed responsive hero heights, removed the
+  auto-landscape contain override, and kept only orientation detection in
+  `startBannerSlider()` to switch between `banner-portrait` and
+  `banner-landscape`. Overlay readability was improved with a lighter, simpler
+  bottom-weighted gradient while leaving the existing layer structure intact.
+
+Preventive Rule:
+  If the goal is a cover-first hero banner, never write runtime size values to
+  the hero container. Keep sizing in CSS, use JS only for orientation classes,
+  and do not leave contain overrides active for auto-fit banners.
+
+Status: IMPLEMENTED — awaiting owner validation
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
