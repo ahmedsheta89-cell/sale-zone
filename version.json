@@ -1,6 +1,6 @@
 {
-  "version": "2026.04.16.0017",
-  "updatedAt": "2026-04-16T00:00:00.000Z",
-  "lastUpdate": "2026-04-16",
-  "changes": "fix(banner): dynamic aspect-ratio per slide [BANNER-004]"
+  "version": "2026.04.17.0018",
+  "updatedAt": "2026-04-17T00:00:00.000Z",
+  "lastUpdate": "2026-04-17",
+  "changes": "fix(banner): cover-first + stable portrait display [BANNER-005]"
 }
