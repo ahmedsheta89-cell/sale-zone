@@ -417,6 +417,25 @@
             object-position: center center;
         }
 
+        /* BANNER-008: Adaptive height for portrait images */
+        @media (max-width: 768px) {
+            .banner-hero.banner-portrait {
+                height: auto;
+                min-height: 300px;
+                max-height: 100vw;
+                aspect-ratio: 3 / 4;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .banner-hero.banner-portrait {
+                height: auto;
+                min-height: 420px;
+                max-height: 600px;
+                aspect-ratio: 4 / 3;
+            }
+        }
+
         .banner-smart-landscape .banner-hero-backdrop {
             display: block;
         }

@@ -1,6 +1,6 @@
 {
-  "version": "2026.04.19.0024",
-  "updatedAt": "2026-04-19T00:00:00.000Z",
-  "lastUpdate": "2026-04-19",
-  "changes": "fix(banner): convert contain to cover in pad/scale modes + backdrop blur background replaces black gaps [BANNER-007]"
+  "version": "2026.04.20.0026",
+  "updatedAt": "2026-04-20T00:00:00.000Z",
+  "lastUpdate": "2026-04-20",
+  "changes": "fix(banner): adaptive CSS for portrait images mobile+desktop [BANNER-008]"
 }

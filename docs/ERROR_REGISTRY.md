@@ -1308,6 +1308,22 @@ Status: IMPLEMENTED — awaiting owner validation
     provide beautiful blurred background instead
     of empty black space
 
+## BUG-BANNER-ADAPTIVE-008
+**Date:** 2026-04-20
+**Severity:** Medium
+**Root Cause:**
+  .banner-hero.banner-portrait class was added by JS
+  correctly but no CSS rules existed for the container
+  itself. Only .banner-hero-img rules existed (lines
+  412-416). Banner stayed at fixed 70vh on mobile
+  regardless of image orientation.
+**Fix Applied:**
+  - Added CSS aspect-ratio rules for
+    .banner-hero.banner-portrait container
+  - Mobile: aspect-ratio 3/4, max-height 100vw
+  - Desktop: aspect-ratio 4/3, max-height 600px
+  - Landscape images unaffected
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]
