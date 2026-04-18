@@ -1271,6 +1271,26 @@ Preventive Rule:
 
 Status: IMPLEMENTED — awaiting owner validation
 
+## BUG-BANNER-VISUAL-006
+**Date:** 2026-04-19
+**Severity:** Medium
+**Root Cause:**
+  1. Double dark overlay: .banner-hero::after (0.32 opacity)
+     + .banner-hero.dark overlay = image appears very dark
+  2. object-position: center center cuts top of text images
+  3. CTA uses color-mix(#000) making button appear dark
+  4. No font-family on title/text elements
+  5. Placeholder 'لا'/'ب' came from Firebase stored data
+     not from code — fix by editing Admin Panel data
+**Fix Applied:**
+  - Reduced ::after to rgba(0,0,0,0.06)
+  - Replaced dark overlay with rgba(0,0,0,0.08)
+  - Set light overlay to transparent
+  - Changed object-position to center top
+  - Replaced CTA background with gold-red gradient
+  - Added system font-family to title and text
+  - Added refined text-shadow to both elements
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]

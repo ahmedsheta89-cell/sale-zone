@@ -345,9 +345,8 @@
             inset: 0;
             background: linear-gradient(
                 to top,
-                rgba(0,0,0,0.32) 0%,
-                rgba(0,0,0,0.14) 45%,
-                transparent 100%
+                rgba(0,0,0,0.06) 0%,
+                transparent 30%
             );
             pointer-events: none;
             z-index: 1;
@@ -367,7 +366,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center center;
+            object-position: center top;
             z-index: 1;
             transition: transform 0.6s ease, opacity 0.3s ease;
         }
@@ -433,18 +432,12 @@
         .banner-hero.dark .banner-hero-overlay {
             background: linear-gradient(
                 to top,
-                var(--banner-overlay-dark-bottom) 0%,
-                var(--banner-overlay-dark-mid) 35%,
-                transparent 65%
+                rgba(0,0,0,0.08) 0%,
+                transparent 35%
             );
         }
         .banner-hero.light .banner-hero-overlay {
-            background: linear-gradient(
-                to top,
-                var(--banner-overlay-light-bottom) 0%,
-                var(--banner-overlay-light-mid) 35%,
-                transparent 65%
-            );
+            background: transparent;
         }
         .banner-hero-content {
             position: relative;
@@ -480,11 +473,16 @@
         }
         /* ─── V4.5 Typography ─── */
         .banner-hero-title {
+            font-family: 'Segoe UI', system-ui,
+                -apple-system, sans-serif;
             font-size: clamp(1.1rem, 4vw, 1.7rem);
             font-weight: 800;
             line-height: 1.3;
+            letter-spacing: -0.01em;
             color: #ffffff;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.65);
+            text-shadow:
+                0 2px 8px rgba(0,0,0,0.4),
+                0 1px 3px rgba(0,0,0,0.3);
             margin: 0 0 6px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -498,10 +496,13 @@
         }
 
         .banner-hero-text {
+            font-family: 'Segoe UI', system-ui,
+                -apple-system, sans-serif;
             font-size: clamp(0.8rem, 2.5vw, 1rem);
             line-height: 1.6;
+            letter-spacing: 0.01em;
             color: rgba(255,255,255,0.92);
-            text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+            text-shadow: 0 1px 6px rgba(0,0,0,0.35);
             margin: 0 0 12px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -521,11 +522,10 @@
             padding: 10px 26px;
             background: linear-gradient(
                 135deg,
-                var(--banner-dark-accent, #d4a574) 0%,
-                color-mix(in srgb,
-                    var(--banner-dark-accent, #d4a574) 75%, #000) 100%
+                #f6b93b 0%,
+                #e55039 100%
             );
-            color: var(--banner-dark-bg, #1a1a2e);
+            color: #ffffff;
             font-weight: 800;
             font-size: clamp(0.85rem, 2.5vw, 1rem);
             border: none;
@@ -534,7 +534,9 @@
             font-family: inherit;
             text-decoration: none;
             align-self: flex-start;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            box-shadow:
+                0 4px 20px rgba(246,185,59,0.45),
+                0 2px 8px rgba(0,0,0,0.15);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             position: relative;
             overflow: hidden;
@@ -553,11 +555,13 @@
 
         .banner-hero-cta:hover::before { opacity: 1; }
         .banner-hero-cta:hover {
-            transform: translateY(-2px) scale(1.03);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.30);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow:
+                0 8px 28px rgba(246,185,59,0.6),
+                0 4px 12px rgba(0,0,0,0.2);
         }
         .banner-hero-cta:active {
-            transform: translateY(0) scale(0.97);
+            transform: translateY(-1px) scale(1.00);
         }
 
         @keyframes ctaPulse {
@@ -568,11 +572,10 @@
         .banner-hero.light .banner-hero-cta {
             background: linear-gradient(
                 135deg,
-                var(--banner-light-bg, #1a1a2e) 0%,
-                color-mix(in srgb,
-                    var(--banner-light-bg, #1a1a2e) 75%, #fff) 100%
+                #f6b93b 0%,
+                #e55039 100%
             );
-            color: var(--banner-light-accent, #d4a574);
+            color: #ffffff;
         }
         .banner-hero-content > * {
             opacity: 0;

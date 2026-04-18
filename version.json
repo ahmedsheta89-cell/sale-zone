@@ -1,6 +1,6 @@
 {
-  "version": "2026.04.17.0018",
-  "updatedAt": "2026-04-17T00:00:00.000Z",
-  "lastUpdate": "2026-04-17",
-  "changes": "fix(banner): cover-first + stable portrait display [BANNER-005]"
+  "version": "2026.04.19.0020",
+  "updatedAt": "2026-04-19T00:00:00.000Z",
+  "lastUpdate": "2026-04-19",
+  "changes": "fix(banner): remove dark overlay + center-top image + premium CTA gradient + typography system fonts [BANNER-006]"
 }
