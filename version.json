@@ -1,6 +1,6 @@
 {
-  "version": "2026.04.19.0020",
+  "version": "2026.04.19.0024",
   "updatedAt": "2026-04-19T00:00:00.000Z",
   "lastUpdate": "2026-04-19",
-  "changes": "fix(banner): remove dark overlay + center-top image + premium CTA gradient + typography system fonts [BANNER-006]"
+  "changes": "fix(banner): convert contain to cover in pad/scale modes + backdrop blur background replaces black gaps [BANNER-007]"
 }

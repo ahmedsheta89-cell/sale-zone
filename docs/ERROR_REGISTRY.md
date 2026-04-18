@@ -1291,6 +1291,23 @@ Status: IMPLEMENTED — awaiting owner validation
   - Added system font-family to title and text
   - Added refined text-shadow to both elements
 
+## BUG-BANNER-FITMODE-007
+**Date:** 2026-04-19
+**Severity:** High
+**Root Cause:**
+  banner-fit-pad and banner-fit-scale use
+  object-fit: contain which creates black gaps
+  when portrait image is displayed in landscape
+  banner container on mobile and desktop.
+  Admin saves fitMode='pad' but CSS result is
+  black empty areas around image.
+**Fix Applied:**
+  - Changed object-fit from contain to cover in
+    both banner-fit-pad and banner-fit-scale
+  - Enabled backdrop blur for pad/scale modes to
+    provide beautiful blurred background instead
+    of empty black space
+
 ## Template - Log a New Error
 
 ### ERR-XXX: [Clear short title]

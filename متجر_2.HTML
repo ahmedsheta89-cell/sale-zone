@@ -383,16 +383,16 @@
             object-position: center center;
         }
         .banner-hero.banner-fit-pad .banner-hero-img {
-            object-fit: contain;
-            object-position: center;
+            object-fit: cover;
+            object-position: center center;
         }
         .banner-hero.banner-fit-crop .banner-hero-img {
             object-fit: cover;
             object-position: center;
         }
         .banner-hero.banner-fit-scale .banner-hero-img {
-            object-fit: contain;
-            object-position: center;
+            object-fit: cover;
+            object-position: center center;
             background: transparent;
         }
         /* BANNER-SMART-003: blur backdrop للصور landscape */
@@ -419,6 +419,13 @@
 
         .banner-smart-landscape .banner-hero-backdrop {
             display: block;
+        }
+
+        .banner-hero.banner-fit-pad .banner-hero-backdrop,
+        .banner-hero.banner-fit-scale .banner-hero-backdrop {
+            display: block;
+            filter: blur(22px) brightness(0.55);
+            transform: scale(1.12);
         }
 
         .banner-hero-backdrop {
