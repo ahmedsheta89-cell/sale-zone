@@ -1,6 +1,12 @@
 {
-  "version": "2026.04.20.0026",
-  "updatedAt": "2026-04-20T00:00:00.000Z",
-  "lastUpdate": "2026-04-20",
-  "changes": "fix(banner): adaptive CSS for portrait images mobile+desktop [BANNER-008]"
+  "version": "2026.04.20.0027",
+  "lastUpdate": "BANNER-009",
+  "changes": [
+    "contain: صورة كاملة بدون قطع في كل fitMode ما عدا crop",
+    "adaptive-height: mobile يتكيف مع نسبة الصورة",
+    "kenBurns: 12s smooth بدلاً من 9s alternate",
+    "dots: أبيض نقي بدون glow",
+    "arrows: 34px شفاف احترافي",
+    "applyBannerOrientation: إضافة banner-square"
+  ]
 }
