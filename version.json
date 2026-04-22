@@ -1,12 +1,11 @@
 {
-  "version": "2026.04.20.0027",
-  "lastUpdate": "BANNER-009",
+  "version": "2026.04.22.0028",
+  "lastUpdate": "BANNER-010",
   "changes": [
-    "contain: صورة كاملة بدون قطع في كل fitMode ما عدا crop",
-    "adaptive-height: mobile يتكيف مع نسبة الصورة",
-    "kenBurns: 12s smooth بدلاً من 9s alternate",
-    "dots: أبيض نقي بدون glow",
-    "arrows: 34px شفاف احترافي",
-    "applyBannerOrientation: إضافة banner-square"
+    "backdrop: تفعيل لكل fitMode ما عدا crop",
+    "backdrop: blur(32px) موحد احترافي",
+    "backdrop: ملء الفراغ الجانبي بنفس ألوان الصورة",
+    "cleanup: إزالة banner-smart-landscape الميت",
+    "dual-layer: صورة واضحة + خلفية ضبابية"
   ]
 }
