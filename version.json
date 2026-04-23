@@ -1,11 +1,11 @@
 {
-  "version": "2026.04.22.0028",
-  "lastUpdate": "BANNER-010",
+  "version": "2026.04.24.0029",
+  "lastUpdate": "BANNER-011",
   "changes": [
-    "backdrop: تفعيل لكل fitMode ما عدا crop",
-    "backdrop: blur(32px) موحد احترافي",
-    "backdrop: ملء الفراغ الجانبي بنفس ألوان الصورة",
-    "cleanup: إزالة banner-smart-landscape الميت",
-    "dual-layer: صورة واضحة + خلفية ضبابية"
+    "root-fix: إيقاف القص القسري من Cloudinary لـ fitMode auto",
+    "cloudinary: c_limit بدلاً من c_fill — الصورة الأصلية كاملة",
+    "portrait: object-position center center بدلاً من center top",
+    "mobile-portrait: max-height 100vw بدلاً من 85vw (+17.6%)",
+    "impact: Desktop و Mobile يستلمان نفس نسبة الصورة الأصلية"
   ]
 }

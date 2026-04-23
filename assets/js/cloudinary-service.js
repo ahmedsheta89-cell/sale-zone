@@ -453,7 +453,7 @@
         break;
       case 'auto':
       default:
-        transform = 'w_' + selectedContext.w + ',c_fill,g_auto,ar_' + selectedContext.ar + ',q_auto:good,f_auto';
+        transform = 'w_' + selectedContext.w + ',c_limit,q_auto:good,f_auto';
         break;
     }
 
