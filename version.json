@@ -1,11 +1,11 @@
 {
-  "version": "2026.04.24.0029",
-  "lastUpdate": "BANNER-011",
+  "version": "2026.04.24.0030",
+  "lastUpdate": "TYPOGRAPHY-001",
   "changes": [
-    "root-fix: إيقاف القص القسري من Cloudinary لـ fitMode auto",
-    "cloudinary: c_limit بدلاً من c_fill — الصورة الأصلية كاملة",
-    "portrait: object-position center center بدلاً من center top",
-    "mobile-portrait: max-height 100vw بدلاً من 85vw (+17.6%)",
-    "impact: Desktop و Mobile يستلمان نفس نسبة الصورة الأصلية"
+    "fix: إزالة Cairo من font variables (لم يكن يُحمَّل أصلاً)",
+    "typography: --font-display و --font-arabic = Segoe UI stack محترف",
+    "typography: إضافة --weight-* variables",
+    "typography: إضافة --leading-* variables",
+    "typography: banner-hero-title/text يستخدمان var(--font-display)"
   ]
 }
