@@ -1,11 +1,10 @@
 {
-  "version": "2026.04.24.0030",
-  "lastUpdate": "TYPOGRAPHY-001",
+  "version": "2026.04.24.0031",
+  "lastUpdate": "RATINGS-001",
   "changes": [
-    "fix: إزالة Cairo من font variables (لم يكن يُحمَّل أصلاً)",
-    "typography: --font-display و --font-arabic = Segoe UI stack محترف",
-    "typography: إضافة --weight-* variables",
-    "typography: إضافة --leading-* variables",
-    "typography: banner-hero-title/text يستخدمان var(--font-display)"
+    "RATINGS-001: Firestore write لـ rating + ratingCount",
+    "rateProduct() أصبحت async مع try/catch",
+    "إصلاح typo: r.oderId → r.userId",
+    "استخدام getCurrentUserUid() الرسمي"
   ]
 }

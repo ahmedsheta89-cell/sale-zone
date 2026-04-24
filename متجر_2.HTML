@@ -7099,7 +7099,7 @@
             openModal('ratingModal');
         }
 
-        function rateProduct(productId, rating) {
+        async function rateProduct(productId, rating) {
             if (!currentUser) {
                 showNotification('error', 'خطأ', 'سجل دخول أولاً');
                 showAuthModal('login');
@@ -7110,23 +7110,74 @@
             if (!p) return;
             if (p.isPublished === false) return;
 
+            const userId = getCurrentUserUid();
+            if (!userId) return;
+
+            const normalizedRating = Math.max(1, Math.min(5, Number(rating) || 0));
+            if (!normalizedRating) return;
+
             if (!p.ratings) p.ratings = [];
-            const existingRating = p.ratings.find(r => r.oderId === currentUser.id);
-            
-            if (existingRating) {
-                existingRating.value = rating;
-            } else {
-                p.ratings.push({ oderId: currentUser.id, value: rating });
+
+            const existingIdx = p.ratings.findIndex(
+                r => String(r && r.userId || '') === userId
+            );
+
+            const localRatingKey = 'szProductRatings';
+            let persistedRatings = {};
+            try {
+                persistedRatings = JSON.parse(localStorage.getItem(localRatingKey) || '{}') || {};
+            } catch (_) {
+                persistedRatings = {};
             }
 
-            p.ratingCount = p.ratings.length;
-            p.rating = p.ratings.reduce((s, r) => s + r.value, 0) / p.ratings.length;
+            const persistedKey = `${userId}:${String(productId)}`;
+            const inMemoryPrevious = existingIdx !== -1 ? Number(p.ratings[existingIdx] && p.ratings[existingIdx].value) : NaN;
+            const persistedPrevious = Number(persistedRatings[persistedKey]);
+            const previousRating = Number.isFinite(inMemoryPrevious)
+                ? inMemoryPrevious
+                : (Number.isFinite(persistedPrevious) ? persistedPrevious : NaN);
 
-            saveProducts();
+            const currentCount = Number.isFinite(Number(p.ratingCount)) ? Number(p.ratingCount) : 0;
+            const currentAverage = Number.isFinite(Number(p.rating)) ? Number(p.rating) : 0;
+
+            if (existingIdx !== -1) {
+                p.ratings[existingIdx].value = normalizedRating;
+            } else {
+                p.ratings.push({ userId, value: normalizedRating });
+            }
+
+            if (Number.isFinite(previousRating) && currentCount > 0) {
+                p.ratingCount = currentCount;
+                p.rating = ((currentAverage * currentCount) - previousRating + normalizedRating) / currentCount;
+            } else {
+                p.ratingCount = currentCount + 1;
+                p.rating = ((currentAverage * currentCount) + normalizedRating) / p.ratingCount;
+            }
+
             buildSearchIndexAsync();
             runProductSearch(currentSearchPage);
             closeModal('ratingModal');
-            showNotification('success', 'شكراً', `تم تقييم المنتج بـ ${rating} نجوم`);
+            showNotification('success', 'شكراً', `تم تقييم المنتج بـ ${normalizedRating} نجوم`);
+
+            try {
+                const db = getFirebaseDB();
+                if (!db || typeof db.collection !== 'function') {
+                    throw new Error('Firestore unavailable');
+                }
+
+                await db.collection('products').doc(String(productId)).update({
+                    rating: p.rating,
+                    ratingCount: p.ratingCount
+                });
+
+                persistedRatings[persistedKey] = normalizedRating;
+                try {
+                    localStorage.setItem(localRatingKey, JSON.stringify(persistedRatings));
+                } catch (_) {}
+            } catch (writeErr) {
+                console.error('[RATINGS-001] Firestore write failed:', writeErr);
+                showNotification('error', 'تحذير', 'لم يُحفظ التقييم في السيرفر');
+            }
         }
 
         // ============================================
