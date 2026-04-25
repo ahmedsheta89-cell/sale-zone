@@ -9556,6 +9556,19 @@
                 .support-rating-stars{display:flex;gap:6px;direction:ltr}
                 .support-rating-stars button{border:none;background:#fff7d6;border-radius:999px;padding:8px 10px;cursor:pointer;font-size:18px}
                 .support-rating-stars button.active{background:#facc15}
+                .chat-thread-banner-inner{padding:16px 12px;border-radius:12px;margin:4px;direction:rtl;font-family:var(--font-arabic)}
+                #chatThreadBanner{max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:max-height 0.3s ease}
+                .support-rating-stars{justify-content:center;margin:8px 0}
+                .support-rating-stars button{font-size:30px;padding:4px 6px;background:transparent;filter:grayscale(0.5);opacity:0.5;transition:transform 0.15s ease,filter 0.15s ease,opacity 0.15s ease}
+                .support-rating-stars button.active,.support-rating-stars button:hover{filter:grayscale(0);opacity:1;transform:scale(1.2)}
+                .chat-rating-submit-btn{display:block;width:100%;margin-top:10px;padding:11px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:#fff;border:none;border-radius:50px;cursor:pointer;font-size:0.88rem;font-weight:700;font-family:var(--font-arabic);transition:opacity 0.2s ease,transform 0.2s ease}
+                .chat-rating-submit-btn:disabled{opacity:0.4;cursor:not-allowed}
+                .chat-rating-submit-btn:not(:disabled):hover{transform:scale(1.02);opacity:0.92}
+                .chat-rating-reopen-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 24px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:#fff;border:none;border-radius:50px;cursor:pointer;font-size:0.88rem;font-weight:700;font-family:var(--font-arabic);transition:transform 0.2s ease,box-shadow 0.2s ease;margin-top:4px}
+                .chat-rating-reopen-btn:hover{transform:scale(1.04);box-shadow:0 4px 16px rgba(212,175,55,0.35)}
+                .chat-rating-ghost-btn{padding:6px 14px;background:transparent;border:1.5px solid var(--color-border-tertiary);border-radius:50px;cursor:pointer;font-size:0.78rem;color:#666;font-family:var(--font-arabic);white-space:nowrap;transition:border-color 0.2s ease,color 0.2s ease}
+                .chat-rating-ghost-btn:hover{border-color:var(--gold);color:var(--gold)}
+                @media (max-width:768px){#chatThreadBanner{max-height:40vh}.support-rating-stars button{font-size:26px;padding:4px}}
                 @keyframes supportTypingPulse{0%,80%,100%{transform:scale(.85);opacity:.3}40%{transform:scale(1);opacity:1}}
             `;
             document.head.appendChild(style);
@@ -9686,53 +9699,178 @@
         function renderSupportThreadBanner(thread = activeSupportThread) {
             const banner = document.getElementById('chatThreadBanner');
             if (!banner) return;
+
             const currentThread = thread || null;
-            const statusMeta = getReadableSupportStatus(currentThread && currentThread.status || 'active');
-            const hasRating = !!(currentThread && currentThread.rating && Number(currentThread.rating.score || 0) > 0);
-            if (!currentThread) {
-                banner.style.display = 'none';
-                banner.innerHTML = '';
-                return;
-            }
+            const statusMeta = getReadableSupportStatus(
+                currentThread && currentThread.status || 'active'
+            );
+            const hasRating = !!(
+                currentThread &&
+                currentThread.rating &&
+                Number(currentThread.rating.score || 0) > 0
+            );
+
             if (statusMeta.key !== 'closed' && !hasRating) {
                 banner.style.display = 'none';
                 banner.innerHTML = '';
                 updateSupportComposerState();
                 return;
             }
+
             banner.style.display = 'block';
+
+            if (hasRating) {
+                const score = Math.max(1, Math.min(5,
+                    Number(currentThread.rating.score || 0)
+                ));
+                const comment = currentThread.rating.comment
+                    ? escapeHtml(String(currentThread.rating.comment))
+                    : '';
+
+                banner.innerHTML = `
+                    <div class="chat-thread-banner-inner"
+                         style="text-align:center;
+                                background:linear-gradient(
+                                    135deg,
+                                    rgba(250,204,21,0.08),
+                                    rgba(250,204,21,0.03)
+                                );">
+                        <div style="font-size:32px;margin-bottom:6px;">
+                            ${'⭐'.repeat(score)}
+                        </div>
+                        <p style="margin:0 0 4px;font-size:0.88rem;
+                                  font-weight:700;color:var(--account-text);">
+                            شكراً على تقييمك 🙏
+                        </p>
+                        ${comment ? `
+                        <p style="margin:4px 0 14px;font-size:0.78rem;
+                                  color:#888;font-style:italic;">
+                            "${comment}"
+                        </p>` : `<div style="margin-bottom:14px;"></div>`}
+                        <button type="button"
+                                class="chat-rating-reopen-btn"
+                                onclick="reopenMySupportThread()">
+                            💬 محادثة جديدة
+                        </button>
+                    </div>
+                `;
+                updateSupportComposerState();
+                return;
+            }
+
             banner.innerHTML = `
-                <div style="display:grid;gap:10px;">
-                    ${statusMeta.key === 'closed' ? `
-                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-                            <strong style="color:var(--account-text);">المحادثة مغلقة حالياً</strong>
-                            <button type="button" class="my-account-ghost-btn" onclick="reopenMySupportThread()">إعادة فتح المحادثة</button>
+                <div class="chat-thread-banner-inner"
+                     style="background:rgba(10,17,40,0.03);">
+                    <div style="display:flex;align-items:center;
+                                gap:10px;margin-bottom:14px;
+                                padding-bottom:14px;
+                                border-bottom:1px solid
+                                    var(--color-border-tertiary);
+                                flex-wrap:wrap;">
+                        <span style="font-size:1.3rem;">✅</span>
+                        <div style="flex:1;min-width:0;">
+                            <p style="margin:0 0 2px;font-size:0.88rem;
+                                      font-weight:700;
+                                      color:var(--account-text);">
+                                تم إغلاق محادثتك
+                            </p>
+                            <p style="margin:0;font-size:0.76rem;
+                                      color:#888;">
+                                شكراً لتواصلك مع فريق Sale Zone
+                            </p>
                         </div>
-                    ` : ''}
-                    ${hasRating ? `
-                        <div class="my-account-muted-note">التقييم الحالي: ${'⭐'.repeat(Math.max(1, Math.min(5, Number(currentThread.rating.score || 0))))}${currentThread.rating.comment ? ` — ${escapeHtml(String(currentThread.rating.comment || ''))}` : ''}</div>
-                    ` : statusMeta.key === 'closed' ? `
-                        <div style="display:grid;gap:8px;">
-                            <strong style="color:var(--account-text);">كيف تقيّم تجربة الدعم؟</strong>
-                            <div class="support-rating-stars">
-                                ${[1,2,3,4,5].map((score) => `<button type="button" aria-label="تقييم ${score}" onclick="selectSupportRatingScore(${score})">⭐</button>`).join('')}
-                            </div>
-                            <textarea id="supportRatingComment" placeholder="تعليق اختياري" style="min-height:74px;border:1px solid var(--color-border-tertiary);border-radius:12px;padding:10px;background:#fff;"></textarea>
-                            <button type="button" class="my-account-primary-btn" onclick="submitSupportRating()">إرسال التقييم</button>
+                        <button type="button"
+                                class="chat-rating-ghost-btn"
+                                onclick="reopenMySupportThread()">
+                            إعادة فتح
+                        </button>
+                    </div>
+
+                    <div style="text-align:center;">
+                        <p style="margin:0 0 10px;font-size:0.9rem;
+                                  font-weight:600;
+                                  color:var(--account-text);">
+                            كيف كانت تجربتك مع فريق الدعم؟
+                        </p>
+
+                        <div class="support-rating-stars">
+                            ${[1,2,3,4,5].map((s) => `
+                                <button type="button"
+                                        aria-label="تقييم ${s} من 5"
+                                        data-score="${s}"
+                                        onclick="selectSupportRatingScore(${s})">
+                                    ⭐
+                                </button>
+                            `).join('')}
                         </div>
-                    ` : ''}
+
+                        <p id="supportRatingHint"
+                           style="margin:6px 0 10px;font-size:0.75rem;
+                                  color:#aaa;min-height:18px;">
+                            اضغط على النجوم للتقييم
+                        </p>
+
+                        <textarea id="supportRatingComment"
+                            placeholder="تعليق اختياري على تجربتك..."
+                            style="width:100%;min-height:60px;
+                                   border:1.5px solid
+                                       var(--color-border-tertiary);
+                                   border-radius:12px;
+                                   padding:10px 12px;
+                                   background:#fff;
+                                   font-family:var(--font-arabic);
+                                   font-size:0.82rem;
+                                   resize:vertical;
+                                   box-sizing:border-box;
+                                   display:none;
+                                   transition:border-color 0.2s ease;"
+                            onfocus="this.style.borderColor='var(--gold)'"
+                            onblur="this.style.borderColor=
+                                'var(--color-border-tertiary)'"></textarea>
+
+                        <button type="button"
+                                id="supportRatingSubmitBtn"
+                                class="chat-rating-submit-btn"
+                                onclick="submitSupportRating()"
+                                disabled>
+                            إرسال التقييم
+                        </button>
+                    </div>
                 </div>
             `;
+
             updateSupportComposerState();
         }
 
         function selectSupportRatingScore(score) {
             const banner = document.getElementById('chatThreadBanner');
             if (!banner) return;
+
             banner.dataset.ratingScore = String(score);
-            banner.querySelectorAll('.support-rating-stars button').forEach((button, index) => {
-                button.classList.toggle('active', index < Number(score));
+
+            banner.querySelectorAll(
+                '.support-rating-stars button'
+            ).forEach((btn, index) => {
+                btn.classList.toggle('active', index < Number(score));
             });
+
+            const hints = {
+                1: 'سيئة جداً 😞',
+                2: 'سيئة 😕',
+                3: 'مقبولة 😐',
+                4: 'جيدة 😊',
+                5: 'ممتازة 🌟'
+            };
+            const hint = document.getElementById('supportRatingHint');
+            if (hint) hint.textContent = hints[score] || '';
+
+            const textarea = document.getElementById('supportRatingComment');
+            if (textarea) textarea.style.display = 'block';
+
+            const submitBtn = document.getElementById('supportRatingSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+            }
         }
 
         async function submitSupportRating() {
