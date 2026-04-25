@@ -1,9 +1,10 @@
 {
-  "version": "2026.04.24.0034",
-  "lastUpdate": "CHAT-RATING-FIX-002",
+  "version": "2026.04.24.0035",
+  "lastUpdate": "CHAT-RATING-FIX-003 + RATINGS-FILTER-001",
   "changes": [
-    "CHAT-RATING-FIX-002: حماية rating من onSnapshot overwrite",
-    "listener callback يحفظ prevRating عند pending write",
-    "حل Race Condition بين submitSupportRating وonSnapshot"
+    "FIX-003: renderSupportThreadBanner(activeSupportThread) السطر 11642",
+    "FIX-003: حذف emoji من نصوص التقييم",
+    "FILTER-001: نظام فلترة كامل للأدمن — منتجات + دردشة",
+    "FILTER-001: بطاقات إحصاء + Tabs + فلاتر متعددة"
   ]
 }

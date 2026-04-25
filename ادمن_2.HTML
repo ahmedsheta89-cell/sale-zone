@@ -14140,44 +14140,268 @@ function adminLogout(){
                     جارٍ التحميل...
                 </p>`;
 
-            if (!Array.isArray(products) || products.length === 0) {
+            let chatRatings = [];
+            try {
+                const db = getFirebaseDB();
+                if (db && typeof db.collection === 'function') {
+                    const snap = await db
+                        .collection('support_threads')
+                        .where('status', '==', 'closed')
+                        .get();
+                    snap.forEach((doc) => {
+                        const d = doc.data() || {};
+                        if (d.rating && Number(d.rating.score || 0) > 0) {
+                            const createdAt = String(d.rating.createdAt || '');
+                            const parsedDate = createdAt ? new Date(createdAt) : null;
+                            chatRatings.push({
+                                id: doc.id,
+                                customerName: escapeHtml(String(d.customerName || 'عميل')),
+                                score: Number(d.rating.score || 0),
+                                comment: escapeHtml(String(d.rating.comment || '')),
+                                date: parsedDate && !Number.isNaN(parsedDate.getTime())
+                                    ? parsedDate.toLocaleDateString('ar-EG')
+                                    : '—'
+                            });
+                        }
+                    });
+                }
+            } catch (_) {}
+
+            const hasProducts = Array.isArray(products) && products.length > 0;
+            const totalProductRatings = hasProducts
+                ? products.reduce((sum, p) => sum + Number(p && p.ratingCount || 0), 0)
+                : 0;
+            const avgProductRating = hasProducts && totalProductRatings > 0
+                ? (
+                    products.reduce((sum, p) => (
+                        sum + (Number(p && p.rating || 0) * Number(p && p.ratingCount || 0))
+                    ), 0) / totalProductRatings
+                ).toFixed(1)
+                : '—';
+            const chatAvg = chatRatings.length
+                ? (
+                    chatRatings.reduce((sum, item) => sum + Number(item && item.score || 0), 0)
+                    / chatRatings.length
+                ).toFixed(1)
+                : '—';
+
+            window._ratingsData = {
+                products: hasProducts ? products.map((item) => ({ ...item })) : [],
+                chat: chatRatings
+            };
+
+            container.innerHTML = `
+                <div style="font-family:var(--font-arabic);direction:rtl;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+                        <div style="background:#fff9e6;border-radius:12px;padding:16px;text-align:center;border:1px solid #fef3c7;">
+                            <div style="font-size:1.8rem;font-weight:700;color:var(--gold);">
+                                ${escapeHtml(String(totalProductRatings))}
+                            </div>
+                            <div style="font-size:0.8rem;color:#888;margin-top:4px;">
+                                تقييمات المنتجات
+                            </div>
+                        </div>
+                        <div style="background:#fff9e6;border-radius:12px;padding:16px;text-align:center;border:1px solid #fef3c7;">
+                            <div style="font-size:1.8rem;font-weight:700;color:var(--gold);">
+                                ${escapeHtml(String(avgProductRating))}
+                            </div>
+                            <div style="font-size:0.8rem;color:#888;margin-top:4px;">
+                                متوسط المنتجات
+                            </div>
+                        </div>
+                        <div style="background:#f0fdf4;border-radius:12px;padding:16px;text-align:center;border:1px solid #dcfce7;">
+                            <div style="font-size:1.8rem;font-weight:700;color:#16a34a;">
+                                ${escapeHtml(String(chatRatings.length))}
+                            </div>
+                            <div style="font-size:0.8rem;color:#888;margin-top:4px;">
+                                تقييمات الدردشة
+                            </div>
+                        </div>
+                        <div style="background:#f0fdf4;border-radius:12px;padding:16px;text-align:center;border:1px solid #dcfce7;">
+                            <div style="font-size:1.8rem;font-weight:700;color:#16a34a;">
+                                ${escapeHtml(String(chatAvg))}
+                            </div>
+                            <div style="font-size:0.8rem;color:#888;margin-top:4px;">
+                                متوسط الدردشة
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid #f0f0f0;padding-bottom:12px;flex-wrap:wrap;">
+                        <button id="tabProducts"
+                                type="button"
+                                onclick="switchRatingsTab('products')"
+                                style="padding:8px 20px;border-radius:50px;border:none;cursor:pointer;font-family:var(--font-arabic);font-size:0.85rem;font-weight:600;background:var(--gold);color:#fff;transition:all 0.2s ease;">
+                            تقييمات المنتجات (${escapeHtml(String(totalProductRatings))})
+                        </button>
+                        <button id="tabChat"
+                                type="button"
+                                onclick="switchRatingsTab('chat')"
+                                style="padding:8px 20px;border-radius:50px;border:none;cursor:pointer;font-family:var(--font-arabic);font-size:0.85rem;font-weight:600;background:#f0f0f0;color:#666;transition:all 0.2s ease;">
+                            تقييمات الدردشة (${escapeHtml(String(chatRatings.length))})
+                        </button>
+                    </div>
+                    <div id="productFilterBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+                        <select id="filterStars"
+                                onchange="applyProductRatingsFilter()"
+                                style="padding:8px 12px;border-radius:8px;border:1.5px solid #e0e0e0;font-family:var(--font-arabic);font-size:0.82rem;background:#fff;cursor:pointer;">
+                            <option value="">كل التقييمات</option>
+                            <option value="5">5 نجوم فقط</option>
+                            <option value="4">4 نجوم فقط</option>
+                            <option value="3">3 نجوم فقط</option>
+                            <option value="2">2 نجوم فقط</option>
+                            <option value="1">1 نجمة فقط</option>
+                        </select>
+                        <select id="filterRatingCount"
+                                onchange="applyProductRatingsFilter()"
+                                style="padding:8px 12px;border-radius:8px;border:1.5px solid #e0e0e0;font-family:var(--font-arabic);font-size:0.82rem;background:#fff;cursor:pointer;">
+                            <option value="">كل المنتجات</option>
+                            <option value="1">لديه تقييم واحد+</option>
+                            <option value="5">5 تقييمات+</option>
+                            <option value="10">10 تقييمات+</option>
+                            <option value="0">بدون تقييمات</option>
+                        </select>
+                        <select id="filterRatingSort"
+                                onchange="applyProductRatingsFilter()"
+                                style="padding:8px 12px;border-radius:8px;border:1.5px solid #e0e0e0;font-family:var(--font-arabic);font-size:0.82rem;background:#fff;cursor:pointer;">
+                            <option value="rating_desc">الأعلى تقييماً</option>
+                            <option value="rating_asc">الأقل تقييماً</option>
+                            <option value="count_desc">الأكثر تقييماً</option>
+                            <option value="count_asc">الأقل عدداً</option>
+                        </select>
+                        <span id="filterResultCount" style="font-size:0.8rem;color:#999;margin-right:auto;"></span>
+                    </div>
+                    <div id="chatFilterBar" style="display:none;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+                        <select id="filterChatStars"
+                                onchange="applyChatRatingsFilter()"
+                                style="padding:8px 12px;border-radius:8px;border:1.5px solid #e0e0e0;font-family:var(--font-arabic);font-size:0.82rem;background:#fff;cursor:pointer;">
+                            <option value="">كل التقييمات</option>
+                            <option value="5">ممتاز (5)</option>
+                            <option value="4">جيد (4)</option>
+                            <option value="3">مقبول (3)</option>
+                            <option value="2">سيء (2)</option>
+                            <option value="1">سيء جداً (1)</option>
+                        </select>
+                        <select id="filterChatSort"
+                                onchange="applyChatRatingsFilter()"
+                                style="padding:8px 12px;border-radius:8px;border:1.5px solid #e0e0e0;font-family:var(--font-arabic);font-size:0.82rem;background:#fff;cursor:pointer;">
+                            <option value="score_desc">الأعلى تقييماً</option>
+                            <option value="score_asc">الأقل تقييماً</option>
+                        </select>
+                        <span id="chatFilterCount" style="font-size:0.8rem;color:#999;margin-right:auto;"></span>
+                    </div>
+                    <div id="ratingsTableContainer"></div>
+                </div>`;
+
+            applyProductRatingsFilter();
+        }
+
+        function switchRatingsTab(tab) {
+            const productBar = document.getElementById('productFilterBar');
+            const chatBar = document.getElementById('chatFilterBar');
+            const tabProducts = document.getElementById('tabProducts');
+            const tabChat = document.getElementById('tabChat');
+
+            if (tab === 'products') {
+                if (productBar) productBar.style.display = 'flex';
+                if (chatBar) chatBar.style.display = 'none';
+                if (tabProducts) {
+                    tabProducts.style.background = 'var(--gold)';
+                    tabProducts.style.color = '#fff';
+                }
+                if (tabChat) {
+                    tabChat.style.background = '#f0f0f0';
+                    tabChat.style.color = '#666';
+                }
+                applyProductRatingsFilter();
+                return;
+            }
+
+            if (productBar) productBar.style.display = 'none';
+            if (chatBar) chatBar.style.display = 'flex';
+            if (tabProducts) {
+                tabProducts.style.background = '#f0f0f0';
+                tabProducts.style.color = '#666';
+            }
+            if (tabChat) {
+                tabChat.style.background = 'var(--gold)';
+                tabChat.style.color = '#fff';
+            }
+            applyChatRatingsFilter();
+        }
+
+        function applyProductRatingsFilter() {
+            const data = window._ratingsData || { products: [] };
+            const stars = document.getElementById('filterStars')?.value || '';
+            const countFilter = document.getElementById('filterRatingCount')?.value || '';
+            const sort = document.getElementById('filterRatingSort')?.value || 'rating_desc';
+            const container = document.getElementById('ratingsTableContainer');
+            const countEl = document.getElementById('filterResultCount');
+            if (!container) return;
+
+            let list = [...(data.products || [])];
+
+            if (stars) {
+                list = list.filter((p) => Math.round(Number(p && p.rating || 0)) === Number(stars));
+            }
+
+            if (countFilter === '0') {
+                list = list.filter((p) => Number(p && p.ratingCount || 0) === 0);
+            } else if (countFilter) {
+                list = list.filter((p) => Number(p && p.ratingCount || 0) >= Number(countFilter));
+            }
+
+            const sorts = {
+                rating_desc: (a, b) => Number(b && b.rating || 0) - Number(a && a.rating || 0),
+                rating_asc: (a, b) => Number(a && a.rating || 0) - Number(b && b.rating || 0),
+                count_desc: (a, b) => Number(b && b.ratingCount || 0) - Number(a && a.ratingCount || 0),
+                count_asc: (a, b) => Number(a && a.ratingCount || 0) - Number(b && b.ratingCount || 0)
+            };
+            list.sort(sorts[sort] || sorts.rating_desc);
+
+            if (countEl) countEl.textContent = `${escapeHtml(String(list.length))} منتج`;
+
+            if (!list.length) {
                 container.innerHTML = `
-                    <p style="color:#999;text-align:center;padding:40px;margin:0;">
-                        لا توجد منتجات
+                    <p style="text-align:center;color:#999;padding:30px;margin:0;font-family:var(--font-arabic);">
+                        لا توجد نتائج
                     </p>`;
                 return;
             }
 
-            const rows = products.map((p) => {
+            const rows = list.map((p) => {
                 const safeId = escapeHtml(String(p && p.id || ''));
                 const safeName = escapeHtml(String(p && p.name || 'منتج'));
                 const ratingValue = Number(p && p.rating || 0);
                 const ratingCount = Number(p && p.ratingCount || 0);
                 const ratingLabel = escapeHtml(ratingValue.toFixed(1));
-                const stars = Math.max(0, Math.min(5, Math.round(ratingValue)));
+                const barWidth = Math.round((ratingValue / 5) * 100);
 
                 return `
                     <tr>
-                        <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">
+                        <td style="padding:10px 8px;border-bottom:1px solid #f5f5f5;">
                             ${safeName}
                         </td>
-                        <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;color:var(--gold);font-size:1rem;">
-                            ${stars ? '⭐'.repeat(stars) : '—'}
-                            <span style="color:#666;font-size:0.8rem;margin-right:4px;">
-                                ${ratingLabel}
-                            </span>
+                        <td style="padding:10px 8px;border-bottom:1px solid #f5f5f5;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <div style="width:60px;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden;">
+                                    <div style="width:${escapeHtml(String(barWidth))}%;height:100%;background:var(--gold);border-radius:3px;"></div>
+                                </div>
+                                <span style="color:var(--gold);font-weight:600;font-size:0.85rem;">
+                                    ${ratingLabel}
+                                </span>
+                            </div>
                         </td>
-                        <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;color:#666;font-size:0.85rem;">
+                        <td style="padding:10px 8px;border-bottom:1px solid #f5f5f5;color:#666;font-size:0.85rem;">
                             ${escapeHtml(String(ratingCount))} تقييم
                         </td>
-                        <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">
+                        <td style="padding:10px 8px;border-bottom:1px solid #f5f5f5;">
                             <button
                                 type="button"
                                 data-product-id="${safeId}"
                                 data-product-name="${safeName}"
                                 onclick="openProductRatings(this.dataset.productId, this.dataset.productName)"
-                                style="background:var(--gold);color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.85rem;font-family:var(--font-arabic);">
-                                عرض التقييمات
+                                style="background:var(--gold);color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.82rem;font-family:var(--font-arabic);">
+                                عرض
                             </button>
                         </td>
                     </tr>`;
@@ -14188,10 +14412,75 @@ function adminLogout(){
                     <table style="width:100%;border-collapse:collapse;font-family:var(--font-arabic);min-width:560px;">
                         <thead>
                             <tr style="background:#f8f8f8;">
-                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;">المنتج</th>
-                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;">التقييم</th>
-                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;">العدد</th>
-                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;">إجراء</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">المنتج</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">التقييم</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">العدد</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function applyChatRatingsFilter() {
+            const data = window._ratingsData || { chat: [] };
+            const stars = document.getElementById('filterChatStars')?.value || '';
+            const sort = document.getElementById('filterChatSort')?.value || 'score_desc';
+            const container = document.getElementById('ratingsTableContainer');
+            const countEl = document.getElementById('chatFilterCount');
+            if (!container) return;
+
+            let list = [...(data.chat || [])];
+
+            if (stars) {
+                list = list.filter((r) => Number(r && r.score || 0) === Number(stars));
+            }
+
+            list.sort(sort === 'score_asc'
+                ? (a, b) => Number(a && a.score || 0) - Number(b && b.score || 0)
+                : (a, b) => Number(b && b.score || 0) - Number(a && a.score || 0));
+
+            if (countEl) countEl.textContent = `${escapeHtml(String(list.length))} تقييم`;
+
+            if (!list.length) {
+                container.innerHTML = `
+                    <p style="text-align:center;color:#999;padding:30px;margin:0;font-family:var(--font-arabic);">
+                        لا توجد نتائج
+                    </p>`;
+                return;
+            }
+
+            const rows = list.map((r) => `
+                <tr>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f5f5f5;font-size:0.85rem;">
+                        ${r.customerName}
+                    </td>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f5f5f5;">
+                        <span style="color:var(--gold);font-weight:700;font-size:0.9rem;">
+                            ${'★'.repeat(Math.max(0, Math.min(5, Number(r && r.score || 0))))}
+                        </span>
+                        <span style="color:#ddd;">
+                            ${'★'.repeat(Math.max(0, 5 - Math.max(0, Math.min(5, Number(r && r.score || 0)))))}
+                        </span>
+                    </td>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f5f5f5;color:#666;font-size:0.82rem;font-style:italic;max-width:200px;">
+                        ${r.comment || '—'}
+                    </td>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f5f5f5;color:#999;font-size:0.8rem;">
+                        ${escapeHtml(String(r && r.date || '—'))}
+                    </td>
+                </tr>`).join('');
+
+            container.innerHTML = `
+                <div style="overflow:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-family:var(--font-arabic);min-width:560px;">
+                        <thead>
+                            <tr style="background:#f8f8f8;">
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">العميل</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">التقييم</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">التعليق</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">التاريخ</th>
                             </tr>
                         </thead>
                         <tbody>${rows}</tbody>
