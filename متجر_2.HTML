@@ -11631,8 +11631,13 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 ? subscribeSupportThread(
                     threadId,
                     (thread) => {
-                        activeSupportThread = thread;
-                        myAccountState.supportThread = thread;
+                        const prevRating =
+                            activeSupportThread && activeSupportThread.rating || null;
+                        activeSupportThread = {
+                            ...thread,
+                            rating: thread.rating || prevRating
+                        };
+                        myAccountState.supportThread = activeSupportThread;
                         updateSupportTypingIndicator(thread);
                         renderSupportThreadBanner(thread);
                         updateSupportComposerState();

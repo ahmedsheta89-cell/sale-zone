@@ -1,13 +1,9 @@
 {
-  "version": "2026.04.24.0033",
-  "lastUpdate": "CHAT-RATING-FIX-001",
+  "version": "2026.04.24.0034",
+  "lastUpdate": "CHAT-RATING-FIX-002",
   "changes": [
-    "CHAT-RATING-FIX-001: تجربة تقييم الدردشة المحترفة",
-    "رسالة إغلاق واضحة + زر إعادة فتح",
-    "نجوم 30px تفاعلية مع hover effect",
-    "زر إرسال معطل حتى اختيار نجمة",
-    "نص وصفي للتقييم المختار",
-    "بعد التقييم: شكر + زر محادثة جديدة",
-    "موبايل: max-height 40vh لا يحجب Input"
+    "CHAT-RATING-FIX-002: حماية rating من onSnapshot overwrite",
+    "listener callback يحفظ prevRating عند pending write",
+    "حل Race Condition بين submitSupportRating وonSnapshot"
   ]
 }
