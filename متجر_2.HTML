@@ -9740,7 +9740,7 @@
                         </div>
                         <p style="margin:0 0 4px;font-size:0.88rem;
                                   font-weight:700;color:var(--account-text);">
-                            شكراً على تقييمك 🙏
+                            شكراً على تقييمك
                         </p>
                         ${comment ? `
                         <p style="margin:4px 0 14px;font-size:0.78rem;
@@ -9855,11 +9855,11 @@
             });
 
             const hints = {
-                1: 'سيئة جداً 😞',
-                2: 'سيئة 😕',
-                3: 'مقبولة 😐',
-                4: 'جيدة 😊',
-                5: 'ممتازة 🌟'
+                1: 'سيئة جداً',
+                2: 'سيئة',
+                3: 'مقبولة',
+                4: 'جيدة',
+                5: 'ممتازة'
             };
             const hint = document.getElementById('supportRatingHint');
             if (hint) hint.textContent = hints[score] || '';
@@ -11639,7 +11639,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                         };
                         myAccountState.supportThread = activeSupportThread;
                         updateSupportTypingIndicator(thread);
-                        renderSupportThreadBanner(thread);
+                        renderSupportThreadBanner(activeSupportThread);
                         updateSupportComposerState();
                         refreshMyAccountChrome();
                         if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
