@@ -1,10 +1,10 @@
 {
-  "version": "2026.04.24.0031",
-  "lastUpdate": "RATINGS-001",
+  "version": "2026.04.24.0032",
+  "lastUpdate": "RATINGS-002",
   "changes": [
-    "RATINGS-001: Firestore write لـ rating + ratingCount",
-    "rateProduct() أصبحت async مع try/catch",
-    "إصلاح typo: r.oderId → r.userId",
-    "استخدام getCurrentUserUid() الرسمي"
+    "RATINGS-002: sub-collection ratings/ تحت كل منتج",
+    "rateProduct(): يكتب في sub-collection بعد parent",
+    "showRatingModal(): يعرض تقييم المستخدم السابق",
+    "أدمن: قسم التقييمات مع عرض وحذف"
   ]
 }

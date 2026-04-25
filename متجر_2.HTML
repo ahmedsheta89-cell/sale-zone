@@ -7079,23 +7079,68 @@
         // ============================================
         // ⭐ Rating System
         // ============================================
-        function showRatingModal(productId) {
-            const p = getVisibleProductsList().find((x) => String(x.id) === String(productId));
+        async function showRatingModal(productId) {
+            const p = getVisibleProductsList()
+                .find((x) => String(x.id) === String(productId));
             if (!p) return;
+
             const safeProductId = escapeHtml(String(productId || ''));
             const safeProductName = escapeHtml(p && p.name || '');
-            const safeRatingCount = escapeHtml(Number(p && p.ratingCount || 0).toFixed(0));
-            
+            const safeRatingCount = escapeHtml(
+                Number(p && p.ratingCount || 0).toFixed(0)
+            );
+
+            let previousStars = 0;
+            const userId = getCurrentUserUid();
+
+            if (userId) {
+                try {
+                    const stored = JSON.parse(
+                        localStorage.getItem('szProductRatings') || '{}'
+                    );
+                    const key = `${userId}:${String(productId)}`;
+                    if (stored[key]) previousStars = Number(stored[key]) || 0;
+                } catch (_) {}
+            }
+
             document.getElementById('ratingModalBody').innerHTML = `
-                <div style="text-align: center;">
-                    <h3 style="margin-bottom: 15px;">${safeProductName}</h3>
-                    <p style="margin-bottom: 20px;">التقييم الحالي: ${getStars(p.rating)} (${safeRatingCount})</p>
-                    <div style="font-size: 36px; margin-bottom: 20px;" id="ratingStars">
-                        ${[1,2,3,4,5].map((i) => `<span style="cursor: pointer;" data-product-id="${safeProductId}" data-rating="${i}" onclick="rateProduct(this.dataset.productId, Number(this.dataset.rating))">${i <= (p.rating || 0) ? '⭐' : '☆'}</span>`).join('')}
+                <div style="text-align:center;padding:4px 0;">
+                    <h3 style="margin-bottom:10px;font-size:1rem;font-family:var(--font-arabic);">
+                        ${safeProductName}
+                    </h3>
+                    <p style="margin-bottom:6px;color:#666;font-size:0.85rem;">
+                        التقييم العام: ${getStars(p.rating)}
+                        (${safeRatingCount})
+                    </p>
+                    ${previousStars ? `
+                    <p style="margin-bottom:14px;color:var(--gold);font-size:0.82rem;font-weight:600;">
+                        تقييمك الحالي: ${'⭐'.repeat(previousStars)}
+                    </p>
+                    ` : `
+                    <p style="margin-bottom:14px;color:#999;font-size:0.8rem;">
+                        لم تقيّم هذا المنتج بعد
+                    </p>
+                    `}
+                    <div id="ratingStars"
+                         style="font-size:38px;margin-bottom:14px;display:flex;justify-content:center;gap:4px;">
+                        ${[1,2,3,4,5].map((i) => `
+                            <span
+                                style="cursor:pointer;display:inline-block;transition:transform 0.15s ease;"
+                                data-product-id="${safeProductId}"
+                                data-rating="${i}"
+                                onmouseover="this.style.transform='scale(1.2)'"
+                                onmouseout="this.style.transform='scale(1)'"
+                                onclick="rateProduct(this.dataset.productId, Number(this.dataset.rating))">
+                                ${i <= previousStars ? '⭐' : '☆'}
+                            </span>
+                        `).join('')}
                     </div>
-                    <p style="color: #666; font-size: 12px;">اضغط على النجوم للتقييم</p>
+                    <p style="color:#aaa;font-size:0.75rem;">
+                        اضغط على النجوم للتقييم
+                    </p>
                 </div>
             `;
+
             openModal('ratingModal');
         }
 
@@ -7165,17 +7210,35 @@
                     throw new Error('Firestore unavailable');
                 }
 
-                await db.collection('products').doc(String(productId)).update({
+                const normalizedId = String(productId);
+                const now = new Date().toISOString();
+
+                await db.collection('products').doc(normalizedId).update({
                     rating: p.rating,
                     ratingCount: p.ratingCount
                 });
 
+                await db
+                    .collection('products')
+                    .doc(normalizedId)
+                    .collection('ratings')
+                    .doc(userId)
+                    .set({
+                        userId,
+                        userName: String(currentUser && currentUser.name || ''),
+                        stars: normalizedRating,
+                        updatedAt: now
+                    }, { merge: true });
+
                 persistedRatings[persistedKey] = normalizedRating;
                 try {
-                    localStorage.setItem(localRatingKey, JSON.stringify(persistedRatings));
+                    localStorage.setItem(
+                        localRatingKey,
+                        JSON.stringify(persistedRatings)
+                    );
                 } catch (_) {}
             } catch (writeErr) {
-                console.error('[RATINGS-001] Firestore write failed:', writeErr);
+                console.error('[RATINGS-002] Firestore write failed:', writeErr);
                 showNotification('error', 'تحذير', 'لم يُحفظ التقييم في السيرفر');
             }
         }

@@ -1709,6 +1709,7 @@
                     <div class="menu-section-title">الإعدادات</div>
                     <button class="menu-item" onclick="showSection('storeSettings')">🏪 المتجر</button>
                     <button class="menu-item" onclick="showSection('settings')">⚙️ النظام</button>
+                    <button class="menu-item" onclick="showSection('ratings')">⭐ التقييمات</button>
                     <a href="متجر_2.HTML" class="menu-item">🛍️ عرض المتجر</a>
                     <a href="index.html" class="menu-item">🏠 الصفحة الرئيسية</a>
                 </div>
@@ -2923,10 +2924,34 @@
                     </div>
                 </div>
             </section>
+
+            <section class="content-section" id="ratingsSection">
+                <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:var(--shadow-sm);font-family:var(--font-arabic);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+                        <div>
+                            <h2 style="margin:0 0 6px;color:var(--navy);font-family:var(--font-display);">⭐ تقييمات المنتجات</h2>
+                            <p style="margin:0;color:#666;font-size:0.9rem;">عرض متوسط كل منتج ثم فتح التقييمات التفصيلية أو حذفها.</p>
+                        </div>
+                    </div>
+                    <div id="ratingsProductsList">
+                        <p style="color:#999;text-align:center;padding:40px;margin:0;">جارٍ تحميل المنتجات...</p>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
 <!-- Modals -->
+<div class="modal-overlay" id="ratingsModal">
+  <div class="modal" style="max-width: 700px;">
+    <div class="modal-header">
+      <h2 id="ratingsModalTitle">⭐ تقييمات المنتج</h2>
+      <button class="close-modal" onclick="closeModal('ratingsModal')">✕</button>
+    </div>
+    <div class="modal-body" id="ratingsModalBody"></div>
+  </div>
+</div>
+
 <!-- Preflight Modal -->
 <div class="modal-overlay" id="preflightModal">
   <div class="modal" style="max-width: 700px;">
@@ -14106,13 +14131,252 @@ function adminLogout(){
             document.body.classList.toggle('sidebar-open', shouldOpen);
         }
 
+        async function loadRatingsSection() {
+            const container = document.getElementById('ratingsProductsList');
+            if (!container) return;
+
+            container.innerHTML = `
+                <p style="color:#999;text-align:center;padding:40px;margin:0;">
+                    جارٍ التحميل...
+                </p>`;
+
+            if (!Array.isArray(products) || products.length === 0) {
+                container.innerHTML = `
+                    <p style="color:#999;text-align:center;padding:40px;margin:0;">
+                        لا توجد منتجات
+                    </p>`;
+                return;
+            }
+
+            const rows = products.map((p) => {
+                const safeId = escapeHtml(String(p && p.id || ''));
+                const safeName = escapeHtml(String(p && p.name || 'منتج'));
+                const ratingValue = Number(p && p.rating || 0);
+                const ratingCount = Number(p && p.ratingCount || 0);
+                const ratingLabel = escapeHtml(ratingValue.toFixed(1));
+                const stars = Math.max(0, Math.min(5, Math.round(ratingValue)));
+
+                return `
+                    <tr>
+                        <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">
+                            ${safeName}
+                        </td>
+                        <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;color:var(--gold);font-size:1rem;">
+                            ${stars ? '⭐'.repeat(stars) : '—'}
+                            <span style="color:#666;font-size:0.8rem;margin-right:4px;">
+                                ${ratingLabel}
+                            </span>
+                        </td>
+                        <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;color:#666;font-size:0.85rem;">
+                            ${escapeHtml(String(ratingCount))} تقييم
+                        </td>
+                        <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">
+                            <button
+                                type="button"
+                                data-product-id="${safeId}"
+                                data-product-name="${safeName}"
+                                onclick="openProductRatings(this.dataset.productId, this.dataset.productName)"
+                                style="background:var(--gold);color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.85rem;font-family:var(--font-arabic);">
+                                عرض التقييمات
+                            </button>
+                        </td>
+                    </tr>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div style="overflow:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-family:var(--font-arabic);min-width:560px;">
+                        <thead>
+                            <tr style="background:#f8f8f8;">
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;">المنتج</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;">التقييم</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;">العدد</th>
+                                <th style="padding:10px 8px;text-align:right;font-weight:600;color:#444;">إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        async function openProductRatings(productId, productName) {
+            const modalTitle = document.getElementById('ratingsModalTitle');
+            const modalBody = document.getElementById('ratingsModalBody');
+            if (!modalTitle || !modalBody) return;
+
+            const localProduct = Array.isArray(products)
+                ? products.find((p) => String(p && p.id || '') === String(productId))
+                : null;
+            const resolvedProductName = String(
+                productName
+                || localProduct && localProduct.name
+                || 'منتج'
+            );
+            const safeProductName = escapeHtml(resolvedProductName);
+            const safeProductId = escapeHtml(String(productId || ''));
+
+            modalTitle.textContent = `⭐ تقييمات: ${resolvedProductName}`;
+            modalBody.innerHTML = `
+                <p style="text-align:center;color:#999;padding:30px;margin:0;font-family:var(--font-arabic);">
+                    جارٍ التحميل...
+                </p>`;
+            openModal('ratingsModal');
+
+            try {
+                const db = getFirebaseDB();
+                if (!db || typeof db.collection !== 'function') {
+                    throw new Error('Firestore unavailable');
+                }
+
+                const snap = await db
+                    .collection('products')
+                    .doc(String(productId))
+                    .collection('ratings')
+                    .get();
+
+                const ratings = [];
+                snap.forEach((doc) => {
+                    ratings.push({ id: doc.id, ...doc.data() });
+                });
+
+                ratings.sort((a, b) => String(b && b.updatedAt || '').localeCompare(String(a && a.updatedAt || '')));
+
+                if (!ratings.length) {
+                    modalBody.innerHTML = `
+                        <p style="text-align:center;color:#999;padding:40px;margin:0;font-family:var(--font-arabic);">
+                            لا توجد تقييمات بعد
+                        </p>`;
+                    return;
+                }
+
+                const avg = (
+                    ratings.reduce((sum, item) => sum + (Number(item && item.stars) || 0), 0)
+                    / ratings.length
+                ).toFixed(1);
+
+                const rows = ratings.map((r) => {
+                    const safeName = escapeHtml(String(r && (r.userName || r.userId) || 'مستخدم'));
+                    const safeUid = escapeHtml(String(r && (r.id || r.userId) || ''));
+                    const stars = Math.max(0, Math.min(5, Number(r && r.stars) || 0));
+                    const updatedAt = String(r && r.updatedAt || '');
+                    const parsedDate = updatedAt ? new Date(updatedAt) : null;
+                    const dateLabel = parsedDate && !Number.isNaN(parsedDate.getTime())
+                        ? parsedDate.toLocaleDateString('ar-EG')
+                        : '—';
+
+                    return `
+                        <tr>
+                            <td style="padding:8px;border-bottom:1px solid #f5f5f5;">${safeName}</td>
+                            <td style="padding:8px;border-bottom:1px solid #f5f5f5;color:var(--gold);">
+                                ${stars ? '⭐'.repeat(stars) : '—'}
+                                <span style="color:#888;font-size:0.78rem;">
+                                    (${escapeHtml(String(stars))})
+                                </span>
+                            </td>
+                            <td style="padding:8px;border-bottom:1px solid #f5f5f5;color:#888;font-size:0.8rem;">
+                                ${escapeHtml(dateLabel)}
+                            </td>
+                            <td style="padding:8px;border-bottom:1px solid #f5f5f5;">
+                                <button
+                                    type="button"
+                                    data-product-id="${safeProductId}"
+                                    data-user-id="${safeUid}"
+                                    data-product-name="${safeProductName}"
+                                    onclick="deleteRating(this.dataset.productId, this.dataset.userId, this.dataset.productName)"
+                                    style="background:#e53e3e;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.78rem;font-family:var(--font-arabic);">
+                                    حذف
+                                </button>
+                            </td>
+                        </tr>`;
+                }).join('');
+
+                modalBody.innerHTML = `
+                    <div style="font-family:var(--font-arabic);direction:rtl;">
+                        <p style="margin:0 0 16px;color:#555;font-size:0.9rem;">
+                            المتوسط: ${escapeHtml(avg)} ⭐ — (${escapeHtml(String(ratings.length))} تقييم)
+                        </p>
+                        <div style="overflow:auto;">
+                            <table style="width:100%;border-collapse:collapse;min-width:520px;">
+                                <thead>
+                                    <tr style="background:#fafafa;">
+                                        <th style="padding:8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">المستخدم</th>
+                                        <th style="padding:8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">التقييم</th>
+                                        <th style="padding:8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">التاريخ</th>
+                                        <th style="padding:8px;text-align:right;font-weight:600;color:#444;font-size:0.85rem;">إجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>`;
+            } catch (err) {
+                console.error('[RATINGS-002] Load ratings failed:', err);
+                modalBody.innerHTML = `
+                    <p style="text-align:center;color:#e53e3e;padding:30px;margin:0;font-family:var(--font-arabic);">
+                        فشل تحميل التقييمات
+                    </p>`;
+            }
+        }
+
+        async function deleteRating(productId, userId, productName) {
+            if (!confirm('هل تريد حذف هذا التقييم نهائياً؟')) return;
+
+            try {
+                const db = getFirebaseDB();
+                if (!db || typeof db.collection !== 'function') {
+                    throw new Error('Firestore unavailable');
+                }
+
+                await db
+                    .collection('products')
+                    .doc(String(productId))
+                    .collection('ratings')
+                    .doc(String(userId))
+                    .delete();
+
+                const snap = await db
+                    .collection('products')
+                    .doc(String(productId))
+                    .collection('ratings')
+                    .get();
+
+                const remaining = [];
+                snap.forEach((doc) => remaining.push(doc.data() || {}));
+
+                const newCount = remaining.length;
+                const newRating = newCount
+                    ? remaining.reduce((sum, item) => sum + (Number(item && item.stars) || 0), 0) / newCount
+                    : 0;
+
+                await db.collection('products').doc(String(productId)).update({
+                    rating: newRating,
+                    ratingCount: newCount
+                });
+
+                const localProduct = Array.isArray(products)
+                    ? products.find((p) => String(p && p.id || '') === String(productId))
+                    : null;
+                if (localProduct) {
+                    localProduct.rating = newRating;
+                    localProduct.ratingCount = newCount;
+                }
+
+                await loadRatingsSection();
+                showNotification('success', 'تم حذف التقييم بنجاح');
+                await openProductRatings(productId, productName);
+            } catch (err) {
+                console.error('[RATINGS-002] Delete rating failed:', err);
+                showNotification('error', 'فشل حذف التقييم');
+            }
+        }
+
         function showSection(name) {
             document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
             document.getElementById(name + 'Section').classList.add('active');
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
             const activeMenuItem = event?.target || document.querySelector(`.menu-item[onclick*="showSection('${name}')"]`);
             activeMenuItem?.classList.add('active');
-            const titles = { overview: '🏠 نظرة عامة', products: '📦 المنتجات', suppliers: '🏭 الموردون', orders: '🛍️ الطلبات', banners: '🖼️ البانرات', coupons: '🎟️ الكوبونات', users: '👥 العملاء', support: '💬 الدردشة الداخلية', notifications: '🔔 الإشعارات', loyalty: '🎁 نقاط الولاء', analytics: '📊 التحليلات', reports: '📊 التقارير', storeSettings: '🏪 إعدادات المتجر', settings: '⚙️ الإعدادات' };
+            const titles = { overview: '🏠 نظرة عامة', products: '📦 المنتجات', suppliers: '🏭 الموردون', orders: '🛍️ الطلبات', banners: '🖼️ البانرات', coupons: '🎟️ الكوبونات', users: '👥 العملاء', support: '💬 الدردشة الداخلية', notifications: '🔔 الإشعارات', loyalty: '🎁 نقاط الولاء', analytics: '📊 التحليلات', reports: '📊 التقارير', storeSettings: '🏪 إعدادات المتجر', settings: '⚙️ الإعدادات', ratings: '⭐ التقييمات' };
             document.getElementById('pageTitle').textContent = titles[name] || name;
             setSidebarState(false);
             if (name === 'reports') {
@@ -14126,6 +14390,11 @@ function adminLogout(){
                 refreshAnalytics().catch((error) => {
                     console.error('showSection analytics error:', error);
                     showNotification('error', 'تعذر تحميل التحليلات');
+                });
+            } else if (name === 'ratings') {
+                loadRatingsSection().catch((error) => {
+                    console.error('showSection ratings error:', error);
+                    showNotification('error', 'تعذر تحميل قسم التقييمات');
                 });
             } else if (name === 'notifications') {
                 renderAdminNotifications();
