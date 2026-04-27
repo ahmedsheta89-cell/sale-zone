@@ -1,10 +1,10 @@
 {
-  "version": "2026.04.24.0035",
-  "lastUpdate": "CHAT-RATING-FIX-003 + RATINGS-FILTER-001",
+  "version": "2026.04.24.0036",
+  "lastUpdate": "CHAT-RATING-FIX-004",
   "changes": [
-    "FIX-003: renderSupportThreadBanner(activeSupportThread) السطر 11642",
-    "FIX-003: حذف emoji من نصوص التقييم",
-    "FILTER-001: نظام فلترة كامل للأدمن — منتجات + دردشة",
-    "FILTER-001: بطاقات إحصاء + Tabs + فلاتر متعددة"
+    "FIX-004: uid guard + status check في submitSupportRating",
+    "FIX-004: catch محسّن مع رسائل دقيقة",
+    "FIX-004: rating:null في reopenMySupportThread السطر 9913",
+    "FIX-004: prevRating guard في ensureSupportChatReady السطر 11697"
   ]
 }
