@@ -9877,30 +9877,86 @@
             const thread = activeSupportThread || myAccountState.supportThread;
             const banner = document.getElementById('chatThreadBanner');
             const commentEl = document.getElementById('supportRatingComment');
+
             if (!thread || !banner || !currentUser) return false;
-            const score = Number(banner.dataset.ratingScore || 0);
-            if (!score) {
-                showNotification('warning', 'اختر تقييمًا من 1 إلى 5 نجوم.');
+
+            const uid = String(
+                currentUser.uid || currentUser.id || ''
+            ).trim();
+            if (!uid) {
+                console.error('[RATING] uid missing:', currentUser);
+                showNotification('error', 'خطأ في بيانات المستخدم');
                 return false;
             }
+
+            if (thread.status !== 'closed') {
+                console.warn('[RATING] thread not closed:', thread.status);
+                showNotification('warning', 'المحادثة يجب أن تكون مغلقة للتقييم');
+                return false;
+            }
+
+            const score = Number(banner.dataset.ratingScore || 0);
+            if (!score) {
+                showNotification('warning', 'اختر تقييماً من 1 إلى 5 نجوم');
+                return false;
+            }
+
             try {
-                await saveSupportThreadRating(String(thread.id || thread.uid || ''), {
-                    score,
-                    comment: String(commentEl && commentEl.value || '').trim(),
-                    createdByUid: String(currentUser.uid || currentUser.id || '').trim(),
-                    createdAt: new Date().toISOString()
-                });
-                activeSupportThread = { ...(activeSupportThread || thread), rating: { score, comment: String(commentEl && commentEl.value || '').trim() } };
+                await saveSupportThreadRating(
+                    String(thread.id || thread.uid || ''),
+                    {
+                        score,
+                        comment: String(
+                            commentEl && commentEl.value || ''
+                        ).trim(),
+                        createdByUid: uid,
+                        createdAt: new Date().toISOString()
+                    }
+                );
+
+                activeSupportThread = {
+                    ...(activeSupportThread || thread),
+                    rating: {
+                        score,
+                        comment: String(
+                            commentEl && commentEl.value || ''
+                        ).trim()
+                    }
+                };
                 myAccountState.supportThread = activeSupportThread;
                 renderSupportThreadBanner(activeSupportThread);
-                if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
-                    renderMyAccountMessagesTab(getMyAccountPanel('messages') || getMyAccountActivePanel()).catch(() => null);
+
+                if (isMyAccountOpen() &&
+                    myAccountState.activeTab === 'messages') {
+                    renderMyAccountMessagesTab(
+                        getMyAccountPanel('messages') ||
+                        getMyAccountActivePanel()
+                    ).catch(() => null);
                 }
-                showNotification('success', 'شكرًا لتقييمك.');
+
+                showNotification('success', 'شكراً لتقييمك');
                 return true;
+
             } catch (error) {
-                console.error('submitSupportRating error:', error);
-                showNotification('error', 'تعذر حفظ التقييم حالياً.');
+                const msg = String(error && error.message || error);
+                console.error('[RATING] submitSupportRating failed:', msg);
+
+                if (msg.includes('rating already submitted')) {
+                    activeSupportThread = {
+                        ...(activeSupportThread || thread),
+                        rating: { score, comment: '' }
+                    };
+                    myAccountState.supportThread = activeSupportThread;
+                    renderSupportThreadBanner(activeSupportThread);
+                    showNotification('info', 'لقد قيّمت هذه المحادثة مسبقاً');
+                } else if (msg.includes('permissions') ||
+                           msg.includes('insufficient')) {
+                    showNotification('error', 'غير مصرح — يرجى إعادة تسجيل الدخول');
+                } else if (msg.includes('must be closed')) {
+                    showNotification('warning', 'المحادثة يجب أن تكون مغلقة للتقييم');
+                } else {
+                    showNotification('error', 'تعذر حفظ التقييم حالياً');
+                }
                 return false;
             }
         }
@@ -9910,7 +9966,7 @@
             if (!thread || typeof reopenSupportThread !== 'function') return false;
             try {
                 await reopenSupportThread(String(thread.id || thread.uid || ''));
-                activeSupportThread = { ...thread, status: 'active' };
+                activeSupportThread = { ...thread, status: 'active', rating: null };
                 myAccountState.supportThread = activeSupportThread;
                 renderSupportThreadBanner(activeSupportThread);
                 if (isMyAccountOpen() && myAccountState.activeTab === 'messages') {
@@ -11694,8 +11750,13 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                     email: session.profile && session.profile.email,
                     phone: session.profile && session.profile.phone
                 });
-                activeSupportThread = thread;
-                myAccountState.supportThread = thread;
+                const prevRatingOnLoad =
+                    activeSupportThread && activeSupportThread.rating || null;
+                activeSupportThread = {
+                    ...thread,
+                    rating: thread.rating || prevRatingOnLoad
+                };
+                myAccountState.supportThread = activeSupportThread;
                 bindSupportRealtime(String(thread && (thread.id || thread.uid) || session.uid));
                 if (typeof markSupportThreadReadByCustomer === 'function') {
                     await markSupportThreadReadByCustomer(String(thread && (thread.id || thread.uid) || session.uid)).catch(() => null);
