@@ -1702,6 +1702,12 @@
         .chat-toggle:hover { transform: scale(1.1); }
         .chat-box { position: absolute; bottom: 70px; left: 0; width: 320px; height: 420px; background: var(--white); border-radius: 16px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; opacity: 0; visibility: hidden; transform: translateY(20px); transition: var(--transition); }
         .chat-box.active { opacity: 1; visibility: visible; transform: translateY(0); }
+        @media (min-width: 768px) {
+            .chat-widget.chat-widget-panel .chat-box {
+                width: 420px;
+                height: 580px;
+            }
+        }
         .chat-box-header { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: var(--white); padding: 15px; border-radius: 16px 16px 0 0; display: flex; align-items: center; gap: 10px; }
         .chat-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 18px; }
         .chat-mode-toggle { margin-right: auto; display: inline-flex; gap: 6px; }

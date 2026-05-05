@@ -1,10 +1,7 @@
 {
-  "version": "2026.04.24.0036",
-  "lastUpdate": "CHAT-RATING-FIX-004",
+  "version": "2026.04.24.0037",
+  "lastUpdate": "CHAT-UI-FIX-005",
   "changes": [
-    "FIX-004: uid guard + status check في submitSupportRating",
-    "FIX-004: catch محسّن مع رسائل دقيقة",
-    "FIX-004: rating:null في reopenMySupportThread السطر 9913",
-    "FIX-004: prevRating guard في ensureSupportChatReady السطر 11697"
+    "FIX-005: chat-box أكبر على desktop 420×580"
   ]
 }
