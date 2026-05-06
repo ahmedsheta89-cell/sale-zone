@@ -85,6 +85,16 @@
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
+        function trackEvent(name, params = {}) {
+            try {
+                if (typeof gtag === 'function') {
+                    gtag('event', name, params);
+                }
+            } catch (error) {
+                console.warn('[ANALYTICS]', error);
+            }
+        }
+        window.trackEvent = trackEvent;
         gtag('js', new Date());
         const analyticsHost = (window.location && window.location.hostname) || '';
         const analyticsCookieDomain = /(^|\.)github\.io$/i.test(analyticsHost)
@@ -3860,6 +3870,7 @@
         let lastVerificationEmailSentAt = 0;
         let chatMode = 'bot';
         let activeSupportThread = null;
+        let supportRatingResetThreadKey = '';
         let supportThreadUnsubscribe = null;
         let supportMessagesUnsubscribe = null;
         let supportRealtimeConnected = false;
@@ -3880,6 +3891,10 @@
         let supportTypingRenderTimer = null;
         let supportUploadInFlight = false;
         let lastSupportMessageSeenId = '';
+        let geminiLastRequestAt = 0;
+        let geminiReplySequence = 0;
+        const GEMINI_CHAT_COOLDOWN_MS = 2000;
+        const GEMINI_CHAT_TIMEOUT_MS = 8000;
         const MY_ACCOUNT_NOTIFICATION_PREF_KEY = 'sale_zone_account_notifications_enabled';
         const MY_ACCOUNT_TABS = ['data', 'orders', 'favorites', 'points', 'messages', 'notifications', 'settings'];
         const ORDER_TIMELINE_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed'];
@@ -5729,10 +5744,12 @@
             const safeText = escapeHtml(String(banner && banner.text || ''));
             const safeButton = escapeHtml(String(banner && banner.btn || ''));
             const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
+            const safeBannerId = escapeHtml(String(banner && (banner.id || banner.uid || banner.title) || `hero-${Number(index || 0) + 1}`));
+            const bannerPosition = Number(index || 0) + 1;
             const isFirst = index === 0;
             const badgeHtml = badge ? `<span class="banner-hero-badge">${badge}</span>` : '';
             const btnHtml = safeButton
-                ? `<button class="banner-hero-cta" data-category="${safeCategory}" onclick="navigateToBannerCategory(this.dataset.category)">${safeButton}</button>`
+                ? `<button class="banner-hero-cta" data-category="${safeCategory}" data-banner-id="${safeBannerId}" data-banner-position="${bannerPosition}" onclick="handleBannerClick(this.dataset.category, this.dataset.bannerId, this.dataset.bannerPosition, 'hero')">${safeButton}</button>`
                 : '';
             let imageHtml = '';
             let backdropHtml = '';
@@ -5848,9 +5865,11 @@
             const safeText = escapeHtml(String(banner && banner.text || ''));
             const safeButton = escapeHtml(String(banner && banner.btn || ''));
             const safeCategory = escapeHtml(String(banner && banner.category || 'all'));
+            const safeBannerId = escapeHtml(String(banner && (banner.id || banner.uid || banner.title) || `promo-${Number(index || 0) + 1}`));
+            const bannerPosition = Number(index || 0) + 1;
             const iconHtml = icon ? `<div class="banner-promo-icon">${icon}</div>` : '';
             const btnHtml = safeButton
-                ? `<button class="banner-promo-cta" data-category="${safeCategory}" onclick="filterByCategory(this.dataset.category)">${safeButton}</button>`
+                ? `<button class="banner-promo-cta" data-category="${safeCategory}" data-banner-id="${safeBannerId}" data-banner-position="${bannerPosition}" onclick="handleBannerClick(this.dataset.category, this.dataset.bannerId, this.dataset.bannerPosition, 'promo')">${safeButton}</button>`
                 : '';
 
             return `
@@ -6083,6 +6102,15 @@
             }
         }
         window.navigateToBannerCategory = navigateToBannerCategory;
+
+        function handleBannerClick(category, bannerId, bannerPosition, bannerType) {
+            trackEvent('banner_click', {
+                banner_id: String(bannerId || bannerType || 'banner'),
+                banner_position: Number(bannerPosition || 0) || 0
+            });
+            return navigateToBannerCategory(category);
+        }
+        window.handleBannerClick = handleBannerClick;
 
         function showBannerSwipeHintOnce() {
             var HINT_KEY = 'sz_swipe_hint_v1';
@@ -6990,6 +7018,11 @@
             const safeCode = escapeHtml(String(p && p.code || '').trim() || '-');
             const displayPrice = resolveDisplayPrice(p);
             const hasValidPrice = Number.isFinite(displayPrice);
+            trackEvent('product_view', {
+                product_id: String(p && p.id || ''),
+                product_name: String(p && p.name || ''),
+                product_price: hasValidPrice ? Number(displayPrice) : 0
+            });
             const safePrice = hasValidPrice ? escapeHtml(formatPrice(displayPrice)) : escapeHtml(t('unavailableForSale'));
             const hasOldPrice = hasValidPrice && Number.isFinite(Number(p && p.oldPrice)) && Number(p && p.oldPrice) > Number(displayPrice || 0);
             const safeOldPrice = escapeHtml(hasOldPrice ? formatPrice(Number(p.oldPrice)) : '');
@@ -9596,6 +9629,26 @@
             return { key: 'active', label: 'نشطة', tone: 'success' };
         }
 
+        function getSupportThreadKey(thread) {
+            return String(thread && (thread.id || thread.uid || thread.threadId) || '').trim();
+        }
+
+        function resolveSupportThreadRating(thread, fallbackRating = null) {
+            const statusKey = getReadableSupportStatus(thread && thread.status || 'active').key;
+            const threadKey = getSupportThreadKey(thread);
+            if (threadKey && supportRatingResetThreadKey === threadKey) return null;
+            if (statusKey !== 'closed') return null;
+            return thread && thread.rating || fallbackRating || null;
+        }
+
+        function clearSupportRatingResetWhenActive(thread) {
+            const threadKey = getSupportThreadKey(thread);
+            if (!threadKey || supportRatingResetThreadKey !== threadKey) return;
+            if (getReadableSupportStatus(thread && thread.status || 'active').key !== 'closed') {
+                supportRatingResetThreadKey = '';
+            }
+        }
+
         function isSupportTypingVisible(thread) {
             const typing = thread && thread.typing;
             if (!typing || typing.isTyping !== true) return false;
@@ -9716,7 +9769,7 @@
                 Number(currentThread.rating.score || 0) > 0
             );
 
-            if (statusMeta.key !== 'closed' && !hasRating) {
+            if (statusMeta.key !== 'closed') {
                 banner.style.display = 'none';
                 banner.innerHTML = '';
                 updateSupportComposerState();
@@ -9970,6 +10023,12 @@
         async function reopenMySupportThread() {
             const thread = activeSupportThread || myAccountState.supportThread;
             if (!thread || typeof reopenSupportThread !== 'function') return false;
+            const previousThread = { ...thread };
+            const threadKey = getSupportThreadKey(thread);
+            supportRatingResetThreadKey = threadKey;
+            activeSupportThread = { ...thread, status: 'active', rating: null };
+            myAccountState.supportThread = activeSupportThread;
+            renderSupportThreadBanner(activeSupportThread);
             try {
                 await reopenSupportThread(String(thread.id || thread.uid || ''));
                 activeSupportThread = { ...thread, status: 'active', rating: null };
@@ -9982,6 +10041,10 @@
                 return true;
             } catch (error) {
                 console.error('reopenMySupportThread error:', error);
+                supportRatingResetThreadKey = '';
+                activeSupportThread = previousThread;
+                myAccountState.supportThread = previousThread;
+                renderSupportThreadBanner(previousThread);
                 showNotification('error', 'تعذر إعادة فتح المحادثة.');
                 return false;
             }
@@ -11697,8 +11760,9 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                             activeSupportThread && activeSupportThread.rating || null;
                         activeSupportThread = {
                             ...thread,
-                            rating: thread.rating || prevRating
+                            rating: resolveSupportThreadRating(thread, prevRating)
                         };
+                        clearSupportRatingResetWhenActive(activeSupportThread);
                         myAccountState.supportThread = activeSupportThread;
                         updateSupportTypingIndicator(thread);
                         renderSupportThreadBanner(activeSupportThread);
@@ -11760,14 +11824,15 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                     activeSupportThread && activeSupportThread.rating || null;
                 activeSupportThread = {
                     ...thread,
-                    rating: thread.rating || prevRatingOnLoad
+                    rating: resolveSupportThreadRating(thread, prevRatingOnLoad)
                 };
+                clearSupportRatingResetWhenActive(activeSupportThread);
                 myAccountState.supportThread = activeSupportThread;
                 bindSupportRealtime(String(thread && (thread.id || thread.uid) || session.uid));
                 if (typeof markSupportThreadReadByCustomer === 'function') {
                     await markSupportThreadReadByCustomer(String(thread && (thread.id || thread.uid) || session.uid)).catch(() => null);
                 }
-                renderSupportThreadBanner(thread);
+                renderSupportThreadBanner(activeSupportThread);
                 updateSupportComposerState();
                 return true;
             }).catch((error) => {
@@ -11823,6 +11888,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 setChatStatus('الدعم المباشر متصل', true);
                 renderSupportMessages(myAccountState.supportMessages);
                 updateSupportComposerState();
+                trackEvent('support_open', { source: 'chat' });
                 return 'support';
             }
 
@@ -11843,12 +11909,25 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
 
         function appendInternalChatMessage(text, sender = 'bot') {
             const container = document.getElementById('chatMessages');
-            if (!container) return;
+            if (!container) return null;
             const el = document.createElement('div');
             el.className = 'chat-message ' + (sender === 'user' ? 'user' : 'bot');
             el.textContent = String(text || '').trim();
             container.appendChild(el);
             container.scrollTop = container.scrollHeight;
+            return el;
+        }
+
+        function showInternalChatTypingIndicator() {
+            const el = appendInternalChatMessage('يكتب الآن...', 'bot');
+            if (el) el.dataset.aiTyping = 'true';
+            return el;
+        }
+
+        function removeInternalChatTypingIndicator(el) {
+            if (el && el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
         }
 
         function seedInternalChatWelcome() {
@@ -11909,7 +11988,119 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             return setInternalChatPanelState(false);
         }
 
-        function sendInternalMessage() {
+        function getGeminiChatApiKey() {
+            const settings = storeSettings || {};
+            const aiSettings = settings.aiChat || settings.gemini || {};
+            let localKey = '';
+            try {
+                localKey = localStorage.getItem('sale_zone_gemini_api_key') || '';
+            } catch (_) {}
+            return String(
+                window.GEMINI_API_KEY ||
+                window.SALE_ZONE_GEMINI_API_KEY ||
+                settings.geminiApiKey ||
+                settings.aiChatGeminiApiKey ||
+                aiSettings.apiKey ||
+                aiSettings.geminiApiKey ||
+                localKey ||
+                ''
+            ).trim();
+        }
+
+        window.GeminiChat = window.GeminiChat || {};
+        window.GeminiChat.respond = window.GeminiChat.respond || async function(message) {
+            const cleanMessage = String(message || '').trim();
+            const apiKey = getGeminiChatApiKey();
+            if (!cleanMessage || !apiKey || typeof fetch !== 'function') {
+                return { source: 'escalate' };
+            }
+
+            const now = Date.now();
+            if (now - geminiLastRequestAt < GEMINI_CHAT_COOLDOWN_MS) {
+                return { source: 'escalate' };
+            }
+            geminiLastRequestAt = now;
+
+            const controller = typeof AbortController !== 'undefined'
+                ? new AbortController()
+                : null;
+            const timeoutId = controller
+                ? window.setTimeout(() => controller.abort(), GEMINI_CHAT_TIMEOUT_MS)
+                : null;
+            const prompt = [
+                'أنت مساعد متجر Sale Zone.',
+                'أجب باختصار وبالعربية.',
+                'لا تخترع معلومات عن الأسعار أو المخزون أو الطلبات.',
+                'إذا لم تعرف الإجابة أو كان السؤال يحتاج موظفاً، قل للمستخدم أنه سيتم تحويله للدعم.',
+                '',
+                `سؤال العميل: ${cleanMessage}`
+            ].join('\n');
+
+            try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        signal: controller ? controller.signal : undefined,
+                        body: JSON.stringify({
+                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                            generationConfig: {
+                                temperature: 0.35,
+                                maxOutputTokens: 180
+                            }
+                        })
+                    }
+                );
+                if (!response.ok) {
+                    console.warn('[GEMINI]', `request failed: ${response.status}`);
+                    return { source: 'escalate' };
+                }
+                const data = await response.json().catch(() => null);
+                const text = String(
+                    data && data.candidates &&
+                    data.candidates[0] &&
+                    data.candidates[0].content &&
+                    Array.isArray(data.candidates[0].content.parts)
+                        ? data.candidates[0].content.parts
+                            .map((part) => part && part.text || '')
+                            .join('\n')
+                        : ''
+                ).trim();
+                if (!text) return { source: 'escalate' };
+                const compactText = text.replace(/\s+/g, ' ').slice(0, 700);
+                const shouldEscalate = /تحويل.*الدعم|الدعم.*يتابع|موظف|لا أعرف|لا اعرف/.test(compactText);
+                return {
+                    source: shouldEscalate ? 'escalate' : 'gemini',
+                    text: compactText
+                };
+            } catch (error) {
+                if (!(error && error.name === 'AbortError')) {
+                    console.warn('[GEMINI]', error && error.message || error);
+                }
+                return { source: 'escalate' };
+            } finally {
+                if (timeoutId) window.clearTimeout(timeoutId);
+            }
+        };
+
+        function escalateInternalChatToSupport() {
+            appendInternalChatMessage('سأحوّلك إلى خدمة العملاء الآن...', 'bot');
+            if (currentUser) {
+                window.setTimeout(function() {
+                    switchChatMode('support', { silent: false }).catch(() => null);
+                }, 1200);
+                return;
+            }
+            if (typeof openTawkChat === 'function') {
+                window.setTimeout(function() {
+                    openTawkChat();
+                    closeInternalChat({ skipHistory: true });
+                }, 1200);
+            }
+        }
+
+        async function sendInternalMessage() {
             if (chatMode === 'support') {
                 return sendSupportMessage();
             }
@@ -11918,27 +12109,37 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             if (!text) return false;
             if (input) input.value = '';
             appendInternalChatMessage(text, 'user');
+            trackEvent('faq_used', { query_length: text.length });
 
             const reply = window.FAQBot ? window.FAQBot.respond(text) : null;
-            window.setTimeout(function() {
-                if (reply && reply.source !== 'escalate') {
+            if (reply && reply.source !== 'escalate') {
+                window.setTimeout(function() {
                     appendInternalChatMessage(reply.text, 'bot');
-                    return;
-                }
-                appendInternalChatMessage('سأحوّلك إلى خدمة العملاء الآن...', 'bot');
-                if (currentUser) {
-                    window.setTimeout(function() {
-                        switchChatMode('support', { silent: false }).catch(() => null);
-                    }, 1200);
-                    return;
-                }
-                if (typeof openTawkChat === 'function') {
-                    window.setTimeout(function() {
-                        openTawkChat();
-                        closeInternalChat({ skipHistory: true });
-                    }, 1200);
-                }
-            }, 250);
+                }, 250);
+                return true;
+            }
+
+            const replySequence = ++geminiReplySequence;
+            const typingEl = showInternalChatTypingIndicator();
+            let aiReply = null;
+            try {
+                aiReply = window.GeminiChat && typeof window.GeminiChat.respond === 'function'
+                    ? await window.GeminiChat.respond(text)
+                    : null;
+            } catch (error) {
+                console.warn('[GEMINI]', error && error.message || error);
+            } finally {
+                removeInternalChatTypingIndicator(typingEl);
+            }
+
+            if (replySequence !== geminiReplySequence || chatMode !== 'bot') {
+                return true;
+            }
+            if (aiReply && aiReply.text && aiReply.source !== 'escalate') {
+                appendInternalChatMessage(aiReply.text, 'bot');
+                return true;
+            }
+            escalateInternalChatToSupport();
             return true;
         }
 
@@ -12195,6 +12396,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const msg = String(input && input.value || '').trim();
             updateFAQSearch(msg);
             if (!msg) return false;
+            trackEvent('faq_used', { query_length: msg.length });
             const firstMatch = getFilteredFaqItems()[0];
             if (firstMatch && firstMatch.id) {
                 faqState.expandedId = String(firstMatch.id);
@@ -12206,6 +12408,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
         function askFAQ(question) {
             const cleanQuestion = String(question || '').trim();
             if (!cleanQuestion) return false;
+            trackEvent('faq_used', { query_length: cleanQuestion.length });
             const input = document.getElementById('faqBotInput');
             if (input) input.value = cleanQuestion;
             faqState.search = cleanQuestion;
