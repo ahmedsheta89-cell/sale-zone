@@ -1,7 +1,9 @@
 {
-  "version": "2026.04.24.0037",
-  "lastUpdate": "CHAT-UI-FIX-005",
+  "version": "2026.04.24.0038",
+  "lastUpdate": "AI-CHAT-GEMINI-001",
   "changes": [
-    "FIX-005: chat-box أكبر على desktop 420×580"
+    "AI-CHAT-GEMINI-001: إصلاح رجوع تقييم الدردشة بعد reopen",
+    "AI-CHAT-GEMINI-001: GA4 events product_view/banner_click/support_open/faq_used",
+    "AI-CHAT-GEMINI-001: Gemini Flash فوق FAQBot مع fallback للدعم"
   ]
 }
