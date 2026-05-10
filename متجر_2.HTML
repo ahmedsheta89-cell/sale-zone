@@ -12007,6 +12007,51 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             ).trim();
         }
 
+        // [GEMINI] build store context for prompt
+        function buildGeminiStoreContext() {
+            try {
+                const s = (typeof storeSettings === 'object' && storeSettings)
+                    || window.storeSettings
+                    || {};
+                const g = s.gemini || {};
+                const lines = [];
+                if (s.name) {
+                    lines.push(
+                        'اسم المتجر: ' + s.name
+                    );
+                }
+                if (g.returnPolicy) {
+                    lines.push(
+                        'سياسة الإرجاع: ' + g.returnPolicy
+                    );
+                }
+                if (g.paymentMethods) {
+                    lines.push(
+                        'طرق الدفع: ' + g.paymentMethods
+                    );
+                }
+                if (g.deliveryInfo) {
+                    lines.push(
+                        'التوصيل: ' + g.deliveryInfo
+                    );
+                }
+                if (g.workingHours) {
+                    lines.push(
+                        'ساعات العمل: ' + g.workingHours
+                    );
+                }
+                return lines.length
+                    ? 'معلومات المتجر:\n' +
+                      lines.join('\n')
+                    : '';
+            } catch (e) {
+                console.warn(
+                    '[GEMINI] buildStoreContext error:', e
+                );
+                return '';
+            }
+        }
+
         window.GeminiChat = window.GeminiChat || {};
         window.GeminiChat.respond = window.GeminiChat.respond || async function(message) {
             const cleanMessage = String(message || '').trim();
@@ -12027,14 +12072,35 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const timeoutId = controller
                 ? window.setTimeout(() => controller.abort(), GEMINI_CHAT_TIMEOUT_MS)
                 : null;
-            const prompt = [
-                'أنت مساعد متجر Sale Zone.',
-                'أجب باختصار وبالعربية.',
-                'لا تخترع معلومات عن الأسعار أو المخزون أو الطلبات.',
-                'إذا لم تعرف الإجابة أو كان السؤال يحتاج موظفاً، قل للمستخدم أنه سيتم تحويله للدعم.',
-                '',
-                `سؤال العميل: ${cleanMessage}`
-            ].join('\n');
+            const DEFAULT_GEMINI_SYSTEM_PROMPT =
+                'أنت مساعد متجر ذكي. أجب باختصار وبالعربية.' +
+                ' لا تخترع معلومات عن الأسعار أو المخزون' +
+                ' أو الطلبات.' +
+                ' إذا لم تعرف الإجابة أو كان السؤال' +
+                ' يحتاج موظفاً، قل للمستخدم أنه سيتم' +
+                ' تحويله للدعم.';
+
+            const systemPrompt = String(
+                (storeSettings &&
+                    storeSettings.gemini &&
+                    storeSettings.gemini.systemPrompt) ||
+                (window.storeSettings &&
+                    window.storeSettings.gemini &&
+                    window.storeSettings.gemini.systemPrompt) ||
+                ''
+            ).trim() || DEFAULT_GEMINI_SYSTEM_PROMPT;
+
+            const storeContext = buildGeminiStoreContext();
+
+            const promptParts = [systemPrompt];
+            if (storeContext) {
+                promptParts.push('');
+                promptParts.push(storeContext);
+            }
+            promptParts.push('');
+            promptParts.push('سؤال العميل: ' + cleanMessage);
+
+            const prompt = promptParts.join('\n');
 
             try {
                 const response = await fetch(
@@ -12122,6 +12188,17 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             const replySequence = ++geminiReplySequence;
             const typingEl = showInternalChatTypingIndicator();
             let aiReply = null;
+            // [GEMINI] تحقق من تفعيل Gemini
+            const geminiIsEnabled =
+                !storeSettings ||
+                !storeSettings.featureFlags ||
+                storeSettings.featureFlags.geminiEnabled !== false;
+
+            if (!geminiIsEnabled) {
+                removeInternalChatTypingIndicator(typingEl);
+                escalateInternalChatToSupport();
+                return true;
+            }
             try {
                 aiReply = window.GeminiChat && typeof window.GeminiChat.respond === 'function'
                     ? await window.GeminiChat.respond(text)

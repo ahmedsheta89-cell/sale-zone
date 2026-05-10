@@ -2788,6 +2788,136 @@
                                         </p>
                                     </div>
                                 </div>
+                                <!-- Gemini AI Controls -->
+                                <div class="form-group" id="geminiControlsGroup"
+                                     style="border-top:1px solid var(--color-border-tertiary);
+                                            padding-top:16px;margin-top:8px;">
+
+                                    <!-- تشغيل/إيقاف -->
+                                    <div class="form-group">
+                                        <label style="display:flex;align-items:center;
+                                                      gap:10px;cursor:pointer;">
+                                            <input
+                                                type="checkbox"
+                                                id="geminiEnabled"
+                                                onchange="saveFeatureFlag(
+                                                    'geminiEnabled', this.checked
+                                                )"
+                                                style="width:18px;height:18px;
+                                                       accent-color:var(--gold);"
+                                            />
+                                            <span style="font-weight:600;">
+                                                🤖 تفعيل Gemini AI في الدردشة
+                                            </span>
+                                        </label>
+                                        <small style="display:block;margin-top:4px;
+                                                      color:#888;font-size:0.78rem;
+                                                      padding-right:28px;">
+                                            عند التعطيل: FAQBot فقط ثم يحول للدعم البشري
+                                        </small>
+                                    </div>
+
+                                    <!-- System Prompt -->
+                                    <div class="form-group" style="margin-top:14px;">
+                                        <label for="geminiSystemPrompt"
+                                               style="font-weight:600;margin-bottom:6px;
+                                                      display:block;">
+                                            📝 شخصية المساعد الذكي
+                                            <span style="font-weight:400;color:#888;
+                                                         font-size:0.78rem;">
+                                                (System Prompt)
+                                            </span>
+                                        </label>
+                                        <textarea
+                                            id="geminiSystemPrompt"
+                                            rows="4"
+                                            placeholder="أنت مساعد متجر ذكي. أجب باختصار وبالعربية. لا تخترع معلومات عن الأسعار أو المخزون. إذا لم تعرف الإجابة أو كان السؤال يحتاج موظفاً قل للمستخدم أنه سيتم تحويله للدعم."
+                                            style="width:100%;
+                                                   border:1.5px solid var(--color-border-tertiary);
+                                                   border-radius:10px;
+                                                   padding:10px 12px;
+                                                   font-family:var(--font-arabic);
+                                                   font-size:0.85rem;
+                                                   resize:vertical;
+                                                   box-sizing:border-box;
+                                                   background:#fff;"
+                                            onfocus="this.style.borderColor='var(--gold)'"
+                                            onblur="this.style.borderColor=
+                                                'var(--color-border-tertiary)'"
+                                        ></textarea>
+                                        <small style="color:#888;font-size:0.78rem;">
+                                            اتركه فارغاً للنص الافتراضي
+                                        </small>
+                                    </div>
+
+                                    <!-- معلومات المتجر -->
+                                    <div class="form-group" style="margin-top:14px;">
+                                        <label style="font-weight:600;margin-bottom:6px;
+                                                      display:block;">
+                                            📦 معلومات المتجر للمساعد الذكي
+                                        </label>
+                                        <small style="display:block;color:#888;
+                                                      font-size:0.78rem;margin-bottom:10px;">
+                                            Gemini يستخدم هذه المعلومات للإجابة بدقة
+                                        </small>
+
+                                        <div class="form-group" style="margin-bottom:10px;">
+                                            <label for="geminiReturnPolicy"
+                                                   style="font-size:0.85rem;">
+                                                🔄 سياسة الإرجاع والاستبدال
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="geminiReturnPolicy"
+                                                placeholder="مثال: الإرجاع خلال 7 أيام من تاريخ الاستلام"
+                                                autocomplete="off"
+                                                style="width:100%;margin-top:4px;"
+                                            />
+                                        </div>
+
+                                        <div class="form-group" style="margin-bottom:10px;">
+                                            <label for="geminiPaymentMethods"
+                                                   style="font-size:0.85rem;">
+                                                💳 طرق الدفع المتاحة
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="geminiPaymentMethods"
+                                                placeholder="مثال: فيزا، ماستركارد، مدى، دفع عند الاستلام"
+                                                autocomplete="off"
+                                                style="width:100%;margin-top:4px;"
+                                            />
+                                        </div>
+
+                                        <div class="form-group" style="margin-bottom:10px;">
+                                            <label for="geminiDeliveryInfo"
+                                                   style="font-size:0.85rem;">
+                                                🚚 معلومات التوصيل
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="geminiDeliveryInfo"
+                                                placeholder="مثال: التوصيل خلال 2-3 أيام عمل داخل المملكة"
+                                                autocomplete="off"
+                                                style="width:100%;margin-top:4px;"
+                                            />
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="geminiWorkingHours"
+                                                   style="font-size:0.85rem;">
+                                                🕐 ساعات العمل
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="geminiWorkingHours"
+                                                placeholder="مثال: السبت - الخميس من 9 صباحاً حتى 10 مساءً"
+                                                autocomplete="off"
+                                                style="width:100%;margin-top:4px;"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                                 <button type="submit" class="submit-btn">💾 حفظ</button>
                             </form>
                         </div>
@@ -10973,6 +11103,44 @@ function adminLogout(){
             document.getElementById('workingHoursFriday').value = storeSettings.footer?.workingHoursFriday || '';
             document.getElementById('workingHoursNote').value = storeSettings.footer?.workingHoursNote || '';
             document.getElementById('copyrightText').value = storeSettings.footer?.copyright || '';
+            // [GEMINI-ADMIN] load Gemini controls
+            try {
+                const gFlags = storeSettings.featureFlags || {};
+                const gInfo = storeSettings.gemini || {};
+
+                const geminiEnabledEl =
+                    document.getElementById('geminiEnabled');
+                if (geminiEnabledEl) {
+                    geminiEnabledEl.checked =
+                        gFlags.geminiEnabled !== false;
+                }
+
+                const promptEl =
+                    document.getElementById('geminiSystemPrompt');
+                if (promptEl) {
+                    promptEl.value =
+                        String(gInfo.systemPrompt || '');
+                }
+
+                const infoFields = {
+                    geminiReturnPolicy: 'returnPolicy',
+                    geminiPaymentMethods: 'paymentMethods',
+                    geminiDeliveryInfo: 'deliveryInfo',
+                    geminiWorkingHours: 'workingHours'
+                };
+                Object.keys(infoFields).forEach(function(elId) {
+                    const el = document.getElementById(elId);
+                    if (el) {
+                        el.value = String(
+                            gInfo[infoFields[elId]] || ''
+                        );
+                    }
+                });
+            } catch (e) {
+                console.error(
+                    '[GEMINI-ADMIN] loadSettingsToForms error:', e
+                );
+            }
             loadControlCenter();
         }
 
@@ -10996,6 +11164,46 @@ function adminLogout(){
                 storeSettings.geminiApiKey = geminiKeyInput;
             } else if (storeSettings && storeSettings.geminiApiKey) {
                 storeSettings.geminiApiKey = String(storeSettings.geminiApiKey).trim();
+            }
+            // [GEMINI-ADMIN] save Gemini info
+            try {
+                const currentGemini =
+                    storeSettings.gemini || {};
+
+                const getVal = function(id) {
+                    const el = document.getElementById(id);
+                    return el
+                        ? String(el.value || '').trim()
+                        : '';
+                };
+
+                const newPrompt =
+                    getVal('geminiSystemPrompt');
+                const newReturnPolicy =
+                    getVal('geminiReturnPolicy');
+                const newPaymentMethods =
+                    getVal('geminiPaymentMethods');
+                const newDeliveryInfo =
+                    getVal('geminiDeliveryInfo');
+                const newWorkingHours =
+                    getVal('geminiWorkingHours');
+
+                storeSettings.gemini = {
+                    ...currentGemini,
+                    systemPrompt: newPrompt,
+                    returnPolicy: newReturnPolicy ||
+                        currentGemini.returnPolicy || '',
+                    paymentMethods: newPaymentMethods ||
+                        currentGemini.paymentMethods || '',
+                    deliveryInfo: newDeliveryInfo ||
+                        currentGemini.deliveryInfo || '',
+                    workingHours: newWorkingHours ||
+                        currentGemini.workingHours || ''
+                };
+            } catch (e) {
+                console.error(
+                    '[GEMINI-ADMIN] saveGeneralSettings error:', e
+                );
             }
             saveStoreSettings();
             loadGeminiKeyToInput();
