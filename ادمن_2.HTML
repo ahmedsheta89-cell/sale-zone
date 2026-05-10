@@ -1047,6 +1047,104 @@
             align-items: center;
             gap: 8px;
         }
+        /* Gemini Settings Styles */
+        .settings-group {
+            margin-bottom: 24px;
+            padding: 20px;
+            background: var(--bg-secondary, #f8f9fa);
+            border-radius: 12px;
+            border: 1px solid var(--color-border, #e5e7eb);
+        }
+        .settings-group-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0 0 16px;
+            color: var(--text-primary, #111);
+        }
+        .settings-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .settings-field label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary, #333);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .settings-hint {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-muted, #888);
+        }
+        .settings-password-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .settings-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1.5px solid var(--color-border, #e5e7eb);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            background: #fff;
+            color: var(--text-primary, #111);
+            transition: border-color 0.2s ease;
+            font-family: monospace;
+            min-width: 0;
+        }
+        .settings-input:focus {
+            outline: none;
+            border-color: var(--gold, #d4a017);
+        }
+        .settings-eye-btn {
+            padding: 10px 14px;
+            border: 1.5px solid var(--color-border, #e5e7eb);
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s ease;
+            flex-shrink: 0;
+        }
+        .settings-eye-btn:hover {
+            background: var(--bg-secondary, #f3f4f6);
+        }
+        .settings-key-status {
+            font-size: 0.8rem;
+            min-height: 20px;
+        }
+        .key-status-active {
+            color: #16a34a;
+            font-weight: 600;
+        }
+        .key-status-empty {
+            color: #d97706;
+            font-weight: 600;
+        }
+        .settings-help-text {
+            font-size: 0.78rem;
+            color: var(--text-muted, #888);
+            margin: 0;
+        }
+        .settings-help-text a {
+            color: var(--gold, #d4a017);
+            text-decoration: none;
+        }
+        .settings-help-text a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 640px) {
+            .settings-password-wrapper {
+                align-items: stretch;
+            }
+            .settings-eye-btn {
+                padding-inline: 12px;
+            }
+        }
         .danger-zone { border: 2px solid var(--error); }
         .danger-zone h3 { color: var(--error); }
 
@@ -2638,6 +2736,57 @@
                                 </div>
                                 <div class="form-group">
                                     <label><input type="checkbox" id="tawkEnabled"> تفعيل tawk.to (مجاني)</label>
+                                </div>
+                                <!-- Gemini AI Chat Settings -->
+                                <div class="settings-group" id="geminiSettingsGroup">
+                                    <h3 class="settings-group-title">
+                                        🤖 إعدادات الذكاء الاصطناعي
+                                    </h3>
+
+                                    <div class="settings-field">
+                                        <label for="geminiApiKeyInput">
+                                            Gemini API Key
+                                            <span class="settings-hint">
+                                                يُستخدم للردود الذكية في الدردشة
+                                            </span>
+                                        </label>
+
+                                        <div class="settings-password-wrapper">
+                                            <input
+                                                type="password"
+                                                id="geminiApiKeyInput"
+                                                class="settings-input"
+                                                placeholder="AIzaSy..."
+                                                autocomplete="off"
+                                                spellcheck="false"
+                                                maxlength="200"
+                                                dir="ltr"
+                                            />
+                                            <button
+                                                type="button"
+                                                class="settings-eye-btn"
+                                                aria-label="إظهار/إخفاء المفتاح"
+                                                onclick="toggleGeminiKeyVisibility()"
+                                            >
+                                                👁
+                                            </button>
+                                        </div>
+
+                                        <div class="settings-key-status" id="geminiKeyStatus">
+                                            <!-- يُملأ بـ JS -->
+                                        </div>
+
+                                        <p class="settings-help-text">
+                                            احصل على مفتاحك المجاني من
+                                            <a
+                                                href="https://aistudio.google.com/app/apikey"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                Google AI Studio
+                                            </a>
+                                        </p>
+                                    </div>
                                 </div>
                                 <button type="submit" class="submit-btn">💾 حفظ</button>
                             </form>
@@ -10740,6 +10889,65 @@ function adminLogout(){
             };
         }
 
+        // [GEMINI SETTINGS]
+        function toggleGeminiKeyVisibility() {
+            try {
+                const input = document.getElementById('geminiApiKeyInput');
+                const btn = document.querySelector('.settings-eye-btn');
+                if (!input) return;
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    if (btn) btn.textContent = '🙈';
+                } else {
+                    input.type = 'password';
+                    if (btn) btn.textContent = '👁';
+                }
+            } catch (e) {
+                console.error('[GEMINI-SETTINGS] toggleVisibility error:', e);
+            }
+        }
+
+        function loadGeminiKeyToInput() {
+            try {
+                const input = document.getElementById('geminiApiKeyInput');
+                const statusEl = document.getElementById('geminiKeyStatus');
+                if (!input) return;
+
+                const savedKey = String(
+                    (storeSettings && storeSettings.geminiApiKey) || ''
+                ).trim();
+
+                input.value = '';
+                input.type = 'password';
+
+                if (savedKey) {
+                    input.placeholder = '••••••' + savedKey.slice(-6);
+                    if (statusEl) {
+                        statusEl.innerHTML =
+                            '<span class="key-status-active">✅ مفتاح محفوظ</span>';
+                    }
+                } else {
+                    input.placeholder = 'AIzaSy...';
+                    if (statusEl) {
+                        statusEl.innerHTML =
+                            '<span class="key-status-empty">⚠️ لا يوجد مفتاح محفوظ</span>';
+                    }
+                }
+            } catch (e) {
+                console.error('[GEMINI-SETTINGS] loadGeminiKeyToInput error:', e);
+            }
+        }
+
+        function getGeminiKeyFromInput() {
+            try {
+                const input = document.getElementById('geminiApiKeyInput');
+                return String(input && input.value || '').trim();
+            } catch (e) {
+                console.error('[GEMINI-SETTINGS] getGeminiKeyFromInput error:', e);
+                return '';
+            }
+        }
+
         function loadSettingsToForms() {
             ensureControlCenterDefaults();
             document.getElementById('storeName').value = storeSettings.name || '';
@@ -10751,6 +10959,7 @@ function adminLogout(){
             document.getElementById('tawkPropertyId').value = storeSettings.chatSupport?.tawkPropertyId || '';
             document.getElementById('tawkWidgetId').value = storeSettings.chatSupport?.tawkWidgetId || '';
             document.getElementById('tawkEnabled').checked = storeSettings.chatSupport?.enableTawk === true;
+            loadGeminiKeyToInput();
             document.getElementById('topBarText').value = storeSettings.topBar?.text || '';
             document.getElementById('topBarBgColor').value = storeSettings.topBar?.bgColor || '#0A1128';
             document.getElementById('topBarTextColor').value = storeSettings.topBar?.textColor || '#F4E4BC';
@@ -10782,7 +10991,14 @@ function adminLogout(){
                 tawkPropertyId: document.getElementById('tawkPropertyId').value.trim(),
                 tawkWidgetId: document.getElementById('tawkWidgetId').value.trim()
             };
+            const geminiKeyInput = getGeminiKeyFromInput();
+            if (geminiKeyInput) {
+                storeSettings.geminiApiKey = geminiKeyInput;
+            } else if (storeSettings && storeSettings.geminiApiKey) {
+                storeSettings.geminiApiKey = String(storeSettings.geminiApiKey).trim();
+            }
             saveStoreSettings();
+            loadGeminiKeyToInput();
             loadControlCenter();
             showNotification('success', 'تم الحفظ');
         }

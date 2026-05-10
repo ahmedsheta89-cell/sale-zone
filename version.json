@@ -1,9 +1,11 @@
 {
-  "version": "2026.04.24.0038",
-  "lastUpdate": "AI-CHAT-GEMINI-001",
-  "changes": [
-    "AI-CHAT-GEMINI-001: إصلاح رجوع تقييم الدردشة بعد reopen",
-    "AI-CHAT-GEMINI-001: GA4 events product_view/banner_click/support_open/faq_used",
-    "AI-CHAT-GEMINI-001: Gemini Flash فوق FAQBot مع fallback للدعم"
-  ]
+    "version": "2026.04.28.0041",
+    "lastUpdate": "ADMIN-GEMINI-KEY-001",
+    "lastUpdated": "2026-05-09T12:06:00+03:00",
+    "changes": [
+        "AI-CHAT-GEMINI-001: إصلاح رجوع تقييم الدردشة بعد reopen",
+        "AI-CHAT-GEMINI-001: GA4 events product_view/banner_click/support_open/faq_used",
+        "AI-CHAT-GEMINI-001: Gemini Flash فوق FAQBot مع fallback للدعم",
+        "ADMIN-GEMINI-KEY-001: إضافة حقل Gemini API Key في إعدادات الأدمن"
+    ]
 }
