@@ -1,11 +1,11 @@
 {
-    "version": "2026.04.28.0041",
-    "lastUpdate": "ADMIN-GEMINI-KEY-001",
-    "lastUpdated": "2026-05-09T12:06:00+03:00",
+    "version": "2026.04.29.0042",
+    "lastUpdate": "GEMINI-ADMIN-CONTROL-001",
+    "lastUpdated": "2026-05-10T23:41:19+03:00",
     "changes": [
-        "AI-CHAT-GEMINI-001: إصلاح رجوع تقييم الدردشة بعد reopen",
-        "AI-CHAT-GEMINI-001: GA4 events product_view/banner_click/support_open/faq_used",
-        "AI-CHAT-GEMINI-001: Gemini Flash فوق FAQBot مع fallback للدعم",
-        "ADMIN-GEMINI-KEY-001: إضافة حقل Gemini API Key في إعدادات الأدمن"
+        "GEMINI-ADMIN-CONTROL-001: Gemini enable/disable toggle",
+        "GEMINI-ADMIN-CONTROL-001: System Prompt editable from admin",
+        "GEMINI-ADMIN-CONTROL-001: Store context in Gemini prompt",
+        "GEMINI-ADMIN-CONTROL-001: returnPolicy + paymentMethods + deliveryInfo + workingHours"
     ]
 }
