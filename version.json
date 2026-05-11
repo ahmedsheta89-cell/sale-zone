@@ -1,11 +1,9 @@
 {
-    "version": "2026.04.29.0042",
-    "lastUpdate": "GEMINI-ADMIN-CONTROL-001",
-    "lastUpdated": "2026-05-10T23:41:19+03:00",
+    "version": "2026.04.30.0043",
+    "lastUpdate": "GEMINI-FLOW-FIX-001",
+    "lastUpdated": "2026-05-11T18:18:25+03:00",
     "changes": [
-        "GEMINI-ADMIN-CONTROL-001: Gemini enable/disable toggle",
-        "GEMINI-ADMIN-CONTROL-001: System Prompt editable from admin",
-        "GEMINI-ADMIN-CONTROL-001: Store context in Gemini prompt",
-        "GEMINI-ADMIN-CONTROL-001: returnPolicy + paymentMethods + deliveryInfo + workingHours"
+        "fix: toggleChat starts in bot mode for all users",
+        "feat: Gemini now works for logged-in users"
     ]
 }
