@@ -1,9 +1,13 @@
 {
-    "version": "2026.04.30.0043",
-    "lastUpdate": "GEMINI-FLOW-FIX-001",
-    "lastUpdated": "2026-05-11T18:18:25+03:00",
+    "version": "2026.05.01.0044",
+    "lastUpdate": "GEMINI-PRODUCTS-001",
+    "lastUpdated": "2026-05-12T09:12:40+03:00",
     "changes": [
-        "fix: toggleChat starts in bot mode for all users",
-        "feat: Gemini now works for logged-in users"
+        "feat: Gemini reads real products from store",
+        "feat: Gemini reads customer orders",
+        "feat: Gemini reads loyalty points",
+        "feat: retry logic for 429 errors",
+        "feat: smart welcome message",
+        "fix: maxOutputTokens 180 -> 400"
     ]
 }
