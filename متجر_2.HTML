@@ -12257,7 +12257,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 Promise.resolve(ensureSupportChatReady({ silent: false }))
                     .then((ready) => {
                         if (!ready) return false;
-                        return Promise.resolve(switchChatMode('support', { silent: true }))
+                        return Promise.resolve(switchChatMode('bot', { silent: true }))
                             .then(() => openInternalChat(options));
                     })
                     .catch(() => null);
