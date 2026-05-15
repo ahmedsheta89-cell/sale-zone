@@ -1740,6 +1740,31 @@
         .chat-widget.chat-widget-panel .chat-panel-backdrop { position: absolute; inset: 0; background: rgba(10,17,40,0.45); opacity: 0; visibility: hidden; transition: var(--transition); pointer-events: none; }
         .chat-widget.chat-widget-panel .chat-panel-backdrop.active { opacity: 1; visibility: visible; pointer-events: auto; }
         .chat-widget.chat-widget-panel .chat-box { position: absolute; bottom: 84px; left: 16px; pointer-events: auto; }
+        /* ════════════════════════════════════════════
+           [SUPPORT-UX] Layer 4.5 - Smart Support UX
+           ════════════════════════════════════════════ */
+        .sz-welcome-block { padding: 14px 14px 10px; margin-bottom: 6px; border-bottom: 1px solid rgba(212,175,55,0.15); direction: rtl; }
+        .sz-welcome-greeting { font-size: 1.05rem; font-weight: 700; color: var(--primary, #D4AF37); margin-bottom: 4px; direction: rtl; text-align: right; line-height: 1.4; }
+        .sz-welcome-msg { font-size: 0.88rem; color: var(--text-secondary, #888); margin-bottom: 12px; direction: rtl; text-align: right; line-height: 1.5; }
+        .sz-welcome-points { font-size: 0.82rem; color: var(--navy, #0A1128); margin: -4px 0 12px; direction: rtl; text-align: right; font-weight: 700; }
+        .sz-quick-actions-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; direction: rtl; margin-top: 4px; }
+        .sz-quick-action-btn { display: flex; align-items: center; justify-content: flex-start; gap: 5px; padding: 9px 10px; border: 1.5px solid var(--primary, #D4AF37); border-radius: 10px; background: transparent; color: var(--text-primary, #222); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease; text-align: right; direction: rtl; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .sz-quick-action-btn:hover, .sz-quick-action-btn:active { background: var(--primary, #D4AF37); color: #fff; }
+        .sz-quick-action-btn:active { transform: scale(0.96); }
+        .sz-suggested-replies { display: flex; flex-wrap: wrap; gap: 6px; direction: rtl; padding: 6px 0 4px; margin-top: 4px; }
+        .sz-suggested-reply-btn { padding: 7px 12px; border: 1px solid var(--primary, #D4AF37); border-radius: 20px; background: transparent; color: var(--primary, #D4AF37); font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; white-space: nowrap; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .sz-suggested-reply-btn:hover, .sz-suggested-reply-btn:active { background: var(--primary, #D4AF37); color: #fff; }
+        .sz-system-msg { text-align: center; font-size: 0.75rem; color: var(--text-secondary, #999); padding: 5px 10px; margin: 4px auto; direction: rtl; opacity: 0.85; font-style: italic; }
+        @media (max-width: 480px) {
+            .sz-quick-actions-wrap { grid-template-columns: 1fr 1fr; gap: 6px; }
+            .sz-quick-action-btn { font-size: 0.76rem; padding: 8px 7px; }
+            .sz-welcome-greeting { font-size: 0.98rem; }
+            .sz-suggested-reply-btn { font-size: 0.74rem; padding: 6px 10px; }
+        }
+        @media (min-width: 768px) {
+            .sz-quick-actions-wrap { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+            .sz-quick-action-btn { font-size: 0.82rem; padding: 10px 10px; }
+        }
         .sz-faq-widget {
             position: fixed;
             inset: auto 16px 84px 16px;
@@ -3895,6 +3920,67 @@
         let geminiReplySequence = 0;
         const GEMINI_CHAT_COOLDOWN_MS = 2000;
         const GEMINI_CHAT_TIMEOUT_MS = 8000;
+        // ═══════════════════════════════════════
+        // [SUPPORT-UX] Layer 4.5 - State + Config
+        // ═══════════════════════════════════════
+        const supportUXState = {
+            welcomeShown: false,
+            quickActionsUsed: false,
+            suggestedRepliesVisible: false,
+            activeFlow: null,
+            helpMeChooseStep: null
+        };
+
+        const QUICK_ACTIONS = [
+            { id: 'delivery', icon: '🚚', label: 'التوصيل والشحن', keyword: 'التوصيل' },
+            { id: 'returns', icon: '↩️', label: 'سياسة الإرجاع', keyword: 'الإرجاع' },
+            { id: 'payment', icon: '💳', label: 'طرق الدفع', keyword: 'الدفع' },
+            { id: 'offers', icon: '🔥', label: 'العروض الحالية', keyword: 'العروض' },
+            { id: 'myorders', icon: '📦', label: 'تتبع طلب', keyword: 'طلباتي' },
+            { id: 'help', icon: '🛍️', label: 'ساعدني أختار', keyword: '__help_me_choose__' },
+            { id: 'support', icon: '👨‍💼', label: 'تحدث مع الدعم', keyword: '__escalate__' }
+        ];
+
+        const SUGGESTED_REPLIES_MAP = {
+            'التوصيل': [
+                { label: 'تكلفة الشحن', keyword: 'تكلفة الشحن' },
+                { label: 'مدة التوصيل', keyword: 'مدة التوصيل' },
+                { label: 'تحدث مع الدعم', keyword: '__escalate__' }
+            ],
+            'الإرجاع': [
+                { label: 'كيف أرجع منتج؟', keyword: 'كيف أرجع منتج' },
+                { label: 'مدة الاسترداد', keyword: 'مدة الاسترداد' },
+                { label: 'تحدث مع الدعم', keyword: '__escalate__' }
+            ],
+            'الدفع': [
+                { label: 'الدفع عند الاستلام', keyword: 'الدفع عند الاستلام' },
+                { label: 'البطاقة البنكية', keyword: 'البطاقة البنكية' },
+                { label: 'تحدث مع الدعم', keyword: '__escalate__' }
+            ],
+            'العروض': [
+                { label: 'أحدث العروض', keyword: 'أحدث العروض' },
+                { label: 'كوبونات الخصم', keyword: 'كوبونات الخصم' },
+                { label: 'تحدث مع الدعم', keyword: '__escalate__' }
+            ],
+            'طلباتي': [
+                { label: 'حالة الطلب', keyword: 'حالة الطلب' },
+                { label: 'تعديل الطلب', keyword: 'تعديل الطلب' },
+                { label: 'تحدث مع الدعم', keyword: '__escalate__' }
+            ],
+            '__help_done__': [
+                { label: 'عرض المنتجات', keyword: 'العروض' },
+                { label: 'تحدث مع الدعم', keyword: '__escalate__' }
+            ]
+        };
+
+        const HELP_ME_CHOOSE_CATEGORIES = [
+            { label: 'ملابس', icon: '👔' },
+            { label: 'إلكترونيات', icon: '📱' },
+            { label: 'عطور', icon: '🌸' },
+            { label: 'إكسسوارات', icon: '💎' },
+            { label: 'منزل وديكور', icon: '🏠' },
+            { label: 'أخرى', icon: '✨' }
+        ];
         const MY_ACCOUNT_NOTIFICATION_PREF_KEY = 'sale_zone_account_notifications_enabled';
         const MY_ACCOUNT_TABS = ['data', 'orders', 'favorites', 'points', 'messages', 'notifications', 'settings'];
         const ORDER_TIMELINE_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed'];
@@ -11930,20 +12016,171 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             }
         }
 
+        // [SUPPORT-UX] عرض system message موحدة
+        function appendSystemMessage(text) {
+            try {
+                var container = document.getElementById('chatMessages');
+                if (!container || !text) return;
+                var el = document.createElement('div');
+                el.className = 'sz-system-msg';
+                el.textContent = String(text);
+                container.appendChild(el);
+                container.scrollTop = container.scrollHeight;
+            } catch (e) { console.warn('[SUPPORT-UX] appendSystemMessage error:', e); }
+        }
+
+        // [SUPPORT-UX] بناء وعرض Suggested Replies
+        function showSuggestedReplies(keyword) {
+            try {
+                if (supportUXState.suggestedRepliesVisible) return;
+                if (chatMode === 'support') return;
+                var replies = SUGGESTED_REPLIES_MAP[keyword];
+                if (!replies || replies.length === 0) return;
+                var container = document.getElementById('chatMessages');
+                if (!container) return;
+                var old = container.querySelector('.sz-suggested-replies');
+                if (old) old.remove();
+                var buttons = replies.map(function(r) {
+                    return '<button class="sz-suggested-reply-btn" type="button" onclick="handleSuggestedReply(' + JSON.stringify(r.keyword) + ')">' + escapeHtml(r.label || '') + '</button>';
+                }).join('');
+                var wrap = document.createElement('div');
+                wrap.className = 'sz-suggested-replies';
+                wrap.innerHTML = buttons;
+                container.appendChild(wrap);
+                container.scrollTop = container.scrollHeight;
+                supportUXState.suggestedRepliesVisible = true;
+            } catch (e) { console.warn('[SUPPORT-UX] showSuggestedReplies error:', e); }
+        }
+
+        // [SUPPORT-UX] معالجة ضغط Suggested Reply
+        function handleSuggestedReply(keyword) {
+            try {
+                var container = document.getElementById('chatMessages');
+                if (container) {
+                    var wrap = container.querySelector('.sz-suggested-replies');
+                    if (wrap) wrap.remove();
+                }
+                supportUXState.suggestedRepliesVisible = false;
+                if (keyword === '__escalate__') { escalateInternalChatToSupport(); return; }
+                var input = document.getElementById('chatInput');
+                if (input) input.value = keyword;
+                sendInternalMessage();
+            } catch (e) { console.warn('[SUPPORT-UX] handleSuggestedReply error:', e); }
+        }
+
+        // [SUPPORT-UX] بناء HTML للـ Quick Actions
+        function buildQuickActionsHTML() {
+            try {
+                var actions = (storeSettings && storeSettings.supportUX && Array.isArray(storeSettings.supportUX.quickActions) && storeSettings.supportUX.quickActions.length > 0)
+                    ? storeSettings.supportUX.quickActions.filter(function(a) { return a && a.isActive !== false; })
+                    : QUICK_ACTIONS;
+                if (!actions || actions.length === 0) return '';
+                var buttons = actions.map(function(action) {
+                    return '<button class="sz-quick-action-btn" type="button" data-action-id="' + escapeHtml(action.id || '') + '" onclick="handleQuickAction(' + JSON.stringify(action.keyword || '') + ')">' + (action.icon ? escapeHtml(action.icon) + '&nbsp;' : '') + escapeHtml(action.label || '') + '</button>';
+                }).join('');
+                return '<div class="sz-quick-actions-wrap" id="szQuickActionsWrap">' + buttons + '</div>';
+            } catch (e) { console.warn('[SUPPORT-UX] buildQuickActionsHTML error:', e); return ''; }
+        }
+
+        // [SUPPORT-UX] معالجة ضغط Quick Action
+        function handleQuickAction(keyword) {
+            try {
+                if (chatMode === 'support') return;
+                var wrap = document.getElementById('szQuickActionsWrap');
+                if (wrap) wrap.style.display = 'none';
+                supportUXState.quickActionsUsed = true;
+                if (keyword === '__escalate__') {
+                    appendSystemMessage('⌛ جاري تحويلك للدعم المباشر...');
+                    window.setTimeout(function() { escalateInternalChatToSupport(); }, 300);
+                    return;
+                }
+                if (keyword === '__help_me_choose__') { startHelpMeChooseFlow(); return; }
+                if (keyword === 'طلباتي' && !currentUser) {
+                    appendInternalChatMessage('لعرض طلباتك يرجى تسجيل الدخول أولاً 🔐', 'bot');
+                    return;
+                }
+                var input = document.getElementById('chatInput');
+                if (input) input.value = keyword;
+                Promise.resolve(sendInternalMessage()).then(function() {
+                    window.setTimeout(function() {
+                        if (chatMode !== 'support') showSuggestedReplies(keyword);
+                    }, 650);
+                }).catch(function(error) { console.warn('[SUPPORT-UX] sendInternalMessage failed:', error); });
+            } catch (e) { console.warn('[SUPPORT-UX] handleQuickAction error:', e); }
+        }
+
+        // [SUPPORT-UX] ساعدني أختار - Phase 1 Placeholder
+        function startHelpMeChooseFlow() {
+            try {
+                if (supportUXState.activeFlow === 'help-me-choose') return;
+                supportUXState.activeFlow = 'help-me-choose';
+                supportUXState.helpMeChooseStep = 'category';
+                appendInternalChatMessage('ساعدني أختار 👌\nما نوع المنتج الذي تبحث عنه؟', 'bot');
+                window.setTimeout(function() {
+                    if (chatMode === 'support') return;
+                    var container = document.getElementById('chatMessages');
+                    if (!container) return;
+                    var buttons = HELP_ME_CHOOSE_CATEGORIES.map(function(cat) {
+                        return '<button class="sz-suggested-reply-btn" type="button" onclick="handleHelpMeChooseCategory(' + JSON.stringify(cat.label) + ')">' + escapeHtml(cat.icon) + '&nbsp;' + escapeHtml(cat.label) + '</button>';
+                    }).join('');
+                    var wrap = document.createElement('div');
+                    wrap.className = 'sz-suggested-replies';
+                    wrap.id = 'szHelpMeChooseWrap';
+                    wrap.innerHTML = buttons;
+                    container.appendChild(wrap);
+                    container.scrollTop = container.scrollHeight;
+                    supportUXState.suggestedRepliesVisible = true;
+                }, 400);
+            } catch (e) { console.warn('[SUPPORT-UX] startHelpMeChooseFlow error:', e); }
+        }
+
+        // [SUPPORT-UX] اختيار الفئة في "ساعدني أختار"
+        function handleHelpMeChooseCategory(category) {
+            try {
+                var wrap = document.getElementById('szHelpMeChooseWrap');
+                if (wrap) wrap.remove();
+                supportUXState.suggestedRepliesVisible = false;
+                appendInternalChatMessage(category, 'user');
+                window.setTimeout(function() {
+                    if (chatMode === 'support') return;
+                    appendInternalChatMessage('جاري تجهيز اقتراحات مناسبة لك في فئة ' + category + ' ✨\nللمساعدة الفورية تحدث مع فريق الدعم.', 'bot');
+                    supportUXState.activeFlow = null;
+                    supportUXState.helpMeChooseStep = null;
+                    window.setTimeout(function() {
+                        if (chatMode !== 'support') showSuggestedReplies('__help_done__');
+                    }, 500);
+                }, 600);
+            } catch (e) { console.warn('[SUPPORT-UX] handleHelpMeChooseCategory error:', e); }
+        }
+
         function seedInternalChatWelcome() {
             try {
                 const container = document.getElementById('chatMessages');
                 if (!container) return;
-                if (container.dataset.seeded === '1' || container.children.length > 0) return;
+
+                const legacyWelcome = container.querySelector('[data-i18n="chatWelcome"]');
+                const onlyLegacyWelcome = legacyWelcome && container.children.length === 1;
+                const supportUXReset = container.dataset.supportUxReset === '1';
+                if (container.querySelector('.sz-welcome-block')) return;
+                if (supportUXState.welcomeShown) return;
+                if (container.children.length > 0 && !onlyLegacyWelcome && !supportUXReset) return;
+                if (onlyLegacyWelcome) legacyWelcome.remove();
+
+                // Keep the legacy guard in place for fallback safety.
+                if (!supportUXReset && (container.dataset.seeded === '1' || container.children.length > 0)) return;
                 container.dataset.seeded = '1';
+                container.dataset.supportUxReset = '';
 
                 const name = currentUser &&
                     (currentUser.name ||
+                     currentUser.displayName ||
                      currentUser.email || '') || '';
                 const firstName = String(name || '').trim().split(/\s+/)[0];
                 const greeting = firstName
-                    ? 'أهلاً ' + firstName + '! 👋'
-                    : 'أهلاً بك في Sale Zone! 👋';
+                    ? 'أهلاً ' + firstName + ' 👋'
+                    : 'أهلاً بك في ' +
+                        ((storeSettings && storeSettings.name) || 'متجرنا') +
+                        ' 👋';
                 const pointsValue = Number(
                     currentUser && currentUser.loyaltyPoints != null
                         ? currentUser.loyaltyPoints
@@ -11953,16 +12190,32 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                             ? myAccountState.profile.loyaltyPoints
                             : 0
                 );
-                const points = Number.isFinite(pointsValue) && pointsValue > 0
-                    ? '\n💰 رصيدك: ' + pointsValue + ' نقطة'
+                const pointsHTML = Number.isFinite(pointsValue) && pointsValue > 0
+                    ? '<div class="sz-welcome-points">💰 رصيدك: ' +
+                        escapeHtml(String(pointsValue)) +
+                        ' نقطة</div>'
                     : '';
-                const welcomeText = greeting +
-                    '\nأنا مساعدك الذكي، كيف أقدر أساعدك؟' +
-                    points;
+                const welcomeMsg = (storeSettings && storeSettings.supportUX && storeSettings.supportUX.welcomeMessage) || 'كيف نقدر نساعدك اليوم؟';
 
-                appendInternalChatMessage(welcomeText, 'bot');
+                supportUXState.welcomeShown = true;
+                supportUXState.quickActionsUsed = false;
+                supportUXState.suggestedRepliesVisible = false;
+                supportUXState.activeFlow = null;
+                supportUXState.helpMeChooseStep = null;
+
+                const quickActionsHTML = buildQuickActionsHTML();
+                const block = document.createElement('div');
+                block.className = 'sz-welcome-block';
+                block.innerHTML =
+                    '<div class="sz-welcome-greeting">' + escapeHtml(greeting) + '</div>' +
+                    '<div class="sz-welcome-msg">' + escapeHtml(welcomeMsg) + '</div>' +
+                    pointsHTML +
+                    quickActionsHTML;
+
+                container.insertBefore(block, container.firstChild);
+                container.scrollTop = container.scrollHeight;
             } catch (e) {
-                console.warn('[GEMINI] seedWelcome error:', e);
+                console.warn('[SUPPORT-UX] seedInternalChatWelcome error:', e);
             }
         }
 
@@ -12011,6 +12264,20 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 return false;
             }
             queueCustomerTypingState(false);
+            supportUXState.welcomeShown = false;
+            supportUXState.quickActionsUsed = false;
+            supportUXState.suggestedRepliesVisible = false;
+            supportUXState.activeFlow = null;
+            supportUXState.helpMeChooseStep = null;
+            const container = document.getElementById('chatMessages');
+            if (container) {
+                container.dataset.seeded = '';
+                container.dataset.supportUxReset = '1';
+                const welcomeBlock = container.querySelector('.sz-welcome-block');
+                if (welcomeBlock) welcomeBlock.remove();
+                const suggestedReplies = container.querySelector('.sz-suggested-replies');
+                if (suggestedReplies) suggestedReplies.remove();
+            }
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.close === 'function') {
                 window.NavHistory.close('chat');
                 return true;

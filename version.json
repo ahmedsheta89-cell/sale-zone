@@ -1,6 +1,6 @@
 {
-    "version": "2026.05.01.0044",
-    "lastUpdate": "GEMINI-PRODUCTS-001",
+    "version": "2026.05.01.0045",
+    "lastUpdate": "SMART-SUPPORT-UX-001",
     "lastUpdated": "2026-05-12T09:12:40+03:00",
     "changes": [
         "feat: Gemini reads real products from store",
@@ -8,6 +8,9 @@
         "feat: Gemini reads loyalty points",
         "feat: retry logic for 429 errors",
         "feat: smart welcome message",
-        "fix: maxOutputTokens 180 -> 400"
-    ]
+        "fix: maxOutputTokens 180 -> 400",
+        "SMART-SUPPORT-UX-001: Welcome + Quick Actions + Suggested Replies"
+    ],
+    "layer": "4.5",
+    "phase": "PR1 - Welcome + Quick Actions + Suggested Replies"
 }
