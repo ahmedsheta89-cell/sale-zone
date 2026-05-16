@@ -11985,6 +11985,13 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
             renderSupportThreadBanner(null);
             updateSupportTypingIndicator(null);
             updateSupportComposerState();
+            try {
+                var _cc = document.getElementById('chatMessages');
+                if (_cc) {
+                    _cc.dataset.seeded = '';
+                    _cc.dataset.supportUxReset = '1';
+                }
+            } catch (_) {}
             seedInternalChatWelcome();
             return 'bot';
         }
@@ -12163,7 +12170,6 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 const supportUXReset = container.dataset.supportUxReset === '1';
                 if (container.querySelector('.sz-welcome-block')) return;
                 if (supportUXState.welcomeShown) return;
-                if (container.children.length > 0 && !onlyLegacyWelcome && !supportUXReset) return;
                 if (onlyLegacyWelcome) legacyWelcome.remove();
 
                 // Keep the legacy guard in place for fallback safety.
