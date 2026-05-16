@@ -12167,7 +12167,7 @@ ${order.customer.notes ? `📝 *ملاحظات:* ${order.customer.notes}` : ''}`
                 if (onlyLegacyWelcome) legacyWelcome.remove();
 
                 // Keep the legacy guard in place for fallback safety.
-                if (!supportUXReset && (container.dataset.seeded === '1' || container.children.length > 0)) return;
+                if (!supportUXReset && container.dataset.seeded === '1') return;
                 container.dataset.seeded = '1';
                 container.dataset.supportUxReset = '';
 
