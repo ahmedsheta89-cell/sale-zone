@@ -16993,8 +16993,20 @@ async function copyMissingListToClipboard() {
                 secureUrl: String(item.secureUrl || '')
             }))
         ];
+        const matchedRetryKeys = new Set(retryMatched.map((item) => item.key));
+        const unmatchedRetryFailures = uploadItems
+            .filter((item) => {
+                const key = String(item && item.key || normalizeFilenameForMatch(item && item.file || '')).trim();
+                return key && !matchedRetryKeys.has(key);
+            })
+            .map((item) => ({
+                ...item,
+                error: 'لم يتم العثور على الملف في المجلد المحدد؛ لم تتم إعادة المحاولة.',
+                transient: true
+            }));
         const allFailures = [
             ...deferredQueue,
+            ...unmatchedRetryFailures,
             ...retryResult.failed,
             ...(linkResult.failed || [])
         ];
