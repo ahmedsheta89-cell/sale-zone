@@ -16884,7 +16884,33 @@ function waitForUploadPreviewDecision() {
 }
 
 async function copyMissingListToClipboard() {
-    const runtime =async function retryFailedUploadsOnly() {
+    const runtime = getExcelImageUploaderRuntime();
+    const ui = getExcelImageUploadElements();
+    const text = String(runtime.missingListText || '').trim();
+    if (!text) {
+        showNotification('info', 'لا توجد قائمة ناقصة لنسخها.');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(text);
+        showNotification('success', 'تم نسخ قائمة الصور الناقصة.');
+    } catch (_) {
+        if (ui.missingTextarea) {
+            ui.missingTextarea.focus();
+            ui.missingTextarea.select();
+            try {
+                document.execCommand('copy');
+                showNotification('success', 'تم نسخ قائمة الصور الناقصة.');
+            } catch (error) {
+                console.error('[EXCEL_IMAGE_UPLOAD] clipboard fallback failed:', error);
+                showNotification('error', 'تعذر نسخ القائمة تلقائيًا. انسخها يدويًا من التقرير.');
+            }
+        }
+    }
+}
+
+async function retryFailedUploadsOnly() {
     const runtime = getExcelImageUploaderRuntime();
     const failedQueue = Array.isArray(runtime.failedRetryQueue) ? runtime.failedRetryQueue : [];
     if (!failedQueue.length) {
@@ -16894,6 +16920,7 @@ async function copyMissingListToClipboard() {
 
     try {
         const transientQueue = failedQueue.filter((item) => item && item.transient === true);
+        const retrySource = transientQueue.length ? transientQueue : failedQueue;
         const deferredQueue = transientQueue.length
             ? failedQueue.filter((item) => !item || item.transient !== true)
             : [];
@@ -16901,56 +16928,47 @@ async function copyMissingListToClipboard() {
             showNotification('warning', `سيظل ${deferredQueue.length} إخفاقًا غير مؤقت بحاجة إلى مراجعة.`);
         }
 
-        const retrySource = transientQueue.length ? transientQueue : failedQueue;
         const isExcelMode = runtime.mode === 'excel';
         const linkOnlyItems = isExcelMode
             ? retrySource.filter((item) => item && item.secureUrl && item.productId)
             : [];
         const uploadItems = retrySource.filter((item) => !(item && item.secureUrl && item.productId));
+        const retryDescriptors = uploadItems.map((item) => ({
+            fileName: String(item && item.file || '').trim(),
+            key: String(item && item.key || normalizeFilenameForMatch(item && item.file || '')).trim(),
+            productIds: Array.isArray(item && item.productIds) ? item.productIds : [],
+            productNames: Array.isArray(item && item.productNames) ? item.productNames : [],
+            rawValues: Array.isArray(item && item.rawValues) ? item.rawValues : []
+        })).filter((item) => item.fileName && item.key);
+
+        if (!retryDescriptors.length && !linkOnlyItems.length) {
+            showNotification('warning', 'تعذر تجهيز قائمة إعادة المحاولة.');
+            return;
+        }
+
         const retryMatched = [];
-
-        if (uploadItems.length) {
-            const retryDescriptors = uploadItems.map((item) => ({
-                fileName: String(item && item.file || '').trim(),
-                key: String(item && item.key || normalizeFilenameForMatch(item && item.file || '')).trim(),
-                productIds: Array.isArray(item && item.productIds) ? item.productIds : [],
-                productNames: Array.isArray(item && item.productNames) ? item.productNames : [],
-                rawValues: Array.isArray(item && item.rawValues) ? item.rawValues : []
-            })).filter((item) => item.fileName && item.key);
-
-            if (!retryDescriptors.length && !linkOnlyItems.length) {
-                showNotification('warning', 'تعذر تجهيز قائمة إعادة المحاولة.');
+        if (retryDescriptors.length) {
+            showNotification('info', `إعادة محاولة ${retryDescriptors.length} ملف فاشل...`);
+            const retryInputFiles = await pickFolderFilesWithFallback();
+            if (!retryInputFiles.length) {
+                showNotification('warning', 'تم إلغاء اختيار الملفات لإعادة المحاولة.');
                 return;
             }
 
-            if (retryDescriptors.length) {
-                showNotification('info', `إعادة محاولة ${retryDescriptors.length} ملف فاشل...`);
-                const retryInputFiles = await pickFolderFilesWithFallback();
-                if (!retryInputFiles.length) {
-                    showNotification('warning', 'تم إلغاء اختيار الملفات لإعادة المحاولة.');
-                    return;
+            const retryIndex = buildSelectedFileIndex(retryInputFiles);
+            retryDescriptors.forEach((item) => {
+                const selected = retryIndex.get(item.key);
+                if (selected && selected.primary) {
+                    retryMatched.push({
+                        file: selected.primary,
+                        key: item.key,
+                        productIds: item.productIds.map((id) => String(id || '').trim()).filter(Boolean),
+                        productNames: item.productNames.map((value) => String(value || '').trim()).filter(Boolean),
+                        rawValues: item.rawValues.map((value) => String(value || '').trim()).filter(Boolean),
+                        requiredDisplay: [selected.primary.name]
+                    });
                 }
-
-                const retryIndex = buildSelectedFileIndex(retryInputFiles);
-                retryDescriptors.forEach((item) => {
-                    const selected = retryIndex.get(item.key);
-                    if (selected && selected.primary) {
-                        retryMatched.push({
-                            file: selected.primary,
-                            key: item.key,
-                            productIds: item.productIds.map((id) => String(id || '').trim()).filter(Boolean),
-                            productNames: item.productNames.map((value) => String(value || '').trim()).filter(Boolean),
-                            rawValues: item.rawValues.map((value) => String(value || '').trim()).filter(Boolean),
-                            requiredDisplay: [selected.primary.name]
-                        });
-                    }
-                });
-
-                if (!retryMatched.length && !linkOnlyItems.length) {
-                    showNotification('warning', 'لم يتم العثور على الملفات المطلوبة في المجلد المحدد.');
-                    return;
-                }
-            }
+            });
         }
 
         const ui = getExcelImageUploadElements();
@@ -16985,6 +17003,18 @@ async function copyMissingListToClipboard() {
             ]);
         }
 
+        const matchedRetryKeys = new Set(retryMatched.map((item) => item.key));
+        const unmatchedRetryFailures = retryDescriptors
+            .filter((item) => !matchedRetryKeys.has(item.key))
+            .map((item) => ({
+                file: item.fileName,
+                key: item.key,
+                productIds: item.productIds,
+                productNames: item.productNames,
+                rawValues: item.rawValues,
+                error: 'لم يتم العثور على الملف في المجلد المحدد؛ لم تتم إعادة المحاولة.',
+                transient: true
+            }));
         const reportedUploaded = [
             ...retryResult.uploaded,
             ...linkOnlyItems.map((item) => ({
@@ -16993,17 +17023,6 @@ async function copyMissingListToClipboard() {
                 secureUrl: String(item.secureUrl || '')
             }))
         ];
-        const matchedRetryKeys = new Set(retryMatched.map((item) => item.key));
-        const unmatchedRetryFailures = uploadItems
-            .filter((item) => {
-                const key = String(item && item.key || normalizeFilenameForMatch(item && item.file || '')).trim();
-                return key && !matchedRetryKeys.has(key);
-            })
-            .map((item) => ({
-                ...item,
-                error: 'لم يتم العثور على الملف في المجلد المحدد؛ لم تتم إعادة المحاولة.',
-                transient: true
-            }));
         const allFailures = [
             ...deferredQueue,
             ...unmatchedRetryFailures,
