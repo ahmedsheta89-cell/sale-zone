@@ -1,9 +1,9 @@
 {
   "generatorVersion": "1.0.0",
-  "generatedAt": "2026-05-10T20:42:56.705Z",
+  "generatedAt": "2026-11-16T21:41:48.468Z",
   "sourceFile": "ادمن_2.HTML",
   "policyFile": "monitoring/admin-function-policy.json",
-  "sourceHash": "cff20cd39ae15d00670e512490e074395c5f9f36282408c2f2045044bc52e6ce",
+  "sourceHash": "b8fb6f8318a17889aedea86c566788bb64f5846e4f57860b8b00e8d4abaccc2b",
   "policyHash": "21916e642fd098fb48953ad7499534b0b8b158a786c8ea91f5aadbee472eddc4",
   "functions": [
     {
@@ -37,7 +37,7 @@
     {
       "name": "analyzeProductImage",
       "isAsync": true,
-      "line": 17519,
+      "line": 17601,
       "scriptIndex": 1,
       "group": "products",
       "monitorLevel": "warning",
@@ -65,7 +65,7 @@
     {
       "name": "appendChunk",
       "isAsync": false,
-      "line": 16813,
+      "line": 16828,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -79,7 +79,7 @@
     {
       "name": "applyAIResult",
       "isAsync": true,
-      "line": 17643,
+      "line": 17725,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -93,7 +93,7 @@
     {
       "name": "applyAIResultDirect",
       "isAsync": true,
-      "line": 17706,
+      "line": 17788,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -135,7 +135,7 @@
     {
       "name": "applyAllAIResults",
       "isAsync": true,
-      "line": 17750,
+      "line": 17832,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -233,7 +233,7 @@
     {
       "name": "applyImageFix",
       "isAsync": true,
-      "line": 17417,
+      "line": 17499,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1255,7 +1255,7 @@
     {
       "name": "copyMissingListToClipboard",
       "isAsync": true,
-      "line": 16871,
+      "line": 16886,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -2165,7 +2165,7 @@
     {
       "name": "getAIVisionRuntimeConfig",
       "isAsync": false,
-      "line": 17443,
+      "line": 17525,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3439,7 +3439,7 @@
     {
       "name": "isLegacyImageName",
       "isAsync": false,
-      "line": 17360,
+      "line": 17442,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -4167,7 +4167,7 @@
     {
       "name": "openBulkProductImageUploader",
       "isAsync": true,
-      "line": 16994,
+      "line": 17076,
       "scriptIndex": 1,
       "group": "products",
       "monitorLevel": "warning",
@@ -4195,7 +4195,7 @@
     {
       "name": "openExcelImagesOnlyUploader",
       "isAsync": true,
-      "line": 17145,
+      "line": 17227,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -4405,7 +4405,7 @@
     {
       "name": "persistUploadedImagesToProducts",
       "isAsync": true,
-      "line": 16698,
+      "line": 16708,
       "scriptIndex": 1,
       "group": "products",
       "monitorLevel": "warning",
@@ -4867,7 +4867,7 @@
     {
       "name": "renderAIVisionResults",
       "isAsync": false,
-      "line": 17577,
+      "line": 17659,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -5147,7 +5147,7 @@
     {
       "name": "renderCloudinaryConfigError",
       "isAsync": false,
-      "line": 16976,
+      "line": 17058,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -5203,7 +5203,7 @@
     {
       "name": "renderFinalUploadReport",
       "isAsync": false,
-      "line": 16763,
+      "line": 16778,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -5259,7 +5259,7 @@
     {
       "name": "renderPreUploadPreview",
       "isAsync": false,
-      "line": 16767,
+      "line": 16782,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -5749,7 +5749,7 @@
     {
       "name": "retryFailedUploadsOnly",
       "isAsync": true,
-      "line": 16898,
+      "line": 16913,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -5777,7 +5777,7 @@
     {
       "name": "runCloudinaryUploadQueue",
       "isAsync": true,
-      "line": 16758,
+      "line": 16773,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -6267,7 +6267,7 @@
     {
       "name": "scanAndFixLegacyImages",
       "isAsync": true,
-      "line": 17369,
+      "line": 17451,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -6799,7 +6799,7 @@
     {
       "name": "startAIVisionAnalysis",
       "isAsync": true,
-      "line": 17458,
+      "line": 17540,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -7583,7 +7583,7 @@
     {
       "name": "uploadAndPreview",
       "isAsync": true,
-      "line": 17806,
+      "line": 17888,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -7681,7 +7681,7 @@
     {
       "name": "waitForUploadPreviewDecision",
       "isAsync": false,
-      "line": 16864,
+      "line": 16879,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -7735,5 +7735,5 @@
       "reasonText": "تم تسجيل الدالة ضمن المتابعة."
     }
   ],
-  "registryHash": "819c83bb9db80a494b65451ea09afdde6018537496dae0ebc497b2d6e25f88af"
+  "registryHash": "b447e144ed09a0d61d9ba2d68cbe4fe38e081b69c298d83a09a7c4a243a9d67b"
 }
