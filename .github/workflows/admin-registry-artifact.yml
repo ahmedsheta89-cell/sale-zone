@@ -1,0 +1,34 @@
+name: Admin Registry Artifact (temporary)
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ادمن_2.HTML'
+      - 'tools/**'
+      - 'monitoring/admin-function-registry.json'
+      - '.github/workflows/admin-registry-artifact.yml'
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install tooling dependencies
+        run: npm install --prefix sale-zone --no-audit --no-fund
+      - name: Generate registry using the repository's official generator
+        run: node tools/generate-admin-function-registry.js
+      - name: Upload generated registry
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-function-registry-generated
+          path: monitoring/admin-function-registry.json
+          if-no-files-found: error
