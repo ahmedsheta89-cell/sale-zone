@@ -4,10 +4,10 @@ const vm = require('vm');
 const assert = require('assert');
 
 console.log('====================================================');
-console.log('🧪 RUNNING CLOUDINARY UPLOAD & RETRY TEST SUITE');
+console.log('🧪 RUNNING HARDENED CLOUDINARY UPLOAD & RETRY TEST SUITE');
 console.log('====================================================\n');
 
-// 1. Extract Script 19 from ادمن_2.HTML
+// 1. Robust extraction: find upload module script by signature, not fragile fixed index
 const htmlPath = path.join(__dirname, '..', 'ادمن_2.HTML');
 const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 const scripts = [];
@@ -16,8 +16,10 @@ let match;
 while ((match = scriptRegex.exec(htmlContent))) {
   scripts.push(match[1]);
 }
-const script19 = scripts[19];
-assert(script19 && script19.length > 50000, 'Script 19 must be present and contain upload module');
+const targetScript = scripts.find(
+  (s) => s.includes('uploadMatchedFilesToCloudinary') && s.includes('EXCEL_IMAGE_UPLOAD_MODAL_ID')
+);
+assert(targetScript && targetScript.length > 50000, 'Upload module script must be extracted reliably from ادمن_2.HTML');
 
 function createMockElement(tag = 'div') {
   return {
@@ -75,9 +77,9 @@ function createEnvironment(customMocks = {}) {
   ctx.requestAnimationFrame = (fn) => setTimeout(fn, 0);
 
   vm.createContext(ctx);
-  vm.runInContext(script19, ctx);
+  vm.runInContext(targetScript, ctx);
 
-  // Apply custom mocks AFTER script evaluation so top-level declarations can be intercepted
+  // Apply custom mocks AFTER script evaluation so declarations can be intercepted
   Object.assign(ctx, customMocks);
 
   return ctx;
@@ -330,19 +332,129 @@ async function runAsyncTest(name, fn) {
     assert.strictEqual(prodASaved, 1, 'Target A saved once');
   });
 
-  // Scenario F: Batch integrity, concurrency guards, cancellation, and counters
-  await runAsyncTest('Scenario F: Batch integrity - concurrency guard, cancellation, accurate counters', async () => {
-    const env = createEnvironment();
+  // Scenario F1: Real Concurrency Barrier - Direct Upload Queue Locking
+  await runAsyncTest('Scenario F1: Concurrency barrier - duplicate concurrent batch execution locked', async () => {
+    let resolveBatch1;
+    const batch1Barrier = new Promise((resolve) => {
+      resolveBatch1 = resolve;
+    });
+
+    let batch1UploadCalls = 0;
+    let batch2UploadCalls = 0;
+
+    const env = createEnvironment({
+      uploadToCloudinary: async (file) => {
+        batch1UploadCalls += 1;
+        // Hang on barrier simulating in-flight network activity
+        await batch1Barrier;
+        return {
+          url: `https://res.cloudinary.com/test/${file.name}`,
+          publicId: `pub_${file.name}`
+        };
+      }
+    });
+
+    // 1. Launch Batch 1 asynchronously without awaiting
+    const batch1Promise = env.uploadMatchedFilesToCloudinary([
+      { file: { name: 'file-1.png' }, key: 'key-1' }
+    ]);
+
+    // Yield control so Batch 1 initializes and engages lock
+    await new Promise((r) => setTimeout(r, 15));
+
+    // Verify lock is actively held
+    assert.strictEqual(
+      env.getExcelImageUploaderRuntime().inFlight,
+      true,
+      'Lock must be held while Batch 1 is in-flight'
+    );
+
+    // 2. Attempt to launch Batch 2 while Batch 1 is running
+    let warningMessage = '';
+    env.showNotification = (type, msg) => { warningMessage = msg; };
+
+    const batch2Result = await env.uploadMatchedFilesToCloudinary([
+      { file: { name: 'file-2.png' }, key: 'key-2' }
+    ]);
+
+    // Verify Batch 2 was blocked by concurrency guard
+    assert.strictEqual(batch2Result.locked, true, 'Batch 2 must be rejected with locked: true');
+    assert.strictEqual(batch2Result.uploaded.length, 0, 'Batch 2 uploaded nothing');
+    assert.strictEqual(warningMessage.includes('جارية بالفعل'), true, 'Warning notification shown for duplicate batch');
+
+    // 3. Attempt retry click while Batch 1 is running
+    let retryWarning = '';
+    env.showNotification = (type, msg) => { retryWarning = msg; };
+    await env.retryFailedUploadsOnly();
+    assert.strictEqual(retryWarning.includes('جارية بالفعل'), true, 'Retry click during upload must be blocked');
+
+    // 4. Release Batch 1 barrier
+    resolveBatch1();
+    const batch1Result = await batch1Promise;
+
+    // Verify Batch 1 completed properly
+    assert.strictEqual(batch1Result.uploaded.length, 1, 'Batch 1 completed successfully');
+    assert.strictEqual(batch1UploadCalls, 1, 'Strictly 1 upload call occurred across both batch attempts');
+
+    // Verify lock is released cleanly after completion
+    assert.strictEqual(
+      env.getExcelImageUploaderRuntime().inFlight,
+      false,
+      'Lock must be released after batch completion'
+    );
+  });
+
+  // Scenario F2: Real Concurrency Barrier - Retry Queue Locking
+  await runAsyncTest('Scenario F2: Concurrency barrier - duplicate retry click locked during persistence', async () => {
+    let resolveRetry1;
+    const retry1Barrier = new Promise((resolve) => {
+      resolveRetry1 = resolve;
+    });
+
+    let persistenceAttempts = 0;
+    const env = createEnvironment({
+      updateProduct: async () => {
+        persistenceAttempts += 1;
+        await retry1Barrier; // Hang on barrier
+      }
+    });
+
     const runtime = env.getExcelImageUploaderRuntime();
+    runtime.mode = 'excel';
+    runtime.failedRetryQueue = [
+      {
+        file: 'cached.jpg',
+        productId: 'P-LOCKED',
+        publicId: 'pub_locked',
+        secureUrl: 'https://res.cloudinary.com/test/cached.jpg',
+        transient: true
+      }
+    ];
 
-    // 1. Concurrency guard test
-    runtime.inFlight = true;
-    assert.strictEqual(runtime.inFlight, true, 'inFlight flag indicates active batch');
+    // Launch Retry 1
+    const retry1Promise = env.retryFailedUploadsOnly();
+    await new Promise((r) => setTimeout(r, 15));
 
-    // 2. Cancellation test
-    runtime.inFlight = false;
-    runtime.cancelRequested = false;
+    // Assert lock is held as 'retry'
+    assert.strictEqual(runtime.inFlight, 'retry', 'Runtime inFlight must be locked during retry');
 
+    // Attempt second concurrent retry
+    let blockedNotice = '';
+    env.showNotification = (type, msg) => { blockedNotice = msg; };
+    await env.retryFailedUploadsOnly();
+    assert.strictEqual(blockedNotice.includes('جارية بالفعل'), true, 'Concurrent retry click must be blocked');
+
+    // Release Retry 1
+    resolveRetry1();
+    await retry1Promise;
+
+    // Verify clean release and execution
+    assert.strictEqual(runtime.inFlight, false, 'Lock must be freed after retry completes');
+    assert.strictEqual(persistenceAttempts, 1, 'Persistence executed strictly once');
+  });
+
+  // Scenario F3: Cancellation, accurate counters, and Object URL cleanup
+  await runAsyncTest('Scenario F3: Cancellation, accurate counters, and clean state recovery', async () => {
     let uploadStarted = false;
     const cancelEnv = createEnvironment({
       uploadToCloudinary: async () => {
@@ -362,7 +474,7 @@ async function runAsyncTest(name, fn) {
     assert.strictEqual(cancelResult.canceled, true, 'Canceled flag reported accurately');
     assert.strictEqual(cancelEnv.getExcelImageUploaderRuntime().inFlight, false, 'inFlight reset after cancel');
 
-    // 3. Final counters test via finalizeExcelImageUploadModal
+    // Final counters test via finalizeExcelImageUploadModal
     const finalEnv = createEnvironment();
     const finalRuntime = finalEnv.getExcelImageUploaderRuntime();
     finalEnv.finalizeExcelImageUploadModal({
@@ -379,6 +491,6 @@ async function runAsyncTest(name, fn) {
   });
 
   console.log('\n====================================================');
-  console.log(`🎉 ALL ${passedTests}/${totalTests} CLOUDINARY VALIDATION TESTS PASSED!`);
+  console.log(`🎉 ALL ${passedTests}/${totalTests} HARDENED CLOUDINARY VALIDATION TESTS PASSED!`);
   console.log('====================================================\n');
 })();

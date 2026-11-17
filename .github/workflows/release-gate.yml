@@ -244,6 +244,8 @@ jobs:
           cat package.json | head -5 2>/dev/null || echo "no package.json"
       - name: Run E2E gate
         run: node tools/e2e-check.js
+      - name: Run Cloudinary retry unit tests
+        run: node tests/admin-cloudinary-retry.test.js
 
   workers-paranoid-gate:
     name: workers-paranoid-gate

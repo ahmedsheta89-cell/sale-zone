@@ -16555,9 +16555,14 @@ function buildGenericUploadSelection(selectedFiles) {
     };
 }
 
-async function uploadMatchedFilesToCloudinary(matchedFiles) {
+async function uploadMatchedFilesToCloudinary(matchedFiles, options = {}) {
     const files = Array.isArray(matchedFiles) ? matchedFiles : [];
     const runtime = getExcelImageUploaderRuntime();
+    if (runtime.inFlight && !(options && options.mode === 'retry-failed' && runtime.inFlight === 'retry')) {
+        showNotification('warning', 'هناك عملية رفع جارية بالفعل، يُرجى الانتظار.');
+        return { uploaded: [], failed: [], canceled: false, locked: true };
+    }
+    const isRetryMode = Boolean(options && options.mode === 'retry-failed' && runtime.inFlight === 'retry');
     const uploadSessionId = buildExcelUploadSessionId();
     runtime.inFlight = true;
     runtime.cancelRequested = false;
@@ -16569,7 +16574,9 @@ async function uploadMatchedFilesToCloudinary(matchedFiles) {
     const failed = [];
     const total = files.length;
 
-    for (let i = 0; i < files.length; i += 1) {
+    let canceled = false;
+    try {
+        for (let i = 0; i < files.length; i += 1) {
         if (runtime.cancelRequested || runtime.uploadSessionId !== uploadSessionId) break;
         const fileItem = files[i] || {};
         const file = fileItem.file;
@@ -16694,14 +16701,16 @@ async function uploadMatchedFilesToCloudinary(matchedFiles) {
         }
         await waitExcelUploadTick();
     }
+    } finally {
+        canceled = runtime.cancelRequested === true;
+        runtime.lastFailedItems = failed.map((item) => ({ ...item }));
+        runtime.inFlight = isRetryMode ? 'retry' : false;
+        runtime.cancelRequested = false;
+        runtime.controller = null;
+        runtime.retryTimerId = null;
+        runtime.uploadSessionId = null;
+    }
 
-    const canceled = runtime.cancelRequested === true;
-    runtime.lastFailedItems = failed.map((item) => ({ ...item }));
-    runtime.inFlight = false;
-    runtime.cancelRequested = false;
-    runtime.controller = null;
-    runtime.retryTimerId = null;
-    runtime.uploadSessionId = null;
     return { uploaded, failed, canceled };
 }
 
@@ -16771,8 +16780,7 @@ async function persistUploadedImagesToProducts(uploadedItems) {
 }
 
 async function runCloudinaryUploadQueue(matchedFiles, state) {
-    void state;
-    return uploadMatchedFilesToCloudinary(matchedFiles);
+    return uploadMatchedFilesToCloudinary(matchedFiles, state);
 }
 
 function renderFinalUploadReport(result) {
@@ -16912,12 +16920,17 @@ async function copyMissingListToClipboard() {
 
 async function retryFailedUploadsOnly() {
     const runtime = getExcelImageUploaderRuntime();
+    if (runtime.inFlight) {
+        showNotification('warning', 'هناك عملية جارية بالفعل، يُرجى الانتظار.');
+        return;
+    }
     const failedQueue = Array.isArray(runtime.failedRetryQueue) ? runtime.failedRetryQueue : [];
     if (!failedQueue.length) {
         showNotification('info', 'لا توجد ملفات فاشلة لإعادة المحاولة.');
         return;
     }
 
+    runtime.inFlight = 'retry';
     try {
         const transientQueue = failedQueue.filter((item) => item && item.transient === true);
         const retrySource = transientQueue.length ? transientQueue : failedQueue;
@@ -17052,6 +17065,8 @@ async function retryFailedUploadsOnly() {
     } catch (error) {
         console.error('[EXCEL_IMAGE_UPLOAD] retry failed error:', error);
         showNotification('error', `فشلت إعادة المحاولة: ${String(error && error.message || 'خطأ غير معروف')}`);
+    } finally {
+        runtime.inFlight = false;
     }
 }
 
