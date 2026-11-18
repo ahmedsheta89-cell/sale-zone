@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl" data-page="admin">
 <head>
     <meta charset="UTF-8">
@@ -15541,13 +15541,13 @@ function acquireBatchOperationLock(ownerType = 'batch', existingToken = null) {
 function releaseBatchOperationLock(lockHandle) {
     const runtime = getExcelImageUploaderRuntime();
     if (!runtime.activeOperation || !lockHandle) {
-        runtime.activeOperation = null;
-        runtime.inFlight = false;
-        runtime.uploadSessionId = null;
         return;
     }
-    const token = typeof lockHandle === 'string' ? lockHandle : lockHandle.token;
-    const isOwner = typeof lockHandle === 'object' ? lockHandle.isOwner !== false : true;
+    const token = typeof lockHandle === 'string' ? lockHandle : (lockHandle && lockHandle.token);
+    if (!token || typeof token !== 'string') {
+        return;
+    }
+    const isOwner = typeof lockHandle === 'object' ? lockHandle.isOwner === true : (typeof lockHandle === 'string');
     if (isOwner && runtime.activeOperation.token === token) {
         runtime.activeOperation = null;
         runtime.inFlight = false;
@@ -17319,6 +17319,55 @@ async function openBulkProductImageUploader() {
     }
 }
 
+async function executeExcelBatchLifecycle(matchedFiles, context = {}) {
+    const runtime = getExcelImageUploaderRuntime();
+    const batchLock = acquireBatchOperationLock(context.mode || 'excel-main');
+    if (!batchLock) return { locked: true, uploaded: [], failed: [], linkedProducts: [], canceled: false };
+
+    try {
+        const uploadResult = await runCloudinaryUploadQueue(matchedFiles, {
+            mode: context.uploadMode || 'main',
+            opToken: batchLock.token
+        });
+
+        let persistResult = { linkedProducts: [], failed: [] };
+        if (context.skipPersist !== true) {
+            persistResult = await persistUploadedImagesToProducts(uploadResult.uploaded, {
+                opToken: batchLock.token
+            });
+        }
+
+        const persistFailed = Array.isArray(persistResult && persistResult.failed) ? persistResult.failed : [];
+        const allFailures = [...(uploadResult.failed || []), ...persistFailed];
+        const linkedProducts = Array.isArray(persistResult && persistResult.linkedProducts) ? persistResult.linkedProducts : [];
+
+        const report = {
+            matchedFiles,
+            uploaded: uploadResult.uploaded || [],
+            missingRequired: context.missingRequired || [],
+            failed: allFailures,
+            nonMatchedSelectedCount: context.skippedCount || 0,
+            duplicatesSkipped: context.duplicates || [],
+            unmatchedSelected: context.unmatchedSelected || [],
+            canceled: uploadResult.canceled === true,
+            linkedProducts
+        };
+
+        if (context.skipFinalize !== true) {
+            finalizeExcelImageUploadModal(report);
+        }
+
+        return {
+            ...report,
+            uploadResult,
+            persistResult,
+            locked: false
+        };
+    } finally {
+        releaseBatchOperationLock(batchLock);
+    }
+}
+
 async function openExcelImagesOnlyUploader() {
     const runtime = getExcelImageUploaderRuntime();
     if (runtime.activeOperation || runtime.inFlight) {
@@ -17483,9 +17532,6 @@ async function openExcelImagesOnlyUploader() {
             return;
         }
 
-        batchLock = acquireBatchOperationLock('excel-main');
-        if (!batchLock) return;
-
         if (ui.previewWrap) ui.previewWrap.style.display = 'none';
         revokeExcelPreviewObjectUrls();
         if (ui.startBtn) ui.startBtn.style.display = 'none';
@@ -17497,30 +17543,26 @@ async function openExcelImagesOnlyUploader() {
         }
 
         showNotification('info', `بدء رفع ${matchedFiles.length} صورة مطابقة من أصل ${requiredMap.size} صورة مطلوبة.`);
-        const uploadResult = await runCloudinaryUploadQueue(matchedFiles, { mode: 'main', opToken: batchLock.token });
 
-        const persistResult = await persistUploadedImagesToProducts(uploadResult.uploaded, { opToken: batchLock.token });
-        const persistFailed = Array.isArray(persistResult && persistResult.failed) ? persistResult.failed : [];
-        const allFailures = [...uploadResult.failed, ...persistFailed];
-
-        finalizeExcelImageUploadModal({
-            matchedFiles,
-            uploaded: uploadResult.uploaded,
+        const lifecycleResult = await executeExcelBatchLifecycle(matchedFiles, {
+            mode: 'excel-main',
+            uploadMode: 'main',
             missingRequired,
-            failed: allFailures,
-            nonMatchedSelectedCount: skippedCount,
-            duplicatesSkipped: duplicates,
-            unmatchedSelected,
-            canceled: uploadResult.canceled,
-            linkedProducts: Array.isArray(persistResult && persistResult.linkedProducts) ? persistResult.linkedProducts : []
+            skippedCount,
+            duplicates,
+            unmatchedSelected
         });
 
-        if (uploadResult.canceled) {
-            showNotification('warning', `تم إلغاء الرفع. تم رفع ${uploadResult.uploaded.length} صورة قبل الإلغاء.`);
-        } else if (allFailures.length > 0) {
-            showNotification('warning', `اكتمل الرفع مع إخفاق ${allFailures.length} عملية رفع/ربط.`);
+        if (lifecycleResult.locked) {
+            return;
+        }
+
+        if (lifecycleResult.canceled) {
+            showNotification('warning', `تم إلغاء الرفع. تم رفع ${lifecycleResult.uploaded.length} صورة قبل الإلغاء.`);
+        } else if (lifecycleResult.failed.length > 0) {
+            showNotification('warning', `اكتمل الرفع مع إخفاق ${lifecycleResult.failed.length} عملية رفع/ربط.`);
         } else {
-            showNotification('success', `تم رفع ${uploadResult.uploaded.length} صورة وربط ${Array.isArray(persistResult && persistResult.linkedProducts) ? persistResult.linkedProducts.length : 0} منتج بنجاح.`);
+            showNotification('success', `تم رفع ${lifecycleResult.uploaded.length} صورة وربط ${lifecycleResult.linkedProducts.length} منتج بنجاح.`);
         }
     } catch (error) {
         console.error('[EXCEL_IMAGE_UPLOAD] fatal error:', error);
@@ -17534,9 +17576,6 @@ async function openExcelImagesOnlyUploader() {
         });
         showNotification('error', `فشل تنفيذ رفع صور الإكسل: ${String(error && error.message || 'خطأ غير معروف')}`);
     } finally {
-        if (batchLock) {
-            releaseBatchOperationLock(batchLock);
-        }
         toggleExcelUploaderButtonLoading(false);
     }
 }

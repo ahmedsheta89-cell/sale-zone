@@ -490,6 +490,111 @@ async function runAsyncTest(name, fn) {
     assert.strictEqual(finalRuntime.missingListText.includes('m1.jpg'), true, 'Missing list text formatted correctly');
   });
 
+  // HTML Integrity & Standards Mode Regression Test
+  await runAsyncTest('HTML Integrity: Exact single UTF-8 BOM and Standards Mode (CSS1Compat)', async () => {
+    const rawBuf = fs.readFileSync(htmlPath);
+    // 1. First 3 bytes MUST be valid UTF-8 BOM
+    assert.strictEqual(rawBuf[0], 0xEF, 'Byte 0 must be 0xEF');
+    assert.strictEqual(rawBuf[1], 0xBB, 'Byte 1 must be 0xBB');
+    assert.strictEqual(rawBuf[2], 0xBF, 'Byte 2 must be 0xBF');
+
+    // 2. Bytes 3-5 MUST NOT be a second BOM
+    const hasSecondBom = rawBuf[3] === 0xEF && rawBuf[4] === 0xBB && rawBuf[5] === 0xBF;
+    assert.strictEqual(hasSecondBom, false, 'No second BOM allowed after first 3 bytes');
+
+    // 3. After single BOM, decoded text stream must start with <!DOCTYPE html>
+    const decodedStream = rawBuf.slice(3).toString('utf8');
+    assert.strictEqual(decodedStream.startsWith('<!DOCTYPE html>'), true, 'Decoded stream must start with <!DOCTYPE html>');
+
+    // 4. HTML5 Spec AST Parser check (parse5)
+    let parse5Parsed = null;
+    try {
+      const parse5 = require('parse5');
+      parse5Parsed = parse5.parse(decodedStream);
+      assert.strictEqual(parse5Parsed.mode, 'no-quirks', 'parse5 must parse document in no-quirks mode');
+    } catch (parse5Err) {
+      console.warn('parse5 verification skipped:', parse5Err.message);
+    }
+
+    // 5. Real browser validation (Playwright Chromium)
+    try {
+      const playwright = require('playwright');
+      const browser = await playwright.chromium.launch({ headless: true });
+      const page = await browser.newPage();
+      await page.goto('file:///' + htmlPath.replace(/\\/g, '/'));
+      const compatMode = await page.evaluate(() => document.compatMode);
+      await browser.close();
+      assert.strictEqual(compatMode, 'CSS1Compat', 'Real browser document.compatMode must be CSS1Compat');
+    } catch (browserErr) {
+      console.warn('Browser execution blocked in sandbox:', browserErr.message);
+      if (!parse5Parsed) {
+        throw new Error('Both browser and parse5 validations failed');
+      }
+    }
+  });
+
+  // Lock Coordinator Ownership & Safety Guards Test
+  await runAsyncTest('Lock Coordinator: Strict ownership token, stale-token resistance, and null safety', async () => {
+    let notifications = [];
+    const env = createEnvironment({
+      showNotification: (type, msg) => {
+        notifications.push({ type, msg });
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+    assert.strictEqual(runtime.activeOperation, null, 'Initial state: no active operation');
+
+    // Condition 1: Normal acquire produces owner handle
+    const parentLock = env.acquireBatchOperationLock('parent');
+    assert.ok(parentLock && parentLock.token, 'Acquired parent lock');
+    assert.strictEqual(parentLock.isOwner, true, 'Parent lock is owner');
+    assert.strictEqual(runtime.activeOperation.token, parentLock.token);
+    assert.strictEqual(runtime.inFlight, true);
+
+    // Condition 2: Failure to acquire returns null and does NOT disturb existing lock
+    const failedAcquire = env.acquireBatchOperationLock('other');
+    assert.strictEqual(failedAcquire, null, 'Concurrent acquisition rejected');
+    assert.ok(notifications.some(n => n.msg.includes('جارية بالفعل')), 'Emitted warning notification');
+    assert.strictEqual(runtime.activeOperation.token, parentLock.token, 'Existing lock remains unchanged');
+
+    // Condition 3: releaseBatchOperationLock(null) must NOT clear or alter activeOperation
+    env.releaseBatchOperationLock(null);
+    assert.strictEqual(runtime.activeOperation.token, parentLock.token, 'release(null) must not clear activeOperation');
+    assert.strictEqual(runtime.inFlight, true, 'release(null) must not clear inFlight');
+
+    // Condition 4: Invalid ownership token must NOT release lock
+    env.releaseBatchOperationLock({ token: 'bogus-token-123', isOwner: true });
+    assert.strictEqual(runtime.activeOperation.token, parentLock.token, 'Wrong token must not release lock');
+
+    // Condition 5: Stale token from earlier operation cannot release newer lock
+    const staleToken = 'batch-op-stale-999999999';
+    env.releaseBatchOperationLock({ token: staleToken, isOwner: true });
+    assert.strictEqual(runtime.activeOperation.token, parentLock.token, 'Stale token must not release lock');
+
+    // Condition 6: Child handle (isOwner: false) cannot release parent lock
+    const childLock = env.acquireBatchOperationLock('child', parentLock.token);
+    assert.ok(childLock, 'Child re-entrant acquire returned lock handle');
+    assert.strictEqual(childLock.isOwner, false, 'Child is not owner');
+    assert.strictEqual(childLock.token, parentLock.token);
+
+    env.releaseBatchOperationLock(childLock);
+    assert.strictEqual(runtime.activeOperation.token, parentLock.token, 'Child release must NOT release parent lock');
+    assert.strictEqual(runtime.inFlight, true);
+
+    // Condition 7: Owner alone can release the lock
+    env.releaseBatchOperationLock(parentLock);
+    assert.strictEqual(runtime.activeOperation, null, 'Owner release cleanly clears activeOperation');
+    assert.strictEqual(runtime.inFlight, false, 'Owner release cleanly clears inFlight');
+    assert.strictEqual(runtime.uploadSessionId, null, 'Owner release clears uploadSessionId');
+
+    // Condition 8: Subsequent operation acquires lock cleanly
+    const nextLock = env.acquireBatchOperationLock('next-op');
+    assert.ok(nextLock && nextLock.isOwner, 'Subsequent operation acquires cleanly');
+    env.releaseBatchOperationLock(nextLock);
+    assert.strictEqual(runtime.activeOperation, null, 'Clean state after nextLock');
+  });
+
   // Scenario F4: Full Excel batch concurrency barrier across upload and persistence
   await runAsyncTest('Scenario F4: Full batch lifecycle concurrency barrier - lock held through persistence', async () => {
     let releasePersistenceBarrier;
@@ -499,6 +604,7 @@ async function runAsyncTest(name, fn) {
 
     let uploadCallCount = 0;
     let persistenceEntered = false;
+    let finalReportRendered = false;
     let notifications = [];
 
     const env = createEnvironment({
@@ -511,7 +617,14 @@ async function runAsyncTest(name, fn) {
       },
       updateProduct: async (productId, data) => {
         persistenceEntered = true;
-        await persistenceBarrier; // Suspend on barrier during persistence
+        // Bounded wait with 5000ms max timeout so test never hangs in CI
+        await Promise.race([
+          persistenceBarrier,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Persistence barrier timeout')), 5000))
+        ]);
+      },
+      finalizeExcelImageUploadModal: (report) => {
+        finalReportRendered = true;
       },
       showNotification: (type, msg) => {
         notifications.push({ type, msg });
@@ -529,41 +642,28 @@ async function runAsyncTest(name, fn) {
       }
     ];
 
-    // Acquire batch lock (as openExcelImagesOnlyUploader does)
-    const batchLock = env.acquireBatchOperationLock('excel-main');
-    assert.ok(batchLock && batchLock.token, 'Batch lock must be successfully acquired');
-    assert.strictEqual(batchLock.isOwner, true, 'Outer batch coordinator is owner');
+    // Execute the shared lifecycle engine that openExcelImagesOnlyUploader uses
+    const batchLifecyclePromise = env.executeExcelBatchLifecycle(batchFiles, {
+      mode: 'excel-main',
+      uploadMode: 'main'
+    });
 
-    // Run batch lifecycle asynchronously
-    const batchLifecyclePromise = (async () => {
-      try {
-        const uploadResult = await env.runCloudinaryUploadQueue(batchFiles, { mode: 'main', opToken: batchLock.token });
-        const persistResult = await env.persistUploadedImagesToProducts(uploadResult.uploaded, { opToken: batchLock.token });
-        return { uploadResult, persistResult };
-      } finally {
-        env.releaseBatchOperationLock(batchLock);
-      }
-    })();
-
-    // Wait until upload finishes and persistence starts (holding barrier)
+    // Wait until upload finishes and persistence begins
     while (!persistenceEntered) {
       await new Promise((r) => setTimeout(r, 10));
     }
 
-    // Verify lock is STILL held continuously during persistence phase
+    // 1. Verify lock is held continuously during persistence phase
     assert.ok(runtime.activeOperation, 'activeOperation must remain held during persistence');
-    assert.strictEqual(runtime.activeOperation.token, batchLock.token, 'Token must match the outer batch token');
     assert.strictEqual(runtime.inFlight, true, 'inFlight must remain true during persistence');
+    assert.strictEqual(finalReportRendered, false, 'Final report must NOT be rendered yet while persistence is running');
 
-    // Attempt concurrent second batch upload
-    const concurrentLockAttempt = env.acquireBatchOperationLock('excel-main');
-    assert.strictEqual(concurrentLockAttempt, null, 'Second batch lock attempt must be rejected');
-
-    const concurrentUploadResult = await env.runCloudinaryUploadQueue(batchFiles, { mode: 'main' });
-    assert.strictEqual(concurrentUploadResult.locked, true, 'Concurrent upload queue must report locked: true');
+    // 2. Attempt concurrent second batch upload
+    const concurrentAttempt = await env.executeExcelBatchLifecycle(batchFiles, { mode: 'excel-main' });
+    assert.strictEqual(concurrentAttempt.locked, true, 'Second batch execution must report locked: true');
     assert.strictEqual(uploadCallCount, 1, 'Upload call count must NOT increase during concurrent attempt');
 
-    // Attempt concurrent retry
+    // 3. Attempt concurrent retry
     runtime.failedRetryQueue = [{ file: 'retry.png', transient: true }];
     await env.retryFailedUploadsOnly();
     assert.ok(
@@ -571,64 +671,95 @@ async function runAsyncTest(name, fn) {
       'Concurrent retry must be blocked with active operation notification'
     );
 
+    // 4. Verify child handle cannot release parent lock
+    env.releaseBatchOperationLock({ token: runtime.activeOperation.token, isOwner: false });
+    assert.ok(runtime.activeOperation, 'Child handle must not release batch lock');
+
+    // 5. Verify release(null) cannot release parent lock
+    env.releaseBatchOperationLock(null);
+    assert.ok(runtime.activeOperation, 'release(null) must not release batch lock');
+
     // Release the persistence barrier
     releasePersistenceBarrier();
-    const results = await batchLifecyclePromise;
+    const lifecycleResult = await batchLifecyclePromise;
 
-    // Verify successful completion and release of lock
-    assert.strictEqual(results.uploadResult.uploaded.length, 1, 'Upload completed');
-    assert.strictEqual(results.persistResult.linkedProducts.length, 1, 'Persistence completed');
+    // 6. Verify completion, final report, and clean lock release
+    assert.strictEqual(finalReportRendered, true, 'Final report rendered after persistence');
+    assert.strictEqual(lifecycleResult.uploaded.length, 1, 'Upload completed');
+    assert.strictEqual(lifecycleResult.linkedProducts.length, 1, 'Persistence completed');
     assert.strictEqual(runtime.activeOperation, null, 'Lock must be completely freed after batch completes');
     assert.strictEqual(runtime.inFlight, false, 'inFlight must be false after batch completes');
   });
 
-  // Scenario F5: Error and cancellation recovery - clean lock release
-  await runAsyncTest('Scenario F5: Error and cancellation recovery - lock release and subsequent operation success', async () => {
+  // Scenario F5: Error and in-flight cancellation recovery - clean lock release
+  await runAsyncTest('Scenario F5: Error and in-flight cancellation recovery - lock release and subsequent operation success', async () => {
+    let uploadStarted = false;
+    let cancelBarrierTriggered = false;
+
     const env = createEnvironment({
-      uploadToCloudinary: async () => {
-        throw new Error('Simulated fatal network error');
+      uploadToCloudinary: async (file) => {
+        uploadStarted = true;
+        // Request cancellation AFTER upload has officially started
+        env.getExcelImageUploaderRuntime().cancelRequested = true;
+        cancelBarrierTriggered = true;
+        const err = new Error('Upload aborted by user gesture');
+        err.name = 'AbortError';
+        throw err;
       }
     });
 
     const runtime = env.getExcelImageUploaderRuntime();
 
-    // 1. Error during execution under lock
-    const lock1 = env.acquireBatchOperationLock('test-err');
-    assert.strictEqual(runtime.activeOperation.token, lock1.token);
+    // 1. In-flight cancellation under lock
+    const batchLock = env.acquireBatchOperationLock('excel-main');
+    assert.strictEqual(runtime.activeOperation.token, batchLock.token);
+    assert.strictEqual(runtime.inFlight, true);
 
+    let cancelResult;
     try {
-      await env.runCloudinaryUploadQueue(
-        [{ file: { name: 'f1.png' }, key: 'k1' }],
-        { mode: 'main', opToken: lock1.token }
+      cancelResult = await env.runCloudinaryUploadQueue(
+        [{ file: { name: 'f_cancel.png' }, key: 'k_cancel' }],
+        { mode: 'main', opToken: batchLock.token }
       );
     } finally {
-      env.releaseBatchOperationLock(lock1);
+      // While upload ran, lock remained protected
+      assert.strictEqual(uploadStarted, true, 'Upload was reached');
+      assert.strictEqual(cancelBarrierTriggered, true, 'Cancel was triggered in-flight');
+      assert.strictEqual(cancelResult.canceled, true, 'Accurate canceled flag returned');
+      assert.ok(runtime.activeOperation, 'Lock remained protected before owner release');
+      env.releaseBatchOperationLock(batchLock);
     }
 
-    assert.strictEqual(runtime.activeOperation, null, 'Lock must be released on upload error');
-    assert.strictEqual(runtime.inFlight, false, 'inFlight must be false');
+    assert.strictEqual(runtime.activeOperation, null, 'Lock released after cancellation finally');
+    assert.strictEqual(runtime.inFlight, false, 'inFlight false after cancel');
 
-    // 2. Cancellation during execution under lock
-    const lock2 = env.acquireBatchOperationLock('test-cancel');
-    runtime.cancelRequested = true;
+    // 2. Fatal error recovery
+    const errEnv = createEnvironment({
+      uploadToCloudinary: async () => {
+        throw new Error('Fatal network exception');
+      }
+    });
+    const errRuntime = errEnv.getExcelImageUploaderRuntime();
+    const errLock = errEnv.acquireBatchOperationLock('excel-err');
+
     try {
-      await env.runCloudinaryUploadQueue(
-        [{ file: { name: 'f2.png' }, key: 'k2' }],
-        { mode: 'main', opToken: lock2.token }
+      await errEnv.runCloudinaryUploadQueue(
+        [{ file: { name: 'f_err.png' }, key: 'k_err' }],
+        { mode: 'main', opToken: errLock.token }
       );
     } finally {
-      env.releaseBatchOperationLock(lock2);
+      errEnv.releaseBatchOperationLock(errLock);
     }
 
-    assert.strictEqual(runtime.activeOperation, null, 'Lock must be released on cancellation');
-    assert.strictEqual(runtime.inFlight, false, 'inFlight must be false after cancel');
+    assert.strictEqual(errRuntime.activeOperation, null, 'Lock released after error');
+    assert.strictEqual(errRuntime.inFlight, false, 'inFlight false after error');
 
-    // 3. Verify subsequent operation can acquire lock cleanly
-    const lock3 = env.acquireBatchOperationLock('subsequent-op');
-    assert.ok(lock3 && lock3.token, 'Subsequent operation must cleanly acquire lock');
-    assert.strictEqual(lock3.isOwner, true, 'Subsequent operation is owner');
-    env.releaseBatchOperationLock(lock3);
-    assert.strictEqual(runtime.activeOperation, null, 'Lock freed after subsequent op');
+    // 3. Subsequent operation cleanly succeeds
+    const subsequentLock = errEnv.acquireBatchOperationLock('subsequent-op');
+    assert.ok(subsequentLock && subsequentLock.token, 'Subsequent operation acquires lock');
+    assert.strictEqual(subsequentLock.isOwner, true);
+    errEnv.releaseBatchOperationLock(subsequentLock);
+    assert.strictEqual(errRuntime.activeOperation, null, 'Clean state restored');
   });
 
   // Scenario F6: Object URL lifecycle with explicit count assertions

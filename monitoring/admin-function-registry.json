@@ -1,9 +1,9 @@
 {
   "generatorVersion": "1.0.0",
-  "generatedAt": "2026-11-18T18:01:36.926Z",
+  "generatedAt": "2026-11-18T19:18:05.713Z",
   "sourceFile": "ادمن_2.HTML",
   "policyFile": "monitoring/admin-function-policy.json",
-  "sourceHash": "2dc7fca0de2dd1a938b289857c383219859e022f36f4f58b491dd5311faa57e4",
+  "sourceHash": "3a1e4ebab111cbe82ecd1d74cb28ccf8c0a8a07d2ec23f650f44b170356d1a19",
   "policyHash": "21916e642fd098fb48953ad7499534b0b8b158a786c8ea91f5aadbee472eddc4",
   "functions": [
     {
@@ -51,7 +51,7 @@
     {
       "name": "analyzeProductImage",
       "isAsync": true,
-      "line": 17703,
+      "line": 17742,
       "scriptIndex": 1,
       "group": "products",
       "monitorLevel": "warning",
@@ -93,7 +93,7 @@
     {
       "name": "applyAIResult",
       "isAsync": true,
-      "line": 17827,
+      "line": 17866,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -107,7 +107,7 @@
     {
       "name": "applyAIResultDirect",
       "isAsync": true,
-      "line": 17890,
+      "line": 17929,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -149,7 +149,7 @@
     {
       "name": "applyAllAIResults",
       "isAsync": true,
-      "line": 17934,
+      "line": 17973,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -247,7 +247,7 @@
     {
       "name": "applyImageFix",
       "isAsync": true,
-      "line": 17601,
+      "line": 17640,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -1757,6 +1757,20 @@
       "reasonText": "تم تسجيل الدالة ضمن المتابعة."
     },
     {
+      "name": "executeExcelBatchLifecycle",
+      "isAsync": true,
+      "line": 17322,
+      "scriptIndex": 1,
+      "group": "products",
+      "monitorLevel": "warning",
+      "storeImpact": "direct",
+      "mobileImpact": "direct",
+      "persistenceMode": "hybrid",
+      "status": "ok",
+      "reasonCode": "BASELINE_OK",
+      "reasonText": "تم تسجيل الدالة ضمن المتابعة."
+    },
+    {
       "name": "exportAllDataJSON",
       "isAsync": false,
       "line": 13494,
@@ -2179,7 +2193,7 @@
     {
       "name": "getAIVisionRuntimeConfig",
       "isAsync": false,
-      "line": 17627,
+      "line": 17666,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -3453,7 +3467,7 @@
     {
       "name": "isLegacyImageName",
       "isAsync": false,
-      "line": 17544,
+      "line": 17583,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -4209,7 +4223,7 @@
     {
       "name": "openExcelImagesOnlyUploader",
       "isAsync": true,
-      "line": 17322,
+      "line": 17371,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -4895,7 +4909,7 @@
     {
       "name": "renderAIVisionResults",
       "isAsync": false,
-      "line": 17761,
+      "line": 17800,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -6295,7 +6309,7 @@
     {
       "name": "scanAndFixLegacyImages",
       "isAsync": true,
-      "line": 17553,
+      "line": 17592,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -6827,7 +6841,7 @@
     {
       "name": "startAIVisionAnalysis",
       "isAsync": true,
-      "line": 17642,
+      "line": 17681,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -7611,7 +7625,7 @@
     {
       "name": "uploadAndPreview",
       "isAsync": true,
-      "line": 17990,
+      "line": 18029,
       "scriptIndex": 1,
       "group": "utility",
       "monitorLevel": "info",
@@ -7763,5 +7777,5 @@
       "reasonText": "تم تسجيل الدالة ضمن المتابعة."
     }
   ],
-  "registryHash": "2bcd0b2d985d121db43d75124bdc45b96f163fd710e2a1b87bef93fb16a48d00"
+  "registryHash": "d277c91532829dad93600c5d8055291d8fafff21cf029d6ee965faf347b86f63"
 }
