@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl" data-page="admin">
 <head>
     <meta charset="UTF-8">
@@ -15500,6 +15500,7 @@ function getExcelImageUploaderRuntime() {
             lastMatchResult: null,
             lastFailedItems: [],
             uploadSessionId: null,
+            activeOperation: null,
             retryTimerId: null,
             lastLiveUpdateAt: 0,
             mode: 'excel',
@@ -15515,6 +15516,43 @@ function waitExcelUploadTick() {
 
 function buildExcelUploadSessionId() {
     return `excel-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function acquireBatchOperationLock(ownerType = 'batch', existingToken = null) {
+    const runtime = getExcelImageUploaderRuntime();
+    if (runtime.activeOperation) {
+        if (existingToken && runtime.activeOperation.token === existingToken) {
+            return { token: runtime.activeOperation.token, isOwner: false };
+        }
+        showNotification('warning', 'هناك عملية جارية بالفعل، يُرجى الانتظار حتى اكتمالها.');
+        return null;
+    }
+    const token = `batch-op-${ownerType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    runtime.activeOperation = {
+        token,
+        ownerType,
+        startedAt: Date.now()
+    };
+    runtime.inFlight = ownerType === 'retry-failed' ? 'retry' : true;
+    runtime.uploadSessionId = token;
+    return { token, isOwner: true };
+}
+
+function releaseBatchOperationLock(lockHandle) {
+    const runtime = getExcelImageUploaderRuntime();
+    if (!runtime.activeOperation || !lockHandle) {
+        runtime.activeOperation = null;
+        runtime.inFlight = false;
+        runtime.uploadSessionId = null;
+        return;
+    }
+    const token = typeof lockHandle === 'string' ? lockHandle : lockHandle.token;
+    const isOwner = typeof lockHandle === 'object' ? lockHandle.isOwner !== false : true;
+    if (isOwner && runtime.activeOperation.token === token) {
+        runtime.activeOperation = null;
+        runtime.inFlight = false;
+        runtime.uploadSessionId = null;
+    }
 }
 
 function revokeExcelPreviewObjectUrls() {
@@ -16558,13 +16596,12 @@ function buildGenericUploadSelection(selectedFiles) {
 async function uploadMatchedFilesToCloudinary(matchedFiles, options = {}) {
     const files = Array.isArray(matchedFiles) ? matchedFiles : [];
     const runtime = getExcelImageUploaderRuntime();
-    if (runtime.inFlight && !(options && options.mode === 'retry-failed' && runtime.inFlight === 'retry')) {
-        showNotification('warning', 'هناك عملية رفع جارية بالفعل، يُرجى الانتظار.');
+    const existingToken = options && options.opToken ? options.opToken : null;
+    const lock = acquireBatchOperationLock(options && options.mode || 'direct-upload', existingToken);
+    if (!lock) {
         return { uploaded: [], failed: [], canceled: false, locked: true };
     }
-    const isRetryMode = Boolean(options && options.mode === 'retry-failed' && runtime.inFlight === 'retry');
-    const uploadSessionId = buildExcelUploadSessionId();
-    runtime.inFlight = true;
+    const uploadSessionId = lock.token;
     runtime.cancelRequested = false;
     runtime.controller = null;
     runtime.uploadSessionId = uploadSessionId;
@@ -16577,205 +16614,224 @@ async function uploadMatchedFilesToCloudinary(matchedFiles, options = {}) {
     let canceled = false;
     try {
         for (let i = 0; i < files.length; i += 1) {
-        if (runtime.cancelRequested || runtime.uploadSessionId !== uploadSessionId) break;
-        const fileItem = files[i] || {};
-        const file = fileItem.file;
-        if (!file) continue;
-        const displayIndex = i + 1;
-        const publicId = basenameWithoutExt(file.name)
-            .replace(/\s+/g, '-')
-            .replace(/[^a-zA-Z0-9_-]/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '');
+            if (runtime.cancelRequested || runtime.uploadSessionId !== uploadSessionId) break;
+            const fileItem = files[i] || {};
+            const file = fileItem.file;
+            if (!file) continue;
+            const displayIndex = i + 1;
+            const publicId = basenameWithoutExt(file.name)
+                .replace(/\s+/g, '-')
+                .replace(/[^a-zA-Z0-9_-]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
 
-        runtime.controller = new AbortController();
-        setExcelImageUploadProgress({
-            summary: 'جاري رفع الملفات إلى Cloudinary...',
-            percent: Math.round((i / Math.max(total, 1)) * 100),
-            completed: displayIndex,
-            total,
-            currentFile: file.name || '-'
-        });
-
-        try {
-            let attempt = 0;
-            let uploadDone = false;
-            let lastMessage = '';
-
-            while (!uploadDone && attempt < EXCEL_UPLOAD_MAX_ATTEMPTS) {
-                attempt += 1;
-                try {
-                    const result = await uploadToCloudinary(file, {
-                        folder: 'salezone_products',
-                        publicId,
-                        signal: runtime.controller.signal,
-                        onProgress: (filePercent) => {
-                            const safeFilePercent = Math.max(0, Math.min(100, Number(filePercent || 0)));
-                            const overallPercent = Math.round(((i + (safeFilePercent / 100)) / Math.max(total, 1)) * 100);
-                            setExcelImageUploadProgress({
-                                percent: overallPercent,
-                                completed: displayIndex,
-                                total,
-                                currentFile: `${file.name || '-'} (محاولة ${attempt}/${EXCEL_UPLOAD_MAX_ATTEMPTS})`
-                            });
-                        }
-                    });
-                    uploaded.push({
-                        file: file.name,
-                        key: String(fileItem && fileItem.key || publicId),
-                        productIds: Array.isArray(fileItem && fileItem.productIds) ? fileItem.productIds.map((id) => String(id || '').trim()).filter(Boolean) : [],
-                        productNames: Array.isArray(fileItem && fileItem.productNames) ? fileItem.productNames.map((value) => String(value || '').trim()).filter(Boolean) : [],
-                        rawValues: Array.isArray(fileItem && fileItem.rawValues) ? fileItem.rawValues.map((value) => String(value || '').trim()).filter(Boolean) : [],
-                        publicId: String(result && (result.publicId || result.public_id || publicId) || publicId),
-                        secureUrl: String(result && (result.url || result.secure_url) || '')
-                    });
-                    uploadDone = true;
-                } catch (attemptError) {
-                    lastMessage = String(attemptError && attemptError.message || 'فشل غير معروف').trim();
-                    if (runtime.cancelRequested || /تم إلغاء الرفع|aborted|canceled/i.test(lastMessage)) {
-                        throw attemptError;
-                    }
-
-                    const transient = isTransientUploadFailure(attemptError);
-                    if (!transient || attempt >= EXCEL_UPLOAD_MAX_ATTEMPTS) {
-                        throw attemptError;
-                    }
-
-                    const baseWait = EXCEL_UPLOAD_RETRY_DELAYS[Math.min(attempt - 1, EXCEL_UPLOAD_RETRY_DELAYS.length - 1)] || 1500;
-                    const jitter = Math.round(Math.random() * 180);
-                    const waitMs = baseWait + jitter;
-                    console.warn('[EXCEL_IMAGE_UPLOAD] transient upload failure; retry scheduled:', {
-                        file: file.name,
-                        attempt,
-                        waitMs,
-                        message: lastMessage
-                    });
-                    setExcelImageUploadProgress({
-                        summary: `تعذر رفع ${file.name}. إعادة المحاولة خلال ${waitMs}ms...`,
-                        percent: Math.round((i / Math.max(total, 1)) * 100),
-                        completed: displayIndex,
-                        total,
-                        currentFile: file.name || '-'
-                    });
-                    await waitAbortable(waitMs, runtime.controller ? runtime.controller.signal : null, runtime);
-                }
-            }
-
-            if (!uploadDone) {
-                throw new Error(lastMessage || 'فشل الرفع بعد عدة محاولات');
-            }
-        } catch (error) {
-            const message = String(error && error.message || 'فشل غير معروف').trim();
-            if (runtime.cancelRequested || /تم إلغاء الرفع|upload canceled|aborted|canceled/i.test(message)) {
-                break;
-            }
-            failed.push({
-                file: file.name,
-                key: String(fileItem && fileItem.key || publicId),
-                productIds: Array.isArray(fileItem && fileItem.productIds)
-                    ? fileItem.productIds.map((id) => String(id || '').trim()).filter(Boolean)
-                    : [],
-                productNames: Array.isArray(fileItem && fileItem.productNames)
-                    ? fileItem.productNames.map((value) => String(value || '').trim()).filter(Boolean)
-                    : [],
-                rawValues: Array.isArray(fileItem && fileItem.rawValues)
-                    ? fileItem.rawValues.map((value) => String(value || '').trim()).filter(Boolean)
-                    : [],
-                error: message,
-                transient: isTransientUploadFailure(error)
+            runtime.controller = new AbortController();
+            setExcelImageUploadProgress({
+                summary: 'جاري رفع الملفات إلى Cloudinary...',
+                percent: Math.round((i / Math.max(total, 1)) * 100),
+                completed: displayIndex,
+                total,
+                currentFile: file.name || '-'
             });
-            console.error('[EXCEL_IMAGE_UPLOAD] upload failed:', file.name, error);
-        } finally {
-            runtime.controller = null;
-        }
 
-        const donePercent = Math.round(((i + 1) / Math.max(total, 1)) * 100);
-        setExcelImageUploadProgress({
-            percent: donePercent,
-            completed: displayIndex,
-            total,
-            currentFile: file.name || '-'
-        });
-        if (!runtime.cancelRequested && i < files.length - 1) {
-            await waitAbortable(EXCEL_UPLOAD_DELAY_MS, null, runtime);
+            try {
+                let attempt = 0;
+                let uploadDone = false;
+                let lastMessage = '';
+
+                while (!uploadDone && attempt < EXCEL_UPLOAD_MAX_ATTEMPTS) {
+                    attempt += 1;
+                    try {
+                        const result = await uploadToCloudinary(file, {
+                            folder: 'salezone_products',
+                            publicId,
+                            signal: runtime.controller.signal,
+                            onProgress: (filePercent) => {
+                                const safeFilePercent = Math.max(0, Math.min(100, Number(filePercent || 0)));
+                                const overallPercent = Math.round(((i + (safeFilePercent / 100)) / Math.max(total, 1)) * 100);
+                                setExcelImageUploadProgress({
+                                    percent: overallPercent,
+                                    completed: displayIndex,
+                                    total,
+                                    currentFile: `${file.name || '-'} (محاولة ${attempt}/${EXCEL_UPLOAD_MAX_ATTEMPTS})`
+                                });
+                            }
+                        });
+                        uploaded.push({
+                            file: file.name,
+                            originalName: String(file.name || fileItem.originalName || ''),
+                            fileSize: typeof file.size === 'number' ? file.size : (Number(fileItem && fileItem.fileSize) || 0),
+                            fileType: String(file.type || fileItem && fileItem.fileType || ''),
+                            key: String(fileItem && fileItem.key || publicId),
+                            productIds: Array.isArray(fileItem && fileItem.productIds) ? fileItem.productIds.map((id) => String(id || '').trim()).filter(Boolean) : [],
+                            productNames: Array.isArray(fileItem && fileItem.productNames) ? fileItem.productNames.map((value) => String(value || '').trim()).filter(Boolean) : [],
+                            rawValues: Array.isArray(fileItem && fileItem.rawValues) ? fileItem.rawValues.map((value) => String(value || '').trim()).filter(Boolean) : [],
+                            publicId: String(result && (result.publicId || result.public_id || publicId) || publicId),
+                            secureUrl: String(result && (result.url || result.secure_url) || '')
+                        });
+                        uploadDone = true;
+                    } catch (attemptError) {
+                        lastMessage = String(attemptError && attemptError.message || 'فشل غير معروف').trim();
+                        if (runtime.cancelRequested || /تم إلغاء الرفع|aborted|canceled/i.test(lastMessage)) {
+                            throw attemptError;
+                        }
+
+                        const transient = isTransientUploadFailure(attemptError);
+                        if (!transient || attempt >= EXCEL_UPLOAD_MAX_ATTEMPTS) {
+                            throw attemptError;
+                        }
+
+                        const baseWait = EXCEL_UPLOAD_RETRY_DELAYS[Math.min(attempt - 1, EXCEL_UPLOAD_RETRY_DELAYS.length - 1)] || 1500;
+                        const jitter = Math.round(Math.random() * 180);
+                        const waitMs = baseWait + jitter;
+                        console.warn('[EXCEL_IMAGE_UPLOAD] transient upload failure; retry scheduled:', {
+                            file: file.name,
+                            attempt,
+                            waitMs,
+                            message: lastMessage
+                        });
+                        setExcelImageUploadProgress({
+                            summary: `تعذر رفع ${file.name}. إعادة المحاولة خلال ${waitMs}ms...`,
+                            percent: Math.round((i / Math.max(total, 1)) * 100),
+                            completed: displayIndex,
+                            total,
+                            currentFile: file.name || '-'
+                        });
+                        await waitAbortable(waitMs, runtime.controller ? runtime.controller.signal : null, runtime);
+                    }
+                }
+
+                if (!uploadDone) {
+                    throw new Error(lastMessage || 'فشل الرفع بعد عدة محاولات');
+                }
+            } catch (error) {
+                const message = String(error && error.message || 'فشل غير معروف').trim();
+                if (runtime.cancelRequested || /تم إلغاء الرفع|upload canceled|aborted|canceled/i.test(message)) {
+                    break;
+                }
+                failed.push({
+                    file: file.name,
+                    originalName: String(file.name || fileItem.originalName || ''),
+                    fileSize: typeof file.size === 'number' ? file.size : (Number(fileItem && fileItem.fileSize) || 0),
+                    fileType: String(file.type || fileItem && fileItem.fileType || ''),
+                    key: String(fileItem && fileItem.key || publicId),
+                    productIds: Array.isArray(fileItem && fileItem.productIds)
+                        ? fileItem.productIds.map((id) => String(id || '').trim()).filter(Boolean)
+                        : [],
+                    productNames: Array.isArray(fileItem && fileItem.productNames)
+                        ? fileItem.productNames.map((value) => String(value || '').trim()).filter(Boolean)
+                        : [],
+                    rawValues: Array.isArray(fileItem && fileItem.rawValues)
+                        ? fileItem.rawValues.map((value) => String(value || '').trim()).filter(Boolean)
+                        : [],
+                    error: message,
+                    transient: isTransientUploadFailure(error)
+                });
+                console.error('[EXCEL_IMAGE_UPLOAD] upload failed:', file.name, error);
+            } finally {
+                runtime.controller = null;
+            }
+
+            const donePercent = Math.round(((i + 1) / Math.max(total, 1)) * 100);
+            setExcelImageUploadProgress({
+                percent: donePercent,
+                completed: displayIndex,
+                total,
+                currentFile: file.name || '-'
+            });
+            if (!runtime.cancelRequested && i < files.length - 1) {
+                await waitAbortable(EXCEL_UPLOAD_DELAY_MS, null, runtime);
+            }
+            await waitExcelUploadTick();
         }
-        await waitExcelUploadTick();
-    }
     } finally {
         canceled = runtime.cancelRequested === true;
         runtime.lastFailedItems = failed.map((item) => ({ ...item }));
-        runtime.inFlight = isRetryMode ? 'retry' : false;
         runtime.cancelRequested = false;
         runtime.controller = null;
         runtime.retryTimerId = null;
-        runtime.uploadSessionId = null;
+        releaseBatchOperationLock(lock);
     }
 
     return { uploaded, failed, canceled };
 }
 
-async function persistUploadedImagesToProducts(uploadedItems) {
+async function persistUploadedImagesToProducts(uploadedItems, options = {}) {
     const items = Array.isArray(uploadedItems) ? uploadedItems : [];
+    const existingToken = options && options.opToken ? options.opToken : null;
+    const lock = acquireBatchOperationLock('persist', existingToken);
+    if (!lock) {
+        return { linkedProducts: [], failed: [], locked: true };
+    }
     const linkedProducts = [];
     const failed = [];
 
-    for (const item of items) {
-        const secureUrl = String(item && item.secureUrl || '').trim();
-        const publicId = String(item && item.publicId || '').trim();
-        const productIds = Array.isArray(item && item.productIds)
-            ? item.productIds.map((id) => String(id || '').trim()).filter(Boolean)
-            : [];
-        const productNames = Array.isArray(item && item.productNames)
-            ? item.productNames.map((value) => String(value || '').trim()).filter(Boolean)
-            : [];
+    try {
+        for (const item of items) {
+            const secureUrl = String(item && item.secureUrl || '').trim();
+            const publicId = String(item && item.publicId || '').trim();
+            const productIds = Array.isArray(item && item.productIds)
+                ? item.productIds.map((id) => String(id || '').trim()).filter(Boolean)
+                : [];
+            const productNames = Array.isArray(item && item.productNames)
+                ? item.productNames.map((value) => String(value || '').trim()).filter(Boolean)
+                : [];
 
-        if (!secureUrl || !productIds.length) continue;
+            if (!secureUrl || !productIds.length) continue;
 
-        for (const productId of productIds) {
-            try {
-                await updateProduct(productId, {
-                    image: secureUrl,
-                    imageUrl: secureUrl,
-                    imagePublicId: publicId,
-                    public_id: publicId
-                });
-                linkedProducts.push(productId);
-                const matchedName = productNames[0] || productId;
+            for (const productId of productIds) {
+                try {
+                    await updateProduct(productId, {
+                        image: secureUrl,
+                        imageUrl: secureUrl,
+                        imagePublicId: publicId,
+                        public_id: publicId
+                    });
+                    linkedProducts.push(productId);
+                    const matchedName = productNames[0] || productId;
 
-                if (Array.isArray(products)) {
-                    const localProduct = products.find((product) => String(product && product.id || '') === productId);
-                    if (localProduct) {
-                        localProduct.image = secureUrl;
-                        localProduct.imageUrl = secureUrl;
-                        localProduct.imagePublicId = publicId;
-                        localProduct.public_id = publicId;
-                        localProduct.updatedAt = new Date().toISOString();
+                    if (Array.isArray(products)) {
+                        const localProduct = products.find((product) => String(product && product.id || '') === productId);
+                        if (localProduct) {
+                            localProduct.image = secureUrl;
+                            localProduct.imageUrl = secureUrl;
+                            localProduct.imagePublicId = publicId;
+                            localProduct.public_id = publicId;
+                            localProduct.updatedAt = new Date().toISOString();
+                        }
                     }
+                } catch (error) {
+                    failed.push({
+                        file: String(item && item.file || productId),
+                        originalName: String(item && (item.originalName || item.file) || productId),
+                        fileSize: Number(item && item.fileSize) || 0,
+                        fileType: String(item && item.fileType || ''),
+                        key: String(item && item.key || productId),
+                        error: `فشل ربط الصورة بالمنتج ${productId}: ${String(error && error.message || error)}`,
+                        productId,
+                        productIds: [productId],
+                        productNames: productNames.slice(0, 1),
+                        rawValues: Array.isArray(item && item.rawValues) ? item.rawValues : [],
+                        publicId,
+                        secureUrl,
+                        transient: isTransientUploadFailure(error)
+                    });
                 }
-            } catch (error) {
-                failed.push({
-                    file: String(item && item.file || productId),
-                    error: `فشل ربط الصورة بالمنتج ${productId}: ${String(error && error.message || error)}`,
-                    productId,
-                    productIds: [productId],
-                    productNames: productNames.slice(0, 1),
-                    publicId,
-                    secureUrl,
-                    transient: isTransientUploadFailure(error)
-                });
             }
         }
-    }
 
-    if (typeof loadAllData === 'function') {
-        try {
-            await loadAllData();
-        } catch (reloadError) {
-            console.warn('[EXCEL_IMAGE_UPLOAD] admin refresh after image persist failed:', reloadError);
+        if (typeof loadAllData === 'function') {
+            try {
+                await loadAllData();
+            } catch (reloadError) {
+                console.warn('[EXCEL_IMAGE_UPLOAD] admin refresh after image persist failed:', reloadError);
+            }
         }
+        if (typeof renderProductsTable === 'function') renderProductsTable();
+        if (typeof updateStats === 'function') updateStats();
+    } finally {
+        releaseBatchOperationLock(lock);
     }
-    if (typeof renderProductsTable === 'function') renderProductsTable();
-    if (typeof updateStats === 'function') updateStats();
     return { linkedProducts, failed };
 }
 
@@ -16920,7 +16976,7 @@ async function copyMissingListToClipboard() {
 
 async function retryFailedUploadsOnly() {
     const runtime = getExcelImageUploaderRuntime();
-    if (runtime.inFlight) {
+    if (runtime.activeOperation || runtime.inFlight) {
         showNotification('warning', 'هناك عملية جارية بالفعل، يُرجى الانتظار.');
         return;
     }
@@ -16930,7 +16986,9 @@ async function retryFailedUploadsOnly() {
         return;
     }
 
-    runtime.inFlight = 'retry';
+    const batchLock = acquireBatchOperationLock('retry-failed');
+    if (!batchLock) return;
+
     try {
         const transientQueue = failedQueue.filter((item) => item && item.transient === true);
         const retrySource = transientQueue.length ? transientQueue : failedQueue;
@@ -16947,7 +17005,10 @@ async function retryFailedUploadsOnly() {
             : [];
         const uploadItems = retrySource.filter((item) => !(item && item.secureUrl && item.productId));
         const retryDescriptors = uploadItems.map((item) => ({
-            fileName: String(item && item.file || '').trim(),
+            fileName: String(item && (item.originalName || item.file) || '').trim(),
+            originalName: String(item && (item.originalName || item.file) || '').trim(),
+            fileSize: Number(item && item.fileSize) || 0,
+            fileType: String(item && item.fileType || ''),
             key: String(item && item.key || normalizeFilenameForMatch(item && item.file || '')).trim(),
             productIds: Array.isArray(item && item.productIds) ? item.productIds : [],
             productNames: Array.isArray(item && item.productNames) ? item.productNames : [],
@@ -16974,6 +17035,9 @@ async function retryFailedUploadsOnly() {
                 if (selected && selected.primary) {
                     retryMatched.push({
                         file: selected.primary,
+                        originalName: item.originalName || selected.primary.name,
+                        fileSize: typeof selected.primary.size === 'number' ? selected.primary.size : (item.fileSize || 0),
+                        fileType: selected.primary.type || item.fileType || '',
                         key: item.key,
                         productIds: item.productIds.map((id) => String(id || '').trim()).filter(Boolean),
                         productNames: item.productNames.map((value) => String(value || '').trim()).filter(Boolean),
@@ -16996,13 +17060,16 @@ async function retryFailedUploadsOnly() {
         }
 
         const retryResult = retryMatched.length
-            ? await runCloudinaryUploadQueue(retryMatched, { mode: 'retry-failed' })
+            ? await runCloudinaryUploadQueue(retryMatched, { mode: 'retry-failed', opToken: batchLock.token })
             : { uploaded: [], failed: [], canceled: false };
 
         let linkResult = { linkedProducts: [], failed: [] };
         if (isExcelMode) {
             const previouslyUploaded = linkOnlyItems.map((item) => ({
                 file: String(item.file || ''),
+                originalName: String(item.originalName || item.file || ''),
+                fileSize: Number(item.fileSize) || 0,
+                fileType: String(item.fileType || ''),
                 key: String(item.key || normalizeFilenameForMatch(item.file || '')),
                 productIds: [String(item.productId || '').trim()].filter(Boolean),
                 productNames: Array.isArray(item.productNames) ? item.productNames : [],
@@ -17013,7 +17080,7 @@ async function retryFailedUploadsOnly() {
             linkResult = await persistUploadedImagesToProducts([
                 ...retryResult.uploaded,
                 ...previouslyUploaded
-            ]);
+            ], { opToken: batchLock.token });
         }
 
         const matchedRetryKeys = new Set(retryMatched.map((item) => item.key));
@@ -17021,6 +17088,9 @@ async function retryFailedUploadsOnly() {
             .filter((item) => !matchedRetryKeys.has(item.key))
             .map((item) => ({
                 file: item.fileName,
+                originalName: item.originalName || item.fileName,
+                fileSize: item.fileSize || 0,
+                fileType: item.fileType || '',
                 key: item.key,
                 productIds: item.productIds,
                 productNames: item.productNames,
@@ -17032,6 +17102,9 @@ async function retryFailedUploadsOnly() {
             ...retryResult.uploaded,
             ...linkOnlyItems.map((item) => ({
                 file: String(item.file || ''),
+                originalName: String(item.originalName || item.file || ''),
+                fileSize: Number(item.fileSize) || 0,
+                fileType: String(item.fileType || ''),
                 publicId: String(item.publicId || ''),
                 secureUrl: String(item.secureUrl || '')
             }))
@@ -17066,7 +17139,7 @@ async function retryFailedUploadsOnly() {
         console.error('[EXCEL_IMAGE_UPLOAD] retry failed error:', error);
         showNotification('error', `فشلت إعادة المحاولة: ${String(error && error.message || 'خطأ غير معروف')}`);
     } finally {
-        runtime.inFlight = false;
+        releaseBatchOperationLock(batchLock);
     }
 }
 
@@ -17090,7 +17163,7 @@ function renderCloudinaryConfigError() {
 
 async function openBulkProductImageUploader() {
     const runtime = getExcelImageUploaderRuntime();
-    if (runtime.inFlight) {
+    if (runtime.activeOperation || runtime.inFlight) {
         showNotification('warning', 'هناك عملية رفع جارية بالفعل.');
         return;
     }
@@ -17105,6 +17178,7 @@ async function openBulkProductImageUploader() {
         if (ui.modal && typeof ui.modal.focus === 'function') ui.modal.focus();
     }, 0);
 
+    let batchLock = null;
     try {
         if (!isCloudinaryReadyForExcelUpload()) {
             renderCloudinaryConfigError();
@@ -17194,6 +17268,9 @@ async function openBulkProductImageUploader() {
             return;
         }
 
+        batchLock = acquireBatchOperationLock('generic-bulk');
+        if (!batchLock) return;
+
         if (ui.previewWrap) ui.previewWrap.style.display = 'none';
         revokeExcelPreviewObjectUrls();
         if (ui.startBtn) ui.startBtn.style.display = 'none';
@@ -17205,7 +17282,7 @@ async function openBulkProductImageUploader() {
         }
 
         showNotification('info', `بدء رفع ${selectionResult.matchedFiles.length} صورة إلى Cloudinary.`);
-        const uploadResult = await runCloudinaryUploadQueue(selectionResult.matchedFiles, { mode: 'generic' });
+        const uploadResult = await runCloudinaryUploadQueue(selectionResult.matchedFiles, { mode: 'generic', opToken: batchLock.token });
         finalizeExcelImageUploadModal({
             matchedFiles: selectionResult.matchedFiles,
             uploaded: uploadResult.uploaded,
@@ -17235,13 +17312,16 @@ async function openBulkProductImageUploader() {
         });
         showNotification('error', `فشل رفع الصور: ${String(error && error.message || 'خطأ غير معروف')}`);
     } finally {
+        if (batchLock) {
+            releaseBatchOperationLock(batchLock);
+        }
         toggleExcelUploaderButtonLoading(false);
     }
 }
 
 async function openExcelImagesOnlyUploader() {
     const runtime = getExcelImageUploaderRuntime();
-    if (runtime.inFlight) {
+    if (runtime.activeOperation || runtime.inFlight) {
         showNotification('warning', 'هناك عملية رفع جارية بالفعل.');
         return;
     }
@@ -17256,6 +17336,7 @@ async function openExcelImagesOnlyUploader() {
         if (ui.modal && typeof ui.modal.focus === 'function') ui.modal.focus();
     }, 0);
 
+    let batchLock = null;
     try {
         if (!isCloudinaryReadyForExcelUpload()) {
             renderCloudinaryConfigError();
@@ -17402,6 +17483,9 @@ async function openExcelImagesOnlyUploader() {
             return;
         }
 
+        batchLock = acquireBatchOperationLock('excel-main');
+        if (!batchLock) return;
+
         if (ui.previewWrap) ui.previewWrap.style.display = 'none';
         revokeExcelPreviewObjectUrls();
         if (ui.startBtn) ui.startBtn.style.display = 'none';
@@ -17413,9 +17497,9 @@ async function openExcelImagesOnlyUploader() {
         }
 
         showNotification('info', `بدء رفع ${matchedFiles.length} صورة مطابقة من أصل ${requiredMap.size} صورة مطلوبة.`);
-        const uploadResult = await runCloudinaryUploadQueue(matchedFiles, { mode: 'main' });
+        const uploadResult = await runCloudinaryUploadQueue(matchedFiles, { mode: 'main', opToken: batchLock.token });
 
-        const persistResult = await persistUploadedImagesToProducts(uploadResult.uploaded);
+        const persistResult = await persistUploadedImagesToProducts(uploadResult.uploaded, { opToken: batchLock.token });
         const persistFailed = Array.isArray(persistResult && persistResult.failed) ? persistResult.failed : [];
         const allFailures = [...uploadResult.failed, ...persistFailed];
 
@@ -17450,6 +17534,9 @@ async function openExcelImagesOnlyUploader() {
         });
         showNotification('error', `فشل تنفيذ رفع صور الإكسل: ${String(error && error.message || 'خطأ غير معروف')}`);
     } finally {
+        if (batchLock) {
+            releaseBatchOperationLock(batchLock);
+        }
         toggleExcelUploaderButtonLoading(false);
     }
 }

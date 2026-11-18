@@ -490,6 +490,272 @@ async function runAsyncTest(name, fn) {
     assert.strictEqual(finalRuntime.missingListText.includes('m1.jpg'), true, 'Missing list text formatted correctly');
   });
 
+  // Scenario F4: Full Excel batch concurrency barrier across upload and persistence
+  await runAsyncTest('Scenario F4: Full batch lifecycle concurrency barrier - lock held through persistence', async () => {
+    let releasePersistenceBarrier;
+    const persistenceBarrier = new Promise((resolve) => {
+      releasePersistenceBarrier = resolve;
+    });
+
+    let uploadCallCount = 0;
+    let persistenceEntered = false;
+    let notifications = [];
+
+    const env = createEnvironment({
+      uploadToCloudinary: async (file) => {
+        uploadCallCount += 1;
+        return {
+          publicId: `pub_${file.name}`,
+          url: `https://res.cloudinary.com/test/${file.name}`
+        };
+      },
+      updateProduct: async (productId, data) => {
+        persistenceEntered = true;
+        await persistenceBarrier; // Suspend on barrier during persistence
+      },
+      showNotification: (type, msg) => {
+        notifications.push({ type, msg });
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+    const batchFiles = [
+      {
+        file: { name: 'prod1.png', size: 1024, type: 'image/png' },
+        key: 'prod1',
+        productIds: ['P1'],
+        productNames: ['Product 1'],
+        rawValues: ['prod1.png']
+      }
+    ];
+
+    // Acquire batch lock (as openExcelImagesOnlyUploader does)
+    const batchLock = env.acquireBatchOperationLock('excel-main');
+    assert.ok(batchLock && batchLock.token, 'Batch lock must be successfully acquired');
+    assert.strictEqual(batchLock.isOwner, true, 'Outer batch coordinator is owner');
+
+    // Run batch lifecycle asynchronously
+    const batchLifecyclePromise = (async () => {
+      try {
+        const uploadResult = await env.runCloudinaryUploadQueue(batchFiles, { mode: 'main', opToken: batchLock.token });
+        const persistResult = await env.persistUploadedImagesToProducts(uploadResult.uploaded, { opToken: batchLock.token });
+        return { uploadResult, persistResult };
+      } finally {
+        env.releaseBatchOperationLock(batchLock);
+      }
+    })();
+
+    // Wait until upload finishes and persistence starts (holding barrier)
+    while (!persistenceEntered) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+
+    // Verify lock is STILL held continuously during persistence phase
+    assert.ok(runtime.activeOperation, 'activeOperation must remain held during persistence');
+    assert.strictEqual(runtime.activeOperation.token, batchLock.token, 'Token must match the outer batch token');
+    assert.strictEqual(runtime.inFlight, true, 'inFlight must remain true during persistence');
+
+    // Attempt concurrent second batch upload
+    const concurrentLockAttempt = env.acquireBatchOperationLock('excel-main');
+    assert.strictEqual(concurrentLockAttempt, null, 'Second batch lock attempt must be rejected');
+
+    const concurrentUploadResult = await env.runCloudinaryUploadQueue(batchFiles, { mode: 'main' });
+    assert.strictEqual(concurrentUploadResult.locked, true, 'Concurrent upload queue must report locked: true');
+    assert.strictEqual(uploadCallCount, 1, 'Upload call count must NOT increase during concurrent attempt');
+
+    // Attempt concurrent retry
+    runtime.failedRetryQueue = [{ file: 'retry.png', transient: true }];
+    await env.retryFailedUploadsOnly();
+    assert.ok(
+      notifications.some((n) => n.msg.includes('جارية بالفعل')),
+      'Concurrent retry must be blocked with active operation notification'
+    );
+
+    // Release the persistence barrier
+    releasePersistenceBarrier();
+    const results = await batchLifecyclePromise;
+
+    // Verify successful completion and release of lock
+    assert.strictEqual(results.uploadResult.uploaded.length, 1, 'Upload completed');
+    assert.strictEqual(results.persistResult.linkedProducts.length, 1, 'Persistence completed');
+    assert.strictEqual(runtime.activeOperation, null, 'Lock must be completely freed after batch completes');
+    assert.strictEqual(runtime.inFlight, false, 'inFlight must be false after batch completes');
+  });
+
+  // Scenario F5: Error and cancellation recovery - clean lock release
+  await runAsyncTest('Scenario F5: Error and cancellation recovery - lock release and subsequent operation success', async () => {
+    const env = createEnvironment({
+      uploadToCloudinary: async () => {
+        throw new Error('Simulated fatal network error');
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+
+    // 1. Error during execution under lock
+    const lock1 = env.acquireBatchOperationLock('test-err');
+    assert.strictEqual(runtime.activeOperation.token, lock1.token);
+
+    try {
+      await env.runCloudinaryUploadQueue(
+        [{ file: { name: 'f1.png' }, key: 'k1' }],
+        { mode: 'main', opToken: lock1.token }
+      );
+    } finally {
+      env.releaseBatchOperationLock(lock1);
+    }
+
+    assert.strictEqual(runtime.activeOperation, null, 'Lock must be released on upload error');
+    assert.strictEqual(runtime.inFlight, false, 'inFlight must be false');
+
+    // 2. Cancellation during execution under lock
+    const lock2 = env.acquireBatchOperationLock('test-cancel');
+    runtime.cancelRequested = true;
+    try {
+      await env.runCloudinaryUploadQueue(
+        [{ file: { name: 'f2.png' }, key: 'k2' }],
+        { mode: 'main', opToken: lock2.token }
+      );
+    } finally {
+      env.releaseBatchOperationLock(lock2);
+    }
+
+    assert.strictEqual(runtime.activeOperation, null, 'Lock must be released on cancellation');
+    assert.strictEqual(runtime.inFlight, false, 'inFlight must be false after cancel');
+
+    // 3. Verify subsequent operation can acquire lock cleanly
+    const lock3 = env.acquireBatchOperationLock('subsequent-op');
+    assert.ok(lock3 && lock3.token, 'Subsequent operation must cleanly acquire lock');
+    assert.strictEqual(lock3.isOwner, true, 'Subsequent operation is owner');
+    env.releaseBatchOperationLock(lock3);
+    assert.strictEqual(runtime.activeOperation, null, 'Lock freed after subsequent op');
+  });
+
+  // Scenario F6: Object URL lifecycle with explicit count assertions
+  await runAsyncTest('Scenario F6: Object URL lifecycle - preview creation and revocation tracking', async () => {
+    let createdCount = 0;
+    let revokedCount = 0;
+    const activeUrls = new Set();
+
+    const env = createEnvironment({
+      URL: {
+        createObjectURL: (file) => {
+          createdCount += 1;
+          const url = `blob:salezone-preview/${file.name}-${createdCount}`;
+          activeUrls.add(url);
+          return url;
+        },
+        revokeObjectURL: (url) => {
+          revokedCount += 1;
+          activeUrls.delete(url);
+        }
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+
+    // 1. Create preview URLs
+    const url1 = env.createPreviewObjectUrl({ name: 'img1.png' });
+    const url2 = env.createPreviewObjectUrl({ name: 'img2.jpg' });
+
+    assert.strictEqual(createdCount, 2, '2 object URLs created');
+    assert.strictEqual(activeUrls.size, 2, '2 URLs currently tracked');
+    assert.strictEqual(runtime.activeObjectUrls.size, 2, 'Runtime tracks 2 URLs');
+
+    // 2. Revoke via revokeExcelPreviewObjectUrls
+    env.revokeExcelPreviewObjectUrls();
+    assert.strictEqual(revokedCount, 2, '2 object URLs revoked');
+    assert.strictEqual(activeUrls.size, 0, 'Zero URLs leaked in activeUrls set');
+    assert.strictEqual(runtime.activeObjectUrls.size, 0, 'Runtime activeObjectUrls cleared');
+
+    // 3. Create more and test modal reset
+    env.createPreviewObjectUrl({ name: 'img3.png' });
+    env.createPreviewObjectUrl({ name: 'img4.png' });
+    env.createPreviewObjectUrl({ name: 'img5.png' });
+    assert.strictEqual(createdCount, 5, '5 total URLs created');
+    assert.strictEqual(activeUrls.size, 3, '3 currently active');
+
+    env.resetExcelImageUploadModalState();
+    assert.strictEqual(revokedCount, 5, 'All 5 URLs revoked after modal reset');
+    assert.strictEqual(activeUrls.size, 0, 'Zero URLs leaked after reset');
+    assert.strictEqual(runtime.activeObjectUrls.size, 0, 'Runtime activeObjectUrls cleared after reset');
+  });
+
+  // Scenario F7: File metadata preservation across failure and persistence
+  await runAsyncTest('Scenario F7: Complete file metadata preservation across failures and persistence', async () => {
+    // ARCHITECTURAL GUARANTEE:
+    // In browser DOM sandboxes, File objects cannot be programmatically restored or persisted across page sessions without user interaction.
+    // When retry is initiated, the user selects files via folder/file picker, and the engine matches newly selected File handles
+    // against retryDescriptors using the strictly preserved metadata: originalName, fileSize, fileType, key, productIds, productNames, and rawValues.
+
+    const env = createEnvironment({
+      uploadToCloudinary: async (file) => {
+        const err = new Error('Cloudinary 503 Service Unavailable');
+        err.status = 503;
+        throw err;
+      },
+      updateProduct: async (productId) => {
+        throw new Error(`Firestore write rejected for ${productId}`);
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+
+    const richInputItem = {
+      file: { name: 'glow-cream.png', size: 204800, type: 'image/png' },
+      originalName: 'glow-cream.png',
+      fileSize: 204800,
+      fileType: 'image/png',
+      key: 'glow-cream',
+      productIds: ['PROD-GC-101'],
+      productNames: ['Glow Cream 50ml'],
+      rawValues: ['glow-cream.png', 'PROD-GC-101']
+    };
+
+    // 1. Test metadata preservation in uploadMatchedFilesToCloudinary failure
+    const uploadResult = await env.uploadMatchedFilesToCloudinary([richInputItem]);
+    assert.strictEqual(uploadResult.failed.length, 1, 'Upload failure recorded');
+    const uploadFailure = uploadResult.failed[0];
+
+    assert.strictEqual(uploadFailure.originalName, 'glow-cream.png', 'originalName preserved in upload failure');
+    assert.strictEqual(uploadFailure.fileSize, 204800, 'fileSize preserved in upload failure');
+    assert.strictEqual(uploadFailure.fileType, 'image/png', 'fileType preserved in upload failure');
+    assert.strictEqual(uploadFailure.key, 'glow-cream', 'key preserved in upload failure');
+    assert.deepStrictEqual([...uploadFailure.productIds], ['PROD-GC-101'], 'productIds preserved in upload failure');
+    assert.deepStrictEqual([...uploadFailure.productNames], ['Glow Cream 50ml'], 'productNames preserved in upload failure');
+    assert.deepStrictEqual([...uploadFailure.rawValues], ['glow-cream.png', 'PROD-GC-101'], 'rawValues preserved in upload failure');
+    assert.ok(uploadFailure.error.includes('503'), 'Error message preserved');
+    assert.strictEqual(typeof uploadFailure.transient, 'boolean', 'transient flag preserved');
+
+    // 2. Test metadata preservation in persistUploadedImagesToProducts failure
+    const richUploadedItem = {
+      file: 'glow-cream.png',
+      originalName: 'glow-cream.png',
+      fileSize: 204800,
+      fileType: 'image/png',
+      key: 'glow-cream',
+      productIds: ['PROD-GC-101'],
+      productNames: ['Glow Cream 50ml'],
+      rawValues: ['glow-cream.png', 'PROD-GC-101'],
+      publicId: 'salezone_products/glow-cream',
+      secureUrl: 'https://res.cloudinary.com/test/glow-cream.png'
+    };
+
+    const persistResult = await env.persistUploadedImagesToProducts([richUploadedItem]);
+    assert.strictEqual(persistResult.failed.length, 1, 'Persistence failure recorded');
+    const persistFailure = persistResult.failed[0];
+
+    assert.strictEqual(persistFailure.originalName, 'glow-cream.png', 'originalName preserved in persist failure');
+    assert.strictEqual(persistFailure.fileSize, 204800, 'fileSize preserved in persist failure');
+    assert.strictEqual(persistFailure.fileType, 'image/png', 'fileType preserved in persist failure');
+    assert.strictEqual(persistFailure.key, 'glow-cream', 'key preserved in persist failure');
+    assert.deepStrictEqual([...persistFailure.productIds], ['PROD-GC-101'], 'productIds preserved in persist failure');
+    assert.deepStrictEqual([...persistFailure.productNames], ['Glow Cream 50ml'], 'productNames preserved in persist failure');
+    assert.deepStrictEqual([...persistFailure.rawValues], ['glow-cream.png', 'PROD-GC-101'], 'rawValues preserved in persist failure');
+    assert.ok(persistFailure.error.includes('Firestore write rejected'), 'Error message preserved in persist failure');
+    assert.strictEqual(typeof persistFailure.transient, 'boolean', 'transient flag preserved');
+  });
+
   console.log('\n====================================================');
   console.log(`🎉 ALL ${passedTests}/${totalTests} HARDENED CLOUDINARY VALIDATION TESTS PASSED!`);
   console.log('====================================================\n');
