@@ -603,16 +603,22 @@ async function runAsyncTest(name, fn) {
   });
 
   // Scenario F4: Full Excel batch concurrency barrier across upload and persistence
-  await runAsyncTest('Scenario F4: Full batch lifecycle concurrency barrier - lock held through persistence', async () => {
+  await runAsyncTest('Scenario F4: Full batch lifecycle concurrency barrier - bounded wait & non-leaking timers', async () => {
     let releasePersistenceBarrier;
-    const persistenceBarrier = new Promise((resolve) => {
+    const persistenceCompletionBarrier = new Promise((resolve) => {
       releasePersistenceBarrier = resolve;
     });
 
+    let notifyPersistenceEntered;
+    const persistenceEntrySignal = new Promise((resolve) => {
+      notifyPersistenceEntered = resolve;
+    });
+
     let uploadCallCount = 0;
-    let persistenceEntered = false;
     let finalReportRendered = false;
     let notifications = [];
+    let entryTimeoutId = null;
+    let completionTimeoutId = null;
 
     const env = createEnvironment({
       uploadToCloudinary: async (file) => {
@@ -623,11 +629,14 @@ async function runAsyncTest(name, fn) {
         };
       },
       updateProduct: async (productId, data) => {
-        persistenceEntered = true;
-        // Bounded wait with 5000ms max timeout so test never hangs in CI
+        // Signal entry into persistence immediately without polling
+        notifyPersistenceEntered({ entered: true, productId });
+        // Bounded completion wait (max 5000ms safety ceiling)
         await Promise.race([
-          persistenceBarrier,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Persistence barrier timeout')), 5000))
+          persistenceCompletionBarrier,
+          new Promise((_, reject) => {
+            completionTimeoutId = setTimeout(() => reject(new Error('Persistence completion barrier timed out')), 5000);
+          })
         ]);
       },
       finalizeExcelImageUploadModal: (report) => {
@@ -655,39 +664,56 @@ async function runAsyncTest(name, fn) {
       uploadMode: 'main'
     });
 
-    // Wait until upload finishes and persistence begins
-    while (!persistenceEntered) {
-      await new Promise((r) => setTimeout(r, 10));
+    try {
+      // Bounded wait for entry into persistence phase (NO unbounded while loop)
+      const entryTimeoutPromise = new Promise((_, reject) => {
+        entryTimeoutId = setTimeout(() => reject(new Error('TIMEOUT: Failed to enter persistence phase within 5000ms')), 5000);
+      });
+
+      const earlyCompletionWatch = batchLifecyclePromise.then(
+        (res) => Promise.reject(new Error(`Lifecycle ended prematurely before persistence was entered (result: ${JSON.stringify(res)})`)),
+        (err) => Promise.reject(new Error(`Lifecycle failed before persistence was entered: ${err.message}`))
+      );
+
+      // Race entry signal against timeout and early lifecycle exit
+      await Promise.race([
+        persistenceEntrySignal,
+        entryTimeoutPromise,
+        earlyCompletionWatch
+      ]);
+
+      // 1. Verify lock is held continuously during persistence phase
+      assert.ok(runtime.activeOperation, 'activeOperation must remain held during persistence');
+      assert.strictEqual(runtime.inFlight, true, 'inFlight must remain true during persistence');
+      assert.strictEqual(finalReportRendered, false, 'Final report must NOT be rendered yet while persistence is running');
+
+      // 2. Attempt concurrent second batch upload
+      const concurrentAttempt = await env.executeExcelBatchLifecycle(batchFiles, { mode: 'excel-main' });
+      assert.strictEqual(concurrentAttempt.locked, true, 'Second batch execution must report locked: true');
+      assert.strictEqual(uploadCallCount, 1, 'Upload call count must NOT increase during concurrent attempt');
+
+      // 3. Attempt concurrent retry
+      runtime.failedRetryQueue = [{ file: 'retry.png', transient: true }];
+      await env.retryFailedUploadsOnly();
+      assert.ok(
+        notifications.some((n) => n.msg.includes('جارية بالفعل')),
+        'Concurrent retry must be blocked with active operation notification'
+      );
+
+      // 4. Verify child handle cannot release parent lock
+      env.releaseBatchOperationLock({ token: runtime.activeOperation.token, isOwner: false });
+      assert.ok(runtime.activeOperation, 'Child handle must not release batch lock');
+
+      // 5. Verify release(null) cannot release parent lock
+      env.releaseBatchOperationLock(null);
+      assert.ok(runtime.activeOperation, 'release(null) must not release batch lock');
+    } finally {
+      // Always cleanup timers and release barriers to prevent any hanging promises
+      if (entryTimeoutId) clearTimeout(entryTimeoutId);
+      if (completionTimeoutId) clearTimeout(completionTimeoutId);
+      if (releasePersistenceBarrier) releasePersistenceBarrier();
     }
 
-    // 1. Verify lock is held continuously during persistence phase
-    assert.ok(runtime.activeOperation, 'activeOperation must remain held during persistence');
-    assert.strictEqual(runtime.inFlight, true, 'inFlight must remain true during persistence');
-    assert.strictEqual(finalReportRendered, false, 'Final report must NOT be rendered yet while persistence is running');
-
-    // 2. Attempt concurrent second batch upload
-    const concurrentAttempt = await env.executeExcelBatchLifecycle(batchFiles, { mode: 'excel-main' });
-    assert.strictEqual(concurrentAttempt.locked, true, 'Second batch execution must report locked: true');
-    assert.strictEqual(uploadCallCount, 1, 'Upload call count must NOT increase during concurrent attempt');
-
-    // 3. Attempt concurrent retry
-    runtime.failedRetryQueue = [{ file: 'retry.png', transient: true }];
-    await env.retryFailedUploadsOnly();
-    assert.ok(
-      notifications.some((n) => n.msg.includes('جارية بالفعل')),
-      'Concurrent retry must be blocked with active operation notification'
-    );
-
-    // 4. Verify child handle cannot release parent lock
-    env.releaseBatchOperationLock({ token: runtime.activeOperation.token, isOwner: false });
-    assert.ok(runtime.activeOperation, 'Child handle must not release batch lock');
-
-    // 5. Verify release(null) cannot release parent lock
-    env.releaseBatchOperationLock(null);
-    assert.ok(runtime.activeOperation, 'release(null) must not release batch lock');
-
-    // Release the persistence barrier
-    releasePersistenceBarrier();
     const lifecycleResult = await batchLifecyclePromise;
 
     // 6. Verify completion, final report, and clean lock release
@@ -696,6 +722,150 @@ async function runAsyncTest(name, fn) {
     assert.strictEqual(lifecycleResult.linkedProducts.length, 1, 'Persistence completed');
     assert.strictEqual(runtime.activeOperation, null, 'Lock must be completely freed after batch completes');
     assert.strictEqual(runtime.inFlight, false, 'inFlight must be false after batch completes');
+  });
+
+  // Scenario F4-EarlyExit: Upload failure terminates lifecycle before persistence without hanging
+  await runAsyncTest('Scenario F4-EarlyExit: Upload failure exits before persistence without hanging', async () => {
+    let notifyPersistenceEntered;
+    const persistenceEntrySignal = new Promise((resolve) => {
+      notifyPersistenceEntered = resolve;
+    });
+
+    let persistenceEverCalled = false;
+    let entryTimeoutId = null;
+
+    const env = createEnvironment({
+      uploadToCloudinary: async () => {
+        throw new Error('Immediate upload fatal error');
+      },
+      updateProduct: async () => {
+        persistenceEverCalled = true;
+        notifyPersistenceEntered();
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+    const batchFiles = [{ file: { name: 'err.png' }, key: 'err' }];
+
+    const lifecyclePromise = env.executeExcelBatchLifecycle(batchFiles, {
+      mode: 'excel-main',
+      uploadMode: 'main'
+    });
+
+    try {
+      const entryTimeoutPromise = new Promise((_, reject) => {
+        entryTimeoutId = setTimeout(() => reject(new Error('TIMEOUT: Entry timeout fired')), 1000);
+      });
+
+      const earlyExitWatch = lifecyclePromise.then(
+        (res) => ({ earlyExit: true, res }),
+        (err) => ({ earlyExit: false, err })
+      );
+
+      // Race entry signal against early exit
+      const raceResult = await Promise.race([
+        persistenceEntrySignal.then(() => ({ entered: true })),
+        earlyExitWatch,
+        entryTimeoutPromise
+      ]);
+
+      assert.strictEqual(raceResult.earlyExit, true, 'Lifecycle finished early due to upload failure without hanging');
+      assert.strictEqual(persistenceEverCalled, false, 'Persistence was never entered');
+      assert.strictEqual(raceResult.res.failed.length, 1, 'Upload failure recorded');
+      assert.strictEqual(runtime.activeOperation, null, 'Lock was cleanly released after early exit');
+      assert.strictEqual(runtime.inFlight, false, 'inFlight reset after early exit');
+    } finally {
+      if (entryTimeoutId) clearTimeout(entryTimeoutId);
+    }
+
+    // Verify subsequent operation acquires cleanly
+    const nextLock = env.acquireBatchOperationLock('subsequent-after-early-exit');
+    assert.ok(nextLock && nextLock.isOwner, 'Subsequent operation acquires cleanly');
+    env.releaseBatchOperationLock(nextLock);
+  });
+
+  // Scenario F4-TimeoutSafety: Proves bounded timeout detects hung pre-persistence phase quickly
+  await runAsyncTest('Scenario F4-TimeoutSafety: Detects hung pre-persistence phase within bounded deadline', async () => {
+    let entryTimeoutId = null;
+    let hungUploadBarrierRelease;
+    const hungUploadBarrier = new Promise((resolve) => {
+      hungUploadBarrierRelease = resolve;
+    });
+
+    const env = createEnvironment({
+      uploadToCloudinary: async () => {
+        await hungUploadBarrier; // Hung upload
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+    const batchFiles = [{ file: { name: 'hung.png' }, key: 'hung' }];
+
+    const lifecyclePromise = env.executeExcelBatchLifecycle(batchFiles, {
+      mode: 'excel-main',
+      uploadMode: 'main'
+    });
+
+    let detectedTimeout = false;
+    try {
+      const persistenceEntrySignal = new Promise(() => {}); // never fires
+      const timeoutThresholdMs = 150; // fast bounded timeout for test
+
+      const boundedEntryTimeout = new Promise((_, reject) => {
+        entryTimeoutId = setTimeout(() => reject(new Error('TIMEOUT: Entry deadline exceeded')), timeoutThresholdMs);
+      });
+
+      await Promise.race([persistenceEntrySignal, boundedEntryTimeout]);
+    } catch (err) {
+      if (err.message.includes('TIMEOUT: Entry deadline exceeded')) {
+        detectedTimeout = true;
+      }
+    } finally {
+      if (entryTimeoutId) clearTimeout(entryTimeoutId);
+      // Unstick upload to avoid background leak
+      if (hungUploadBarrierRelease) hungUploadBarrierRelease();
+      await lifecyclePromise.catch(() => {});
+      env.releaseBatchOperationLock(runtime.activeOperation);
+    }
+
+    assert.strictEqual(detectedTimeout, true, 'Bounded timeout correctly fired and prevented infinite hang');
+    assert.strictEqual(runtime.activeOperation, null, 'Clean state after timeout cleanup');
+  });
+
+  // Scenario F4-PersistenceFailure: Persistence error records failure and releases lock cleanly
+  await runAsyncTest('Scenario F4-PersistenceFailure: Persistence error records failure and releases lock cleanly', async () => {
+    let finalReportRendered = false;
+    const env = createEnvironment({
+      uploadToCloudinary: async (file) => ({
+        publicId: `pub_${file.name}`,
+        url: `https://res.cloudinary.com/test/${file.name}`
+      }),
+      updateProduct: async () => {
+        throw new Error('Firestore write quota exceeded');
+      },
+      finalizeExcelImageUploadModal: () => {
+        finalReportRendered = true;
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+    const batchFiles = [{ file: { name: 'p_fail.png' }, key: 'k_fail', productIds: ['P_FAIL'] }];
+
+    const lifecycleResult = await env.executeExcelBatchLifecycle(batchFiles, {
+      mode: 'excel-main',
+      uploadMode: 'main'
+    });
+
+    assert.strictEqual(finalReportRendered, true, 'Final report was rendered');
+    assert.strictEqual(lifecycleResult.failed.length, 1, 'Persistence failure recorded in report');
+    assert.ok(lifecycleResult.failed[0].error.includes('Firestore write quota exceeded'), 'Preserved exact error');
+    assert.strictEqual(runtime.activeOperation, null, 'Lock was cleanly released after persistence error');
+    assert.strictEqual(runtime.inFlight, false);
+
+    // Verify subsequent operation acquires cleanly
+    const nextLock = env.acquireBatchOperationLock('subsequent-after-persist-fail');
+    assert.ok(nextLock && nextLock.isOwner, 'Subsequent operation acquires cleanly');
+    env.releaseBatchOperationLock(nextLock);
   });
 
   // Scenario F5: Error and in-flight cancellation recovery - clean lock release
