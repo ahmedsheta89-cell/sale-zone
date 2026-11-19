@@ -88,6 +88,18 @@ function createEnvironment(customMocks = {}) {
 let passedTests = 0;
 let totalTests = 0;
 
+function withTimeout(promise, timeoutMs, description) {
+  let timerId = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timerId = setTimeout(() => {
+      reject(new Error(`TIMEOUT: ${description} exceeded ${timeoutMs}ms limit`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timerId) clearTimeout(timerId);
+  });
+}
+
 async function runAsyncTest(name, fn) {
   totalTests += 1;
   try {
@@ -714,7 +726,11 @@ async function runAsyncTest(name, fn) {
       if (releasePersistenceBarrier) releasePersistenceBarrier();
     }
 
-    const lifecycleResult = await batchLifecyclePromise;
+    const lifecycleResult = await withTimeout(
+      batchLifecyclePromise,
+      5000,
+      'Batch lifecycle completion after persistence barrier release'
+    );
 
     // 6. Verify completion, final report, and clean lock release
     assert.strictEqual(finalReportRendered, true, 'Final report rendered after persistence');
@@ -795,6 +811,7 @@ async function runAsyncTest(name, fn) {
     const env = createEnvironment({
       uploadToCloudinary: async () => {
         await hungUploadBarrier; // Hung upload
+        return { publicId: 'pub_hung', url: 'https://res.cloudinary.com/test/hung.png' };
       }
     });
 
@@ -822,14 +839,72 @@ async function runAsyncTest(name, fn) {
       }
     } finally {
       if (entryTimeoutId) clearTimeout(entryTimeoutId);
-      // Unstick upload to avoid background leak
+      // Unstick upload to allow lifecycle to complete naturally
       if (hungUploadBarrierRelease) hungUploadBarrierRelease();
-      await lifecyclePromise.catch(() => {});
-      env.releaseBatchOperationLock(runtime.activeOperation);
+      // Bounded wait for genuine lifecycle settlement — DO NOT swallow timeout errors or forcibly clear lock!
+      await withTimeout(
+        lifecyclePromise,
+        2000,
+        'Lifecycle promise settlement after unstick'
+      );
     }
 
     assert.strictEqual(detectedTimeout, true, 'Bounded timeout correctly fired and prevented infinite hang');
-    assert.strictEqual(runtime.activeOperation, null, 'Clean state after timeout cleanup');
+    assert.strictEqual(runtime.activeOperation, null, 'activeOperation cleared naturally by lifecycle settlement');
+    assert.strictEqual(runtime.inFlight, false, 'inFlight reset naturally by lifecycle settlement');
+  });
+
+  // Scenario F4-Negative-HungLifecycleDetected: Proves a hung lifecycle rejects via bounded timeout and NEVER produces a false PASS
+  await runAsyncTest('Scenario F4-Negative-HungLifecycleDetected: Hung lifecycle cleanup rejects and does not produce false PASS', async () => {
+    let hungUploadBarrierRelease;
+    const hungUploadBarrier = new Promise((resolve) => {
+      hungUploadBarrierRelease = resolve;
+    });
+
+    const env = createEnvironment({
+      uploadToCloudinary: async () => {
+        await hungUploadBarrier; // Hung upload that will NOT be released during test execution
+        return { publicId: 'pub_hung_neg', url: 'https://res.cloudinary.com/test/hung_neg.png' };
+      }
+    });
+
+    const runtime = env.getExcelImageUploaderRuntime();
+    const batchFiles = [{ file: { name: 'hung-negative.png' }, key: 'hung-negative' }];
+
+    const lifecyclePromise = env.executeExcelBatchLifecycle(batchFiles, {
+      mode: 'excel-main',
+      uploadMode: 'main'
+    });
+
+    // 1. Verify lock was acquired by the lifecycle
+    assert.ok(runtime.activeOperation, 'activeOperation must be held while lifecycle is in flight');
+    assert.strictEqual(runtime.inFlight, true, 'inFlight must be true');
+
+    // 2. Assert that waiting on the hung lifecycle with bounded timeout explicitly rejects with TIMEOUT
+    //    and that the timeout failure is NOT swallowed.
+    let timeoutCaught = false;
+    try {
+      await withTimeout(lifecyclePromise, 150, 'Hung lifecycle cleanup detection');
+    } catch (err) {
+      if (err.message.includes('TIMEOUT: Hung lifecycle cleanup detection exceeded 150ms limit')) {
+        timeoutCaught = true;
+      }
+    }
+    assert.strictEqual(timeoutCaught, true, 'Bounded timeout must throw explicit error on hung lifecycle');
+
+    // 3. Verify that the hung lifecycle has NOT been falsely marked as completed or unlocked
+    assert.ok(runtime.activeOperation !== null, 'activeOperation must NOT be prematurely cleared while lifecycle is hung');
+    assert.strictEqual(runtime.inFlight, true, 'inFlight must remain true while lifecycle is hung');
+
+    // 4. Verify that concurrent/subsequent operations remain properly blocked
+    const concurrentAttempt = env.acquireBatchOperationLock('subsequent-attempt');
+    assert.strictEqual(concurrentAttempt, null, 'Subsequent lock acquisition must be blocked while hung operation holds lock');
+
+    // 5. Test teardown: unstick the hung upload to prevent leaking background async tasks
+    hungUploadBarrierRelease();
+    await withTimeout(lifecyclePromise, 2000, 'Teardown lifecycle settlement');
+    assert.strictEqual(runtime.activeOperation, null, 'Lock is released only AFTER genuine settlement in teardown');
+    assert.strictEqual(runtime.inFlight, false, 'inFlight is reset only AFTER genuine settlement in teardown');
   });
 
   // Scenario F4-PersistenceFailure: Persistence error records failure and releases lock cleanly
