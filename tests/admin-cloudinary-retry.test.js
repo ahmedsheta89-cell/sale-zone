@@ -88,6 +88,21 @@ function createEnvironment(customMocks = {}) {
 let passedTests = 0;
 let totalTests = 0;
 
+function withTimeout(promise, timeoutMs, description, onTimeoutCleanup = null) {
+  let timerId = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timerId = setTimeout(() => {
+      if (typeof onTimeoutCleanup === 'function') {
+        try { onTimeoutCleanup(); } catch (_) {}
+      }
+      reject(new Error(`TIMEOUT: ${description} exceeded ${timeoutMs}ms limit`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timerId) clearTimeout(timerId);
+  });
+}
+
 async function runAsyncTest(name, fn) {
   totalTests += 1;
   try {
@@ -714,7 +729,14 @@ async function runAsyncTest(name, fn) {
       if (releasePersistenceBarrier) releasePersistenceBarrier();
     }
 
-    const lifecycleResult = await batchLifecyclePromise;
+    const lifecycleResult = await withTimeout(
+      batchLifecyclePromise,
+      5000,
+      'Batch lifecycle completion after persistence barrier release',
+      () => {
+        env.releaseBatchOperationLock(runtime.activeOperation);
+      }
+    );
 
     // 6. Verify completion, final report, and clean lock release
     assert.strictEqual(finalReportRendered, true, 'Final report rendered after persistence');
@@ -824,7 +846,14 @@ async function runAsyncTest(name, fn) {
       if (entryTimeoutId) clearTimeout(entryTimeoutId);
       // Unstick upload to avoid background leak
       if (hungUploadBarrierRelease) hungUploadBarrierRelease();
-      await lifecyclePromise.catch(() => {});
+      await withTimeout(
+        lifecyclePromise.catch(() => {}),
+        1000,
+        'Lifecycle promise cleanup after hung upload unstick',
+        () => {
+          env.releaseBatchOperationLock(runtime.activeOperation);
+        }
+      ).catch(() => {});
       env.releaseBatchOperationLock(runtime.activeOperation);
     }
 
