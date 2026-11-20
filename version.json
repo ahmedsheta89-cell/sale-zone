@@ -1,16 +1,20 @@
 {
-    "version": "2026.11.20.0003",
-    "lastUpdate": "PHASE-2-COMMERCE-INTEGRITY-001",
-    "lastUpdated": "2026-11-20T16:15:00+02:00",
+    "version": "2026.11.20.0004",
+    "lastUpdate": "PHASE-3-COMMERCE-INTEGRITY-001",
+    "lastUpdated": "2026-11-20T18:45:00+02:00",
     "changes": [
-        "feat(commerce): Phase 2 deep root-cause remediation, inventory integrity, and return receipt workflow",
-        "feat(commerce): commercial discriminated status union (found, not_found, read_failed, invalid_data)",
-        "feat(commerce): strict cost price isolation without retail price fallback",
-        "feat(commerce): stale stock overwrite prevention in updateProduct",
-        "feat(commerce): strict order line item validation and multi-line deduplication with unique lineIds",
-        "feat(commerce): return receipt lifecycle with quarantine ledger for damaged goods and verified restock",
-        "feat(security): firestore rules for /returns collection and client order creation forbidden flags"
+        "feat(commerce): Phase 3 itemized return inspections, order line identity, authoritative pricing & commercial isolation",
+        "feat(returns): itemized return inspection modal with sellable vs damaged quarantine distribution",
+        "feat(returns): strict quantity equation enforcement (sellableQty + damagedQty === receivedQty)",
+        "feat(returns): cumulative return limits preventing over-returns across partial return receipts",
+        "feat(returns): elimination of blind restock fallback on fulfilled orders",
+        "feat(inventory): firestore rules exemption for zero-quantity damaged return quarantine movements",
+        "feat(orders): unique order line ID enforcement and client duplicate lineId disambiguation",
+        "feat(pricing): authoritative catalog price verification and subtotal/total enforcement on online orders",
+        "feat(security): actor identity enforcement matching request.auth.uid and blocking client spoofing",
+        "feat(commercial): cleansing public catalog snapshots to prevent phantom _commercialLoaded state",
+        "ci(governance): integrated Phase 2 and Phase 3 commerce test suites into release gate CI"
     ],
-    "layer": "Phase 2",
-    "phase": "Deep Root-Cause Remediation, Commerce Integrity & End-to-End System Integration"
+    "layer": "Phase 3",
+    "phase": "Post-PR #292 Commerce Integrity & Security Remediation"
 }

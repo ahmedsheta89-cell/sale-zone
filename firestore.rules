@@ -763,9 +763,17 @@ service cloud.firestore {
       allow create: if isAdmin()
         && request.resource.data.movementId == movementId
         && request.resource.data.quantity is number
-        && request.resource.data.quantity != 0
+        && (
+          request.resource.data.quantity != 0
+          || (
+            request.resource.data.quantity == 0
+            && request.resource.data.movementType == 'OUT_DAMAGED_EXPIRED'
+            && request.resource.data.referenceType == 'return_receipt'
+          )
+        )
         && request.resource.data.productId is string
         && request.resource.data.idempotencyKey is string
+        && (!('performedBy' in request.resource.data) || request.resource.data.performedBy == request.auth.uid)
         && request.resource.data.movementType in [
           'OUT_ORDER_PLACED', 'OUT_ORDER_CONFIRMED', 'IN_ORDER_CANCELLED',
           'IN_ORDER_RETURNED', 'IN_PURCHASE_RECEIPT', 'OUT_PURCHASE_RETURN',
@@ -812,7 +820,9 @@ service cloud.firestore {
         && request.resource.data.returnId == returnId
         && request.resource.data.orderId is string
         && request.resource.data.items is list
-        && request.resource.data.items.size() > 0;
+        && request.resource.data.items.size() > 0
+        && (!('inspectedBy' in request.resource.data) || request.resource.data.inspectedBy == request.auth.uid)
+        && (!('performedBy' in request.resource.data) || request.resource.data.performedBy == request.auth.uid);
       allow update: if isAdmin();
       allow delete: if false;
     }
