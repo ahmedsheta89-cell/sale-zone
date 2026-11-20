@@ -1,15 +1,15 @@
 {
-    "version": "2026.11.20.0001",
-    "lastUpdate": "PHASE-1-COMMERCE-SECURITY-001",
-    "lastUpdated": "2026-11-20T04:55:00+02:00",
+    "version": "2026.11.20.0002",
+    "lastUpdate": "PHASE-1-SECURITY-REMEDIATION-002",
+    "lastUpdated": "2026-11-20T08:30:00+02:00",
     "changes": [
-        "feat(commerce): commercial secrets separation into product_commercial",
-        "feat(commerce): append-only idempotent inventory_ledger",
-        "feat(commerce): authoritative order recalculation and audit discrepancy badge",
-        "feat(commerce): strict coupon validation for active, expiry, minOrder, usageLimit",
-        "feat(commerce): loyalty points ledger and customer forge prevention",
-        "feat(commerce): spark mode telemetry and dead cloudfunctions neutralization"
+        "fix(security): address Codex P1/P2 findings on commercial data, inventory, loyalty, and coupon limits",
+        "feat(commerce): commercial secrets separation into product_commercial with FieldValue.delete()",
+        "feat(commerce): append-only idempotent inventory_ledger with failure safety and deferred post-fulfillment restock",
+        "feat(commerce): authoritative order recalculation and customer loyalty forge prevention",
+        "feat(commerce): transactional coupon limits enforcement and storefront auto-invalidation",
+        "feat(commerce): full CLI for migrate-commercial-data with dry-run default and safety guards"
     ],
     "layer": "Phase 1",
-    "phase": "Core Commerce, Data Security, Inventory Integrity & Transaction Reliability"
+    "phase": "Core Commerce, Data Security, Inventory Integrity & Transaction Reliability — Security Remediation"
 }

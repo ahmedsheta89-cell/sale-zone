@@ -7667,16 +7667,34 @@
             const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             let discount = 0;
             if (appliedCoupon) {
-                const minOrder = Number(appliedCoupon.minOrderAmount) || 0;
+                const minOrder = Number(appliedCoupon.minOrderAmount !== undefined ? appliedCoupon.minOrderAmount : appliedCoupon.minOrder) || 0;
                 const isExpired = appliedCoupon.expiresAt && new Date(appliedCoupon.expiresAt) < new Date();
-                const isExhausted = appliedCoupon.usageLimit && Number(appliedCoupon.usedCount || 0) >= Number(appliedCoupon.usageLimit);
-                if (appliedCoupon.active === false || isExpired || isExhausted || (minOrder > 0 && subtotal < minOrder)) {
+                const rawLimit = appliedCoupon.usageLimit !== undefined ? appliedCoupon.usageLimit : appliedCoupon.maxUses;
+                const parsedLimit = Number(rawLimit);
+                const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
+                const isExhausted = limit !== null && Number(appliedCoupon.usedCount || 0) >= limit;
+                const isInactive = appliedCoupon.active === false || appliedCoupon.isActive === false;
+                const isBelowMin = minOrder > 0 && subtotal < minOrder;
+
+                if (isInactive || isExpired || isExhausted || isBelowMin) {
+                    const droppedCode = appliedCoupon.code;
                     appliedCoupon = null;
                     discount = 0;
+                    const couponInputEl = document.getElementById('couponInput');
+                    if (couponInputEl) couponInputEl.value = '';
+                    if (typeof showNotification === 'function') {
+                        let reason = 'تم إلغاء تطبيق الكوبون.';
+                        if (isInactive) reason = `تم إلغاء الكوبون (${droppedCode}) لأنه غير متاح حالياً.`;
+                        else if (isExpired) reason = `تم إلغاء الكوبون (${droppedCode}) لانتهاء صلاحيته.`;
+                        else if (isExhausted) reason = `تم إلغاء الكوبون (${droppedCode}) لاستنفاد الحد الأقصى للاستخدام.`;
+                        else if (isBelowMin) reason = `تم إلغاء الكوبون (${droppedCode}) لأن مجموع السلة أقل من الحد الأدنى (${formatPrice(minOrder)}).`;
+                        showNotification('warning', 'تنبيه الكوبون', reason);
+                    }
                 } else {
+                    const rawVal = Number(appliedCoupon.value !== undefined ? appliedCoupon.value : appliedCoupon.discount) || 0;
                     discount = appliedCoupon.type === 'percentage'
-                        ? Math.round(subtotal * (appliedCoupon.value / 100) * 100) / 100
-                        : Math.min(subtotal, appliedCoupon.value);
+                        ? Math.round(subtotal * (rawVal / 100) * 100) / 100
+                        : Math.min(subtotal, rawVal);
                 }
             }
             updateCartSummary(subtotal, discount);
@@ -7717,7 +7735,8 @@
             const coupon = coupons.find(c => String(c.code || '').toUpperCase() === code);
             if (!coupon) { showNotification('error', 'خطأ', 'كود غير صحيح'); return; }
 
-            if (coupon.active === false) {
+            const isActive = coupon.active !== false && coupon.isActive !== false;
+            if (!isActive) {
                 showNotification('error', 'خطأ', 'هذا الكوبون غير متاح حالياً');
                 return;
             }
@@ -7728,20 +7747,24 @@
             }
 
             const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-            const minOrder = Number(coupon.minOrderAmount) || 0;
+            const minOrder = Number(coupon.minOrderAmount !== undefined ? coupon.minOrderAmount : coupon.minOrder) || 0;
             if (minOrder > 0 && subtotal < minOrder) {
                 showNotification('error', 'خطأ', `الحد الأدنى للطلب لتفعيل هذا الكوبون هو ${formatPrice(minOrder)}`);
                 return;
             }
 
-            if (coupon.usageLimit && Number(coupon.usedCount || 0) >= Number(coupon.usageLimit)) {
+            const rawLimit = coupon.usageLimit !== undefined ? coupon.usageLimit : coupon.maxUses;
+            const parsedLimit = Number(rawLimit);
+            const usageLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
+            if (usageLimit !== null && Number(coupon.usedCount || 0) >= usageLimit) {
                 showNotification('error', 'خطأ', 'تم استنفاد الحد الأقصى لاستخدام هذا الكوبون');
                 return;
             }
 
             appliedCoupon = coupon;
             updateCartUI();
-            showNotification('success', 'تم', `خصم ${coupon.type === 'percentage' ? coupon.value + '%' : formatPrice(coupon.value)}`);
+            const val = Number(coupon.value !== undefined ? coupon.value : coupon.discount) || 0;
+            showNotification('success', 'تم', `خصم ${coupon.type === 'percentage' ? val + '%' : formatPrice(val)}`);
         }
 
         // ============================================
@@ -11286,21 +11309,66 @@
                 : [...cart];
             const subtotal = checkoutItems.reduce((s, i) => s + (Number(i.price) * Number(i.quantity)), 0);
 
-            // Authoritative re-validation of applied coupon against live checkout subtotal
+            // Authoritative live re-validation of applied coupon against Firestore & checkout subtotal
             if (appliedCoupon) {
-                const minOrder = Number(appliedCoupon.minOrderAmount) || 0;
+                if (typeof getFirebaseDB === 'function') {
+                    try {
+                        const db = getFirebaseDB();
+                        let freshCouponDoc = null;
+                        if (appliedCoupon.id) {
+                            const snap = await db.collection('coupons').doc(String(appliedCoupon.id)).get();
+                            if (snap.exists) freshCouponDoc = snap;
+                        }
+                        if (!freshCouponDoc && appliedCoupon.code) {
+                            const snap = await db.collection('coupons')
+                                .where('code', '==', String(appliedCoupon.code).trim().toUpperCase())
+                                .limit(1)
+                                .get();
+                            if (!snap.empty) freshCouponDoc = snap.docs[0];
+                        }
+
+                        if (freshCouponDoc && freshCouponDoc.exists) {
+                            const freshData = freshCouponDoc.data() || {};
+                            appliedCoupon = {
+                                id: freshCouponDoc.id,
+                                ...appliedCoupon,
+                                ...freshData
+                            };
+                        }
+                    } catch (liveErr) {
+                        console.warn('Live coupon re-validation warning:', liveErr);
+                    }
+                }
+
+                const minOrder = Number(appliedCoupon.minOrderAmount !== undefined ? appliedCoupon.minOrderAmount : appliedCoupon.minOrder) || 0;
                 const isExpired = appliedCoupon.expiresAt && new Date(appliedCoupon.expiresAt) < new Date();
-                const isExhausted = appliedCoupon.usageLimit && Number(appliedCoupon.usedCount || 0) >= Number(appliedCoupon.usageLimit);
-                if (appliedCoupon.active === false || isExpired || isExhausted || (minOrder > 0 && subtotal < minOrder)) {
+                const rawLimit = appliedCoupon.usageLimit !== undefined ? appliedCoupon.usageLimit : appliedCoupon.maxUses;
+                const parsedLimit = Number(rawLimit);
+                const usageLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
+                const isExhausted = usageLimit !== null && Number(appliedCoupon.usedCount || 0) >= usageLimit;
+                const isInactive = appliedCoupon.active === false || appliedCoupon.isActive === false;
+                const isBelowMin = minOrder > 0 && subtotal < minOrder;
+
+                if (isInactive || isExpired || isExhausted || isBelowMin) {
+                    let reason = 'الكوبون لم يعد متاحاً.';
+                    if (isInactive) reason = 'الكوبون تم إيقافه من قبل الإدارة.';
+                    else if (isExpired) reason = 'انتهت صلاحية الكوبون أثناء التسوق.';
+                    else if (isExhausted) reason = 'تم استنفاد الحد الأقصى لاستخدام هذا الكوبون من قبل مستخدمين آخرين.';
+                    else if (isBelowMin) reason = `الحد الأدنى للطلب لتفعيل الكوبون هو ${formatPrice(minOrder)}.`;
+
                     appliedCoupon = null;
+                    updateCartUI();
+                    showNotification('error', 'تعذر تطبيق الكوبون', reason);
+                    return;
                 }
             }
 
             let discount = 0;
             if (appliedCoupon) {
+                const rawVal = Number(appliedCoupon.value !== undefined ? appliedCoupon.value : appliedCoupon.discount) || 0;
                 discount = appliedCoupon.type === 'percentage'
-                    ? Math.round(subtotal * (appliedCoupon.value / 100) * 100) / 100
-                    : Math.min(subtotal, appliedCoupon.value);
+                    ? Math.round(subtotal * (rawVal / 100) * 100) / 100
+                    : Math.min(subtotal, rawVal);
             }
 
             const totalAfterCoupon = Math.max(0, subtotal - discount);
@@ -11324,6 +11392,7 @@
                 items: checkoutItems,
                 subtotal, discount,
                 couponCode: appliedCoupon?.code || null,
+                couponId: appliedCoupon?.id || null,
                 usedPoints, pointsDiscount: safePointsDiscount, total, earnedPoints,
                 status: 'pending',
                 statusHistory: [{ status: 'pending', date: nowIso, note: 'تم استلام الطلب' }],
