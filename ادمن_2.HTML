@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone Store Admin - لوحة التحكم">
     <meta name="firebase-app-check-site-key" content="">
-    <meta name="backend-api-base-url" content="https://us-central1-sale-zone-601f0.cloudfunctions.net/api">
+    <meta name="backend-api-base-url" content="">
     <link rel="icon" href="./icon-192.png">
     <link rel="shortcut icon" href="./icon-192.png">
     <link rel="apple-touch-icon" href="./icon-192.png">
@@ -2126,7 +2126,7 @@
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>الكود</th><th>الوصف</th><th>النوع</th><th>القيمة</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>الكود</th><th>الوصف</th><th>النوع</th><th>القيمة</th><th>الحد الأدنى</th><th>الاستخدام</th><th>إجراءات</th></tr></thead>
                                 <tbody id="couponsTable"></tbody>
                             </table>
                         </div>
@@ -3780,6 +3780,28 @@
                         <div class="form-group">
                             <label>القيمة *</label>
                             <input type="number" id="couponValue" required min="1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>الحد الأدنى للطلب (ج.م)</label>
+                            <input type="number" id="couponMinOrder" min="0" placeholder="0 = بدون حد أدنى">
+                        </div>
+                        <div class="form-group">
+                            <label>تاريخ الانتهاء</label>
+                            <input type="date" id="couponExpiresAt">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>الحد الأقصى لمرات الاستخدام</label>
+                            <input type="number" id="couponUsageLimit" min="1" placeholder="اتركه فارغاً لغير محدود">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; padding-top: 25px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="couponActive" checked>
+                                <span>الكوبون نشط</span>
+                            </label>
                         </div>
                     </div>
                     <button type="submit" class="submit-btn">💾 حفظ</button>
@@ -7689,9 +7711,21 @@ function adminLogout(){
             resetProductForm();
         }
 
-        function editProduct(id) {
+        async function editProduct(id) {
             const p = products.find((x) => String(x.id) === String(id));
             if (!p) return;
+
+            // Load commercial data on-demand if not already loaded on this product
+            if (p.costPrice === undefined && typeof getProductCommercial === 'function') {
+                try {
+                    const comm = await getProductCommercial(p.id);
+                    if (comm) {
+                        Object.assign(p, comm);
+                    }
+                } catch (commErr) {
+                    console.warn('Could not fetch commercial data for product', p.id, commErr);
+                }
+            }
 
             document.getElementById('productId').value = p.id || '';
             document.getElementById('productName').value = p.name || '';
@@ -8766,7 +8800,32 @@ function adminLogout(){
             `;
             }).join('');
 
+            // Order Price Audit & Integrity Check
+            let auditDiscrepancyFound = false;
+            let expectedSubtotal = 0;
+            const orderItemsList = Array.isArray(o.items) ? o.items : [];
+            orderItemsList.forEach(item => {
+                const prod = (products || []).find(p => String(p.id) === String(item.id || item.productId));
+                const catalogPrice = prod ? Number(prod.price) : Number(item.price);
+                const orderItemPrice = Number(item.price);
+                expectedSubtotal += catalogPrice * (Number(item.quantity) || 1);
+                if (prod && Math.abs(catalogPrice - orderItemPrice) > 0.01) {
+                    auditDiscrepancyFound = true;
+                }
+            });
+            const reportedSubtotal = Number(o.subtotal) || expectedSubtotal;
+            if (Math.abs(expectedSubtotal - reportedSubtotal) > 1.0) {
+                auditDiscrepancyFound = true;
+            }
+
+            const auditBadgeHtml = auditDiscrepancyFound
+                ? `<div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #ffeeba; font-size: 0.9em;">
+                    ⚠️ <strong>تنبيه تدقيق الأسعار:</strong> تم رصد اختلاف في السعر أو المجموع مقارنة بالكتالوج الرسمي (مجموع الكتالوج: ${expectedSubtotal.toFixed(2)} ج.م). يُرجى التحقق من الأصناف والخصومات قبل التأكيد.
+                   </div>`
+                : `<div style="color: #27ae60; font-size: 0.85em; margin-bottom: 8px;">✅ أسعار المنتجات مطابقة للكتالوج الرسمي</div>`;
+
             document.getElementById('orderModalBody').innerHTML = `
+                ${auditBadgeHtml}
                 <div class="order-detail-section">
                     <h4>📋 الطلب</h4>
                     <p><strong>رقم:</strong> ${safeOrderNumber}</p>
@@ -9529,6 +9588,14 @@ function adminLogout(){
             document.getElementById('couponDesc').value = '';
             document.getElementById('couponType').value = 'percentage';
             document.getElementById('couponValue').value = '';
+            const minEl = document.getElementById('couponMinOrder');
+            if (minEl) minEl.value = '';
+            const expEl = document.getElementById('couponExpiresAt');
+            if (expEl) expEl.value = '';
+            const limitEl = document.getElementById('couponUsageLimit');
+            if (limitEl) limitEl.value = '';
+            const activeEl = document.getElementById('couponActive');
+            if (activeEl) activeEl.checked = true;
         }
 
         function openCouponModalForCreate() {
@@ -9549,13 +9616,21 @@ function adminLogout(){
             document.getElementById('couponDesc').value = String(target.desc || '');
             document.getElementById('couponType').value = String(target.type || 'percentage');
             document.getElementById('couponValue').value = String(Number(target.value || 0));
+            const minEl = document.getElementById('couponMinOrder');
+            if (minEl) minEl.value = target.minOrderAmount != null ? target.minOrderAmount : '';
+            const expEl = document.getElementById('couponExpiresAt');
+            if (expEl) expEl.value = target.expiresAt ? String(target.expiresAt).substring(0, 10) : '';
+            const limitEl = document.getElementById('couponUsageLimit');
+            if (limitEl) limitEl.value = target.usageLimit != null ? target.usageLimit : '';
+            const activeEl = document.getElementById('couponActive');
+            if (activeEl) activeEl.checked = target.active !== false;
             openModal('couponModal');
         }
 
         function renderCouponsTable() {
             const tbody = document.getElementById('couponsTable');
             if (coupons.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎫</div><p>لا توجد كوبونات</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🎫</div><p>لا توجد كوبونات</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = coupons.map((c) => {
@@ -9565,12 +9640,21 @@ function adminLogout(){
                 const safeType = escapeHtml(c && c.type === 'percentage' ? 'نسبة' : 'ثابت');
                 const safeValue = escapeHtml(Number(c && c.value || 0).toFixed(2));
                 const safeUnit = c && c.type === 'percentage' ? '%' : ' ج.م';
+                const safeMin = c && Number(c.minOrderAmount) > 0 ? `${escapeHtml(Number(c.minOrderAmount).toFixed(0))} ج.م` : '-';
+                const safeExp = c && c.expiresAt ? escapeHtml(String(c.expiresAt).substring(0, 10)) : '-';
+                const safeUsage = c && c.usageLimit ? `${c.usedCount || 0} / ${c.usageLimit}` : `${c.usedCount || 0} / ∞`;
+                const isActive = c && c.active !== false;
+                const statusBadge = isActive
+                    ? '<span class="status-badge" style="background: rgba(39,174,96,0.15); color: #27ae60; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">نشط</span>'
+                    : '<span class="status-badge" style="background: rgba(192,57,43,0.15); color: #c0392b; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">معطل</span>';
                 return `
                 <tr>
-                    <td><strong style="color: var(--burgundy);">${safeCode}</strong></td>
+                    <td><strong style="color: var(--burgundy);">${safeCode}</strong> ${statusBadge}</td>
                     <td>${safeDesc}</td>
                     <td>${safeType}</td>
                     <td><strong>${safeValue}${safeUnit}</strong></td>
+                    <td>${safeMin}</td>
+                    <td>${safeUsage}</td>
                     <td>
                         <div class="action-btns">
                             <button class="action-btn edit" data-coupon-id="${safeCouponId}" onclick="editCoupon(this.dataset.couponId)">✏️</button>
@@ -9608,11 +9692,22 @@ function adminLogout(){
                 return;
             }
 
+            const minOrderAmount = parseFloat(document.getElementById('couponMinOrder')?.value) || 0;
+            const expDateVal = document.getElementById('couponExpiresAt')?.value;
+            const expiresAt = expDateVal ? new Date(expDateVal + 'T23:59:59.999Z').toISOString() : null;
+            const usageLimitVal = parseInt(document.getElementById('couponUsageLimit')?.value, 10);
+            const usageLimit = Number.isFinite(usageLimitVal) && usageLimitVal > 0 ? usageLimitVal : null;
+            const active = document.getElementById('couponActive')?.checked !== false;
+
             const data = {
                 code,
                 desc: document.getElementById('couponDesc').value.trim(),
                 type: document.getElementById('couponType').value,
-                value
+                value,
+                minOrderAmount,
+                expiresAt,
+                usageLimit,
+                active
             };
 
             try {

@@ -61,6 +61,11 @@ function getBackendApiBaseUrl() {
 function shouldUseBackendApi() {
     if (typeof window === 'undefined') return false;
     const backendBase = getBackendApiBaseUrl();
+    if (!backendBase) return false;
+    // WHY: on Firebase Spark plan (or unprovisioned cloudfunctions endpoint), default to direct Firestore logging.
+    if (backendBase.includes('cloudfunctions.net') && (typeof window !== 'undefined' && window.__FORCE_BACKEND_API__ !== true)) {
+        return false;
+    }
     return Boolean(String(backendBase || '').trim());
 }
 
@@ -293,13 +298,19 @@ async function getCoupons() {
         const db = getFirebaseDB();
         const snapshot = await db.collection('coupons').get();
         const coupons = snapshot.docs.map(doc => {
-            const data = doc.data();
+            const data = doc.data() || {};
+            const parsedUsageLimit = Number(data.usageLimit);
             return { 
                 id: doc.id, 
                 code: data.code || '',
                 desc: data.desc || '',
                 type: data.type || 'percentage',
-                value: data.value || 0
+                value: Number(data.value) || 0,
+                minOrderAmount: Number(data.minOrderAmount) || 0,
+                expiresAt: data.expiresAt || null,
+                usageLimit: Number.isFinite(parsedUsageLimit) && parsedUsageLimit > 0 ? parsedUsageLimit : null,
+                usedCount: Number(data.usedCount) || 0,
+                active: data.active !== false
             };
         });
         return coupons;
@@ -315,11 +326,22 @@ async function addCoupon(coupon) {
         const db = getFirebaseDB();
         const payload = coupon && typeof coupon === 'object' ? coupon : {};
         const nowIso = new Date().toISOString();
-        const docRef = await db.collection('coupons').add({
+        const parsedUsageLimit = Number(payload.usageLimit);
+        const normalized = {
             ...payload,
+            code: String(payload.code || '').trim().toUpperCase(),
+            desc: String(payload.desc || '').trim(),
+            type: payload.type === 'fixed' ? 'fixed' : 'percentage',
+            value: Number(payload.value) || 0,
+            minOrderAmount: Math.max(0, Number(payload.minOrderAmount) || 0),
+            expiresAt: payload.expiresAt || null,
+            usageLimit: Number.isFinite(parsedUsageLimit) && parsedUsageLimit > 0 ? parsedUsageLimit : null,
+            usedCount: Math.max(0, Number(payload.usedCount) || 0),
+            active: payload.active !== false,
             createdAt: payload.createdAt || nowIso,
             updatedAt: nowIso
-        });
+        };
+        const docRef = await db.collection('coupons').add(normalized);
         return docRef.id;
     } catch (e) {
         console.error('addCoupon error:', e);
@@ -334,10 +356,27 @@ async function updateCoupon(id, data) {
         const docId = String(id || '').trim();
         if (!docId) throw new Error('coupon id is required');
         const payload = data && typeof data === 'object' ? data : {};
-        await db.collection('coupons').doc(docId).set({
+        const updatePayload = {
             ...payload,
             updatedAt: new Date().toISOString()
-        }, { merge: true });
+        };
+        if (payload.code !== undefined) {
+            updatePayload.code = String(payload.code || '').trim().toUpperCase();
+        }
+        if (payload.minOrderAmount !== undefined) {
+            updatePayload.minOrderAmount = Math.max(0, Number(payload.minOrderAmount) || 0);
+        }
+        if (payload.usageLimit !== undefined) {
+            const parsed = Number(payload.usageLimit);
+            updatePayload.usageLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+        }
+        if (payload.usedCount !== undefined) {
+            updatePayload.usedCount = Math.max(0, Number(payload.usedCount) || 0);
+        }
+        if (payload.active !== undefined) {
+            updatePayload.active = payload.active !== false;
+        }
+        await db.collection('coupons').doc(docId).set(updatePayload, { merge: true });
     } catch (e) {
         console.error('updateCoupon error:', e);
         throw e;
@@ -503,8 +542,6 @@ function buildProductSearchTokens(product) {
     addTokens(source.desc);
     addTokens(source.code);
     addTokens(source.category);
-    addTokens(source.supplierName);
-    addTokens(source.supplierCode);
 
     return Array.from(tokenSet).slice(0, 120);
 }
@@ -726,6 +763,63 @@ function normalizeProductPayloadForWrite(product, options = {}) {
     };
 }
 
+const COMMERCIAL_PROPERTIES = [
+    'costPrice',
+    'marginPercent',
+    'sellPrice',
+    'profitValue',
+    'profitMarginActual',
+    'manualPriceOverride',
+    'manualPriceReason',
+    'supplierId',
+    'supplierName',
+    'supplierCode'
+];
+
+function splitProductCommercialPayload(normalizedPayload) {
+    const publicPayload = { ...normalizedPayload };
+    const commercialPayload = {};
+    for (const key of COMMERCIAL_PROPERTIES) {
+        if (Object.prototype.hasOwnProperty.call(publicPayload, key)) {
+            commercialPayload[key] = publicPayload[key];
+            delete publicPayload[key];
+        }
+    }
+    return { publicPayload, commercialPayload };
+}
+
+async function getProductCommercial(productId) {
+    try {
+        const docId = String(productId || '').trim();
+        if (!docId) return null;
+        const db = getFirebaseDB();
+        const snap = await db.collection('product_commercial').doc(docId).get();
+        return snap.exists ? snap.data() : null;
+    } catch (e) {
+        console.warn('getProductCommercial warning:', e);
+        return null;
+    }
+}
+
+async function saveProductCommercial(productId, commercialData) {
+    try {
+        const docId = String(productId || '').trim();
+        if (!docId || !commercialData || typeof commercialData !== 'object') return null;
+        const db = getFirebaseDB();
+        const nowIso = new Date().toISOString();
+        const payload = {
+            productId: docId,
+            ...commercialData,
+            updatedAt: nowIso
+        };
+        await db.collection('product_commercial').doc(docId).set(payload, { merge: true });
+        return payload;
+    } catch (e) {
+        console.error('saveProductCommercial error:', e);
+        throw e;
+    }
+}
+
 async function getAllProducts() {
     try {
         // WHY: always use Firestore directly for admin products.
@@ -737,6 +831,14 @@ async function getAllProducts() {
         console.error('getAllProducts error:', e);
         return [];
     }
+}
+
+function mapPublicProductFromSnapshot(doc) {
+    const p = mapProductFromSnapshot(doc);
+    for (const key of COMMERCIAL_PROPERTIES) {
+        delete p[key];
+    }
+    return p;
 }
 
 function mapProductFromSnapshot(doc) {
@@ -786,6 +888,102 @@ function getTrackedInventoryStockValue(item) {
     return Math.max(0, stockValue);
 }
 
+async function recordInventoryMovement(params = {}, options = {}) {
+    try {
+        const productId = String(params.productId || '').trim();
+        const quantity = Number(params.quantity !== undefined ? params.quantity : params.delta);
+        const movementType = String(params.movementType || 'ADJUST_MANUAL_AUDIT').trim();
+        const idempotencyKey = String(params.idempotencyKey || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`).trim();
+        const movementId = String(params.movementId || `inv_${productId}_${idempotencyKey}`).trim();
+        const referenceType = String(params.referenceType || 'manual').trim();
+        const referenceId = String(params.referenceId || '').trim();
+        const performedBy = String(params.performedBy || 'admin').trim();
+
+        if (!productId) throw new Error('productId is required for inventory movement');
+        if (!Number.isFinite(quantity) || quantity === 0) {
+            throw new Error('Valid non-zero quantity/delta is required for inventory movement');
+        }
+
+        const validTypes = [
+            'OUT_ORDER_PLACED', 'OUT_ORDER_CONFIRMED', 'IN_ORDER_CANCELLED',
+            'IN_ORDER_RETURNED', 'IN_PURCHASE_RECEIPT', 'OUT_PURCHASE_RETURN',
+            'ADJUST_MANUAL_AUDIT', 'ADJUST_EXCEL_IMPORT', 'OUT_DAMAGED_EXPIRED'
+        ];
+        if (!validTypes.includes(movementType)) {
+            throw new Error(`Invalid movementType: ${movementType}`);
+        }
+
+        const db = (options && options.db) ? options.db : getFirebaseDB();
+        const ledgerRef = db.collection('inventory_ledger').doc(movementId);
+        const productRef = db.collection('products').doc(productId);
+
+        return await db.runTransaction(async (transaction) => {
+            const ledgerDoc = await transaction.get(ledgerRef);
+            if (ledgerDoc && ledgerDoc.exists) {
+                const existing = ledgerDoc.data() || {};
+                return {
+                    success: true,
+                    duplicate: true,
+                    movementId,
+                    beforeStock: existing.beforeStock,
+                    afterStock: existing.afterStock,
+                    quantity: existing.quantity !== undefined ? existing.quantity : existing.delta,
+                    delta: existing.delta !== undefined ? existing.delta : existing.quantity
+                };
+            }
+
+            const productDoc = await transaction.get(productRef);
+            if (!productDoc || !productDoc.exists) {
+                throw new Error(`Product not found: ${productId}`);
+            }
+
+            const productData = productDoc.data() || {};
+            const beforeStock = Number(productData.stock) || 0;
+            const afterStock = beforeStock + quantity;
+            const trackInventory = productData.trackInventory !== false;
+
+            if (trackInventory && afterStock < 0) {
+                throw new Error(`Insufficient inventory for product "${productData.name || productId}". Current: ${beforeStock}, requested delta: ${quantity}`);
+            }
+
+            const nowIso = new Date().toISOString();
+            const movementRecord = {
+                movementId,
+                productId,
+                quantity,
+                delta: quantity,
+                movementType,
+                referenceType,
+                referenceId,
+                idempotencyKey,
+                performedBy,
+                beforeStock,
+                afterStock,
+                timestamp: nowIso
+            };
+
+            transaction.set(ledgerRef, movementRecord);
+            transaction.update(productRef, {
+                stock: afterStock,
+                updatedAt: nowIso
+            });
+
+            return {
+                success: true,
+                duplicate: false,
+                movementId,
+                beforeStock,
+                afterStock,
+                quantity,
+                delta: quantity
+            };
+        });
+    } catch (e) {
+        console.error('recordInventoryMovement error:', e);
+        throw e;
+    }
+}
+
 async function getPublishedProducts() {
     try {
         // WHY: always read published products from Firestore.
@@ -793,7 +991,7 @@ async function getPublishedProducts() {
         const snapshot = await db.collection('products')
             .where('isPublished', '==', true)
             .get();
-        return snapshot.docs.map(mapProductFromSnapshot);
+        return snapshot.docs.map(mapPublicProductFromSnapshot);
     } catch (e) {
         console.error('getPublishedProducts error:', e);
         return [];
@@ -803,11 +1001,20 @@ async function getPublishedProducts() {
 async function addProduct(product, options = {}) {
     try {
         const payload = normalizeProductPayloadForWrite(product, { defaults: { isPublished: true } });
+        const { publicPayload, commercialPayload } = splitProductCommercialPayload(payload);
         // WHY: create products directly in Firestore to remove backend dependency.
         const db = getFirebaseDB();
-        const docRef = await db.collection('products').add(payload);
+        const docRef = await db.collection('products').add(publicPayload);
+        const productId = docRef.id;
+        if (Object.keys(commercialPayload).length > 0) {
+            try {
+                await saveProductCommercial(productId, commercialPayload);
+            } catch (commErr) {
+                console.warn('saveProductCommercial warning on addProduct:', commErr);
+            }
+        }
         await triggerFeedRegenerationAfterProductChange(options);
-        return docRef.id;
+        return productId;
     } catch (e) {
         console.error('addProduct error:', e);
         throw e;
@@ -820,11 +1027,19 @@ async function updateProduct(id, data, options = {}) {
         const normalizedPayload = normalizeProductPayloadForWrite(payload, {
             defaults: { isPublished: true }
         });
+        const { publicPayload, commercialPayload } = splitProductCommercialPayload(normalizedPayload);
         // WHY: update products directly in Firestore.
         const db = getFirebaseDB();
         const docId = String(id || '').trim();
         if (!docId) throw new Error('product id is required');
-        await db.collection('products').doc(docId).set(normalizedPayload, { merge: true });
+        await db.collection('products').doc(docId).set(publicPayload, { merge: true });
+        if (Object.keys(commercialPayload).length > 0) {
+            try {
+                await saveProductCommercial(docId, commercialPayload);
+            } catch (commErr) {
+                console.warn('saveProductCommercial warning on updateProduct:', commErr);
+            }
+        }
         await triggerFeedRegenerationAfterProductChange(options);
     } catch (e) {
         console.error('updateProduct error:', e);
@@ -1289,6 +1504,7 @@ async function flushOrderQueue(options = {}) {
 }
 
 function setupOrderQueueAutoSync() {
+    if (typeof window === 'undefined') return;
     if (orderQueueAutoSyncStarted) return;
     orderQueueAutoSyncStarted = true;
 
@@ -1551,12 +1767,142 @@ async function updateOrderStatus(id, status) {
         const statusHistory = Array.isArray(current.statusHistory) ? [...current.statusHistory] : [];
         statusHistory.push({ status: nextStatus, date: nowIso, note: 'تم تحديث حالة الطلب' });
 
-        await docRef.set({
+        const updatePayload = {
             status: nextStatus,
             updatedAt: nowIso,
             statusHistory,
             version: nextVersion
-        }, { merge: true });
+        };
+
+        // 1. Inventory stock management
+        const deductionStatuses = ['confirmed', 'processing', 'shipped', 'delivered', 'completed'];
+        const items = Array.isArray(current.items) ? current.items : [];
+
+        if (deductionStatuses.includes(nextStatus) && current.inventoryDeducted !== true) {
+            for (const item of items) {
+                const pid = String(item.id || item.productId || '').trim();
+                const qty = Math.max(1, Number(item.quantity) || 1);
+                if (pid) {
+                    try {
+                        await recordInventoryMovement({
+                            productId: pid,
+                            quantity: -qty,
+                            delta: -qty,
+                            movementType: 'OUT_ORDER_CONFIRMED',
+                            referenceType: 'order',
+                            referenceId: orderId,
+                            idempotencyKey: `order_${orderId}_item_${pid}_deduct`,
+                            performedBy: 'admin'
+                        });
+                    } catch (invErr) {
+                        console.warn(`Inventory deduction warning for product ${pid}:`, invErr);
+                    }
+                }
+            }
+            updatePayload.inventoryDeducted = true;
+            updatePayload.inventoryDeductedAt = nowIso;
+        } else if (nextStatus === 'cancelled' && current.inventoryDeducted === true && current.inventoryRestocked !== true) {
+            for (const item of items) {
+                const pid = String(item.id || item.productId || '').trim();
+                const qty = Math.max(1, Number(item.quantity) || 1);
+                if (pid) {
+                    try {
+                        await recordInventoryMovement({
+                            productId: pid,
+                            quantity: qty,
+                            delta: qty,
+                            movementType: 'IN_ORDER_CANCELLED',
+                            referenceType: 'order',
+                            referenceId: orderId,
+                            idempotencyKey: `order_${orderId}_item_${pid}_restock`,
+                            performedBy: 'admin'
+                        });
+                    } catch (invErr) {
+                        console.warn(`Inventory restock warning for product ${pid}:`, invErr);
+                    }
+                }
+            }
+            updatePayload.inventoryRestocked = true;
+            updatePayload.inventoryRestockedAt = nowIso;
+        }
+
+        // 2. Coupon usedCount increment
+        if (deductionStatuses.includes(nextStatus) && current.couponCode && current.couponIncremented !== true) {
+            try {
+                const cSnap = await dbRef.collection('coupons').where('code', '==', String(current.couponCode).trim().toUpperCase()).get();
+                if (!cSnap.empty) {
+                    const cDoc = cSnap.docs[0];
+                    const prevCount = Number(cDoc.data().usedCount) || 0;
+                    await cDoc.ref.set({ usedCount: prevCount + 1, updatedAt: nowIso }, { merge: true });
+                }
+                updatePayload.couponIncremented = true;
+                updatePayload.couponIncrementedAt = nowIso;
+            } catch (cErr) {
+                console.warn('Coupon usage increment warning:', cErr);
+            }
+        }
+
+        // 3. Loyalty points lifecycle
+        const orderUid = String(current.uid || '').trim();
+        if ((nextStatus === 'delivered' || nextStatus === 'completed') && Number(current.earnedPoints) > 0 && current.loyaltyAwarded !== true && orderUid) {
+            try {
+                const custRef = dbRef.collection('customers').doc(orderUid);
+                const earned = Math.floor(Number(current.earnedPoints));
+                await dbRef.runTransaction(async (t) => {
+                    const cSnap = await t.get(custRef);
+                    if (cSnap.exists) {
+                        const cData = cSnap.data() || {};
+                        const prevPts = Number(cData.loyaltyPoints) || 0;
+                        const nextPts = prevPts + earned;
+                        t.update(custRef, { loyaltyPoints: nextPts, updatedAt: nowIso });
+                        const lRef = custRef.collection('loyalty_ledger').doc(`earn_${orderId}`);
+                        t.set(lRef, {
+                            ledgerId: `earn_${orderId}`,
+                            orderId,
+                            delta: earned,
+                            reason: 'ORDER_COMPLETED_AWARD',
+                            beforePoints: prevPts,
+                            afterPoints: nextPts,
+                            timestamp: nowIso
+                        });
+                    }
+                });
+                updatePayload.loyaltyAwarded = true;
+                updatePayload.loyaltyAwardedAt = nowIso;
+            } catch (ptsErr) {
+                console.warn('Loyalty points award warning:', ptsErr);
+            }
+        } else if (nextStatus === 'cancelled' && Number(current.usedPoints) > 0 && current.pointsRefunded !== true && orderUid) {
+            try {
+                const custRef = dbRef.collection('customers').doc(orderUid);
+                const used = Math.floor(Number(current.usedPoints));
+                await dbRef.runTransaction(async (t) => {
+                    const cSnap = await t.get(custRef);
+                    if (cSnap.exists) {
+                        const cData = cSnap.data() || {};
+                        const prevPts = Number(cData.loyaltyPoints) || 0;
+                        const nextPts = prevPts + used;
+                        t.update(custRef, { loyaltyPoints: nextPts, updatedAt: nowIso });
+                        const lRef = custRef.collection('loyalty_ledger').doc(`refund_${orderId}`);
+                        t.set(lRef, {
+                            ledgerId: `refund_${orderId}`,
+                            orderId,
+                            delta: used,
+                            reason: 'ORDER_CANCELLED_REFUND',
+                            beforePoints: prevPts,
+                            afterPoints: nextPts,
+                            timestamp: nowIso
+                        });
+                    }
+                });
+                updatePayload.pointsRefunded = true;
+                updatePayload.pointsRefundedAt = nowIso;
+            } catch (ptsErr) {
+                console.warn('Loyalty points refund warning:', ptsErr);
+            }
+        }
+
+        await docRef.set(updatePayload, { merge: true });
 
         try {
             await appendOrderEvent(dbRef, 'ORDER_STATUS_UPDATED', {
@@ -2390,6 +2736,21 @@ if (typeof window !== 'undefined') {
         getReleaseGateState,
         saveReleaseGateState
     };
+    window.recordInventoryMovement = recordInventoryMovement;
+    window.getProductCommercial = getProductCommercial;
+    window.saveProductCommercial = saveProductCommercial;
+    window.splitProductCommercialPayload = splitProductCommercialPayload;
+    window.mapPublicProductFromSnapshot = mapPublicProductFromSnapshot;
+    window.COMMERCIAL_PROPERTIES = COMMERCIAL_PROPERTIES;
+    window.addProduct = addProduct;
+    window.updateProduct = updateProduct;
+    window.getPublishedProducts = getPublishedProducts;
+    window.getAllProducts = getAllProducts;
+    window.getCoupons = getCoupons;
+    window.addCoupon = addCoupon;
+    window.updateCoupon = updateCoupon;
+    window.deleteCoupon = deleteCoupon;
+    window.updateOrderStatus = updateOrderStatus;
 }
 
 // WHY: release-gate smoke checks require a Node/module bridge marker in firebase-api.js.
@@ -2418,6 +2779,22 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports.backendUnavailableNoticePrinted = function backendUnavailableNoticePrintedState() {
         return backendUnavailableNoticePrinted;
     };
+    module.exports.recordInventoryMovement = recordInventoryMovement;
+    module.exports.getProductCommercial = getProductCommercial;
+    module.exports.saveProductCommercial = saveProductCommercial;
+    module.exports.splitProductCommercialPayload = splitProductCommercialPayload;
+    module.exports.mapPublicProductFromSnapshot = mapPublicProductFromSnapshot;
+    module.exports.COMMERCIAL_PROPERTIES = COMMERCIAL_PROPERTIES;
+    module.exports.addProduct = addProduct;
+    module.exports.updateProduct = updateProduct;
+    module.exports.getPublishedProducts = getPublishedProducts;
+    module.exports.getAllProducts = getAllProducts;
+    module.exports.getCoupons = getCoupons;
+    module.exports.addCoupon = addCoupon;
+    module.exports.updateCoupon = updateCoupon;
+    module.exports.deleteCoupon = deleteCoupon;
+    module.exports.updateOrderStatus = updateOrderStatus;
+    module.exports.buildProductSearchTokens = buildProductSearchTokens;
 }
 
 // ==========================================

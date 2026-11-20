@@ -1,16 +1,15 @@
 {
-    "version": "2026.05.01.0045",
-    "lastUpdate": "SMART-SUPPORT-UX-001",
-    "lastUpdated": "2026-05-12T09:12:40+03:00",
+    "version": "2026.11.20.0001",
+    "lastUpdate": "PHASE-1-COMMERCE-SECURITY-001",
+    "lastUpdated": "2026-11-20T04:55:00+02:00",
     "changes": [
-        "feat: Gemini reads real products from store",
-        "feat: Gemini reads customer orders",
-        "feat: Gemini reads loyalty points",
-        "feat: retry logic for 429 errors",
-        "feat: smart welcome message",
-        "fix: maxOutputTokens 180 -> 400",
-        "SMART-SUPPORT-UX-001: Welcome + Quick Actions + Suggested Replies"
+        "feat(commerce): commercial secrets separation into product_commercial",
+        "feat(commerce): append-only idempotent inventory_ledger",
+        "feat(commerce): authoritative order recalculation and audit discrepancy badge",
+        "feat(commerce): strict coupon validation for active, expiry, minOrder, usageLimit",
+        "feat(commerce): loyalty points ledger and customer forge prevention",
+        "feat(commerce): spark mode telemetry and dead cloudfunctions neutralization"
     ],
-    "layer": "4.5",
-    "phase": "PR1 - Welcome + Quick Actions + Suggested Replies"
+    "layer": "Phase 1",
+    "phase": "Core Commerce, Data Security, Inventory Integrity & Transaction Reliability"
 }

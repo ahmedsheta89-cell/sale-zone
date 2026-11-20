@@ -211,6 +211,7 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.role == "customer"
         && request.resource.data.email == request.auth.token.email
+        && (!("loyaltyPoints" in request.resource.data) || request.resource.data.loyaltyPoints == 0)
         && !("password" in request.resource.data);
     }
 
@@ -737,6 +738,27 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /product_commercial/{productId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /inventory_ledger/{movementId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.movementId == movementId
+        && request.resource.data.quantity is number
+        && request.resource.data.quantity != 0
+        && request.resource.data.productId is string
+        && request.resource.data.idempotencyKey is string
+        && request.resource.data.movementType in [
+          'OUT_ORDER_PLACED', 'OUT_ORDER_CONFIRMED', 'IN_ORDER_CANCELLED',
+          'IN_ORDER_RETURNED', 'IN_PURCHASE_RECEIPT', 'OUT_PURCHASE_RETURN',
+          'ADJUST_MANUAL_AUDIT', 'ADJUST_EXCEL_IMPORT', 'OUT_DAMAGED_EXPIRED'
+        ];
+      allow update: if false;
+      allow delete: if false;
+    }
+
     match /coupons/{couponId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
@@ -818,6 +840,11 @@ service cloud.firestore {
         allow create: if isCustomerNotificationCreate(uid) || isAdminNotificationWrite(uid);
         allow update: if isCustomerNotificationReadUpdate(uid) || isAdminNotificationWrite(uid);
         allow delete: if isAdmin();
+      }
+
+      match /loyalty_ledger/{ledgerId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update, delete: if isAdmin();
       }
     }
 

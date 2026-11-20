@@ -34,7 +34,7 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://ahmedsheta89-cell.github.io/sale-zone/متجر_2.HTML">
     <meta name="firebase-app-check-site-key" content="">
-    <meta name="backend-api-base-url" content="https://us-central1-sale-zone-601f0.cloudfunctions.net/api">
+    <meta name="backend-api-base-url" content="">
     <meta property="og:site_name" content="Sale Zone">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="ar_EG">
@@ -7667,7 +7667,17 @@
             const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             let discount = 0;
             if (appliedCoupon) {
-                discount = appliedCoupon.type === 'percentage' ? subtotal * (appliedCoupon.value / 100) : appliedCoupon.value;
+                const minOrder = Number(appliedCoupon.minOrderAmount) || 0;
+                const isExpired = appliedCoupon.expiresAt && new Date(appliedCoupon.expiresAt) < new Date();
+                const isExhausted = appliedCoupon.usageLimit && Number(appliedCoupon.usedCount || 0) >= Number(appliedCoupon.usageLimit);
+                if (appliedCoupon.active === false || isExpired || isExhausted || (minOrder > 0 && subtotal < minOrder)) {
+                    appliedCoupon = null;
+                    discount = 0;
+                } else {
+                    discount = appliedCoupon.type === 'percentage'
+                        ? Math.round(subtotal * (appliedCoupon.value / 100) * 100) / 100
+                        : Math.min(subtotal, appliedCoupon.value);
+                }
             }
             updateCartSummary(subtotal, discount);
         }
@@ -7704,11 +7714,34 @@
         function applyCoupon() {
             const code = document.getElementById('couponInput').value.trim().toUpperCase();
             if (!code) { showNotification('error', 'خطأ', 'أدخل الكود'); return; }
-            const coupon = coupons.find(c => c.code.toUpperCase() === code);
+            const coupon = coupons.find(c => String(c.code || '').toUpperCase() === code);
             if (!coupon) { showNotification('error', 'خطأ', 'كود غير صحيح'); return; }
+
+            if (coupon.active === false) {
+                showNotification('error', 'خطأ', 'هذا الكوبون غير متاح حالياً');
+                return;
+            }
+
+            if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+                showNotification('error', 'خطأ', 'هذا الكوبون منتهي الصلاحية');
+                return;
+            }
+
+            const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+            const minOrder = Number(coupon.minOrderAmount) || 0;
+            if (minOrder > 0 && subtotal < minOrder) {
+                showNotification('error', 'خطأ', `الحد الأدنى للطلب لتفعيل هذا الكوبون هو ${formatPrice(minOrder)}`);
+                return;
+            }
+
+            if (coupon.usageLimit && Number(coupon.usedCount || 0) >= Number(coupon.usageLimit)) {
+                showNotification('error', 'خطأ', 'تم استنفاد الحد الأقصى لاستخدام هذا الكوبون');
+                return;
+            }
+
             appliedCoupon = coupon;
             updateCartUI();
-            showNotification('success', 'تم', `خصم ${coupon.type === 'percentage' ? coupon.value + '%' : coupon.value + ' ج.م'}`);
+            showNotification('success', 'تم', `خصم ${coupon.type === 'percentage' ? coupon.value + '%' : formatPrice(coupon.value)}`);
         }
 
         // ============================================
@@ -11251,10 +11284,28 @@
             const checkoutItems = Array.isArray(validatedCartState.items) && validatedCartState.items.length
                 ? validatedCartState.items
                 : [...cart];
-            const subtotal = checkoutItems.reduce((s, i) => s + (i.price * i.quantity), 0);
-            let discount = appliedCoupon ? (appliedCoupon.type === 'percentage' ? subtotal * (appliedCoupon.value / 100) : appliedCoupon.value) : 0;
+            const subtotal = checkoutItems.reduce((s, i) => s + (Number(i.price) * Number(i.quantity)), 0);
+
+            // Authoritative re-validation of applied coupon against live checkout subtotal
+            if (appliedCoupon) {
+                const minOrder = Number(appliedCoupon.minOrderAmount) || 0;
+                const isExpired = appliedCoupon.expiresAt && new Date(appliedCoupon.expiresAt) < new Date();
+                const isExhausted = appliedCoupon.usageLimit && Number(appliedCoupon.usedCount || 0) >= Number(appliedCoupon.usageLimit);
+                if (appliedCoupon.active === false || isExpired || isExhausted || (minOrder > 0 && subtotal < minOrder)) {
+                    appliedCoupon = null;
+                }
+            }
+
+            let discount = 0;
+            if (appliedCoupon) {
+                discount = appliedCoupon.type === 'percentage'
+                    ? Math.round(subtotal * (appliedCoupon.value / 100) * 100) / 100
+                    : Math.min(subtotal, appliedCoupon.value);
+            }
+
             const totalAfterCoupon = Math.max(0, subtotal - discount);
-            const total = Math.max(0, totalAfterCoupon - pointsDiscount);
+            const safePointsDiscount = Math.min(totalAfterCoupon, Math.max(0, Number(pointsDiscount) || 0));
+            const total = Math.max(0, Math.round((totalAfterCoupon - safePointsDiscount) * 100) / 100);
             const loyaltyRate = storeSettings.loyalty?.rate || 5;
             const earnedPoints = Math.floor(total * (loyaltyRate / 100));
             const nowIso = new Date().toISOString();
@@ -11273,7 +11324,7 @@
                 items: checkoutItems,
                 subtotal, discount,
                 couponCode: appliedCoupon?.code || null,
-                usedPoints, pointsDiscount, total, earnedPoints,
+                usedPoints, pointsDiscount: safePointsDiscount, total, earnedPoints,
                 status: 'pending',
                 statusHistory: [{ status: 'pending', date: nowIso, note: 'تم استلام الطلب' }],
                 createdAt: nowIso
@@ -11356,11 +11407,13 @@
                 return;
             }
 
-            // Update user points
+            // Update user points locally (only deduct usedPoints; earnedPoints are awarded authoritatively upon delivery)
             if (currentUser) {
+                const currentBalance = Number(currentUser.loyaltyPoints || 0);
+                const nextBalance = Math.max(0, currentBalance - usedPoints);
                 currentUser = persistCurrentUserCache({
                     ...(currentUser || {}),
-                    loyaltyPoints: Math.max(0, Number(currentUser.loyaltyPoints || 0) - usedPoints + earnedPoints)
+                    loyaltyPoints: nextBalance
                 });
                 updateLoyaltyDisplay();
                 if (typeof upsertMyCustomerProfile === 'function') {
