@@ -246,6 +246,8 @@ jobs:
         run: node tools/e2e-check.js
       - name: Run Cloudinary retry unit tests
         run: node tests/admin-cloudinary-retry.test.js
+      - name: Run Phase 1 Commerce & Security Tests
+        run: node tests/phase1-commerce-security.test.js
 
   workers-paranoid-gate:
     name: workers-paranoid-gate

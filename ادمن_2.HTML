@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0A1128">
     <meta name="description" content="Sale Zone Store Admin - لوحة التحكم">
     <meta name="firebase-app-check-site-key" content="">
-    <meta name="backend-api-base-url" content="https://us-central1-sale-zone-601f0.cloudfunctions.net/api">
+    <meta name="backend-api-base-url" content="">
     <link rel="icon" href="./icon-192.png">
     <link rel="shortcut icon" href="./icon-192.png">
     <link rel="apple-touch-icon" href="./icon-192.png">
@@ -2126,7 +2126,7 @@
                     <div class="section-body">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>الكود</th><th>الوصف</th><th>النوع</th><th>القيمة</th><th>إجراءات</th></tr></thead>
+                                <thead><tr><th>الكود</th><th>الوصف</th><th>النوع</th><th>القيمة</th><th>الحد الأدنى</th><th>الاستخدام</th><th>إجراءات</th></tr></thead>
                                 <tbody id="couponsTable"></tbody>
                             </table>
                         </div>
@@ -3780,6 +3780,28 @@
                         <div class="form-group">
                             <label>القيمة *</label>
                             <input type="number" id="couponValue" required min="1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>الحد الأدنى للطلب (ج.م)</label>
+                            <input type="number" id="couponMinOrder" min="0" placeholder="0 = بدون حد أدنى">
+                        </div>
+                        <div class="form-group">
+                            <label>تاريخ الانتهاء</label>
+                            <input type="date" id="couponExpiresAt">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>الحد الأقصى لمرات الاستخدام</label>
+                            <input type="number" id="couponUsageLimit" min="1" placeholder="اتركه فارغاً لغير محدود">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; padding-top: 25px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="couponActive" checked>
+                                <span>الكوبون نشط</span>
+                            </label>
                         </div>
                     </div>
                     <button type="submit" class="submit-btn">💾 حفظ</button>
@@ -7608,6 +7630,7 @@ function adminLogout(){
                     category: payload.category
                 });
                 merged.createdAt = current.createdAt || merged.createdAt;
+                merged._commercialLoaded = true;
                 const updatePayload = { ...merged };
                 delete updatePayload.id;
 
@@ -7689,9 +7712,33 @@ function adminLogout(){
             resetProductForm();
         }
 
-        function editProduct(id) {
+        async function editProduct(id) {
             const p = products.find((x) => String(x.id) === String(id));
             if (!p) return;
+
+            // Load commercial data on-demand if not already loaded on this product.
+            // Await getProductCommercial(p.id) BEFORE populating modal form inputs and displaying modal.
+            if (!p._commercialLoaded && typeof getProductCommercial === 'function' && p.id && !String(p.id).startsWith('tmp_')) {
+                try {
+                    const comm = await getProductCommercial(p.id);
+                    if (comm && typeof comm === 'object') {
+                        if (comm.costPrice !== undefined) p.costPrice = comm.costPrice;
+                        if (comm.marginPercent !== undefined) p.marginPercent = comm.marginPercent;
+                        if (comm.sellPrice !== undefined) p.sellPrice = comm.sellPrice;
+                        if (comm.profitValue !== undefined) p.profitValue = comm.profitValue;
+                        if (comm.profitMarginActual !== undefined) p.profitMarginActual = comm.profitMarginActual;
+                        if (comm.manualPriceOverride !== undefined) p.manualPriceOverride = comm.manualPriceOverride;
+                        if (comm.manualPriceReason !== undefined) p.manualPriceReason = comm.manualPriceReason;
+                        if (comm.supplierId !== undefined) p.supplierId = comm.supplierId;
+                        if (comm.supplierName !== undefined) p.supplierName = comm.supplierName;
+                        if (comm.supplierCode !== undefined) p.supplierCode = comm.supplierCode;
+                    }
+                    p._commercialLoaded = true;
+                } catch (commErr) {
+                    console.error('Could not fetch commercial data for product', p.id, commErr);
+                    showNotification('warning', 'تعذر تحميل البيانات التجارية للمنتج');
+                }
+            }
 
             document.getElementById('productId').value = p.id || '';
             document.getElementById('productName').value = p.name || '';
@@ -7701,8 +7748,15 @@ function adminLogout(){
             renderSupplierOptions();
             document.getElementById('productSupplierId').value = p.supplierId || '';
             document.getElementById('productCode').value = p.code || '';
-            document.getElementById('productCostPrice').value = p.costPrice ?? p.price ?? '';
-            document.getElementById('productMarginPercent').value = p.marginPercent ?? 0;
+
+            // Commercial fields: NEVER default to p.price as proof of loaded data
+            const costVal = (p.costPrice !== undefined && p.costPrice !== null && Number.isFinite(Number(p.costPrice)))
+                ? Number(p.costPrice)
+                : '';
+            document.getElementById('productCostPrice').value = costVal;
+            document.getElementById('productMarginPercent').value = (p.marginPercent !== undefined && p.marginPercent !== null && Number.isFinite(Number(p.marginPercent)))
+                ? Number(p.marginPercent)
+                : 0;
             document.getElementById('productPrice').value = p.sellPrice ?? p.price ?? '';
             document.getElementById('productOldPrice').value = p.oldPrice ?? '';
             document.getElementById('productManualPriceOverride').checked = p.manualPriceOverride === true;
@@ -8569,13 +8623,16 @@ function adminLogout(){
                 const safeStatusClass = escapeHtml(String(o && o.status || 'pending').toLowerCase().replace(/[^a-z0-9_-]/g, ''));
                 const safeCreatedAt = escapeHtml(formatDateTime(o && o.createdAt));
                 const safeOrderIdAttr = escapeHtml(rawOrderId);
+                const couponBadge = o && o.couponLimitExceeded
+                    ? '<span class="status-badge" style="background: rgba(220,53,69,0.15); color: #dc3545; margin-right: 4px;" title="تم تجاوز حد استخدام الكوبون عند تأكيد الطلب">⚠️ تجاوز الكوبون</span>'
+                    : '';
                 return `
                 <tr>
                     <td><strong>${safeOrderNumber}</strong></td>
                     <td>${safeCustomerName}</td>
                     <td>${safeCustomerPhone}</td>
                     <td><strong>${safeTotal} ج.م</strong></td>
-                    <td><span class="status-badge status-${safeStatusClass}">${safeStatus}</span></td>
+                    <td><span class="status-badge status-${safeStatusClass}">${safeStatus}</span>${couponBadge}</td>
                     <td>${safeCreatedAt}</td>
                     <td>
                         <div class="action-btns">
@@ -8766,7 +8823,32 @@ function adminLogout(){
             `;
             }).join('');
 
+            // Order Price Audit & Integrity Check
+            let auditDiscrepancyFound = false;
+            let expectedSubtotal = 0;
+            const orderItemsList = Array.isArray(o.items) ? o.items : [];
+            orderItemsList.forEach(item => {
+                const prod = (products || []).find(p => String(p.id) === String(item.id || item.productId));
+                const catalogPrice = prod ? Number(prod.price) : Number(item.price);
+                const orderItemPrice = Number(item.price);
+                expectedSubtotal += catalogPrice * (Number(item.quantity) || 1);
+                if (prod && Math.abs(catalogPrice - orderItemPrice) > 0.01) {
+                    auditDiscrepancyFound = true;
+                }
+            });
+            const reportedSubtotal = Number(o.subtotal) || expectedSubtotal;
+            if (Math.abs(expectedSubtotal - reportedSubtotal) > 1.0) {
+                auditDiscrepancyFound = true;
+            }
+
+            const auditBadgeHtml = auditDiscrepancyFound
+                ? `<div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #ffeeba; font-size: 0.9em;">
+                    ⚠️ <strong>تنبيه تدقيق الأسعار:</strong> تم رصد اختلاف في السعر أو المجموع مقارنة بالكتالوج الرسمي (مجموع الكتالوج: ${expectedSubtotal.toFixed(2)} ج.م). يُرجى التحقق من الأصناف والخصومات قبل التأكيد.
+                   </div>`
+                : `<div style="color: #27ae60; font-size: 0.85em; margin-bottom: 8px;">✅ أسعار المنتجات مطابقة للكتالوج الرسمي</div>`;
+
             document.getElementById('orderModalBody').innerHTML = `
+                ${auditBadgeHtml}
                 <div class="order-detail-section">
                     <h4>📋 الطلب</h4>
                     <p><strong>رقم:</strong> ${safeOrderNumber}</p>
@@ -8799,6 +8881,7 @@ function adminLogout(){
                     <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #ddd;">
                         <div class="order-item"><span>المجموع:</span><span>${safeSubtotal} ج.م</span></div>
                         ${o.couponCode ? `<div class="order-item" style="color: var(--success);"><span>🎫 ${safeCouponCode}</span><span>- ${safeDiscount} ج.م</span></div>` : ''}
+                        ${o.couponLimitExceeded ? `<div class="order-item" style="color: #dc3545; font-size: 0.85em; font-weight: bold; background: rgba(220,53,69,0.08); padding: 4px 8px; border-radius: 4px; margin: 4px 0;"><span>⚠️ تنبيه الكوبون:</span><span>تم استنفاد حد الاستخدام عند تأكيد الطلب</span></div>` : ''}
                         ${o.usedPoints > 0 ? `<div class="order-item" style="color: var(--info);"><span>💎 نقاط (${safeUsedPoints})</span><span>- ${safePointsDiscount} ج.م</span></div>` : ''}
                         ${o.earnedPoints > 0 ? `<div class="order-item" style="color: var(--burgundy);"><span>⭐ نقاط مكتسبة</span><span>+${safeEarnedPoints}</span></div>` : ''}
                     </div>
@@ -9529,6 +9612,14 @@ function adminLogout(){
             document.getElementById('couponDesc').value = '';
             document.getElementById('couponType').value = 'percentage';
             document.getElementById('couponValue').value = '';
+            const minEl = document.getElementById('couponMinOrder');
+            if (minEl) minEl.value = '';
+            const expEl = document.getElementById('couponExpiresAt');
+            if (expEl) expEl.value = '';
+            const limitEl = document.getElementById('couponUsageLimit');
+            if (limitEl) limitEl.value = '';
+            const activeEl = document.getElementById('couponActive');
+            if (activeEl) activeEl.checked = true;
         }
 
         function openCouponModalForCreate() {
@@ -9549,13 +9640,21 @@ function adminLogout(){
             document.getElementById('couponDesc').value = String(target.desc || '');
             document.getElementById('couponType').value = String(target.type || 'percentage');
             document.getElementById('couponValue').value = String(Number(target.value || 0));
+            const minEl = document.getElementById('couponMinOrder');
+            if (minEl) minEl.value = target.minOrderAmount != null ? target.minOrderAmount : '';
+            const expEl = document.getElementById('couponExpiresAt');
+            if (expEl) expEl.value = target.expiresAt ? String(target.expiresAt).substring(0, 10) : '';
+            const limitEl = document.getElementById('couponUsageLimit');
+            if (limitEl) limitEl.value = target.usageLimit != null ? target.usageLimit : '';
+            const activeEl = document.getElementById('couponActive');
+            if (activeEl) activeEl.checked = target.active !== false;
             openModal('couponModal');
         }
 
         function renderCouponsTable() {
             const tbody = document.getElementById('couponsTable');
             if (coupons.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🎫</div><p>لا توجد كوبونات</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🎫</div><p>لا توجد كوبونات</p></div></td></tr>';
                 return;
             }
             tbody.innerHTML = coupons.map((c) => {
@@ -9565,12 +9664,21 @@ function adminLogout(){
                 const safeType = escapeHtml(c && c.type === 'percentage' ? 'نسبة' : 'ثابت');
                 const safeValue = escapeHtml(Number(c && c.value || 0).toFixed(2));
                 const safeUnit = c && c.type === 'percentage' ? '%' : ' ج.م';
+                const safeMin = c && Number(c.minOrderAmount) > 0 ? `${escapeHtml(Number(c.minOrderAmount).toFixed(0))} ج.م` : '-';
+                const safeExp = c && c.expiresAt ? escapeHtml(String(c.expiresAt).substring(0, 10)) : '-';
+                const safeUsage = c && c.usageLimit ? `${c.usedCount || 0} / ${c.usageLimit}` : `${c.usedCount || 0} / ∞`;
+                const isActive = c && c.active !== false;
+                const statusBadge = isActive
+                    ? '<span class="status-badge" style="background: rgba(39,174,96,0.15); color: #27ae60; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">نشط</span>'
+                    : '<span class="status-badge" style="background: rgba(192,57,43,0.15); color: #c0392b; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">معطل</span>';
                 return `
                 <tr>
-                    <td><strong style="color: var(--burgundy);">${safeCode}</strong></td>
+                    <td><strong style="color: var(--burgundy);">${safeCode}</strong> ${statusBadge}</td>
                     <td>${safeDesc}</td>
                     <td>${safeType}</td>
                     <td><strong>${safeValue}${safeUnit}</strong></td>
+                    <td>${safeMin}</td>
+                    <td>${safeUsage}</td>
                     <td>
                         <div class="action-btns">
                             <button class="action-btn edit" data-coupon-id="${safeCouponId}" onclick="editCoupon(this.dataset.couponId)">✏️</button>
@@ -9586,7 +9694,11 @@ function adminLogout(){
             e.preventDefault();
             const code = document.getElementById('couponCode').value.trim().toUpperCase();
             if (!code) {
-                showNotification('error', '\u0627\u0644\u0643\u0648\u062f \u0645\u0637\u0644\u0648\u0628');
+                showNotification('error', 'الكود مطلوب');
+                return;
+            }
+            if (!/^[A-Z0-9_-]{3,32}$/.test(code)) {
+                showNotification('error', 'كود غير صالح', 'يجب أن يتكون الكود من 3 إلى 32 حرفاً أو رقماً إنجليزياً (أو - أو _) بدون مسافات');
                 return;
             }
             const hasDuplicateCode = coupons.find((c) => (
@@ -9594,7 +9706,7 @@ function adminLogout(){
                 && String(c.id || '') !== String(editingCouponId || '')
             ));
             if (hasDuplicateCode) {
-                showNotification('error', '\u0627\u0644\u0643\u0648\u062f \u0645\u0648\u062c\u0648\u062f');
+                showNotification('error', 'الكود موجود');
                 return;
             }
             if (navigator.onLine !== true) {
@@ -9602,17 +9714,38 @@ function adminLogout(){
                 return;
             }
 
+            const type = document.getElementById('couponType').value;
             const value = parseFloat(document.getElementById('couponValue').value);
             if (!Number.isFinite(value) || value <= 0) {
-                showNotification('error', '\u0642\u064a\u0645\u0629 \u0627\u0644\u062e\u0635\u0645 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d\u0629');
+                showNotification('error', 'قيمة الخصم غير صالحة');
                 return;
             }
+            if (type === 'percentage' && (value < 1 || value > 90)) {
+                showNotification('error', 'نسبة غير صالحة', 'نسبة الخصم يجب أن تكون بين 1% و 90%');
+                return;
+            }
+
+            const minOrderAmount = parseFloat(document.getElementById('couponMinOrder')?.value) || 0;
+            const expDateVal = document.getElementById('couponExpiresAt')?.value;
+            const expiresAt = expDateVal ? new Date(expDateVal + 'T23:59:59.999Z').toISOString() : null;
+            const usageLimitVal = parseInt(document.getElementById('couponUsageLimit')?.value, 10);
+            const usageLimit = Number.isFinite(usageLimitVal) && usageLimitVal > 0 ? usageLimitVal : null;
+            const active = document.getElementById('couponActive')?.checked !== false;
 
             const data = {
                 code,
                 desc: document.getElementById('couponDesc').value.trim(),
-                type: document.getElementById('couponType').value,
-                value
+                description: document.getElementById('couponDesc').value.trim(),
+                type,
+                value,
+                discount: value,
+                minOrderAmount,
+                minOrder: minOrderAmount,
+                expiresAt,
+                usageLimit,
+                maxUses: usageLimit,
+                active,
+                isActive: active
             };
 
             try {
@@ -13343,7 +13476,12 @@ function adminLogout(){
                             if (typeof updateProduct !== 'function') {
                                 throw new Error('updateProduct unavailable');
                             }
-                            await updateProduct(existingId, updatePayload, { suppressFeedRegen: true });
+                            await updateProduct(existingId, updatePayload, {
+                                suppressFeedRegen: true,
+                                movementType: 'ADJUST_EXCEL_IMPORT',
+                                referenceType: 'excel_import',
+                                referenceId: importBatchId
+                            });
                             syncedCount += 1;
                         } else if (existingId.startsWith('tmp_')) {
                             patchPendingAddByTempId(existingId, (draft) => ({ ...draft, ...updatePayload }));

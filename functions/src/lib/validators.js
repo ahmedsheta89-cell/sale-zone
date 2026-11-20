@@ -133,9 +133,17 @@ function buildCouponPayload(input = {}, options = {}) {
     ? clamp(rawValue, 1, 90)
     : clamp(rawValue, 1, 100000);
 
-  const maxUses = toFiniteNumber(source.maxUses !== undefined ? source.maxUses : existing.maxUses);
-  const minOrder = toFiniteNumber(source.minOrder !== undefined ? source.minOrder : existing.minOrder);
+  const rawMaxUses = source.maxUses !== undefined ? source.maxUses : (source.usageLimit !== undefined ? source.usageLimit : (existing.maxUses !== undefined ? existing.maxUses : existing.usageLimit));
+  const maxUses = toFiniteNumber(rawMaxUses);
+  const normalizedMaxUses = maxUses === null ? null : Math.max(1, Math.min(100000, Math.floor(maxUses)));
+
+  const rawMinOrder = source.minOrder !== undefined ? source.minOrder : (source.minOrderAmount !== undefined ? source.minOrderAmount : (existing.minOrder !== undefined ? existing.minOrder : existing.minOrderAmount));
+  const minOrder = toFiniteNumber(rawMinOrder);
+  const normalizedMinOrder = minOrder === null ? 0 : clamp(minOrder, 0, 1000000);
+
   const expiresAt = sanitizeIso(source.expiresAt || existing.expiresAt);
+  const isActive = source.isActive !== undefined ? Boolean(source.isActive) : (source.active !== undefined ? Boolean(source.active) : (existing.isActive !== false && existing.active !== false));
+  const usedCount = Math.max(0, Number(source.usedCount !== undefined ? source.usedCount : existing.usedCount) || 0);
 
   return {
     code,
@@ -145,10 +153,14 @@ function buildCouponPayload(input = {}, options = {}) {
     type,
     value,
     discount: value,
-    maxUses: maxUses === null ? null : Math.max(1, Math.min(100000, Math.floor(maxUses))),
-    minOrder: minOrder === null ? 0 : clamp(minOrder, 0, 1000000),
+    maxUses: normalizedMaxUses,
+    usageLimit: normalizedMaxUses,
+    minOrder: normalizedMinOrder,
+    minOrderAmount: normalizedMinOrder,
     expiresAt: expiresAt || '',
-    isActive: source.isActive === undefined ? (existing.isActive !== false) : Boolean(source.isActive),
+    isActive,
+    active: isActive,
+    usedCount,
     updatedAt: nowIso,
     createdAt: toTrimmedString(existing.createdAt || source.createdAt) || nowIso
   };

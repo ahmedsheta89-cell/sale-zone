@@ -61,7 +61,7 @@ function applyCouponToSubtotal(coupon, subtotal) {
   const code = toTrimmedString(coupon.code).toUpperCase();
   const type = toTrimmedString(coupon.type || 'percentage').toLowerCase();
   const value = toFiniteNumber(coupon.value !== undefined ? coupon.value : coupon.discount);
-  const minOrder = toFiniteNumber(coupon.minOrder);
+  const minOrder = toFiniteNumber(coupon.minOrder !== undefined ? coupon.minOrder : coupon.minOrderAmount);
 
   if (!code || value === null || value <= 0) return { discount: 0, couponCode: '' };
   if (minOrder !== null && subtotal < minOrder) return { discount: 0, couponCode: '' };
@@ -87,12 +87,27 @@ async function loadCouponByCode(db, couponCode) {
   const snapshot = await db
     .collection('coupons')
     .where('code', '==', safeCode)
-    .where('isActive', '==', true)
     .limit(1)
     .get();
 
   if (snapshot.empty) return null;
-  return snapshot.docs[0].data() || null;
+  const doc = snapshot.docs[0];
+  const data = doc.data() || {};
+  const isActive = data.active !== false && data.isActive !== false;
+  if (!isActive) return null;
+
+  if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
+    return null;
+  }
+
+  const rawLimit = data.usageLimit !== undefined ? data.usageLimit : data.maxUses;
+  const limit = toFiniteNumber(rawLimit);
+  if (limit !== null && limit > 0) {
+    const usedCount = Math.max(0, Number(data.usedCount || 0));
+    if (usedCount >= limit) return null;
+  }
+
+  return { id: doc.id, ...data };
 }
 
 function buildCanonicalItems(itemRows, productMap) {
@@ -392,6 +407,22 @@ function createAdminOrdersRouter({ db, logging }) {
       }
 
       const orderRef = db.collection('orders').doc(orderId);
+      const deductionStatuses = ['confirmed', 'processing', 'shipped', 'delivered', 'completed'];
+
+      // Pre-resolve coupon reference before transaction
+      let preCouponRef = null;
+      const orderPreSnap = await orderRef.get();
+      if (orderPreSnap.exists) {
+        const preData = orderPreSnap.data() || {};
+        if (preData.couponId) {
+          preCouponRef = db.collection('coupons').doc(String(preData.couponId).trim());
+        } else if (preData.couponCode) {
+          const cSnap = await db.collection('coupons').where('code', '==', String(preData.couponCode).trim().toUpperCase()).limit(1).get();
+          if (!cSnap.empty) {
+            preCouponRef = cSnap.docs[0].ref;
+          }
+        }
+      }
 
       await db.runTransaction(async (tx) => {
         const snapshot = await tx.get(orderRef);
@@ -404,18 +435,64 @@ function createAdminOrdersRouter({ db, logging }) {
 
         const data = snapshot.data() || {};
         const history = Array.isArray(data.statusHistory) ? [...data.statusHistory] : [];
+        const nowIso = new Date().toISOString();
         history.push({
           status,
-          date: new Date().toISOString(),
+          date: nowIso,
           note: 'Status updated by admin API'
         });
 
-        tx.set(orderRef, {
+        const patchPayload = {
           status,
           statusHistory: history,
-          updatedAt: new Date().toISOString(),
+          updatedAt: nowIso,
           version: Math.max(1, Number(data.version || 1)) + 1
-        }, { merge: true });
+        };
+
+        if (deductionStatuses.includes(status) && (data.couponCode || data.couponId) && data.couponUsageIncremented !== true && data.couponIncremented !== true) {
+          if (preCouponRef) {
+            const couponSnap = await tx.get(preCouponRef);
+            if (couponSnap.exists) {
+              const cData = couponSnap.data() || {};
+              const isActive = cData.active !== false && cData.isActive !== false;
+              const rawLimit = cData.usageLimit !== undefined ? cData.usageLimit : cData.maxUses;
+              const parsedLimit = Number(rawLimit);
+              const usageLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
+              const usedCount = Math.max(0, Number(cData.usedCount || 0));
+
+              if (!isActive || (usageLimit !== null && usedCount >= usageLimit)) {
+                patchPayload.couponLimitExceeded = true;
+                patchPayload.couponLimitExceededAt = nowIso;
+                patchPayload.couponLimitExceededReason = !isActive ? 'inactive' : 'limit_exceeded';
+              } else {
+                tx.update(preCouponRef, {
+                  usedCount: usedCount + 1,
+                  updatedAt: nowIso
+                });
+                patchPayload.couponIncremented = true;
+                patchPayload.couponUsageIncremented = true;
+                patchPayload.couponIncrementedAt = nowIso;
+                patchPayload.couponUsageIncrementedAt = nowIso;
+              }
+            }
+          }
+        } else if (status === 'cancelled' && (data.couponIncremented === true || data.couponUsageIncremented === true) && data.couponRestored !== true) {
+          if (preCouponRef) {
+            const couponSnap = await tx.get(preCouponRef);
+            if (couponSnap.exists) {
+              const cData = couponSnap.data() || {};
+              const prevCount = Math.max(0, Number(cData.usedCount || 0));
+              tx.update(preCouponRef, {
+                usedCount: Math.max(0, prevCount - 1),
+                updatedAt: nowIso
+              });
+            }
+            patchPayload.couponRestored = true;
+            patchPayload.couponRestoredAt = nowIso;
+          }
+        }
+
+        tx.set(orderRef, patchPayload, { merge: true });
       });
 
       await logging.adminActivity(req, {

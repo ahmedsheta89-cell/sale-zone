@@ -1,16 +1,15 @@
 {
-    "version": "2026.05.01.0045",
-    "lastUpdate": "SMART-SUPPORT-UX-001",
-    "lastUpdated": "2026-05-12T09:12:40+03:00",
+    "version": "2026.11.20.0002",
+    "lastUpdate": "PHASE-1-SECURITY-REMEDIATION-002",
+    "lastUpdated": "2026-11-20T08:30:00+02:00",
     "changes": [
-        "feat: Gemini reads real products from store",
-        "feat: Gemini reads customer orders",
-        "feat: Gemini reads loyalty points",
-        "feat: retry logic for 429 errors",
-        "feat: smart welcome message",
-        "fix: maxOutputTokens 180 -> 400",
-        "SMART-SUPPORT-UX-001: Welcome + Quick Actions + Suggested Replies"
+        "fix(security): address Codex P1/P2 findings on commercial data, inventory, loyalty, and coupon limits",
+        "feat(commerce): commercial secrets separation into product_commercial with FieldValue.delete()",
+        "feat(commerce): append-only idempotent inventory_ledger with failure safety and deferred post-fulfillment restock",
+        "feat(commerce): authoritative order recalculation and customer loyalty forge prevention",
+        "feat(commerce): transactional coupon limits enforcement and storefront auto-invalidation",
+        "feat(commerce): full CLI for migrate-commercial-data with dry-run default and safety guards"
     ],
-    "layer": "4.5",
-    "phase": "PR1 - Welcome + Quick Actions + Suggested Replies"
+    "layer": "Phase 1",
+    "phase": "Core Commerce, Data Security, Inventory Integrity & Transaction Reliability — Security Remediation"
 }

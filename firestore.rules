@@ -72,6 +72,7 @@ service cloud.firestore {
       && request.resource.data.customer is map
       && request.resource.data.items is list
       && request.resource.data.items.size() > 0
+      && request.resource.data.items.size() <= 100
       && request.resource.data.total is number
       && request.resource.data.total >= 0
       && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"]
@@ -80,6 +81,9 @@ service cloud.firestore {
       && (!("pointsDiscount" in request.resource.data) || (request.resource.data.pointsDiscount is number && request.resource.data.pointsDiscount >= 0))
       && (!("usedPoints" in request.resource.data) || (request.resource.data.usedPoints is number && request.resource.data.usedPoints >= 0))
       && (!("earnedPoints" in request.resource.data) || (request.resource.data.earnedPoints is number && request.resource.data.earnedPoints >= 0))
+      && (request.resource.data.items[0] is map)
+      && (!("price" in request.resource.data.items[0]) || (request.resource.data.items[0].price is number && request.resource.data.items[0].price >= 0))
+      && (!("quantity" in request.resource.data.items[0]) || (request.resource.data.items[0].quantity is number && request.resource.data.items[0].quantity > 0))
       && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
       && (!("updatedAt" in request.resource.data) || (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp))
       && (!("version" in request.resource.data) || (request.resource.data.version is number && request.resource.data.version >= 1));
@@ -89,7 +93,13 @@ service cloud.firestore {
       return isVerifiedUser()
         && isValidOrderCreate()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.status == "pending";
+        && request.resource.data.status == "pending"
+        && (!("earnedPoints" in request.resource.data) || (request.resource.data.earnedPoints is number && request.resource.data.earnedPoints >= 0 && request.resource.data.earnedPoints <= request.resource.data.total))
+        && !("inventoryDeducted" in request.resource.data)
+        && !("inventoryRestocked" in request.resource.data)
+        && !("loyaltyAwarded" in request.resource.data)
+        && !("pointsRefunded" in request.resource.data)
+        && !("couponIncremented" in request.resource.data);
     }
 
     function isValidOrderAdminUpdate() {
@@ -211,6 +221,7 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.role == "customer"
         && request.resource.data.email == request.auth.token.email
+        && (!("loyaltyPoints" in request.resource.data) || request.resource.data.loyaltyPoints == 0)
         && !("password" in request.resource.data);
     }
 
@@ -737,6 +748,27 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /product_commercial/{productId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /inventory_ledger/{movementId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.movementId == movementId
+        && request.resource.data.quantity is number
+        && request.resource.data.quantity != 0
+        && request.resource.data.productId is string
+        && request.resource.data.idempotencyKey is string
+        && request.resource.data.movementType in [
+          'OUT_ORDER_PLACED', 'OUT_ORDER_CONFIRMED', 'IN_ORDER_CANCELLED',
+          'IN_ORDER_RETURNED', 'IN_PURCHASE_RECEIPT', 'OUT_PURCHASE_RETURN',
+          'ADJUST_MANUAL_AUDIT', 'ADJUST_EXCEL_IMPORT', 'OUT_DAMAGED_EXPIRED'
+        ];
+      allow update: if false;
+      allow delete: if false;
+    }
+
     match /coupons/{couponId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
@@ -818,6 +850,16 @@ service cloud.firestore {
         allow create: if isCustomerNotificationCreate(uid) || isAdminNotificationWrite(uid);
         allow update: if isCustomerNotificationReadUpdate(uid) || isAdminNotificationWrite(uid);
         allow delete: if isAdmin();
+      }
+
+      match /loyalty_ledger/{ledgerId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isAdmin()
+          && request.resource.data.ledgerId == ledgerId
+          && request.resource.data.delta is number
+          && request.resource.data.delta != 0;
+        allow update: if false;
+        allow delete: if false;
       }
     }
 

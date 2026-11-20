@@ -18,7 +18,8 @@ const checks = [
   { name: 'admin-function-monitor', command: ['node', 'tools/admin-function-monitor.js'] },
   { name: 'rules', command: ['node', 'tools/rules-test.js'] },
   { name: 'e2e', command: ['node', 'tools/e2e-check.js'] },
-  { name: 'cloudinary-retry', command: ['node', 'tests/admin-cloudinary-retry.test.js'] }
+  { name: 'cloudinary-retry', command: ['node', 'tests/admin-cloudinary-retry.test.js'] },
+  { name: 'phase1-commerce-security', command: ['node', 'tests/phase1-commerce-security.test.js'] }
 ];
 
 const failures = [];
