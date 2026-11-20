@@ -7621,6 +7621,10 @@ function adminLogout(){
                 }
 
                 const current = products[idx];
+                if (current && current._commercialLoaded !== true && !String(id).startsWith('tmp_')) {
+                    showNotification('error', 'تعذر حفظ المنتج لأن البيانات التجارية لم يتم تحميلها بشكل مؤكد منعاً لفقدان بيانات التكلفة.');
+                    return;
+                }
                 const merged = normalizeProductForStorage({
                     ...current,
                     ...payload,
@@ -7716,27 +7720,46 @@ function adminLogout(){
             const p = products.find((x) => String(x.id) === String(id));
             if (!p) return;
 
+            const saveBtn = document.getElementById('productSaveBtn');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.title = '';
+            }
+
             // Load commercial data on-demand if not already loaded on this product.
             // Await getProductCommercial(p.id) BEFORE populating modal form inputs and displaying modal.
             if (!p._commercialLoaded && typeof getProductCommercial === 'function' && p.id && !String(p.id).startsWith('tmp_')) {
                 try {
                     const comm = await getProductCommercial(p.id);
                     if (comm && typeof comm === 'object') {
-                        if (comm.costPrice !== undefined) p.costPrice = comm.costPrice;
-                        if (comm.marginPercent !== undefined) p.marginPercent = comm.marginPercent;
-                        if (comm.sellPrice !== undefined) p.sellPrice = comm.sellPrice;
-                        if (comm.profitValue !== undefined) p.profitValue = comm.profitValue;
-                        if (comm.profitMarginActual !== undefined) p.profitMarginActual = comm.profitMarginActual;
-                        if (comm.manualPriceOverride !== undefined) p.manualPriceOverride = comm.manualPriceOverride;
-                        if (comm.manualPriceReason !== undefined) p.manualPriceReason = comm.manualPriceReason;
-                        if (comm.supplierId !== undefined) p.supplierId = comm.supplierId;
-                        if (comm.supplierName !== undefined) p.supplierName = comm.supplierName;
-                        if (comm.supplierCode !== undefined) p.supplierCode = comm.supplierCode;
+                        if (comm.status === 'read_failed') {
+                            console.error('[Admin Authoritative Execution] getProductCommercial returned read_failed:', comm.error);
+                            if (saveBtn) {
+                                saveBtn.disabled = true;
+                                saveBtn.title = 'تم تعطيل الحفظ منعاً لفقدان بيانات التكلفة بسبب تعذر تحميل البيانات التجارية';
+                            }
+                            showNotification('error', 'تعذر تحميل البيانات التجارية للمنتج بسبب مشكلة في الاتصال. تم تعطيل الحفظ منعاً لفقدان بيانات التكلفة.');
+                        } else {
+                            if (comm.costPrice !== undefined) p.costPrice = comm.costPrice;
+                            if (comm.marginPercent !== undefined) p.marginPercent = comm.marginPercent;
+                            if (comm.sellPrice !== undefined) p.sellPrice = comm.sellPrice;
+                            if (comm.profitValue !== undefined) p.profitValue = comm.profitValue;
+                            if (comm.profitMarginActual !== undefined) p.profitMarginActual = comm.profitMarginActual;
+                            if (comm.manualPriceOverride !== undefined) p.manualPriceOverride = comm.manualPriceOverride;
+                            if (comm.manualPriceReason !== undefined) p.manualPriceReason = comm.manualPriceReason;
+                            if (comm.supplierId !== undefined) p.supplierId = comm.supplierId;
+                            if (comm.supplierName !== undefined) p.supplierName = comm.supplierName;
+                            if (comm.supplierCode !== undefined) p.supplierCode = comm.supplierCode;
+                            p._commercialLoaded = true;
+                        }
                     }
-                    p._commercialLoaded = true;
                 } catch (commErr) {
                     console.error('Could not fetch commercial data for product', p.id, commErr);
-                    showNotification('warning', 'تعذر تحميل البيانات التجارية للمنتج');
+                    if (saveBtn) {
+                        saveBtn.disabled = true;
+                        saveBtn.title = 'تم تعطيل الحفظ منعاً لفقدان بيانات التكلفة';
+                    }
+                    showNotification('warning', 'تعذر تحميل البيانات التجارية للمنتج بسبب مشكلة في الاتصال. تم تعطيل الحفظ منعاً لفقدان بيانات التكلفة.');
                 }
             }
 
@@ -7882,6 +7905,12 @@ function adminLogout(){
             if (defaultCostInput && !defaultCostInput.value) defaultCostInput.value = '0';
             const defaultMarginInput = document.getElementById('productMarginPercent');
             if (defaultMarginInput && !defaultMarginInput.value) defaultMarginInput.value = '0';
+
+            const saveBtn = document.getElementById('productSaveBtn');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.title = '';
+            }
 
             const title = document.getElementById('productModalTitle');
             if (title) title.textContent = '➕ منتج جديد';
@@ -8924,6 +8953,12 @@ function adminLogout(){
                     adminMessage = 'صلاحية الأدمن غير مفعلة أو انتهت. أعد تسجيل الدخول ثم حاول مرة أخرى.';
                 } else if (code === 'permission-denied' || code === 'permission_denied' || message.includes('permission-denied') || message.includes('missing or insufficient permissions')) {
                     adminMessage = 'رفضت Firebase تحديث الحالة. تأكد من مزامنة مطالبة الأدمن ونشر قواعد Firestore الحالية.';
+                } else if (message.includes('insufficient inventory') || message.includes('insufficient')) {
+                    adminMessage = 'فشل تحديث الحالة: المخزون غير كافٍ لأحد بنود الطلب.';
+                } else if (message.includes('missing productid') || message.includes('invalid quantity')) {
+                    adminMessage = 'فشل تحديث الحالة: يحتوي الطلب على بنود ببيانات أو كميات غير صالحة.';
+                } else if (error && error.message) {
+                    adminMessage = 'تعذر تحديث الحالة: ' + error.message;
                 }
                 showNotification('error', adminMessage);
                 renderOrdersTable();
@@ -9013,6 +9048,24 @@ function adminLogout(){
             if (String(o.status || '') === 'cancelled') {
                 showNotification('info', 'الطلب ملغي بالفعل');
                 return;
+            }
+            const isFulfilled = ['shipped', 'delivered', 'completed'].includes(String(o.status || '').toLowerCase());
+            if (isFulfilled) {
+                if (confirm('هذا الطلب تم شحنه أو تسليمه بالفعل. هل تم استلام وفحص المرتجع في المخزن لإعادة إضافة المخزون الصالح؟\n\nاضغط "موافق" لتأكيد استلام المرتجع وإعادة المخزون، أو "إلغاء" للإلغاء المالي فقط بدون استرجاع المخزون تلقائياً.')) {
+                    if (typeof window.verifyOrderReturnAndRestock === 'function') {
+                        try {
+                            await requireAdminPermission();
+                            await window.verifyOrderReturnAndRestock(String(id));
+                            showNotification('success', 'تم التحقق من استلام المرتجع وإعادة المخزون وإلغاء الطلب بنجاح');
+                            renderOrdersTable();
+                            return;
+                        } catch (err) {
+                            console.error('verifyOrderReturnAndRestock error:', err);
+                            showNotification('error', 'فشل معالجة المرتجع: ' + (err.message || err));
+                            return;
+                        }
+                    }
+                }
             }
             if (!confirm('إلغاء الطلب؟ لن يتم حذف السجل من قاعدة البيانات.')) return;
             await updateOrderStatus(id, 'cancelled');

@@ -1,15 +1,16 @@
 {
-    "version": "2026.11.20.0002",
-    "lastUpdate": "PHASE-1-SECURITY-REMEDIATION-002",
-    "lastUpdated": "2026-11-20T08:30:00+02:00",
+    "version": "2026.11.20.0003",
+    "lastUpdate": "PHASE-2-COMMERCE-INTEGRITY-001",
+    "lastUpdated": "2026-11-20T16:15:00+02:00",
     "changes": [
-        "fix(security): address Codex P1/P2 findings on commercial data, inventory, loyalty, and coupon limits",
-        "feat(commerce): commercial secrets separation into product_commercial with FieldValue.delete()",
-        "feat(commerce): append-only idempotent inventory_ledger with failure safety and deferred post-fulfillment restock",
-        "feat(commerce): authoritative order recalculation and customer loyalty forge prevention",
-        "feat(commerce): transactional coupon limits enforcement and storefront auto-invalidation",
-        "feat(commerce): full CLI for migrate-commercial-data with dry-run default and safety guards"
+        "feat(commerce): Phase 2 deep root-cause remediation, inventory integrity, and return receipt workflow",
+        "feat(commerce): commercial discriminated status union (found, not_found, read_failed, invalid_data)",
+        "feat(commerce): strict cost price isolation without retail price fallback",
+        "feat(commerce): stale stock overwrite prevention in updateProduct",
+        "feat(commerce): strict order line item validation and multi-line deduplication with unique lineIds",
+        "feat(commerce): return receipt lifecycle with quarantine ledger for damaged goods and verified restock",
+        "feat(security): firestore rules for /returns collection and client order creation forbidden flags"
     ],
-    "layer": "Phase 1",
-    "phase": "Core Commerce, Data Security, Inventory Integrity & Transaction Reliability — Security Remediation"
+    "layer": "Phase 2",
+    "phase": "Deep Root-Cause Remediation, Commerce Integrity & End-to-End System Integration"
 }

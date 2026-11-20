@@ -99,7 +99,13 @@ service cloud.firestore {
         && !("inventoryRestocked" in request.resource.data)
         && !("loyaltyAwarded" in request.resource.data)
         && !("pointsRefunded" in request.resource.data)
-        && !("couponIncremented" in request.resource.data);
+        && !("couponIncremented" in request.resource.data)
+        && !("inventoryStatus" in request.resource.data)
+        && !("deductedLineIds" in request.resource.data)
+        && !("restockedLineIds" in request.resource.data)
+        && !("returnReceiptId" in request.resource.data)
+        && !("inventoryReturnProcessed" in request.resource.data)
+        && !("returnVerified" in request.resource.data);
     }
 
     function isValidOrderAdminUpdate() {
@@ -797,6 +803,17 @@ service cloud.firestore {
       allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
       allow create: if isAdmin() || isValidOrderOwnerCreate();
       allow update: if isValidOrderAdminUpdate();
+      allow delete: if false;
+    }
+
+    match /returns/{returnId} {
+      allow read: if isAdmin() || (isVerifiedUser() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin()
+        && request.resource.data.returnId == returnId
+        && request.resource.data.orderId is string
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0;
+      allow update: if isAdmin();
       allow delete: if false;
     }
 
