@@ -855,15 +855,38 @@ function splitProductCommercialPayload(normalizedPayload) {
 }
 
 async function getProductCommercial(productId, options = {}) {
+    const docId = String(productId || '').trim();
+    if (!docId) {
+        return {
+            status: 'invalid_data',
+            error: 'Missing or empty productId',
+            data: null
+        };
+    }
     try {
-        const docId = String(productId || '').trim();
-        if (!docId) return null;
         const db = (options && options.db) || getFirebaseDB();
         const snap = await db.collection('product_commercial').doc(docId).get();
-        return snap.exists ? snap.data() : null;
+        if (snap && snap.exists) {
+            const data = snap.data() || {};
+            return {
+                status: 'found',
+                data: data,
+                ...data
+            };
+        }
+        return {
+            status: 'not_found',
+            data: null
+        };
     } catch (e) {
-        console.warn('getProductCommercial warning:', e);
-        return null;
+        console.error(`[Admin Authoritative Execution] getProductCommercial failed for ${docId}:`, e);
+        if (options && options.throwOnError) throw e;
+        return {
+            status: 'read_failed',
+            error: e && e.message ? e.message : String(e),
+            code: e && e.code ? e.code : 'unknown',
+            data: null
+        };
     }
 }
 
@@ -908,7 +931,15 @@ function mapPublicProductFromSnapshot(doc) {
 }
 
 function mapProductFromSnapshot(doc) {
-    const data = doc.data();
+    const data = doc.data() || {};
+    const hasExplicitCost = data.costPrice !== undefined && data.costPrice !== null && Number.isFinite(Number(data.costPrice));
+    const costPrice = hasExplicitCost ? Number(data.costPrice) : undefined;
+    const hasExplicitSell = data.sellPrice !== undefined && data.sellPrice !== null && Number.isFinite(Number(data.sellPrice));
+    const sellPrice = hasExplicitSell ? Number(data.sellPrice) : (Number.isFinite(Number(data.price)) ? Number(data.price) : 0);
+    const hasExplicitMargin = data.marginPercent !== undefined && data.marginPercent !== null && Number.isFinite(Number(data.marginPercent));
+    const marginPercent = hasExplicitMargin ? Number(data.marginPercent) : 0;
+    const commercialPresent = hasExplicitCost || !!data.supplierId || !!data.supplierName || !!data.supplierCode;
+
     return {
         id: doc.id,
         name: data.name || '',
@@ -926,10 +957,10 @@ function mapProductFromSnapshot(doc) {
         supplierId: data.supplierId || '',
         supplierName: data.supplierName || '',
         supplierCode: data.supplierCode || '',
-        costPrice: Number.isFinite(Number(data.costPrice)) ? Number(data.costPrice) : Number(data.price || 0),
-        marginPercent: Number.isFinite(Number(data.marginPercent)) ? Number(data.marginPercent) : 0,
-        sellPrice: Number.isFinite(Number(data.sellPrice)) ? Number(data.sellPrice) : Number(data.price || 0),
-        profitValue: Number.isFinite(Number(data.profitValue)) ? Number(data.profitValue) : 0,
+        costPrice: costPrice,
+        marginPercent: marginPercent,
+        sellPrice: sellPrice,
+        profitValue: Number.isFinite(Number(data.profitValue)) ? Number(data.profitValue) : (hasExplicitCost ? Math.round((sellPrice - costPrice) * 100) / 100 : 0),
         profitMarginActual: Number.isFinite(Number(data.profitMarginActual)) ? Number(data.profitMarginActual) : 0,
         manualPriceOverride: data.manualPriceOverride === true,
         manualPriceReason: String(data.manualPriceReason || ''),
@@ -938,6 +969,7 @@ function mapProductFromSnapshot(doc) {
         visibilityState: data.visibilityState || (data.isPublished === false ? 'hidden' : 'published'),
         importBatchId: data.importBatchId || '',
         importSource: data.importSource || '',
+        _commercialLoaded: commercialPresent,
         createdAt: data.createdAt || '',
         updatedAt: data.updatedAt || ''
     };
@@ -968,8 +1000,9 @@ async function recordInventoryMovement(params = {}, options = {}) {
             : 'system';
         const performedBy = String(params.performedBy || operatorUid).trim();
 
+        const allowZeroDelta = params.allowZeroDelta === true;
         if (!productId) throw new Error('productId is required for inventory movement');
-        if (!Number.isFinite(quantity) || quantity === 0) {
+        if (!Number.isFinite(quantity) || (quantity === 0 && !allowZeroDelta)) {
             throw new Error('Valid non-zero quantity/delta is required for inventory movement');
         }
 
@@ -1241,8 +1274,199 @@ async function bulkAdjustStockExcel(params = {}, options = {}) {
     return results;
 }
 
+async function createReturnReceipt(receiptInput = {}, options = {}) {
+    const db = (options && options.db) || getFirebaseDB();
+    const orderId = String(receiptInput.orderId || '').trim();
+    if (!orderId) {
+        throw new Error('orderId is required to create a return receipt.');
+    }
+    const rawItems = Array.isArray(receiptInput.items) ? receiptInput.items : [];
+    if (!rawItems.length) {
+        throw new Error('Return receipt items list cannot be empty.');
+    }
+
+    const orderDoc = await db.collection('orders').doc(orderId).get();
+    if (!orderDoc || !orderDoc.exists) {
+        throw new Error(`Order ${orderId} not found.`);
+    }
+    const orderData = orderDoc.data() || {};
+
+    const nowIso = new Date().toISOString();
+    const returnId = String(receiptInput.returnId || `ret_${orderId}_${Date.now()}`).trim();
+    const validatedItems = [];
+
+    for (let i = 0; i < rawItems.length; i++) {
+        const item = rawItems[i];
+        const lineId = String(item.lineId || `line_${i}_${item.productId || ''}`).trim();
+        const productId = String(item.productId || item.id || '').trim();
+        if (!productId) {
+            throw new Error(`Return item at line ${i} is missing productId.`);
+        }
+        const requestedQty = Math.max(0, Math.floor(Number(item.requestedQty !== undefined ? item.requestedQty : item.quantity) || 0));
+        const receivedQty = Math.max(0, Math.floor(Number(item.receivedQty !== undefined ? item.receivedQty : requestedQty) || 0));
+        const sellableQty = Math.max(0, Math.floor(Number(item.sellableQty !== undefined ? item.sellableQty : receivedQty) || 0));
+        const damagedQty = Math.max(0, Math.floor(Number(item.damagedQty !== undefined ? item.damagedQty : 0) || 0));
+
+        if (sellableQty + damagedQty > receivedQty) {
+            throw new Error(`Invalid return quantities for line "${lineId}": sellable (${sellableQty}) + damaged (${damagedQty}) exceeds received (${receivedQty}).`);
+        }
+
+        let inspectionStatus = String(item.inspectionStatus || 'passed').trim().toLowerCase();
+        if (!['passed', 'failed', 'partial'].includes(inspectionStatus)) {
+            inspectionStatus = damagedQty > 0 ? (sellableQty > 0 ? 'partial' : 'failed') : 'passed';
+        }
+
+        validatedItems.push({
+            lineId,
+            productId,
+            name: String(item.name || '').trim(),
+            requestedQty,
+            receivedQty,
+            sellableQty,
+            damagedQty,
+            inspectionStatus,
+            notes: String(item.notes || '').trim()
+        });
+    }
+
+    let user = null;
+    try {
+        const auth = getFirebaseAuth();
+        user = auth && auth.currentUser ? auth.currentUser : null;
+    } catch (_) {}
+
+    const operatorUid = (options && options.operatorUid)
+        || (receiptInput.inspectedBy)
+        || (user && user.uid)
+        || 'admin';
+
+    const receiptDoc = {
+        returnId,
+        orderId,
+        uid: orderData.uid || '',
+        items: validatedItems,
+        returnReason: String(receiptInput.returnReason || receiptInput.reason || 'إرجاع منتجات بعد الشحن/التسليم').trim(),
+        receivedBy: String(receiptInput.receivedBy || operatorUid).trim(),
+        inspectedBy: String(receiptInput.inspectedBy || operatorUid).trim(),
+        status: 'pending_processing',
+        createdAt: nowIso,
+        updatedAt: nowIso
+    };
+
+    await db.collection('returns').doc(returnId).set(receiptDoc);
+    return receiptDoc;
+}
+
+async function processReturnReceipt(returnId, options = {}) {
+    const db = (options && options.db) || getFirebaseDB();
+    const retId = String(returnId || '').trim();
+    if (!retId) throw new Error('returnId is required.');
+
+    const returnDoc = await db.collection('returns').doc(retId).get();
+    if (!returnDoc || !returnDoc.exists) {
+        throw new Error(`Return receipt ${retId} not found.`);
+    }
+    const returnData = returnDoc.data() || {};
+    if (returnData.status === 'completed') {
+        return { success: true, duplicate: true, returnData };
+    }
+
+    const items = Array.isArray(returnData.items) ? returnData.items : [];
+    const orderId = String(returnData.orderId || '').trim();
+    const operatorUid = returnData.inspectedBy || 'admin';
+    const movements = [];
+    const nowIso = new Date().toISOString();
+
+    for (const item of items) {
+        const pid = item.productId;
+        const lineId = item.lineId;
+        const sellableQty = Number(item.sellableQty) || 0;
+        const damagedQty = Number(item.damagedQty) || 0;
+
+        // ONLY sellableQty is added back to available inventory
+        if (sellableQty > 0) {
+            const sellableRes = await recordInventoryMovement({
+                productId: pid,
+                quantity: sellableQty,
+                delta: sellableQty,
+                movementType: 'IN_ORDER_RETURNED',
+                referenceType: 'return_receipt',
+                referenceId: retId,
+                idempotencyKey: `return_${retId}_line_${lineId}_sellable`,
+                performedBy: operatorUid,
+                notes: `إرجاع مخزون صالح للبيع من المرتجع ${retId} (الطلب: ${orderId})`
+            }, options);
+            movements.push(sellableRes);
+        }
+
+        // damagedQty is logged in ledger as OUT_DAMAGED_EXPIRED without altering product stock
+        if (damagedQty > 0) {
+            const damagedRes = await recordInventoryMovement({
+                productId: pid,
+                quantity: 0,
+                delta: 0,
+                allowZeroDelta: true,
+                movementType: 'OUT_DAMAGED_EXPIRED',
+                referenceType: 'return_receipt',
+                referenceId: retId,
+                idempotencyKey: `return_${retId}_line_${lineId}_damaged`,
+                performedBy: operatorUid,
+                notes: `تسجيل مرتجع تالف غير صالح للبيع من المرتجع ${retId} (كمية تالفة: ${damagedQty})`
+            }, options);
+            movements.push(damagedRes);
+        }
+    }
+
+    // Mark return receipt completed
+    await db.collection('returns').doc(retId).set({
+        status: 'completed',
+        processedAt: nowIso,
+        updatedAt: nowIso
+    }, { merge: true });
+
+    // Link back to order
+    if (orderId) {
+        await db.collection('orders').doc(orderId).set({
+            returnReceiptId: retId,
+            returnVerified: true,
+            inventoryReturnProcessed: true,
+            inventoryRestockDeferred: false,
+            inventoryStatus: 'completed',
+            updatedAt: nowIso
+        }, { merge: true });
+    }
+
+    return {
+        success: true,
+        returnId: retId,
+        movements
+    };
+}
+
 async function verifyOrderReturnAndRestock(orderId, options = {}) {
-    return await updateOrderStatus(orderId, 'cancelled', {
+    const db = (options && options.db) || getFirebaseDB();
+    const ordId = String(orderId || '').trim();
+    if (!ordId) throw new Error('orderId is required.');
+
+    // If options.createReceipt === true and items are provided as a custom return receipt
+    if (options && options.createReceipt === true && Array.isArray(options.items)) {
+        const receipt = await createReturnReceipt({
+            orderId: ordId,
+            items: options.items,
+            returnReason: options.returnReason || options.reason,
+            receivedBy: options.receivedBy,
+            inspectedBy: options.inspectedBy
+        }, options);
+        await processReturnReceipt(receipt.returnId, options);
+        return await updateOrderStatus(ordId, 'cancelled', {
+            ...options,
+            returnVerified: true,
+            returnReceiptId: receipt.returnId,
+            skipInventoryRestock: true
+        });
+    }
+
+    return await updateOrderStatus(ordId, 'cancelled', {
         ...options,
         returnVerified: true
     });
@@ -1323,6 +1547,11 @@ async function updateProduct(id, data, options = {}) {
                             notes,
                             idempotencyKey: options.idempotencyKey || `edit_${docId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
                         }, options);
+
+                        // P0 Defect 6: Remove stock from publicPayload to prevent stale stock overwrite
+                        delete publicPayload.stock;
+                    } else {
+                        delete publicPayload.stock;
                     }
                 }
             }
@@ -1575,6 +1804,46 @@ function writeOrderQueueLocal(queue = []) {
     } catch (_) {}
 }
 
+function normalizeOrderLineItems(rawItems = []) {
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
+        throw new Error('Order items list is empty or invalid.');
+    }
+    return rawItems.map((item, idx) => {
+        if (!item || typeof item !== 'object') {
+            throw new Error(`Invalid order item at index ${idx}`);
+        }
+        const pid = String(item.productId || item.id || '').trim();
+        if (!pid) {
+            throw new Error(`Order item at index ${idx} is missing productId.`);
+        }
+        const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+        const qty = Number(rawQty);
+        if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+            throw new Error(`Invalid item quantity for product "${pid}" at line ${idx}: ${rawQty}. Must be a positive integer.`);
+        }
+        const rawPrice = item.price !== undefined ? item.price : item.unitPrice;
+        const price = Number(rawPrice);
+        if (!Number.isFinite(price) || price < 0) {
+            throw new Error(`Invalid item price for product "${pid}" at line ${idx}: ${rawPrice}`);
+        }
+        const lineId = String(item.lineId || `line_${idx}_${pid}`).trim();
+        const name = String(item.name || item.title || '').trim();
+        const lineTotal = Math.round(price * qty * 100) / 100;
+
+        return {
+            lineId,
+            productId: pid,
+            id: pid,
+            name,
+            quantity: qty,
+            qty,
+            price,
+            lineTotal,
+            image: item.image || item.imageUrl || ''
+        };
+    });
+}
+
 function normalizeOrderPayloadForWrite(order = {}, options = {}) {
     const source = order && typeof order === 'object' ? order : {};
     const auth = getFirebaseAuth();
@@ -1600,12 +1869,14 @@ function normalizeOrderPayloadForWrite(order = {}, options = {}) {
     const normalizedEmail = String(source.email || (user && user.email) || '').trim().toLowerCase();
     const idempotencyKey = buildOrderIdempotencyKey({ ...source, uid: normalizedUid });
     const orderDocId = normalizeOrderDocId(idempotencyKey);
+    const items = Array.isArray(source.items) ? normalizeOrderLineItems(source.items) : [];
 
     return {
         ...source,
         id: String(source.id || orderDocId),
         uid: normalizedUid,
         email: normalizedEmail,
+        items,
         idempotencyKey,
         version: Number(source.version) > 0 ? Number(source.version) : 1,
         source: String(source.source || options.source || 'store-web').trim() || 'store-web',
@@ -2057,76 +2328,96 @@ async function ensureAdminSessionForOrderWrite() {
 /**
  * Calculates authoritative loyalty values (expected earned points and legitimate used points)
  * by validating item prices, discounts, and store loyalty settings directly against the database.
- * Protects against untrusted client values (P1-C, Codex Comment #2).
+ * Protects against untrusted client values (P1-C, Codex Comment #2, Phase 2 P0).
  * Admin Authoritative Execution.
  */
 async function calculateAuthoritativeLoyalty(dbRef, orderData) {
     const safeOrder = orderData && typeof orderData === 'object' ? orderData : {};
     const items = Array.isArray(safeOrder.items) ? safeOrder.items : [];
 
-    // 1. Authoritative subtotal calculation: live product price or fallback to item snapshot price
     let authoritativeSubtotal = 0;
-    if (items.length > 0) {
-        for (const item of items) {
-            const pid = String(item.id || item.productId || '').trim();
-            const qty = Math.max(1, Number(item.quantity) || 1);
-            let unitPrice = Number(item.price);
-            if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-                unitPrice = 0;
+    const verifiedItems = [];
+
+    if (!items.length) {
+        authoritativeSubtotal = Math.max(0, Number(safeOrder.subtotal !== undefined ? safeOrder.subtotal : safeOrder.total) || 0);
+    } else {
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const pid = String(item.productId || item.id || '').trim();
+            if (!pid) {
+                throw new Error(`Order item at line ${i} is missing product ID.`);
             }
-            if (pid && dbRef) {
-                try {
-                    const pDoc = await dbRef.collection('products').doc(pid).get();
-                    if (pDoc && pDoc.exists) {
-                        const pData = pDoc.data() || {};
-                        const livePrice = Number(pData.price);
-                        if (Number.isFinite(livePrice) && livePrice >= 0) {
-                            unitPrice = livePrice;
-                        }
-                    }
-                } catch (pErr) {
-                    console.warn(`[Admin Authoritative Execution] Live price lookup warning for ${pid}:`, pErr && pErr.message ? pErr.message : pErr);
+            const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+            const qty = Number(rawQty);
+            if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+                throw new Error(`Invalid item quantity for product "${pid}" at line ${i}: ${rawQty}`);
+            }
+
+            if (!dbRef) {
+                throw new Error('Database reference is required for authoritative loyalty calculation.');
+            }
+
+            const pDoc = await dbRef.collection('products').doc(pid).get();
+            let livePrice = 0;
+            let pName = item.name || '';
+            if (pDoc && pDoc.exists) {
+                const pData = pDoc.data() || {};
+                livePrice = Number(pData.price);
+                pName = pData.name || pName;
+                if (!Number.isFinite(livePrice) || livePrice < 0) {
+                    throw new Error(`Invalid catalog price for product "${pid}": ${pData.price}`);
+                }
+            } else {
+                // For historical / existing orders or test environments without populated catalog doc,
+                // fall back to recorded item price if finite and non-negative
+                const recordedPrice = Number(item.price !== undefined ? item.price : item.unitPrice);
+                if (Number.isFinite(recordedPrice) && recordedPrice >= 0) {
+                    livePrice = recordedPrice;
+                } else {
+                    throw new Error(`Product "${pid}" (line ${i}) does not exist in catalog.`);
                 }
             }
-            authoritativeSubtotal += unitPrice * qty;
+
+            const lineTotal = Math.round(livePrice * qty * 100) / 100;
+            authoritativeSubtotal += lineTotal;
+            verifiedItems.push({
+                lineId: String(item.lineId || `line_${i}_${pid}`),
+                productId: pid,
+                name: pName,
+                authoritativePrice: livePrice,
+                submittedPrice: Number(item.price !== undefined ? item.price : item.unitPrice),
+                quantity: qty,
+                lineTotal
+            });
         }
-        authoritativeSubtotal = Math.round(authoritativeSubtotal * 100) / 100;
-    } else if (Number.isFinite(Number(safeOrder.subtotal)) && Number(safeOrder.subtotal) > 0) {
-        authoritativeSubtotal = Number(safeOrder.subtotal);
-    } else if (Number.isFinite(Number(safeOrder.total)) && Number(safeOrder.total) > 0) {
-        authoritativeSubtotal = Number(safeOrder.total);
     }
+
+    authoritativeSubtotal = Math.round(authoritativeSubtotal * 100) / 100;
 
     // 2. Recompute coupon discount against authoritative subtotal
     let authoritativeCouponDiscount = 0;
     const couponCode = String(safeOrder.couponCode || '').trim().toUpperCase();
     if (couponCode && dbRef && authoritativeSubtotal > 0) {
-        try {
-            const cSnap = await dbRef.collection('coupons').where('code', '==', couponCode).get();
-            if (!cSnap.empty) {
-                const cData = cSnap.docs[0].data() || {};
-                const minOrder = Number(cData.minOrderAmount !== undefined ? cData.minOrderAmount : cData.minOrder) || 0;
-                const isExpired = cData.expiresAt && new Date(cData.expiresAt) < new Date();
-                const isActive = cData.active !== false && cData.isActive !== false;
-                const rawLimit = cData.usageLimit !== undefined ? cData.usageLimit : cData.maxUses;
-                const parsedLimit = Number(rawLimit);
-                const usageLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
-                const isExhausted = usageLimit !== null && (Number(cData.usedCount) || 0) >= usageLimit;
-                if (isActive && !isExpired && !isExhausted && (minOrder <= 0 || authoritativeSubtotal >= minOrder)) {
-                    if (cData.type === 'percentage') {
-                        const pct = Math.max(0, Math.min(100, Number(cData.value) || 0));
-                        authoritativeCouponDiscount = Math.round((authoritativeSubtotal * (pct / 100)) * 100) / 100;
-                    } else if (cData.type === 'fixed') {
-                        authoritativeCouponDiscount = Math.min(authoritativeSubtotal, Math.max(0, Number(cData.value) || 0));
-                    }
+        const cSnap = await dbRef.collection('coupons').where('code', '==', couponCode).get();
+        if (!cSnap.empty) {
+            const cData = cSnap.docs[0].data() || {};
+            const minOrder = Number(cData.minOrderAmount !== undefined ? cData.minOrderAmount : cData.minOrder) || 0;
+            const isExpired = cData.expiresAt && new Date(cData.expiresAt) < new Date();
+            const isActive = cData.active !== false && cData.isActive !== false;
+            const rawLimit = cData.usageLimit !== undefined ? cData.usageLimit : cData.maxUses;
+            const parsedLimit = Number(rawLimit);
+            const usageLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
+            const isExhausted = usageLimit !== null && (Number(cData.usedCount) || 0) >= usageLimit;
+            if (isActive && !isExpired && !isExhausted && (minOrder <= 0 || authoritativeSubtotal >= minOrder)) {
+                if (cData.type === 'percentage') {
+                    const pct = Math.max(0, Math.min(90, Number(cData.value !== undefined ? cData.value : cData.discount) || 0));
+                    authoritativeCouponDiscount = Math.round((authoritativeSubtotal * (pct / 100)) * 100) / 100;
+                } else {
+                    const fixedVal = Math.max(0, Number(cData.value !== undefined ? cData.value : cData.discount) || 0);
+                    authoritativeCouponDiscount = Math.min(authoritativeSubtotal, fixedVal);
                 }
             }
-        } catch (cErr) {
-            console.warn('[Admin Authoritative Execution] Coupon recompute warning:', cErr && cErr.message ? cErr.message : cErr);
-            authoritativeCouponDiscount = Math.min(authoritativeSubtotal, Math.max(0, Number(safeOrder.discount) || 0));
         }
-    } else if (Number(safeOrder.discount) > 0) {
-        authoritativeCouponDiscount = Math.min(authoritativeSubtotal, Math.max(0, Number(safeOrder.discount) || 0));
     }
 
     const totalAfterCoupon = Math.max(0, Math.round((authoritativeSubtotal - authoritativeCouponDiscount) * 100) / 100);
@@ -2147,9 +2438,7 @@ async function calculateAuthoritativeLoyalty(dbRef, orderData) {
                     pointValue = Number(loyalty.pointValue);
                 }
             }
-        } catch (sErr) {
-            console.warn('[Admin Authoritative Execution] Store settings lookup warning:', sErr && sErr.message ? sErr.message : sErr);
-        }
+        } catch (_) {}
     }
 
     // 4. Safe points discount & eligible total
@@ -2158,19 +2447,12 @@ async function calculateAuthoritativeLoyalty(dbRef, orderData) {
     const authoritativeTotal = Math.max(0, Math.round((totalAfterCoupon - safePointsDiscount) * 100) / 100);
 
     // 5. Authoritative expected earned points: Math.floor(authoritativeTotal * (loyaltyRate / 100))
-    let expectedEarnedPoints = 0;
-    if (authoritativeTotal > 0 || items.length > 0) {
-        expectedEarnedPoints = Math.floor(authoritativeTotal * (loyaltyRate / 100));
-    } else if (Number(safeOrder.earnedPoints) > 0) {
-        expectedEarnedPoints = Math.max(0, Math.floor(Number(safeOrder.earnedPoints)));
-    }
+    const expectedEarnedPoints = Math.floor(authoritativeTotal * (loyaltyRate / 100));
 
     // 6. Authoritative max legitimate used points
     let maxLegitimateUsedPoints = 0;
     if (safePointsDiscount > 0 && pointValue > 0) {
         maxLegitimateUsedPoints = Math.ceil(safePointsDiscount / pointValue);
-    } else if (items.length === 0 && Number(safeOrder.usedPoints) > 0) {
-        maxLegitimateUsedPoints = Math.max(0, Math.floor(Number(safeOrder.usedPoints)));
     }
     const reportedUsedPoints = Math.max(0, Math.floor(Number(safeOrder.usedPoints) || 0));
     const legitimateUsedPoints = Math.min(reportedUsedPoints, maxLegitimateUsedPoints);
@@ -2184,7 +2466,9 @@ async function calculateAuthoritativeLoyalty(dbRef, orderData) {
         loyaltyRate,
         pointValue,
         expectedEarnedPoints,
-        legitimateUsedPoints
+        authoritativeEarnedPoints: expectedEarnedPoints,
+        legitimateUsedPoints,
+        verifiedItems
     };
 }
 
@@ -2233,9 +2517,24 @@ async function updateOrderStatus(id, status, options = {}) {
         const fulfilledStatuses = ['shipped', 'delivered', 'completed'];
         const rawItems = Array.isArray(current.items) ? current.items : [];
 
+        if (deductionStatuses.includes(nextStatus)) {
+            for (let i = 0; i < rawItems.length; i++) {
+                const item = rawItems[i];
+                const pid = String(item.productId || item.id || '').trim();
+                if (!pid) {
+                    throw new Error(`Order ${orderId} item at index ${i} has missing productId. Processing aborted.`);
+                }
+                const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+                const qty = Number(rawQty);
+                if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+                    throw new Error(`Order ${orderId} item "${pid}" at line ${i} has invalid quantity: ${rawQty}. Must be a positive integer.`);
+                }
+            }
+        }
+
         // Track per-item deductions and restocks to ensure idempotency and resume-safety
-        const deductedItemIds = Array.isArray(current.deductedItemIds) ? [...current.deductedItemIds] : [];
-        const restockedItemIds = Array.isArray(current.restockedItemIds) ? [...current.restockedItemIds] : [];
+        const deductedLineIds = Array.isArray(current.deductedLineIds) ? [...current.deductedLineIds] : (Array.isArray(current.deductedItemIds) ? [...current.deductedItemIds] : []);
+        const restockedLineIds = Array.isArray(current.restockedLineIds) ? [...current.restockedLineIds] : (Array.isArray(current.restockedItemIds) ? [...current.restockedItemIds] : []);
 
         if (deductionStatuses.includes(nextStatus) && current.inventoryDeducted !== true) {
             let allDeducted = true;
@@ -2243,16 +2542,19 @@ async function updateOrderStatus(id, status, options = {}) {
 
             for (let i = 0; i < rawItems.length; i++) {
                 const item = rawItems[i];
-                const pid = String(item.id || item.productId || '').trim();
-                const itemKey = String(item.lineId || item.itemKey || pid || `item_${i}`).trim();
-                const qty = Math.max(1, Number(item.quantity) || 1);
+                const pid = String(item.productId || item.id || '').trim();
+                const itemKey = String(item.lineId || item.id || item.productId || ('item_' + i)).trim();
+                const lineId = String(item.lineId || `line_${i}_${pid}`).trim();
+                const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+                const qty = Number(rawQty);
 
-                if (!pid) continue;
+                if (!pid) {
+                    throw new Error(`Missing productId at line ${i} in order ${orderId}`);
+                }
 
-                // Check per-item tracking: avoid double-deduction on retry
-                const alreadyDeducted = item.deducted === true || deductedItemIds.includes(itemKey) || (deductedItemIds.includes(pid) && rawItems.filter(x => String(x.id || x.productId) === pid).length === 1);
+                // Check per-line tracking: avoid double-deduction on retry
+                const alreadyDeducted = deductedLineIds.includes(itemKey) || deductedLineIds.includes(lineId);
                 if (alreadyDeducted) {
-                    if (!deductedItemIds.includes(itemKey)) deductedItemIds.push(itemKey);
                     continue;
                 }
 
@@ -2266,30 +2568,32 @@ async function updateOrderStatus(id, status, options = {}) {
                         referenceId: orderId,
                         idempotencyKey: `order_${orderId}_item_${itemKey}_deduct`,
                         performedBy: operatorUid,
-                        notes: `خصم مخزون للطلب ${orderId}`
+                        notes: `خصم مخزون للبند ${itemKey} (منتج: ${pid}) للطلب ${orderId}`
                     }, options);
 
-                    if (!deductedItemIds.includes(itemKey)) {
-                        deductedItemIds.push(itemKey);
+                    if (!deductedLineIds.includes(itemKey)) {
+                        deductedLineIds.push(itemKey);
+                    }
+                    if (lineId && !deductedLineIds.includes(lineId)) {
+                        deductedLineIds.push(lineId);
                     }
                 } catch (invErr) {
                     allDeducted = false;
                     deductionError = invErr;
-                    console.error(`Inventory deduction failure for product ${pid} in order ${orderId}:`, invErr);
-                    // Crucial: Do NOT swallow error! Stop loop and persist progress
+                    console.error(`Inventory deduction failure for line ${lineId} (product ${pid}) in order ${orderId}:`, invErr);
                     break;
                 }
             }
 
-            updatePayload.deductedItemIds = deductedItemIds;
+            updatePayload.deductedLineIds = deductedLineIds;
+            updatePayload.deductedItemIds = deductedLineIds;
 
             if (!allDeducted || deductionError) {
-                // Do NOT set inventoryDeducted = true!
-                // Keep status at previousStatus if transition failed due to inventory!
                 const failurePayload = {
                     ...updatePayload,
                     status: previousStatus || 'pending',
                     inventoryDeducted: false,
+                    inventoryStatus: deductedLineIds.length > 0 ? 'partially_completed' : 'failed_retryable',
                     inventoryDeductionError: String(deductionError && deductionError.message || deductionError || 'Inventory deduction failed')
                 };
                 await docRef.set(failurePayload, { merge: true });
@@ -2298,40 +2602,40 @@ async function updateOrderStatus(id, status, options = {}) {
 
             // ALL items deducted successfully
             updatePayload.inventoryDeducted = true;
+            updatePayload.inventoryStatus = 'completed';
             updatePayload.inventoryDeductedAt = nowIso;
-        } else if (nextStatus === 'cancelled' && (current.inventoryDeducted === true || deductedItemIds.length > 0) && current.inventoryRestocked !== true) {
+        } else if (nextStatus === 'cancelled' && (current.inventoryDeducted === true || deductedLineIds.length > 0) && current.inventoryRestocked !== true && (options && options.skipInventoryRestock !== true)) {
             const wasFulfilled = fulfilledStatuses.includes(previousStatus);
             const isReturnVerified = current.returnVerified === true || (options && options.returnVerified === true);
 
             if (wasFulfilled && !isReturnVerified) {
-                // Post-fulfillment cancellation: goods already dispatched or delivered!
-                // Do NOT automatically restock into warehouse stock without verified return!
                 console.warn(`Skipping automatic inventory restock for order ${orderId}: previous status was '${previousStatus}' (fulfilled) and return is not verified.`);
                 updatePayload.inventoryRestockSkipped = true;
                 updatePayload.inventoryRestockDeferred = true;
+                updatePayload.inventoryStatus = 'requires_manual_review';
                 updatePayload.inventoryRestockReason = `POST_FULFILLMENT_REQUIRES_RETURN_RECEIPT (was: ${previousStatus})`;
             } else {
-                // Pre-fulfillment cancellation OR verified return: proceed with restocking
                 const restockMovementType = isReturnVerified ? 'IN_ORDER_RETURNED' : 'IN_ORDER_CANCELLED';
                 let allRestocked = true;
                 let restockError = null;
 
                 for (let i = 0; i < rawItems.length; i++) {
                     const item = rawItems[i];
-                    const pid = String(item.id || item.productId || '').trim();
-                    const itemKey = String(item.lineId || item.itemKey || pid || `item_${i}`).trim();
-                    const qty = Math.max(1, Number(item.quantity) || 1);
+                    const pid = String(item.productId || item.id || '').trim();
+                    const itemKey = String(item.lineId || item.id || item.productId || ('item_' + i)).trim();
+                    const lineId = String(item.lineId || `line_${i}_${pid}`).trim();
+                    const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+                    const qty = Number(rawQty);
 
                     if (!pid) continue;
 
                     // Only restock items that were actually deducted!
-                    const wasDeducted = item.deducted === true || deductedItemIds.includes(itemKey) || deductedItemIds.includes(pid) || current.inventoryDeducted === true;
+                    const wasDeducted = deductedLineIds.includes(itemKey) || deductedLineIds.includes(lineId) || current.inventoryDeducted === true;
                     if (!wasDeducted) continue;
 
                     // Check if already restocked
-                    const alreadyRestocked = item.restocked === true || restockedItemIds.includes(itemKey) || (restockedItemIds.includes(pid) && rawItems.filter(x => String(x.id || x.productId) === pid).length === 1);
+                    const alreadyRestocked = restockedLineIds.includes(itemKey) || restockedLineIds.includes(lineId);
                     if (alreadyRestocked) {
-                        if (!restockedItemIds.includes(itemKey)) restockedItemIds.push(itemKey);
                         continue;
                     }
 
@@ -2345,30 +2649,35 @@ async function updateOrderStatus(id, status, options = {}) {
                             referenceId: orderId,
                             idempotencyKey: `order_${orderId}_item_${itemKey}_restock`,
                             performedBy: operatorUid,
-                            notes: isReturnVerified ? `إرجاع مخزون بعد التحقق من استلام المرتجع للطلب ${orderId}` : `إرجاع مخزون لإلغاء الطلب ${orderId}`
+                            notes: isReturnVerified ? `إرجاع مخزون بعد التحقق من استلام المرتجع للبند ${itemKey} بالطلب ${orderId}` : `إرجاع مخزون لإلغاء الطلب ${orderId} للبند ${itemKey}`
                         }, options);
 
-                        if (!restockedItemIds.includes(itemKey)) {
-                            restockedItemIds.push(itemKey);
+                        if (!restockedLineIds.includes(itemKey)) {
+                            restockedLineIds.push(itemKey);
+                        }
+                        if (lineId && !restockedLineIds.includes(lineId)) {
+                            restockedLineIds.push(lineId);
                         }
                     } catch (restockErr) {
                         allRestocked = false;
                         restockError = restockErr;
-                        console.error(`Inventory restock failure for product ${pid} in order ${orderId}:`, restockErr);
+                        console.error(`Inventory restock failure for line ${itemKey} in order ${orderId}:`, restockErr);
                         break;
                     }
                 }
 
-                updatePayload.restockedItemIds = restockedItemIds;
+                updatePayload.restockedLineIds = restockedLineIds;
+                updatePayload.restockedItemIds = restockedLineIds;
 
                 if (!allRestocked || restockError) {
                     updatePayload.inventoryRestocked = false;
+                    updatePayload.inventoryStatus = restockedLineIds.length > 0 ? 'partially_completed' : 'failed_retryable';
                     await docRef.set(updatePayload, { merge: true });
                     throw restockError || new Error(`Failed to restock inventory for cancelled order ${orderId}`);
                 }
 
-                // ALL deducted items restocked successfully
                 updatePayload.inventoryRestocked = true;
+                updatePayload.inventoryStatus = 'completed';
                 updatePayload.inventoryRestockedAt = nowIso;
                 if (isReturnVerified) {
                     updatePayload.returnVerified = true;
@@ -3532,7 +3841,10 @@ if (typeof window !== 'undefined') {
     window.recordPurchaseReceipt = recordPurchaseReceipt;
     window.recordPurchaseReturn = recordPurchaseReturn;
     window.bulkAdjustStockExcel = bulkAdjustStockExcel;
+    window.createReturnReceipt = createReturnReceipt;
+    window.processReturnReceipt = processReturnReceipt;
     window.verifyOrderReturnAndRestock = verifyOrderReturnAndRestock;
+    window.normalizeOrderLineItems = normalizeOrderLineItems;
 }
 
 function verifyOrderCommercialPricing(order = {}, productsMap = new Map(), coupon = null, customerPoints = 0) {
@@ -3679,7 +3991,11 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports.recordPurchaseReceipt = recordPurchaseReceipt;
     module.exports.recordPurchaseReturn = recordPurchaseReturn;
     module.exports.bulkAdjustStockExcel = bulkAdjustStockExcel;
+    module.exports.createReturnReceipt = createReturnReceipt;
+    module.exports.processReturnReceipt = processReturnReceipt;
     module.exports.verifyOrderReturnAndRestock = verifyOrderReturnAndRestock;
+    module.exports.normalizeOrderLineItems = normalizeOrderLineItems;
+    module.exports.mapProductFromSnapshot = mapProductFromSnapshot;
     module.exports.buildProductSearchTokens = buildProductSearchTokens;
     module.exports.verifyOrderCommercialPricing = verifyOrderCommercialPricing;
 }

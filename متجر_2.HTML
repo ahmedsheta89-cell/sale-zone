@@ -11304,9 +11304,25 @@
             const address = document.getElementById('checkoutAddress').value.trim();
             const notes = document.getElementById('checkoutNotes').value.trim();
 
-            const checkoutItems = Array.isArray(validatedCartState.items) && validatedCartState.items.length
+            const rawCheckoutItems = Array.isArray(validatedCartState.items) && validatedCartState.items.length
                 ? validatedCartState.items
                 : [...cart];
+            const checkoutItems = typeof normalizeOrderLineItems === 'function'
+                ? normalizeOrderLineItems(rawCheckoutItems)
+                : rawCheckoutItems.map((item, idx) => {
+                    const pid = String(item.productId || item.id || '').trim();
+                    const qty = Math.max(1, Math.floor(Number(item.quantity !== undefined ? item.quantity : item.qty) || 1));
+                    const price = Math.max(0, Number(item.price !== undefined ? item.price : item.unitPrice) || 0);
+                    const lineId = String(item.lineId || `line_${idx}_${pid}`).trim();
+                    return {
+                        lineId,
+                        productId: pid,
+                        name: item.name || '',
+                        price,
+                        quantity: qty,
+                        lineTotal: Math.round(price * qty * 100) / 100
+                    };
+                });
             const subtotal = checkoutItems.reduce((s, i) => s + (Number(i.price) * Number(i.quantity)), 0);
 
             // Authoritative live re-validation of applied coupon against Firestore & checkout subtotal

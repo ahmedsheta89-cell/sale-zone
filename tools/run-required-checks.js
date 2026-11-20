@@ -19,7 +19,8 @@ const checks = [
   { name: 'rules', command: ['node', 'tools/rules-test.js'] },
   { name: 'e2e', command: ['node', 'tools/e2e-check.js'] },
   { name: 'cloudinary-retry', command: ['node', 'tests/admin-cloudinary-retry.test.js'] },
-  { name: 'phase1-commerce-security', command: ['node', 'tests/phase1-commerce-security.test.js'] }
+  { name: 'phase1-commerce-security', command: ['node', 'tests/phase1-commerce-security.test.js'] },
+  { name: 'phase2-commerce-integrity', command: ['node', 'tests/phase2-commerce-integrity.test.js'] }
 ];
 
 const failures = [];
