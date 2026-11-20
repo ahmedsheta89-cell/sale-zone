@@ -2408,8 +2408,17 @@ async function verifyAndEnforceCatalogPricing(orderPayload = {}, options = {}) {
 
 async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
     // WHY: Spark plan has no backend API, so order persistence must be Firestore-direct.
-    const fireDB = dbRef || getFirebaseDB();
-    let payload = orderPayload && typeof orderPayload === 'object' ? { ...orderPayload } : {};
+    // Support both persistOrderOnline(orderPayload, meta) and persistOrderOnline(dbRef, orderPayload, meta)
+    let fireDB = dbRef;
+    let payload = orderPayload;
+    if (dbRef && typeof dbRef.collection !== 'function') {
+        meta = orderPayload || {};
+        payload = dbRef;
+        fireDB = (typeof getFirebaseDB === 'function' ? getFirebaseDB() : null) || (typeof window !== 'undefined' ? window.db : null);
+    } else {
+        fireDB = dbRef || (typeof getFirebaseDB === 'function' ? getFirebaseDB() : null) || (typeof window !== 'undefined' ? window.db : null);
+    }
+    payload = payload && typeof payload === 'object' ? { ...payload } : {};
 
     // Authoritative catalog price and line verification before persistence
     if (meta && meta.skipCatalogPriceEnforcement !== true && Array.isArray(payload.items) && payload.items.length > 0) {

@@ -9,7 +9,7 @@ const root = process.cwd();
 const errors = [];
 const sourceExtRegex = /\.(html?|js|css)$/i;
 const htmlExtRegex = /\.html?$/i;
-const ignoredDirs = new Set(['.git', 'node_modules', 'tools']);
+const ignoredDirs = new Set(['.git', 'node_modules', 'tools', 'test-results', 'artifacts', 'playwright-report']);
 
 function isCiEnvironment() {
   return String(process.env.CI || '').toLowerCase() === 'true'

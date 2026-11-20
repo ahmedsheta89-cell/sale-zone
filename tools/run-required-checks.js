@@ -21,7 +21,8 @@ const checks = [
   { name: 'cloudinary-retry', command: ['node', 'tests/admin-cloudinary-retry.test.js'] },
   { name: 'phase1-commerce-security', command: ['node', 'tests/phase1-commerce-security.test.js'] },
   { name: 'phase2-commerce-integrity', command: ['node', 'tests/phase2-commerce-integrity.test.js'] },
-  { name: 'phase3-commerce-integrity', command: ['node', 'tests/phase3-commerce-integrity.test.js'] }
+  { name: 'phase3-commerce-integrity', command: ['node', 'tests/phase3-commerce-integrity.test.js'] },
+  { name: 'playwright-e2e', command: ['npx', 'playwright', 'test'] }
 ];
 
 const failures = [];
@@ -33,7 +34,7 @@ for (const check of checks) {
   const [bin, ...args] = check.command;
   const result = spawnSync(bin, args, {
     stdio: 'inherit',
-    shell: false
+    shell: process.platform === 'win32'
   });
 
   const durationMs = Date.now() - startedAt;
