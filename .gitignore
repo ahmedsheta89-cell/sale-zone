@@ -79,3 +79,5 @@ sale-zone/node_modules/
 
 # Generated runtime reports
 output/
+test-results/
+playwright-report/

@@ -222,7 +222,7 @@ jobs:
 
   e2e:
     name: e2e
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -230,6 +230,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install tooling dependencies
         run: npm install --prefix sale-zone --no-audit --no-fund
       - name: Debug paths
@@ -248,6 +250,14 @@ jobs:
         run: node tests/admin-cloudinary-retry.test.js
       - name: Run Phase 1 Commerce & Security Tests
         run: node tests/phase1-commerce-security.test.js
+      - name: Run Phase 2 Commerce Integrity Tests
+        run: node tests/phase2-commerce-integrity.test.js
+      - name: Run Phase 3 Commerce Integrity Tests
+        run: node tests/phase3-commerce-integrity.test.js
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright E2E Suite (Track B + Track C)
+        run: npx playwright test
 
   workers-paranoid-gate:
     name: workers-paranoid-gate
