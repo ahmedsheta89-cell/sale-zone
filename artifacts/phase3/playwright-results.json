@@ -100,12 +100,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 4885,
+                      "duration": 4624,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:03:19.974Z",
+                      "startTime": "2026-11-23T20:55:38.276Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -134,12 +134,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 9274,
+                      "duration": 5180,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:03:25.135Z",
+                      "startTime": "2026-11-23T20:55:43.115Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -168,12 +168,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 6096,
+                      "duration": 5236,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:03:34.442Z",
+                      "startTime": "2026-11-23T20:55:48.336Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -202,12 +202,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 6191,
+                      "duration": 5883,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:03:40.570Z",
+                      "startTime": "2026-11-23T20:55:53.607Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -253,12 +253,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3468,
+                      "duration": 3557,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:03:46.826Z",
+                      "startTime": "2026-11-23T20:55:59.544Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -287,12 +287,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3154,
+                      "duration": 3403,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:03:50.369Z",
+                      "startTime": "2026-11-23T20:56:03.149Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -321,12 +321,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3603,
+                      "duration": 3509,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:03:53.567Z",
+                      "startTime": "2026-11-23T20:56:06.599Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -355,12 +355,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3143,
+                      "duration": 3092,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:03:57.212Z",
+                      "startTime": "2026-11-23T20:56:10.155Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -389,12 +389,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 5614,
+                      "duration": 5117,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:04:00.397Z",
+                      "startTime": "2026-11-23T20:56:13.342Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -405,6 +405,227 @@
               "id": "eb26db54ed3c4dcdbcba-8c4b099de071a00e70bd",
               "file": "customer-journey.spec.js",
               "line": 107,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "e2e-business-lifecycle.spec.js",
+      "file": "e2e-business-lifecycle.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "End-to-End Commerce Lifecycle & Business Rejection Scenarios (Dual-Track Validation)",
+          "file": "e2e-business-lifecycle.spec.js",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "LIFE-1: Full Commerce Cycle (Purchase -> Admin Order Flow -> Delivered -> Partial Return -> Full Return)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11723,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-23T20:56:18.515Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a388d4464c21dadd26f4-83ebf32b82eafa1e1920",
+              "file": "e2e-business-lifecycle.spec.js",
+              "line": 4,
+              "column": 3
+            },
+            {
+              "title": "REJECT-1: Duplicate Order Replay / Idempotency Gate",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3499,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-23T20:56:30.272Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a388d4464c21dadd26f4-24408b478de2f28309cd",
+              "file": "e2e-business-lifecycle.spec.js",
+              "line": 232,
+              "column": 3
+            },
+            {
+              "title": "REJECT-2: Over-Return Gate (Return Quantity Exceeding Remaining Returnable)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5482,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-23T20:56:33.806Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a388d4464c21dadd26f4-2f65c8391b40cb7a9bbb",
+              "file": "e2e-business-lifecycle.spec.js",
+              "line": 273,
+              "column": 3
+            },
+            {
+              "title": "REJECT-3: Duplicate Return Replay / Return Receipt Idempotency Gate",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4733,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-23T20:56:39.325Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a388d4464c21dadd26f4-f571a17c037b7ff56766",
+              "file": "e2e-business-lifecycle.spec.js",
+              "line": 355,
+              "column": 3
+            },
+            {
+              "title": "REJECT-4: Offline Disconnection Handling During Operation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3829,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-23T20:56:44.088Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a388d4464c21dadd26f4-50818659a28d5cfa880e",
+              "file": "e2e-business-lifecycle.spec.js",
+              "line": 402,
+              "column": 3
+            },
+            {
+              "title": "REJECT-5: Concurrency Lock Barrier on Batch Operations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6157,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-23T20:56:47.955Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a388d4464c21dadd26f4-8ed52787c42c53ebcc08",
+              "file": "e2e-business-lifecycle.spec.js",
+              "line": 427,
               "column": 3
             }
           ]
@@ -440,12 +661,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3076,
+                      "duration": 3459,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:04:06.058Z",
+                      "startTime": "2026-11-23T20:56:54.156Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -474,12 +695,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2765,
+                      "duration": 2592,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:04:09.167Z",
+                      "startTime": "2026-11-23T20:56:57.657Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -508,12 +729,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2875,
+                      "duration": 1999,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:04:11.963Z",
+                      "startTime": "2026-11-23T20:57:00.290Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -559,12 +780,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3058,
+                      "duration": 3265,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:04:14.870Z",
+                      "startTime": "2026-11-23T20:57:02.329Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -593,12 +814,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2837,
+                      "duration": 3394,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:04:17.959Z",
+                      "startTime": "2026-11-23T20:57:05.620Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -627,12 +848,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3333,
+                      "duration": 3871,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:04:20.822Z",
+                      "startTime": "2026-11-23T20:57:09.046Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -661,12 +882,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 5279,
+                      "duration": 4960,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-11-21T00:04:24.180Z",
+                      "startTime": "2026-11-23T20:57:12.958Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -686,9 +907,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-21T00:03:17.567Z",
-    "duration": 72389.706,
-    "expected": 16,
+    "startTime": "2026-11-23T20:55:35.757Z",
+    "duration": 102791.017,
+    "expected": 22,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

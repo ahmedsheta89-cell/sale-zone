@@ -1,7 +1,7 @@
 {
-    "version": "2026.11.20.0005",
-    "lastUpdate": "PHASE-3-DUAL-TRACK-PLAYWRIGHT-001",
-    "lastUpdated": "2026-11-20T23:30:00+02:00",
+    "version": "2026.11.23.0001",
+    "lastUpdate": "PHASE-3-DUAL-TRACK-PLAYWRIGHT-002",
+    "lastUpdated": "2026-11-23T22:55:00+02:00",
     "changes": [
         "feat(commerce): Phase 3 itemized return inspections, order line identity, authoritative pricing & commercial isolation",
         "feat(returns): itemized return inspection modal with sellable vs damaged quarantine distribution",
@@ -14,6 +14,8 @@
         "feat(security): actor identity enforcement matching request.auth.uid and blocking client spoofing",
         "feat(commercial): cleansing public catalog snapshots to prevent phantom _commercialLoaded state",
         "test(e2e): complete Playwright real browser user testing suite covering Customer Journey, Admin Journey, Security Negatives, and Responsive RTL",
+        "test(e2e): full end-to-end commerce lifecycle (purchase -> admin order flow -> delivered -> partial return -> full return)",
+        "test(e2e): real rejection cases covering duplicate order replay, over-return quantities, duplicate return receipts, network disconnection, and concurrency lock barriers",
         "feat(e2e): Dual-Track validation architecture (Track A Code-Level + Track B Real Browser Execution + Track C Post-Action Firestore Verification)",
         "ci(e2e): integrated Playwright Chromium E2E testing into unified release gate and GitHub Actions CI workflow"
     ],

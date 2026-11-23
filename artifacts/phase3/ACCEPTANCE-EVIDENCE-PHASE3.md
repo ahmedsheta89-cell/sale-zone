@@ -56,22 +56,51 @@ Running 16 tests using 1 worker
   ok  7 [chromium] › tests/e2e/customer-journey.spec.js › CJ-3: Add to cart, adjust quantity, and verify subtotal recalculation
   ok  8 [chromium] › tests/e2e/customer-journey.spec.js › CJ-4: Coupon validation and discount computation
   ok  9 [chromium] › tests/e2e/customer-journey.spec.js › CJ-5: End-to-end checkout submission and Track C Post-Action Data Verification
-  ok 10 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-1: Desktop viewport (1280x800) renders RTL correctly without horizontal overflow
-  ok 11 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-2: Tablet viewport (768x1024) adapts cleanly without clipping
-  ok 12 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-3: Mobile viewport (375x667) maintains touch-friendly layout and RTL navigation
-  ok 13 [chromium] › tests/e2e/security-negative.spec.js › SEC-1: Malicious cart price tampering is overwritten by authoritative catalog price
-  ok 14 [chromium] › tests/e2e/security-negative.spec.js › SEC-2: Purchasing unpublished product (isPublished: false) is strictly rejected
-  ok 15 [chromium] › tests/e2e/security-negative.spec.js › SEC-3: Adding out-of-stock product to cart is prevented
-  ok 16 [chromium] › tests/e2e/security-negative.spec.js › SEC-4: Unauthenticated visitor navigating to admin is locked at login screen
+  ok 10 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › LIFE-1: Full Commerce Cycle (Purchase -> Admin Order Flow -> Delivered -> Partial Return -> Full Return)
+  ok 11 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-1: Duplicate Order Replay / Idempotency Gate
+  ok 12 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-2: Over-Return Gate (Return Quantity Exceeding Remaining Returnable)
+  ok 13 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-3: Duplicate Return Replay / Return Receipt Idempotency Gate
+  ok 14 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-4: Offline Disconnection Handling During Operation
+  ok 15 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-5: Concurrency Lock Barrier on Batch Operations
+  ok 16 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-1: Desktop viewport (1280x800) renders RTL correctly without horizontal overflow
+  ok 17 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-2: Tablet viewport (768x1024) adapts cleanly without clipping
+  ok 18 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-3: Mobile viewport (375x667) maintains touch-friendly layout and RTL navigation
+  ok 19 [chromium] › tests/e2e/security-negative.spec.js › SEC-1: Malicious cart price tampering is overwritten by authoritative catalog price
+  ok 20 [chromium] › tests/e2e/security-negative.spec.js › SEC-2: Purchasing unpublished product (isPublished: false) is strictly rejected
+  ok 21 [chromium] › tests/e2e/security-negative.spec.js › SEC-3: Adding out-of-stock product to cart is prevented
+  ok 22 [chromium] › tests/e2e/security-negative.spec.js › SEC-4: Unauthenticated visitor navigating to admin is locked at login screen
 
-  16 passed (1.1m)
+  22 passed (1.7m)
 ```
 
 ---
 
 ## 4. DETAILED TRACK C (POST-ACTION DATA VERIFICATION) PROOFS
 
-### 4.1 Order Placement & Authoritative Pricing Verification
+### 4.1 Full Commerce Cycle Verification (LIFE-1)
+- **Part 1 (Purchase):** Customer ordered 2x `prod_shampoo_argan` (subtotal: 500 EGP). Verified Firestore `/orders`: created with `status: pending`, authoritative pricing enforced (250 EGP/item), unique `lineId` generated.
+- **Part 2 (Delivery):** Admin transitioned status to `delivered`. Verified Firestore: `status: delivered`.
+- **Part 3 (Partial Return):** Admin processed return for 1x sellable unit (`1 + 0 === 1`). Verified:
+  - Return receipt #1 created in `/returns` with `status: completed`, `inspectedBy: admin_test_1`.
+  - Order status transitioned to `partially_returned`.
+  - `returnedQuantitiesByLine[lineId]` updated to `1`.
+  - `inventory_ledger` recorded movement `IN_ORDER_RETURNED` (`quantity: 1`).
+  - Product stock restocked from 15 to 16.
+- **Part 4 (Full Return of Remaining Unit):** Admin processed return for remaining 1x unit as damaged (`0 + 1 === 1`). Verified:
+  - Return receipt #2 created in `/returns` with `status: completed`.
+  - Order status transitioned to `returned` (full return completed).
+  - `returnedQuantitiesByLine[lineId]` updated to `2` (100% of line items returned).
+  - `inventory_ledger` recorded quarantine movement `OUT_DAMAGED_EXPIRED` (`delta: 0`).
+  - Product stock maintained at 16 (damaged item strictly quarantined, zero stock increase).
+
+### 4.2 Rejection & Resilience Proofs
+- **REJECT-1 (Duplicate Order Replay):** Verified identical idempotency key returns existing order result and creates zero duplicate documents in `/orders`.
+- **REJECT-2 (Over-Return Quantity):** Attempting to return 2 units when remaining returnable is 1 triggered validation warning and was strictly rejected by `createAndProcessReturnReceipt`. Zero return receipts generated.
+- **REJECT-3 (Duplicate Return Replay):** Replaying existing `returnId` was detected as duplicate without recording duplicate inventory ledger movements.
+- **REJECT-4 (Offline Disconnection):** Verified network offline detection prevents half-executed inconsistent operations.
+- **REJECT-5 (Concurrency Lock Barrier):** Verified concurrent batch/return execution attempts are blocked by lock coordinator.
+
+### 4.3 Order Placement & Authoritative Pricing Verification
 - **Input:** Customer submitted order for 2x `prod_shampoo_argan` (catalog price: 250 EGP).
 - **Client Tampering Attempt (SEC-1):** Client sent tampered unit price of 1 EGP.
 - **Track C Firestore Document Audit:**
@@ -81,7 +110,7 @@ Running 16 tests using 1 worker
   - `orders/{orderId}.status`: `pending`
   - `orders/{orderId}.items[0].lineId`: `line_..._prod_shampoo_argan` (unique line identity preserved)
 
-### 4.2 Itemized Return Receipt & Ledger Movement Verification
+### 4.4 Itemized Return Receipt & Ledger Movement Verification
 - **Input:** Admin processed partial return for order `ord_test_e2e_fulfilled` (1x sellable, 0x damaged).
 - **Track C Firestore Document Audit:**
   - `returns/{returnId}.status`: `completed`
