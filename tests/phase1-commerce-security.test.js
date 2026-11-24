@@ -79,7 +79,7 @@ function createMockFirestore() {
                             const current = col.get(docId) || {};
                             const merged = options.merge ? { ...current } : {};
                             for (const [k, v] of Object.entries(data)) {
-                                if (v && (v.isDelete || v._methodName === 'FieldValue.delete')) {
+                                if (v && (v.isDelete || v._methodName === 'FieldValue.delete' || v.methodName === 'FieldValue.delete' || (v.constructor && v.constructor.name === 'DeleteTransform'))) {
                                     delete merged[k];
                                 } else {
                                     merged[k] = v;
@@ -92,7 +92,7 @@ function createMockFirestore() {
                             if (!current) throw new Error(`Document ${docId} not found`);
                             const next = { ...current };
                             for (const [k, v] of Object.entries(updates)) {
-                                if (v && (v.isDelete || v._methodName === 'FieldValue.delete')) {
+                                if (v && (v.isDelete || v._methodName === 'FieldValue.delete' || v.methodName === 'FieldValue.delete' || (v.constructor && v.constructor.name === 'DeleteTransform'))) {
                                     delete next[k];
                                 } else {
                                     next[k] = v;

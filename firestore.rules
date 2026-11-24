@@ -50,6 +50,9 @@ service cloud.firestore {
         "subtotal",
         "discount",
         "couponCode",
+        "couponId",
+        "shipping",
+        "shippingFee",
         "usedPoints",
         "pointsDiscount",
         "total",
@@ -65,11 +68,15 @@ service cloud.firestore {
       ])
       && request.resource.data.uid is string
       && request.resource.data.uid.size() > 0
+      && request.resource.data.uid.size() <= 128
       && request.resource.data.orderNumber is string
       && request.resource.data.orderNumber.size() > 0
+      && request.resource.data.orderNumber.size() <= 128
       && request.resource.data.idempotencyKey is string
       && request.resource.data.idempotencyKey.size() >= 12
+      && request.resource.data.idempotencyKey.size() <= 256
       && request.resource.data.customer is map
+      && request.resource.data.customer.size() <= 30
       && request.resource.data.items is list
       && request.resource.data.items.size() > 0
       && request.resource.data.items.size() <= 100
@@ -78,12 +85,19 @@ service cloud.firestore {
       && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"]
       && (!("subtotal" in request.resource.data) || (request.resource.data.subtotal is number && request.resource.data.subtotal >= 0))
       && (!("discount" in request.resource.data) || (request.resource.data.discount is number && request.resource.data.discount >= 0))
+      && (!("couponCode" in request.resource.data) || request.resource.data.couponCode == null || (request.resource.data.couponCode is string && request.resource.data.couponCode.size() <= 64))
+      && (!("couponId" in request.resource.data) || request.resource.data.couponId == null || (request.resource.data.couponId is string && request.resource.data.couponId.size() <= 120))
+      && (!("shipping" in request.resource.data) || (request.resource.data.shipping is number && request.resource.data.shipping >= 0))
+      && (!("shippingFee" in request.resource.data) || (request.resource.data.shippingFee is number && request.resource.data.shippingFee >= 0))
       && (!("pointsDiscount" in request.resource.data) || (request.resource.data.pointsDiscount is number && request.resource.data.pointsDiscount >= 0))
       && (!("usedPoints" in request.resource.data) || (request.resource.data.usedPoints is number && request.resource.data.usedPoints >= 0))
       && (!("earnedPoints" in request.resource.data) || (request.resource.data.earnedPoints is number && request.resource.data.earnedPoints >= 0))
       && (request.resource.data.items[0] is map)
       && (!("price" in request.resource.data.items[0]) || (request.resource.data.items[0].price is number && request.resource.data.items[0].price >= 0))
       && (!("quantity" in request.resource.data.items[0]) || (request.resource.data.items[0].quantity is number && request.resource.data.items[0].quantity > 0))
+      && (request.resource.data.items[request.resource.data.items.size() - 1] is map)
+      && (!("price" in request.resource.data.items[request.resource.data.items.size() - 1]) || (request.resource.data.items[request.resource.data.items.size() - 1].price is number && request.resource.data.items[request.resource.data.items.size() - 1].price >= 0))
+      && (!("quantity" in request.resource.data.items[request.resource.data.items.size() - 1]) || (request.resource.data.items[request.resource.data.items.size() - 1].quantity is number && request.resource.data.items[request.resource.data.items.size() - 1].quantity > 0))
       && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
       && (!("updatedAt" in request.resource.data) || (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp))
       && (!("version" in request.resource.data) || (request.resource.data.version is number && request.resource.data.version >= 1));
@@ -99,13 +113,41 @@ service cloud.firestore {
         && !("inventoryRestocked" in request.resource.data)
         && !("loyaltyAwarded" in request.resource.data)
         && !("pointsRefunded" in request.resource.data)
+        && !("pointsDeducted" in request.resource.data)
         && !("couponIncremented" in request.resource.data)
+        && !("couponRestored" in request.resource.data)
         && !("inventoryStatus" in request.resource.data)
         && !("deductedLineIds" in request.resource.data)
         && !("restockedLineIds" in request.resource.data)
         && !("returnReceiptId" in request.resource.data)
+        && !("returnReceiptIds" in request.resource.data)
+        && !("returnedQuantitiesByLine" in request.resource.data)
         && !("inventoryReturnProcessed" in request.resource.data)
         && !("returnVerified" in request.resource.data);
+    }
+
+    function isValidOrderStatusTransition(fromStatus, toStatus) {
+      return fromStatus in [
+        "pending",
+        "confirmed",
+        "processing",
+        "shipped",
+        "delivered",
+        "completed",
+        "partially_returned",
+        "returned",
+        "cancelled"
+      ]
+      && (
+        fromStatus == toStatus
+        || (fromStatus == "pending" && toStatus in ["confirmed", "processing", "shipped", "delivered", "completed", "cancelled"])
+        || (fromStatus == "confirmed" && toStatus in ["processing", "shipped", "delivered", "completed", "cancelled"])
+        || (fromStatus == "processing" && toStatus in ["shipped", "delivered", "completed", "cancelled"])
+        || (fromStatus == "shipped" && toStatus in ["delivered", "completed", "partially_returned", "returned", "cancelled"])
+        || (fromStatus == "delivered" && toStatus in ["completed", "partially_returned", "returned", "cancelled"])
+        || (fromStatus == "completed" && toStatus in ["partially_returned", "returned", "cancelled"])
+        || (fromStatus == "partially_returned" && toStatus in ["partially_returned", "returned", "cancelled"])
+      );
     }
 
     function isValidOrderAdminUpdate() {
@@ -120,9 +162,42 @@ service cloud.firestore {
         && (!("discount" in resource.data) || request.resource.data.discount == resource.data.discount)
         && (!("pointsDiscount" in resource.data) || request.resource.data.pointsDiscount == resource.data.pointsDiscount)
         && (!("usedPoints" in resource.data) || request.resource.data.usedPoints == resource.data.usedPoints)
-        && (!("earnedPoints" in resource.data) || request.resource.data.earnedPoints == resource.data.earnedPoints)
+        && (
+          !("earnedPoints" in resource.data)
+          || request.resource.data.earnedPoints == resource.data.earnedPoints
+          || (
+            resource.data.earnedPoints is number
+            && request.resource.data.earnedPoints is number
+            && request.resource.data.earnedPoints >= 0
+            && request.resource.data.earnedPoints <= resource.data.earnedPoints
+          )
+        )
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"]
+        && request.resource.data.status in [
+          "pending",
+          "confirmed",
+          "processing",
+          "shipped",
+          "delivered",
+          "completed",
+          "partially_returned",
+          "returned",
+          "cancelled"
+        ]
+        && isValidOrderStatusTransition(resource.data.status, request.resource.data.status)
+        && (
+          !(request.resource.data.status in ["partially_returned", "returned"])
+          || (
+            request.resource.data.returnVerified == true
+            && request.resource.data.inventoryReturnProcessed == true
+            && request.resource.data.returnReceiptId is string
+            && request.resource.data.returnReceiptId.size() > 0
+            && request.resource.data.returnReceiptIds is list
+            && request.resource.data.returnReceiptIds.size() > 0
+            && request.resource.data.returnedQuantitiesByLine is map
+            && request.resource.data.returnedQuantitiesByLine.size() > 0
+          )
+        )
         && (!("version" in resource.data) || request.resource.data.version == resource.data.version + 1);
     }
 
@@ -773,6 +848,7 @@ service cloud.firestore {
         )
         && request.resource.data.productId is string
         && request.resource.data.idempotencyKey is string
+        && 'performedBy' in request.resource.data
         && (!('performedBy' in request.resource.data) || request.resource.data.performedBy == request.auth.uid)
         && request.resource.data.movementType in [
           'OUT_ORDER_PLACED', 'OUT_ORDER_CONFIRMED', 'IN_ORDER_CANCELLED',
@@ -819,11 +895,24 @@ service cloud.firestore {
       allow create: if isAdmin()
         && request.resource.data.returnId == returnId
         && request.resource.data.orderId is string
+        && request.resource.data.orderId.size() > 0
+        && request.resource.data.orderId.size() <= 128
         && request.resource.data.items is list
         && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 100
+        && request.resource.data.status in ['pending_processing', 'completed']
+        && 'inspectedBy' in request.resource.data
+        && 'performedBy' in request.resource.data
         && (!('inspectedBy' in request.resource.data) || request.resource.data.inspectedBy == request.auth.uid)
         && (!('performedBy' in request.resource.data) || request.resource.data.performedBy == request.auth.uid);
-      allow update: if isAdmin();
+      allow update: if isAdmin()
+        && resource.data.status == 'pending_processing'
+        && request.resource.data.status == 'completed'
+        && request.resource.data.returnId == resource.data.returnId
+        && request.resource.data.orderId == resource.data.orderId
+        && request.resource.data.items == resource.data.items
+        && request.resource.data.inspectedBy == resource.data.inspectedBy
+        && request.resource.data.performedBy == resource.data.performedBy;
       allow delete: if false;
     }
 

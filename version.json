@@ -1,24 +1,15 @@
 {
-    "version": "2026.11.23.0001",
-    "lastUpdate": "PHASE-3-DUAL-TRACK-PLAYWRIGHT-002",
-    "lastUpdated": "2026-11-23T22:55:00+02:00",
+    "version": "2026.11.25.0001",
+    "lastUpdate": "PHASE-3-EMULATOR-REALITY-CLOSURE-001",
+    "lastUpdated": "2026-11-25T00:48:00+02:00",
     "changes": [
-        "feat(commerce): Phase 3 itemized return inspections, order line identity, authoritative pricing & commercial isolation",
-        "feat(returns): itemized return inspection modal with sellable vs damaged quarantine distribution",
-        "feat(returns): strict quantity equation enforcement (sellableQty + damagedQty === receivedQty)",
-        "feat(returns): cumulative return limits preventing over-returns across partial return receipts",
-        "feat(returns): elimination of blind restock fallback on fulfilled orders",
-        "feat(inventory): firestore rules exemption for zero-quantity damaged return quarantine movements",
-        "feat(orders): unique order line ID enforcement and client duplicate lineId disambiguation",
-        "feat(pricing): authoritative catalog price verification and subtotal/total enforcement on online orders",
-        "feat(security): actor identity enforcement matching request.auth.uid and blocking client spoofing",
-        "feat(commercial): cleansing public catalog snapshots to prevent phantom _commercialLoaded state",
-        "test(e2e): complete Playwright real browser user testing suite covering Customer Journey, Admin Journey, Security Negatives, and Responsive RTL",
-        "test(e2e): full end-to-end commerce lifecycle (purchase -> admin order flow -> delivered -> partial return -> full return)",
-        "test(e2e): real rejection cases covering duplicate order replay, over-return quantities, duplicate return receipts, network disconnection, and concurrency lock barriers",
-        "feat(e2e): Dual-Track validation architecture (Track A Code-Level + Track B Real Browser Execution + Track C Post-Action Firestore Verification)",
-        "ci(e2e): integrated Playwright Chromium E2E testing into unified release gate and GitHub Actions CI workflow"
+        "fix(rules): align firestore.rules order return state transitions, version optimistic locking, nullable coupon/shipping fields, and /returns + /inventory_ledger actor immutability",
+        "fix(pricing): enforce strict Fail-Closed catalog pricing, stock availability, shipping, coupons, and customer loyalty in verifyAndEnforceCatalogPricing",
+        "fix(returns): unify return receipt creation and stock/ledger updates into a single atomic Firestore transaction with cumulative quantity enforcement",
+        "fix(admin): preserve stable returnId across transient retry failures in ادمن_2.HTML and bind window in ERROR_DETECTION_SYSTEM.js fetch wrappers",
+        "test(emulator): add real Cloud Firestore Emulator Rules suite (@firebase/rules-unit-testing) and real Chromium + Auth/Firestore Emulator E2E suite (playwright.emulator.config.js)",
+        "ci(gate): enforce real Firebase Emulator rules and browser E2E verification inside run-required-checks.js and release-gate.yml"
     ],
     "layer": "Phase 3",
-    "phase": "Post-PR #292 Commerce Integrity, Playwright E2E & Production Readiness"
+    "phase": "Post-PR #292 Commerce Integrity, Firestore Emulator Validation & Production Readiness"
 }

@@ -259,6 +259,35 @@ jobs:
       - name: Run Playwright E2E Suite (Track B + Track C)
         run: npx playwright test
 
+  emulator-verification:
+    name: emulator-verification
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Setup Java 21 for Firebase Emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install root governance dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Firebase CLI for local emulators
+        run: npm install -g firebase-tools@15.6.0 --no-audit --no-fund
+      - name: Cache Firebase Emulator binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: ${{ runner.os }}-firebase-emulators-15.6.0
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run Real Firebase Emulator Rules & Browser E2E Suites
+        run: node tools/run-emulator-suite.js
+
   workers-paranoid-gate:
     name: workers-paranoid-gate
     runs-on: ubuntu-latest
@@ -389,6 +418,7 @@ jobs:
       - admin-function-monitor
       - rules
       - e2e
+      - emulator-verification
       - workers-paranoid-gate
       - ci-parity
       - enforce-and-verify-branch-protection
@@ -408,6 +438,7 @@ jobs:
             "${{ needs.admin-function-monitor.result }}"
             "${{ needs.rules.result }}"
             "${{ needs.e2e.result }}"
+            "${{ needs.emulator-verification.result }}"
             "${{ needs.workers-paranoid-gate.result }}"
             "${{ needs.ci-parity.result }}"
             "${{ needs.enforce-and-verify-branch-protection.result }}"
@@ -422,6 +453,7 @@ jobs:
             admin-function-monitor
             rules
             e2e
+            emulator-verification
             workers-paranoid-gate
             ci-parity
             enforce-and-verify-branch-protection

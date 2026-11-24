@@ -69,6 +69,8 @@ function createMockFirestore() {
                 doc(docId) {
                     return {
                         id: docId,
+                        path: `${colName}/${docId}`,
+                        parent: { id: colName },
                         async get() {
                             const col = getCollectionMap(colName);
                             const exists = col.has(docId);
@@ -675,6 +677,149 @@ function createMockFirestore() {
         assert.strictEqual(savedOrder.items[0].price, 250, 'Persisted item price must be authoritatively 250');
         assert.strictEqual(savedOrder.subtotal, 250);
         assert.strictEqual(savedOrder.total, 270);
+    });
+
+    await runAsyncTest('Test P3-7.4: verifyAndEnforceCatalogPricing fails closed when catalog read fails (permission-denied/network error)', async () => {
+        const mockDb = createMockFirestore();
+        const origCollection = mockDb.collection.bind(mockDb);
+        mockDb.collection = (colName) => {
+            if (colName === 'products') {
+                return {
+                    doc: () => ({
+                        async get() {
+                            const err = new Error('Missing or insufficient permissions.');
+                            err.code = 'permission-denied';
+                            throw err;
+                        }
+                    })
+                };
+            }
+            return origCollection(colName);
+        };
+
+        let threw = false;
+        let thrownMsg = '';
+        try {
+            await firebaseApi.verifyAndEnforceCatalogPricing({
+                items: [{ productId: 'p_hidden_or_err', quantity: 1, price: 1 }]
+            }, { db: mockDb });
+        } catch (err) {
+            threw = true;
+            thrownMsg = err.message || '';
+        }
+        assert.strictEqual(threw, true, 'Must fail closed and throw when product catalog read errors');
+        assert.ok(thrownMsg.includes('Catalog verification failed'), 'Error must explain catalog verification failure');
+    });
+
+    await runAsyncTest('Test P3-7.5: verifyAndEnforceCatalogPricing fails closed on missing product and ignores fake client discounts', async () => {
+        const mockDb = createMockFirestore();
+        await mockDb.collection('products').doc('p_real_01').set({
+            name: 'كريم عناية',
+            price: 200,
+            isPublished: true
+        });
+
+        let missingThrew = false;
+        try {
+            await firebaseApi.verifyAndEnforceCatalogPricing({
+                items: [{ productId: 'p_nonexistent', quantity: 1, price: 10 }]
+            }, { db: mockDb });
+        } catch (err) {
+            missingThrew = true;
+            assert.ok(err.message.includes('does not exist in catalog'));
+        }
+        assert.strictEqual(missingThrew, true, 'Must reject nonexistent product instead of falling back to client price');
+
+        // Fake discount & pointsDiscount without valid DB coupon or loyalty balance must be stripped to 0
+        const sanitized = await firebaseApi.verifyAndEnforceCatalogPricing({
+            items: [{ productId: 'p_real_01', quantity: 2, price: 1 }],
+            discount: 390,
+            pointsDiscount: 50,
+            shipping: 25
+        }, { db: mockDb });
+        assert.strictEqual(sanitized.subtotal, 400);
+        assert.strictEqual(sanitized.discount, 0, 'Unverified client discount must be zeroed');
+        assert.strictEqual(sanitized.pointsDiscount, 0, 'Unverified client pointsDiscount must be zeroed');
+        assert.strictEqual(sanitized.total, 425);
+    });
+
+    // =========================================================================
+    // SECTION 8: ATOMIC RETURN TRANSACTIONS & CONCURRENCY SERIALIZATION
+    // =========================================================================
+    await runAsyncTest('Test P3-8.1: createAndProcessReturnReceipt is atomic — failure before commit leaves zero partial writes', async () => {
+        const mockDb = createMockFirestore();
+        await mockDb.collection('products').doc('p_atomic').set({ name: 'زيت طبيعي', stock: 10, trackInventory: true });
+        await mockDb.collection('orders').doc('ord_atomic').set({
+            id: 'ord_atomic',
+            status: 'delivered',
+            version: 1,
+            items: [{ lineId: 'line_a1', productId: 'p_atomic', quantity: 2, price: 120 }],
+            returnedQuantitiesByLine: {}
+        });
+
+        let threw = false;
+        try {
+            await firebaseApi.createAndProcessReturnReceipt({
+                returnId: 'ret_atomic_fail_1',
+                orderId: 'ord_atomic',
+                items: [{ lineId: 'line_a1', receivedQty: 1, sellableQty: 1, damagedQty: 0 }]
+            }, {
+                db: mockDb,
+                operatorUid: 'admin_u1',
+                beforeAtomicCommit: async () => {
+                    throw new Error('Simulated mid-transaction abort');
+                }
+            });
+        } catch (err) {
+            threw = true;
+        }
+        assert.strictEqual(threw, true);
+
+        const prodAfter = (await mockDb.collection('products').doc('p_atomic').get()).data();
+        const orderAfter = (await mockDb.collection('orders').doc('ord_atomic').get()).data();
+        const retSnap = await mockDb.collection('returns').doc('ret_atomic_fail_1').get();
+        const ledgerSnap = await mockDb.collection('inventory_ledger').get();
+
+        assert.strictEqual(prodAfter.stock, 10, 'Stock must remain 10 after aborted transaction');
+        assert.strictEqual(orderAfter.status, 'delivered', 'Order status must stay delivered');
+        assert.strictEqual(retSnap.exists, false, 'Return receipt must not exist');
+        assert.strictEqual(ledgerSnap.empty, true, 'No inventory ledger movement may be written');
+    });
+
+    await runAsyncTest('Test P3-8.2: Concurrent createAndProcessReturnReceipt calls serialize atomically without double-restocking', async () => {
+        const mockDb = createMockFirestore();
+        await mockDb.collection('products').doc('p_race_ret').set({ name: 'لوشن جسم', stock: 10, trackInventory: true });
+        await mockDb.collection('orders').doc('ord_race_ret').set({
+            id: 'ord_race_ret',
+            status: 'delivered',
+            version: 1,
+            items: [{ lineId: 'line_race_1', productId: 'p_race_ret', quantity: 1, price: 150 }],
+            returnedQuantitiesByLine: {}
+        });
+
+        const settled = await Promise.allSettled([
+            firebaseApi.createAndProcessReturnReceipt({
+                returnId: 'ret_concurrent_1',
+                orderId: 'ord_race_ret',
+                items: [{ lineId: 'line_race_1', receivedQty: 1, sellableQty: 1, damagedQty: 0 }]
+            }, { db: mockDb, operatorUid: 'admin_a' }),
+            firebaseApi.createAndProcessReturnReceipt({
+                returnId: 'ret_concurrent_2',
+                orderId: 'ord_race_ret',
+                items: [{ lineId: 'line_race_1', receivedQty: 1, sellableQty: 1, damagedQty: 0 }]
+            }, { db: mockDb, operatorUid: 'admin_b' })
+        ]);
+
+        const successes = settled.filter(r => r.status === 'fulfilled');
+        const failures = settled.filter(r => r.status === 'rejected');
+        assert.strictEqual(successes.length, 1, 'Exactly one concurrent return for the last unit may succeed');
+        assert.strictEqual(failures.length, 1, 'Second concurrent return must be rejected');
+
+        const prodAfter = (await mockDb.collection('products').doc('p_race_ret').get()).data();
+        const orderAfter = (await mockDb.collection('orders').doc('ord_race_ret').get()).data();
+        assert.strictEqual(prodAfter.stock, 11, 'Stock must increase by exactly 1 unit, never 2');
+        assert.strictEqual(orderAfter.status, 'returned');
+        assert.strictEqual(orderAfter.returnedQuantitiesByLine.line_race_1, 1);
     });
 
     console.log(`\n====================================================`);

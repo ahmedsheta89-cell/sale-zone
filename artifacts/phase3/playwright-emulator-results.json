@@ -1,0 +1,230 @@
+{
+  "config": {
+    "configFile": "E:\\تنزيلات 8-2026\\sale-zone-main\\worktrees\\phase3-commerce\\playwright.emulator.config.js",
+    "rootDir": "E:/تنزيلات 8-2026/sale-zone-main/worktrees/phase3-commerce/tests/e2e-emulator",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "E:/تنزيلات 8-2026/sale-zone-main/worktrees/phase3-commerce/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium-emulator",
+        "name": "chromium-emulator",
+        "testDir": "E:/تنزيلات 8-2026/sale-zone-main/worktrees/phase3-commerce/tests/e2e-emulator",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 75000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "artifacts/phase3/playwright-emulator-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 1,
+    "webServer": {
+      "command": "node tools/local-test-server.js --port 8181",
+      "port": 8181,
+      "reuseExistingServer": true,
+      "timeout": 15000
+    }
+  },
+  "suites": [
+    {
+      "title": "real-emulator-e2e.spec.js",
+      "file": "real-emulator-e2e.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Real Emulator Dual-Track E2E Validation (Real UI + Real Firestore Rules)",
+          "file": "real-emulator-e2e.spec.js",
+          "line": 52,
+          "column": 6,
+          "specs": [
+            {
+              "title": "EMU-LIFE-1: Full Real-UI Commerce Cycle (Customer Buy -> Admin Deliver -> Partial Return -> Full Return)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-emulator",
+                  "projectName": "chromium-emulator",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 38542,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-24T23:00:41.291Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "81b70caaf74823cab0d4-cbfcbd31b81c18d7b8fe",
+              "file": "real-emulator-e2e.spec.js",
+              "line": 60,
+              "column": 3
+            },
+            {
+              "title": "EMU-NEG-1: Price tampering corrected authoritatively & unpublished catalog failure rejected fail-closed",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-emulator",
+                  "projectName": "chromium-emulator",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 17503,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-24T23:01:20.056Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "81b70caaf74823cab0d4-ce782b5d398c86c41ba2",
+              "file": "real-emulator-e2e.spec.js",
+              "line": 242,
+              "column": 3
+            },
+            {
+              "title": "EMU-NEG-2: Network drop during return preserves stable returnId and retry is strictly idempotent",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-emulator",
+                  "projectName": "chromium-emulator",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8703,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-24T23:01:37.601Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "81b70caaf74823cab0d4-8708a837c222a84d30f0",
+              "file": "real-emulator-e2e.spec.js",
+              "line": 306,
+              "column": 3
+            },
+            {
+              "title": "EMU-NEG-3: Concurrent 2-admin browser sessions return only 1 unit once & unauthorized access stays blocked",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 75000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-emulator",
+                  "projectName": "chromium-emulator",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 26700,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-24T23:01:46.355Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "81b70caaf74823cab0d4-69ec6b014c3b0a65adbb",
+              "file": "real-emulator-e2e.spec.js",
+              "line": 356,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-24T23:00:36.885Z",
+    "duration": 96846.817,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

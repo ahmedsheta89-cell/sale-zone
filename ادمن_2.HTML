@@ -9138,6 +9138,8 @@ function adminLogout(){
                 `;
             });
 
+            const draftReturnId = `ret_${String(o.id || '')}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
             document.getElementById('returnInspectionModalBody').innerHTML = `
                 <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #e9ecef;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -9184,7 +9186,7 @@ function adminLogout(){
 
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
                     <button class="btn btn-secondary" onclick="closeModal('returnInspectionModal')">إلغاء</button>
-                    <button class="btn btn-primary" id="btnSubmitReturnInspection" data-order-id="${safeOrderId}" onclick="submitReturnInspection(this.dataset.orderId)">
+                    <button class="btn btn-primary" id="btnSubmitReturnInspection" data-order-id="${safeOrderId}" data-return-id="${escapeHtml(draftReturnId)}" onclick="submitReturnInspection(this.dataset.orderId)">
                         <i class="fas fa-check-circle"></i> اعتماد فحص واستلام المرتجع
                     </button>
                 </div>
@@ -9297,6 +9299,11 @@ function adminLogout(){
             }
 
             const returnReason = (document.getElementById('returnGeneralReason')?.value || 'فحص واستلام مرتجع بعد الشحن').trim();
+            const draftReturnId = String((submitBtn && submitBtn.dataset && submitBtn.dataset.returnId) || '').trim()
+                || `ret_${String(orderId)}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+            if (submitBtn && submitBtn.dataset) {
+                submitBtn.dataset.returnId = draftReturnId;
+            }
 
             if (submitBtn) {
                 submitBtn.disabled = true;
@@ -9310,24 +9317,37 @@ function adminLogout(){
                 }
 
                 const result = await window.createAndProcessReturnReceipt({
+                    returnId: draftReturnId,
                     orderId: String(orderId),
                     items: returnItems,
                     returnReason
                 });
 
+                if (submitBtn && submitBtn.dataset) {
+                    delete submitBtn.dataset.returnId;
+                }
                 closeModal('returnInspectionModal');
                 showNotification('success', `تم اعتماد المرتجع بنجاح (معرف الإيصال: ${result.returnId}). حالة الطلب: ${result.orderStatus === 'returned' ? 'مرتجع كامل' : 'مرتجع جزئي'}`);
 
                 // Update local order entry
-                o.status = result.orderStatus;
+                o.status = result.orderStatus || (o.status === 'partially_returned' ? 'partially_returned' : o.status);
                 o.returnVerified = true;
+                o.inventoryReturnProcessed = true;
                 o.returnReceiptId = result.returnId;
                 if (!o.returnReceiptIds) o.returnReceiptIds = [];
                 if (!o.returnReceiptIds.includes(result.returnId)) o.returnReceiptIds.push(result.returnId);
-                o.returnedQuantitiesByLine = result.receipt.items.reduce((acc, it) => {
-                    acc[it.lineId] = (o.returnedQuantitiesByLine?.[it.lineId] || 0) + it.receivedQty;
-                    return acc;
-                }, { ...(o.returnedQuantitiesByLine || {}) });
+                if (result.nextVersion) {
+                    o.version = result.nextVersion;
+                } else {
+                    o.version = Math.max(0, Number(o.version || 0)) + 1;
+                }
+                const appliedReceipt = result.receipt || result.returnData;
+                if (appliedReceipt && Array.isArray(appliedReceipt.items) && (result.duplicate !== true || !o.returnedQuantitiesByLine)) {
+                    o.returnedQuantitiesByLine = appliedReceipt.items.reduce((acc, it) => {
+                        acc[it.lineId] = (o.returnedQuantitiesByLine?.[it.lineId] || 0) + it.receivedQty;
+                        return acc;
+                    }, { ...(o.returnedQuantitiesByLine || {}) });
+                }
 
                 saveOrders();
                 renderOrdersTable();

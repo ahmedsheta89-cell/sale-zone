@@ -1,126 +1,83 @@
 # SALE ZONE STORE — PHASE 3 ACCEPTANCE & DUAL-TRACK VERIFICATION EVIDENCE
-**Release Version:** `2026.11.20.0005` (`PHASE-3-DUAL-TRACK-PLAYWRIGHT-001`)  
+**Release Version:** `2026.11.25.0001` (`PHASE-3-EMULATOR-REALITY-CLOSURE-001`)  
 **Pull Request:** [#293](https://github.com/ahmedsheta89-cell/sale-zone/pull/293)  
 **Branch:** `fix/phase3-commerce-integrity-2026-11`  
-**Base:** `main` (commit `be7ebc445891c44025f282f6aed5cef41f8534b3` post-PR #292)  
+**Base:** `main`  
 **Platform Architecture:** Vanilla HTML/CSS/JavaScript (RTL Arabic), Firebase Spark (Free Tier)  
-**Evaluation Date:** 2026-11-20 / 2026-11-21  
+**Verification Scope:** Code-Level Unit/Mock Suites + Real Cloud Firestore Emulator Rules & Transactions + Real Chromium + Real Firebase Auth & Firestore Emulators (`demo-sale-zone-e2e`)
 
 ---
 
-## 1. DUAL-TRACK VALIDATION SUMMARY
+## 1. HONEST VERIFICATION TIERS (SEPARATED BY REALITY BOUNDARY)
 
-In accordance with Master Engineering Instructions, all critical commerce flows were validated via three complementary and independent verification tracks:
+All critical commerce, pricing, inventory, return, and security flows are verified across clearly separated execution layers so Mock suites and Real Emulator suites are never conflated:
 
-| Verification Track | Scope | Results | Status |
-|:---|:---|:---:|:---:|
-| **Track A — Internal Software Verification** | Unit, integration, transactions, security rules, concurrency, idempotency, data guards | 19 / 19 tests | **PASS (100%)** |
-| **Track B — Real Browser User Execution** | Playwright Chromium automation simulating customer checkout, admin return inspection, coupon validation, responsive RTL | 16 / 16 tests | **PASS (100%)** |
-| **Track C — Post-Action Data Verification** | Post-interaction Firestore data audit: order lines, authoritative catalog prices, returns collection, quarantine ledger | 16 / 16 checks | **PASS (100%)** |
-
----
-
-## 2. ACCEPTANCE GATES MATRIX (G1 – G15)
-
-| Gate | Requirement | Verification Method | Outcome |
+| Layer | Runtime & Backend | Suite / Command | Observed Result |
 |:---|:---|:---|:---:|
-| **G1: Preflight & Syntax Hygiene** | No mojibake, valid UTF-8 BOM where required, no syntax regressions | `node tools/preflight.js` | **PASS** |
-| **G2: Hash Stability & Registry** | Deterministic function extraction, 558 functions indexed, 17 critical functions intact | `node tools/hash-stability-check.js` | **PASS** |
-| **G3: Smoke Checks** | Free-tier first contracts, critical client DOM elements preserved | `node tools/smoke-check.js` | **PASS** |
-| **G4: Contracts & Architecture** | 22 IDs, 145 definitions, 4 calls, 14 strings, no framework lock-in | `node tools/contracts-check.js` | **PASS** |
-| **G5: Security & Secret Leak Guards** | 57 automated regression checks; zero secret exposures, no eval/document.write | `node tools/security-regression-check.js` | **PASS** |
-| **G6: Admin Function Monitoring** | 0 critical monitor errors, access guards enforced on store ops | `node tools/admin-function-monitor.js` | **PASS** |
-| **G7: Firestore Security Rules** | Actor binding enforced on `/returns` and `/inventory_ledger`, zero-quantity damaged quarantine permitted | `node tools/rules-test.js` | **PASS** |
-| **G8: Order Idempotency & Soft Deletion** | Idempotency key wiring, physical delete forbidden, cancelled/returned state preserved | `node tools/e2e-check.js` | **PASS** |
-| **G9: Cloudinary Resiliency** | 7 retry/concurrency/lifecycle scenarios resilient against timeout & network failures | `node tests/admin-cloudinary-retry.test.js` | **PASS** |
-| **G10: Phase 1 & 2 Commerce Integrity** | 16/16 Phase 2 tests (commercial cost price isolation, ledger stock removal, duplicate line handling) | `node tests/phase2-commerce-integrity.test.js` | **PASS** |
-| **G11: Phase 3 Commerce & Returns** | 19/19 Phase 3 tests (itemized inspection, strict equation, authoritative pricing, anti-spoofing) | `node tests/phase3-commerce-integrity.test.js` | **PASS** |
-| **G12: Customer Journey (Playwright)** | Browse, search, add to cart, update quantity, apply coupon, full checkout | `tests/e2e/customer-journey.spec.js` | **PASS** |
-| **G13: Admin Journey (Playwright)** | Admin authentication, view order modal, itemized return inspection modal, partial/full return | `tests/e2e/admin-journey.spec.js` | **PASS** |
-| **G14: Security & Abuse Scenarios** | Cart price tampering defense, unpublished product block, out-of-stock guard, unauthorized admin lock | `tests/e2e/security-negative.spec.js` | **PASS** |
-| **G15: Responsive RTL & Layout** | Desktop (1280x800), Tablet (768x1024), Mobile (375x667), 0 horizontal overflow, full Arabic readability | `tests/e2e/responsive-rtl.spec.js` | **PASS** |
+| **Track A1 — Unit & Mock Integration** | Node VM + in-memory mock Firestore | `tests/admin-cloudinary-retry.test.js` (18/18)<br>`tests/phase1-commerce-security.test.js` (30/30)<br>`tests/phase2-commerce-integrity.test.js` (16/16)<br>`tests/phase3-commerce-integrity.test.js` (23/23) | **87 / 87 PASS** |
+| **Track A2 — Real Firestore Emulator Rules & Integration** | `@firebase/rules-unit-testing` + Cloud Firestore Emulator (`demo-sale-zone-e2e`) enforcing `firestore.rules` | `tests/firestore-rules-emulator.test.js` | **6 / 6 PASS** |
+| **Track B1 — Fast UI Playwright Checks (Mocked SDK)** | Playwright Chromium + local mock bridge (`playwright.config.js`) | `npx playwright test` (`tests/e2e/`) | **22 / 22 PASS** |
+| **Track B2 + C — Real Browser + Real Auth & Firestore Emulators** | Playwright Chromium driving unmodified `متجر_2.HTML?useEmulator=1` & `ادمن_2.HTML?useEmulator=1` against real Firebase Auth (`127.0.0.1:9099`) & Firestore (`127.0.0.1:8080`) + independent `firebase-admin` reads | `npx playwright test --config=playwright.emulator.config.js` (`tests/e2e-emulator/`) | **4 / 4 PASS** |
+| **Governance & Security Static Gates** | Repo preflight, hash stability, smoke, contracts, security regression, monitor, rules, e2e | `node tools/run-required-checks.js` | **14 / 14 Gates PASS** |
 
 ---
 
-## 3. PLAYWRIGHT E2E TEST EXECUTION BREAKDOWN
+## 2. DEFECTS REMEDIATED IN THIS CLOSURE
 
-```
-Running 16 tests using 1 worker
-
-  ok  1 [chromium] › tests/e2e/admin-journey.spec.js › AJ-1: Admin dashboard loads with authenticated session
-  ok  2 [chromium] › tests/e2e/admin-journey.spec.js › AJ-2: Admin navigates to Orders and inspects order modal
-  ok  3 [chromium] › tests/e2e/admin-journey.spec.js › AJ-3: Itemized Return Inspection modal opens and enforces mathematical validation
-  ok  4 [chromium] › tests/e2e/admin-journey.spec.js › AJ-4: Valid return inspection submission, status transition, and Track C Data Verification
-  ok  5 [chromium] › tests/e2e/customer-journey.spec.js › CJ-1: Store loads with valid RTL Arabic layout and renders published products
-  ok  6 [chromium] › tests/e2e/customer-journey.spec.js › CJ-2: Live search filters catalog dynamically in Arabic
-  ok  7 [chromium] › tests/e2e/customer-journey.spec.js › CJ-3: Add to cart, adjust quantity, and verify subtotal recalculation
-  ok  8 [chromium] › tests/e2e/customer-journey.spec.js › CJ-4: Coupon validation and discount computation
-  ok  9 [chromium] › tests/e2e/customer-journey.spec.js › CJ-5: End-to-end checkout submission and Track C Post-Action Data Verification
-  ok 10 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › LIFE-1: Full Commerce Cycle (Purchase -> Admin Order Flow -> Delivered -> Partial Return -> Full Return)
-  ok 11 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-1: Duplicate Order Replay / Idempotency Gate
-  ok 12 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-2: Over-Return Gate (Return Quantity Exceeding Remaining Returnable)
-  ok 13 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-3: Duplicate Return Replay / Return Receipt Idempotency Gate
-  ok 14 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-4: Offline Disconnection Handling During Operation
-  ok 15 [chromium] › tests/e2e/e2e-business-lifecycle.spec.js › REJECT-5: Concurrency Lock Barrier on Batch Operations
-  ok 16 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-1: Desktop viewport (1280x800) renders RTL correctly without horizontal overflow
-  ok 17 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-2: Tablet viewport (768x1024) adapts cleanly without clipping
-  ok 18 [chromium] › tests/e2e/responsive-rtl.spec.js › RTL-3: Mobile viewport (375x667) maintains touch-friendly layout and RTL navigation
-  ok 19 [chromium] › tests/e2e/security-negative.spec.js › SEC-1: Malicious cart price tampering is overwritten by authoritative catalog price
-  ok 20 [chromium] › tests/e2e/security-negative.spec.js › SEC-2: Purchasing unpublished product (isPublished: false) is strictly rejected
-  ok 21 [chromium] › tests/e2e/security-negative.spec.js › SEC-3: Adding out-of-stock product to cart is prevented
-  ok 22 [chromium] › tests/e2e/security-negative.spec.js › SEC-4: Unauthenticated visitor navigating to admin is locked at login screen
-
-  22 passed (1.7m)
-```
+1. **Firestore Rules Return Lifecycle & Order Create Alignment (`firestore.rules`):**
+   - `isValidOrderCreate()` now permits `couponId`, `shipping`, `shippingFee`, nullable `couponCode`/`couponId`, and validates both first and last line items.
+   - `isValidOrderOwnerCreate()` blocks client spoofing of `returnReceiptIds`, `returnedQuantitiesByLine`, `pointsDeducted`, and `couponRestored`.
+   - `isValidOrderStatusTransition()` and `isValidOrderAdminUpdate()` explicitly support `partially_returned` and `returned` from `shipped`, `delivered`, `completed`, and `partially_returned`, enforcing `version == resource.data.version + 1`, `returnVerified`, `inventoryReturnProcessed`, `returnReceiptId`, `returnReceiptIds`, `returnedQuantitiesByLine`, immutable order identity/amount fields, and bounded `earnedPoints`.
+   - `/returns/{returnId}` binds `inspectedBy == request.auth.uid` and `performedBy == request.auth.uid`, limits updates solely to one transition from `pending_processing` to `completed` with immutable core fields, and forbids modifying/deleting completed receipts. `/inventory_ledger/{movementId}` requires `performedBy == request.auth.uid` and remains append-only.
+2. **Fail-Closed Authoritative Catalog Pricing (`assets/js/firebase-api.js`):**
+   - Removed the silent `item.price` fallback in `verifyAndEnforceCatalogPricing()` so missing products, unpublished-product `permission-denied` reads, and transient catalog read failures throw and fail closed before `persistOrderOnline()` commits.
+   - Authoritatively enforces product stock, non-negative `shipping`, coupon validity/discount, loyalty `usedPoints`/`pointsDiscount`, `subtotal`, `total`, and `earnedPoints`.
+3. **Single Atomic Return Transaction & Optimistic `version` Locking (`assets/js/firebase-api.js`):**
+   - Unified `createAndProcessReturnReceipt()` and `processReturnReceipt()` into `executeReturnReceiptTransaction()` executing all reads (`order`, `returns/{returnId}`, `products`, `inventory_ledger`) before any writes inside a single `runTransaction`.
+   - Enforces cumulative remaining returnable quantities atomically across concurrent return attempts, increments order `version`, and handles duplicate `returnId` replays idempotently.
+   - Updated `updateOrderStatus()` coupon/restore transactions to increment order `version` atomically.
+4. **Deterministic Idempotent Retry Key in Admin UI (`ادمن_2.HTML`) & Browser Fetch Fix (`assets/js/ERROR_DETECTION_SYSTEM.js`):**
+   - `openReturnInspectionModal()` binds a deterministic `draftReturnId` to `#btnSubmitReturnInspection[data-return-id]`, preserved across transient network failures/retries in `submitReturnInspection()` and cleared only on success.
+   - Fixed `window.fetch` wrapping in `ERROR_DETECTION_SYSTEM.js` (`window.fetch.bind(window)`) so Firebase Auth browser SDK `fetch()` calls to local Auth Emulator (`127.0.0.1:9099`) succeed cleanly without `Illegal invocation`.
 
 ---
 
-## 4. DETAILED TRACK C (POST-ACTION DATA VERIFICATION) PROOFS
+## 3. ACCEPTANCE GATES MATRIX (`node tools/run-required-checks.js`)
 
-### 4.1 Full Commerce Cycle Verification (LIFE-1)
-- **Part 1 (Purchase):** Customer ordered 2x `prod_shampoo_argan` (subtotal: 500 EGP). Verified Firestore `/orders`: created with `status: pending`, authoritative pricing enforced (250 EGP/item), unique `lineId` generated.
-- **Part 2 (Delivery):** Admin transitioned status to `delivered`. Verified Firestore: `status: delivered`.
-- **Part 3 (Partial Return):** Admin processed return for 1x sellable unit (`1 + 0 === 1`). Verified:
-  - Return receipt #1 created in `/returns` with `status: completed`, `inspectedBy: admin_test_1`.
-  - Order status transitioned to `partially_returned`.
-  - `returnedQuantitiesByLine[lineId]` updated to `1`.
-  - `inventory_ledger` recorded movement `IN_ORDER_RETURNED` (`quantity: 1`).
-  - Product stock restocked from 15 to 16.
-- **Part 4 (Full Return of Remaining Unit):** Admin processed return for remaining 1x unit as damaged (`0 + 1 === 1`). Verified:
-  - Return receipt #2 created in `/returns` with `status: completed`.
-  - Order status transitioned to `returned` (full return completed).
-  - `returnedQuantitiesByLine[lineId]` updated to `2` (100% of line items returned).
-  - `inventory_ledger` recorded quarantine movement `OUT_DAMAGED_EXPIRED` (`delta: 0`).
-  - Product stock maintained at 16 (damaged item strictly quarantined, zero stock increase).
+| Check | Command | Result |
+|:---|:---|:---:|
+| `preflight` | `node tools/preflight.js` | **PASS** |
+| `hash-stability` | `node tools/hash-stability-check.js` | **PASS** |
+| `smoke-check` | `node tools/smoke-check.js` | **PASS** |
+| `contracts-check` | `node tools/contracts-check.js` | **PASS** (22 IDs, 145 definitions, 4 calls, 14 strings) |
+| `security-regression-check` | `node tools/security-regression-check.js` | **PASS** (59 checks, 0 failures) |
+| `admin-function-monitor` | `node tools/admin-function-monitor.js` | **PASS** (558 functions, 17 critical, 0 failures) |
+| `rules` | `node tools/rules-test.js` | **PASS** |
+| `e2e` | `node tools/e2e-check.js` | **PASS** |
+| `cloudinary-retry` | `node tests/admin-cloudinary-retry.test.js` | **PASS** (18/18) |
+| `phase1-commerce-security` | `node tests/phase1-commerce-security.test.js` | **PASS** (30/30) |
+| `phase2-commerce-integrity` | `node tests/phase2-commerce-integrity.test.js` | **PASS** (16/16) |
+| `phase3-commerce-integrity` | `node tests/phase3-commerce-integrity.test.js` | **PASS** (23/23) |
+| `playwright-e2e` | `npx playwright test` | **PASS** (22/22 mock UI checks) |
+| `emulator-suite` | `node tools/run-emulator-suite.js` | **PASS** (`6/6` Rules Emulator + `4/4` Real Browser Emulator E2E) |
 
-### 4.2 Rejection & Resilience Proofs
-- **REJECT-1 (Duplicate Order Replay):** Verified identical idempotency key returns existing order result and creates zero duplicate documents in `/orders`.
-- **REJECT-2 (Over-Return Quantity):** Attempting to return 2 units when remaining returnable is 1 triggered validation warning and was strictly rejected by `createAndProcessReturnReceipt`. Zero return receipts generated.
-- **REJECT-3 (Duplicate Return Replay):** Replaying existing `returnId` was detected as duplicate without recording duplicate inventory ledger movements.
-- **REJECT-4 (Offline Disconnection):** Verified network offline detection prevents half-executed inconsistent operations.
-- **REJECT-5 (Concurrency Lock Barrier):** Verified concurrent batch/return execution attempts are blocked by lock coordinator.
+---
 
-### 4.3 Order Placement & Authoritative Pricing Verification
-- **Input:** Customer submitted order for 2x `prod_shampoo_argan` (catalog price: 250 EGP).
-- **Client Tampering Attempt (SEC-1):** Client sent tampered unit price of 1 EGP.
-- **Track C Firestore Document Audit:**
-  - `orders/{orderId}.items[0].price`: `250` (enforced by `verifyAndEnforceCatalogPricing`)
-  - `orders/{orderId}.subtotal`: `500`
-  - `orders/{orderId}.total`: `500`
-  - `orders/{orderId}.status`: `pending`
-  - `orders/{orderId}.items[0].lineId`: `line_..._prod_shampoo_argan` (unique line identity preserved)
+## 4. REAL EMULATOR VERIFICATION BREAKDOWN
 
-### 4.4 Itemized Return Receipt & Ledger Movement Verification
-- **Input:** Admin processed partial return for order `ord_test_e2e_fulfilled` (1x sellable, 0x damaged).
-- **Track C Firestore Document Audit:**
-  - `returns/{returnId}.status`: `completed`
-  - `returns/{returnId}.inspectedBy`: `admin_test_1`
-  - `returns/{returnId}.items[0].receivedQty`: `1`
-  - `returns/{returnId}.items[0].sellableQty`: `1`
-  - `returns/{returnId}.items[0].damagedQty`: `0`
-  - `inventory_ledger`: Movement type `IN_ORDER_RETURNED` recorded with `quantity: 1`.
-  - `orders/{orderId}.status`: Transitioned from `delivered` to `partially_returned`.
-  - `orders/{orderId}.returnedQuantitiesByLine.line_0_shampoo`: `1`.
+### 4.1 Real Firestore Rules Emulator (`tests/firestore-rules-emulator.test.js` — 6/6)
+- **Rule-1:** Unauthenticated writes, unpublished product reads (`isPublished: false`), and direct reads/writes on `/product_commercial` are denied by real Firestore Security Rules.
+- **Rule-2:** Non-admin customer spoofing `inspectedBy`/`performedBy` or directly mutating `/returns` and `/inventory_ledger` is denied; real `executeReturnReceiptTransaction` commits atomically under admin token.
+- **Rule-3:** Non-admin updates to order `status`/`total`/`earnedPoints` and admin attempts to skip return state invariants (`pending` -> `returned` or skipping `version + 1`) are denied.
+- **Rule-4:** Customer order creation with forged client price is corrected authoritatively to catalog total when compliant, and malformed/forged `returnReceiptIds` / `returnedQuantitiesByLine` creates are blocked.
+- **Rule-5:** Admin valid transition chain (`pending -> confirmed -> shipped -> delivered -> partially_returned -> returned`) passes real `firestore.rules` with `version` incrementing on every transition.
+- **Rule-6:** `/inventory_ledger` and completed `/returns` documents reject all client/admin updates and deletes, binding `performedBy`/`inspectedBy == request.auth.uid`.
+
+### 4.2 Real Chromium + Real Auth & Firestore Emulator E2E (`tests/e2e-emulator/real-emulator-e2e.spec.js` — 4/4)
+- **EMU-LIFE-1:** Customer signs in via `#authModal`, searches Arabic catalog (`أرجان`), confirms draft product absence, opens product modal, increments cart to 2, checks invalid (`EXPIRED20`) then valid (`SALE10`) coupon (-50 EGP), submits checkout (`450 EGP`, `22` earnedPoints) -> Admin signs in via `#loginScreen`, transitions `pending -> confirmed` (stock `15 -> 13`, `usedCount: 1`), `shipped -> delivered` (customer loyalty `+22 -> 122`) -> Admin processes partial sellable return (`1` unit -> `partially_returned`, stock `13 -> 14`, `IN_ORDER_RETURNED`) -> Admin re-opens order and processes damaged quarantine return (`1` unit -> `returned`, stock stays `14`, `OUT_DAMAGED_EXPIRED` `delta: 0`).
+- **EMU-NEG-1:** Out-of-stock button disabled; `1 EGP` tampered cart item corrected by UI revalidation and authoritative checkout to `250 EGP`; unpublished product online order attempt fails closed.
+- **EMU-NEG-2:** Dropping browser network (`context.setOffline(true)`) during return submission preserves `data-return-id` and writes `0` receipts; reconnecting and clicking Submit again commits the exact `returnId` idempotently (`1` receipt, stock `15 -> 16`).
+- **EMU-NEG-3:** Customer login to admin dashboard stays blocked; two concurrent admin browser contexts open the same `delivered` order (`qty = 1`) and click Submit simultaneously — Firestore transaction serializes them so exactly `1` return receipt commits, `order.status == 'returned'`, and stock increases strictly once (`15 -> 16`).
 
 ---
 
@@ -128,4 +85,4 @@ Running 16 tests using 1 worker
 
 - **Target PR:** [#293](https://github.com/ahmedsheta89-cell/sale-zone/pull/293)
 - **Status:** **`READY_FOR_SECOND_ACCOUNT_REVIEW`** (`@szs712026-cmyk`)
-- **Action Guard:** No merge to `main`, no direct push to `main`, and no live data migrations performed without owner sign-off.
+- **Strict Boundaries Respected:** Spark plan only, no merge to `main`, no direct push to `main`, no `firebase deploy`, and exact HEAD SHA + GitHub Actions CI run links reported on PR #293 after push.

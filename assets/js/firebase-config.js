@@ -77,6 +77,52 @@ const transportPolicy = resolveFirestoreTransportPolicy();
 const forcePollingTransport = transportPolicy.forceLongPolling === true;
 const shouldApplyStableTransport = forcePollingTransport;
 
+function resolveLocalEmulatorConfig() {
+    if (!isLocalDev) {
+        return { enabled: false };
+    }
+    const queryEmulator = parseOptionalBooleanFlag(urlParams.get("useEmulator"));
+    const explicitWindowConfig = (window.__SALE_ZONE_EMULATOR_CONFIG__ && typeof window.__SALE_ZONE_EMULATOR_CONFIG__ === "object")
+        ? window.__SALE_ZONE_EMULATOR_CONFIG__
+        : null;
+    const enabled = queryEmulator === true || Boolean(explicitWindowConfig && explicitWindowConfig.enabled === true);
+    if (!enabled) {
+        return { enabled: false };
+    }
+    const projectId = String(
+        urlParams.get("emulatorProject")
+        || (explicitWindowConfig && explicitWindowConfig.projectId)
+        || "demo-sale-zone-e2e"
+    ).trim() || "demo-sale-zone-e2e";
+    const authPort = Number(
+        urlParams.get("authPort")
+        || (explicitWindowConfig && explicitWindowConfig.authPort)
+        || 9099
+    ) || 9099;
+    const firestoreHost = String(
+        urlParams.get("firestoreHost")
+        || (explicitWindowConfig && explicitWindowConfig.firestoreHost)
+        || "127.0.0.1"
+    ).trim() || "127.0.0.1";
+    const firestorePort = Number(
+        urlParams.get("firestorePort")
+        || (explicitWindowConfig && explicitWindowConfig.firestorePort)
+        || 8080
+    ) || 8080;
+
+    return {
+        enabled: true,
+        projectId,
+        authUrl: `http://${firestoreHost}:${authPort}`,
+        firestoreHost,
+        firestorePort
+    };
+}
+
+const localEmulatorConfig = resolveLocalEmulatorConfig();
+window.__SALEZONE_EMULATOR_ACTIVE__ = localEmulatorConfig.enabled === true;
+window.__SALEZONE_FIREBASE_PROJECT_ID__ = localEmulatorConfig.enabled ? localEmulatorConfig.projectId : firebaseConfig.projectId;
+
 window.__FIRESTORE_TRANSPORT_POLICY__ = {
     host: hostname,
     isLocalDev,
@@ -87,7 +133,22 @@ window.__FIRESTORE_TRANSPORT_POLICY__ = {
 
 // Initialize Firebase
 if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(
+        localEmulatorConfig.enabled
+            ? { ...firebaseConfig, projectId: localEmulatorConfig.projectId }
+            : firebaseConfig
+    );
+}
+
+if (localEmulatorConfig.enabled) {
+    try {
+        const authInst = firebase.auth();
+        if (authInst && typeof authInst.useEmulator === "function") {
+            authInst.useEmulator(localEmulatorConfig.authUrl);
+        }
+    } catch (emuAuthErr) {
+        console.warn("[Emulator] Auth useEmulator warning:", emuAuthErr && emuAuthErr.message ? emuAuthErr.message : emuAuthErr);
+    }
 }
 
 function resolveFirebasePersistenceMode(requestedMode = 'auto') {
@@ -371,6 +432,17 @@ if (shouldApplyStableTransport) {
         // Mark as applied only when Firestore is already locked in this page lifecycle.
         window.__FIRESTORE_SETTINGS_APPLIED__ = settingsAlreadyLocked;
         window.__FIRESTORE_STABLE_TRANSPORT_ERROR__ = reason;
+    }
+}
+
+if (localEmulatorConfig.enabled) {
+    try {
+        if (typeof db.useEmulator === "function") {
+            db.useEmulator(localEmulatorConfig.firestoreHost, localEmulatorConfig.firestorePort);
+        }
+        window.__SALEZONE_EMULATOR_CONNECTED__ = true;
+    } catch (emuDbErr) {
+        console.warn("[Emulator] Firestore useEmulator warning:", emuDbErr && emuDbErr.message ? emuDbErr.message : emuDbErr);
     }
 }
 

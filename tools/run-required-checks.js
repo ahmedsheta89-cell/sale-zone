@@ -22,7 +22,8 @@ const checks = [
   { name: 'phase1-commerce-security', command: ['node', 'tests/phase1-commerce-security.test.js'] },
   { name: 'phase2-commerce-integrity', command: ['node', 'tests/phase2-commerce-integrity.test.js'] },
   { name: 'phase3-commerce-integrity', command: ['node', 'tests/phase3-commerce-integrity.test.js'] },
-  { name: 'playwright-e2e', command: ['npx', 'playwright', 'test'] }
+  { name: 'playwright-e2e', command: ['npx', 'playwright', 'test'] },
+  { name: 'emulator-suite', command: ['node', 'tools/run-emulator-suite.js'] }
 ];
 
 const failures = [];
