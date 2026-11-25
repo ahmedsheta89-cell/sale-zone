@@ -1,7 +1,7 @@
 {
-    "version": "2026.11.25.0001",
-    "lastUpdate": "PHASE-3-EMULATOR-REALITY-CLOSURE-001",
-    "lastUpdated": "2026-11-25T00:48:00+02:00",
+    "version": "2026.11.25.0002",
+    "lastUpdate": "PHASE-3-DIRECT-ORDER-RULES-CLOSURE-001",
+    "lastUpdated": "2026-11-25T06:35:00+02:00",
     "changes": [
         "fix(rules): align firestore.rules order return state transitions, version optimistic locking, nullable coupon/shipping fields, and /returns + /inventory_ledger actor immutability",
         "fix(pricing): enforce strict Fail-Closed catalog pricing, stock availability, shipping, coupons, and customer loyalty in verifyAndEnforceCatalogPricing",

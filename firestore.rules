@@ -27,8 +27,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    function isValidOrderCreate() {
-      return request.resource.data.keys().hasAll([
+    function isValidOrderCreateData(d) {
+      return d.keys().hasAll([
         "uid",
         "orderNumber",
         "customer",
@@ -38,7 +38,7 @@ service cloud.firestore {
         "createdAt",
         "idempotencyKey"
       ])
-      && request.resource.data.keys().hasOnly([
+      && d.keys().hasOnly([
         "id",
         "uid",
         "email",
@@ -66,64 +66,224 @@ service cloud.firestore {
         "syncState",
         "idempotencyKey"
       ])
-      && request.resource.data.uid is string
-      && request.resource.data.uid.size() > 0
-      && request.resource.data.uid.size() <= 128
-      && request.resource.data.orderNumber is string
-      && request.resource.data.orderNumber.size() > 0
-      && request.resource.data.orderNumber.size() <= 128
-      && request.resource.data.idempotencyKey is string
-      && request.resource.data.idempotencyKey.size() >= 12
-      && request.resource.data.idempotencyKey.size() <= 256
-      && request.resource.data.customer is map
-      && request.resource.data.customer.size() <= 30
-      && request.resource.data.items is list
-      && request.resource.data.items.size() > 0
-      && request.resource.data.items.size() <= 100
-      && request.resource.data.total is number
-      && request.resource.data.total >= 0
-      && request.resource.data.status in ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"]
-      && (!("subtotal" in request.resource.data) || (request.resource.data.subtotal is number && request.resource.data.subtotal >= 0))
-      && (!("discount" in request.resource.data) || (request.resource.data.discount is number && request.resource.data.discount >= 0))
-      && (!("couponCode" in request.resource.data) || request.resource.data.couponCode == null || (request.resource.data.couponCode is string && request.resource.data.couponCode.size() <= 64))
-      && (!("couponId" in request.resource.data) || request.resource.data.couponId == null || (request.resource.data.couponId is string && request.resource.data.couponId.size() <= 120))
-      && (!("shipping" in request.resource.data) || (request.resource.data.shipping is number && request.resource.data.shipping >= 0))
-      && (!("shippingFee" in request.resource.data) || (request.resource.data.shippingFee is number && request.resource.data.shippingFee >= 0))
-      && (!("pointsDiscount" in request.resource.data) || (request.resource.data.pointsDiscount is number && request.resource.data.pointsDiscount >= 0))
-      && (!("usedPoints" in request.resource.data) || (request.resource.data.usedPoints is number && request.resource.data.usedPoints >= 0))
-      && (!("earnedPoints" in request.resource.data) || (request.resource.data.earnedPoints is number && request.resource.data.earnedPoints >= 0))
-      && (request.resource.data.items[0] is map)
-      && (!("price" in request.resource.data.items[0]) || (request.resource.data.items[0].price is number && request.resource.data.items[0].price >= 0))
-      && (!("quantity" in request.resource.data.items[0]) || (request.resource.data.items[0].quantity is number && request.resource.data.items[0].quantity > 0))
-      && (request.resource.data.items[request.resource.data.items.size() - 1] is map)
-      && (!("price" in request.resource.data.items[request.resource.data.items.size() - 1]) || (request.resource.data.items[request.resource.data.items.size() - 1].price is number && request.resource.data.items[request.resource.data.items.size() - 1].price >= 0))
-      && (!("quantity" in request.resource.data.items[request.resource.data.items.size() - 1]) || (request.resource.data.items[request.resource.data.items.size() - 1].quantity is number && request.resource.data.items[request.resource.data.items.size() - 1].quantity > 0))
-      && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp)
-      && (!("updatedAt" in request.resource.data) || (request.resource.data.updatedAt is string || request.resource.data.updatedAt is timestamp))
-      && (!("version" in request.resource.data) || (request.resource.data.version is number && request.resource.data.version >= 1));
+      && d.uid is string
+      && d.uid.size() > 0
+      && d.uid.size() <= 128
+      && d.orderNumber is string
+      && d.orderNumber.size() > 0
+      && d.orderNumber.size() <= 128
+      && d.idempotencyKey is string
+      && d.idempotencyKey.size() >= 12
+      && d.idempotencyKey.size() <= 256
+      && d.customer is map
+      && d.customer.size() <= 30
+      && d.items is list
+      && d.items.size() > 0
+      && d.items.size() <= 100
+      && d.total is number
+      && d.total >= 0
+      && d.status in ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"]
+      && (!("subtotal" in d) || (d.subtotal is number && d.subtotal >= 0))
+      && (!("discount" in d) || (d.discount is number && d.discount >= 0))
+      && (!("couponCode" in d) || d.couponCode == null || (d.couponCode is string && d.couponCode.size() <= 64))
+      && (!("couponId" in d) || d.couponId == null || (d.couponId is string && d.couponId.size() <= 120))
+      && (!("shipping" in d) || (d.shipping is number && d.shipping >= 0))
+      && (!("shippingFee" in d) || (d.shippingFee is number && d.shippingFee >= 0))
+      && (!("pointsDiscount" in d) || (d.pointsDiscount is number && d.pointsDiscount >= 0))
+      && (!("usedPoints" in d) || (d.usedPoints is number && d.usedPoints >= 0))
+      && (!("earnedPoints" in d) || (d.earnedPoints is number && d.earnedPoints >= 0))
+      && (d.items[0] is map)
+      && (!("price" in d.items[0]) || (d.items[0].price is number && d.items[0].price >= 0))
+      && (!("quantity" in d.items[0]) || (d.items[0].quantity is number && d.items[0].quantity > 0))
+      && (d.items[d.items.size() - 1] is map)
+      && (!("price" in d.items[d.items.size() - 1]) || (d.items[d.items.size() - 1].price is number && d.items[d.items.size() - 1].price >= 0))
+      && (!("quantity" in d.items[d.items.size() - 1]) || (d.items[d.items.size() - 1].quantity is number && d.items[d.items.size() - 1].quantity > 0))
+      && (d.createdAt is string || d.createdAt is timestamp)
+      && (!("updatedAt" in d) || (d.updatedAt is string || d.updatedAt is timestamp))
+      && (!("version" in d) || (d.version is number && d.version >= 1));
+    }
+
+    function isValidOrderCreate() {
+      return isValidOrderCreateData(request.resource.data);
+    }
+
+    function isValidOrderItemObj(item) {
+      let p = /databases/$(database)/documents/products/$(item.productId);
+      let prod = get(p).data;
+      return item is map
+        && item.get("productId", "") is string
+        && item.productId.size() > 0
+        && item.productId.split("/").size() == 1
+        && item.get("quantity", 0) is int
+        && item.quantity > 0
+        && item.get("price", -1) is number
+        && exists(p)
+        && prod.get("isPublished", true) != false
+        && item.price == prod.price
+        && (
+          prod.get("trackInventory", true) == false
+          || !(prod.get("stock", null) is number)
+          || item.quantity <= prod.stock
+        );
+    }
+
+    function isValidOrderItemAt(items, idx) {
+      return idx >= items.size() || isValidOrderItemObj(items[idx]);
+    }
+
+    function computeOrderSubtotal(items) {
+      return (items.size() > 0 ? items[0].price * items[0].quantity : 0)
+        + (items.size() > 1 ? items[1].price * items[1].quantity : 0)
+        + (items.size() > 2 ? items[2].price * items[2].quantity : 0)
+        + (items.size() > 3 ? items[3].price * items[3].quantity : 0);
+    }
+
+    function isValidCouponCheck(couponId, discount, subtotal) {
+      let cp = /databases/$(database)/documents/coupons/$(couponId);
+      let c = get(cp).data;
+      return exists(cp)
+        && c.get("active", true) != false
+        && c.get("status", "active") != "inactive"
+        && subtotal >= c.get("minOrder", 0)
+        && (c.get("usageLimit", 0) <= 0 || c.get("usedCount", 0) < c.usageLimit)
+        && c.value is number
+        && c.value > 0
+        && (c.get("maxDiscount", 0) <= 0 || discount <= c.maxDiscount + 0.02)
+        && discount <= ((c.get("type", "fixed") in ["percent", "percentage"] ? (subtotal * c.value / 100.0) : c.value) + 0.02);
+    }
+
+    function isValidLoyaltyCheck(uid, usedPoints, pointsDiscount) {
+      let custPath = /databases/$(database)/documents/customers/$(uid);
+      let cust = get(custPath).data;
+      let storePath = /databases/$(database)/documents/settings/store;
+      let storeData = get(storePath).data;
+      let pv = (
+        exists(storePath)
+        && storeData.get("loyalty", null) is map
+        && storeData.loyalty.get("pointValue", 0) is number
+        && storeData.loyalty.get("pointValue", 0) > 0
+      ) ? storeData.loyalty.pointValue : 0.1;
+      return exists(custPath)
+        && cust.get("loyaltyPoints", null) is number
+        && usedPoints <= cust.loyaltyPoints
+        && pointsDiscount <= (usedPoints * pv) + 0.02;
+    }
+
+    function maxZero(v) {
+      return v > 0 ? v : 0;
     }
 
     function isValidOrderOwnerCreate() {
+      let d = request.resource.data;
       return isVerifiedUser()
-        && isValidOrderCreate()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.status == "pending"
-        && (!("earnedPoints" in request.resource.data) || (request.resource.data.earnedPoints is number && request.resource.data.earnedPoints >= 0 && request.resource.data.earnedPoints <= request.resource.data.total))
-        && !("inventoryDeducted" in request.resource.data)
-        && !("inventoryRestocked" in request.resource.data)
-        && !("loyaltyAwarded" in request.resource.data)
-        && !("pointsRefunded" in request.resource.data)
-        && !("pointsDeducted" in request.resource.data)
-        && !("couponIncremented" in request.resource.data)
-        && !("couponRestored" in request.resource.data)
-        && !("inventoryStatus" in request.resource.data)
-        && !("deductedLineIds" in request.resource.data)
-        && !("restockedLineIds" in request.resource.data)
-        && !("returnReceiptId" in request.resource.data)
-        && !("returnReceiptIds" in request.resource.data)
-        && !("returnedQuantitiesByLine" in request.resource.data)
-        && !("inventoryReturnProcessed" in request.resource.data)
-        && !("returnVerified" in request.resource.data);
+        && d.keys().hasAll([
+          "uid",
+          "orderNumber",
+          "customer",
+          "items",
+          "subtotal",
+          "total",
+          "status",
+          "createdAt",
+          "idempotencyKey"
+        ])
+        && d.keys().hasOnly([
+          "id",
+          "uid",
+          "email",
+          "requestId",
+          "deviceId",
+          "orderNumber",
+          "customer",
+          "items",
+          "subtotal",
+          "discount",
+          "couponCode",
+          "couponId",
+          "shipping",
+          "shippingFee",
+          "usedPoints",
+          "pointsDiscount",
+          "total",
+          "earnedPoints",
+          "status",
+          "statusHistory",
+          "createdAt",
+          "updatedAt",
+          "version",
+          "source",
+          "syncState",
+          "idempotencyKey"
+        ])
+        && !d.keys().hasAny([
+          "inventoryDeducted",
+          "inventoryRestocked",
+          "loyaltyAwarded",
+          "pointsRefunded",
+          "pointsDeducted",
+          "couponIncremented",
+          "couponRestored",
+          "inventoryStatus",
+          "deductedLineIds",
+          "restockedLineIds",
+          "returnReceiptId",
+          "returnReceiptIds",
+          "returnedQuantitiesByLine",
+          "inventoryReturnProcessed",
+          "returnVerified"
+        ])
+        && d.uid == request.auth.uid
+        && d.status == "pending"
+        && d.orderNumber is string
+        && d.orderNumber.size() > 0
+        && d.idempotencyKey is string
+        && d.idempotencyKey.size() >= 12
+        && d.customer is map
+        && d.items is list
+        && d.items.size() >= 1
+        && d.items.size() <= 4
+        && d.subtotal is number
+        && d.total is number
+        && d.total >= 0
+        && (d.createdAt is string || d.createdAt is timestamp)
+        && d.get("discount", 0) is number && d.get("discount", 0) >= 0
+        && d.get("pointsDiscount", 0) is number && d.get("pointsDiscount", 0) >= 0
+        && d.get("usedPoints", 0) is number && d.get("usedPoints", 0) >= 0
+        && (!("shipping" in d) || (d.shipping is number && d.shipping >= 0))
+        && (!("shippingFee" in d) || (d.shippingFee is number && d.shippingFee >= 0))
+        && (!("shipping" in d) || !("shippingFee" in d) || d.shipping == d.shippingFee)
+        && d.get("earnedPoints", 0) is number && d.get("earnedPoints", 0) >= 0 && d.get("earnedPoints", 0) <= d.total
+        && isValidOrderItemAt(d.items, 0)
+        && isValidOrderItemAt(d.items, 1)
+        && isValidOrderItemAt(d.items, 2)
+        && isValidOrderItemAt(d.items, 3)
+        && math.abs(d.subtotal - computeOrderSubtotal(d.items)) <= 0.02
+        && (
+          d.get("discount", 0) == 0
+          || (
+            d.get("discount", 0) > 0
+            && ("couponId" in d)
+            && d.couponId is string
+            && d.couponId.size() > 0
+            && d.couponId.split("/").size() == 1
+            && isValidCouponCheck(d.couponId, d.discount, d.subtotal)
+          )
+        )
+        && (
+          (d.get("pointsDiscount", 0) == 0 && d.get("usedPoints", 0) == 0)
+          || (
+            d.get("usedPoints", 0) > 0
+            && isValidLoyaltyCheck(request.auth.uid, d.usedPoints, d.get("pointsDiscount", 0))
+          )
+        )
+        && math.abs(
+          d.total - maxZero(
+            d.subtotal
+            - d.get("discount", 0)
+            - d.get("pointsDiscount", 0)
+            + d.get("shipping", d.get("shippingFee", 0))
+          )
+        ) <= 0.02;
     }
 
     function isValidOrderStatusTransition(fromStatus, toStatus) {

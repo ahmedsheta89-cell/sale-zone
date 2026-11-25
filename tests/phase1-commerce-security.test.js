@@ -837,14 +837,21 @@ function createMockFirestore() {
 
         // Firestore rules schema contracts verification: ensure admin fields rejected for client orders
         const rulesContent = fs.readFileSync(path.join(__dirname, '../firestore.rules'), 'utf8');
-        assert.ok(rulesContent.includes('!("inventoryDeducted" in request.resource.data)'),
+        const hasForbiddenField = (field) => (
+            rulesContent.includes(`!("${field}" in request.resource.data)`)
+            || new RegExp(`!d\\.keys\\(\\)\\.hasAny\\(\\[[\\s\\S]*?"${field}"`).test(rulesContent)
+        );
+        assert.ok(hasForbiddenField('inventoryDeducted'),
             'Rules must strictly forbid client order creation from setting inventoryDeducted');
-        assert.ok(rulesContent.includes('!("loyaltyAwarded" in request.resource.data)'),
+        assert.ok(hasForbiddenField('loyaltyAwarded'),
             'Rules must strictly forbid client order creation from setting loyaltyAwarded');
-        assert.ok(rulesContent.includes('!("pointsRefunded" in request.resource.data)'),
+        assert.ok(hasForbiddenField('pointsRefunded'),
             'Rules must strictly forbid client order creation from setting pointsRefunded');
-        assert.ok(rulesContent.includes('earnedPoints <= request.resource.data.total'),
-            'Rules must cap customer earned points to order total to prevent point fabrication');
+        assert.ok(
+            rulesContent.includes('earnedPoints <= request.resource.data.total')
+            || /d\.get\("earnedPoints",\s*0\)\s*<=\s*d\.total/.test(rulesContent),
+            'Rules must cap customer earned points to order total to prevent point fabrication'
+        );
     });
 
     // 7.3 Partial failure & retryability in recordInventoryMovement without double-deduction [Unit / Mock Transaction]

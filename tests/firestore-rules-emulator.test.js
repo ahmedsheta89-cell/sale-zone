@@ -405,6 +405,168 @@ async function runTest(name, fn) {
       await assertFails(adminDb.collection('inventory_ledger').doc(firstLedgerId).delete());
     });
 
+    // 5. Direct-SDK Order Forgery Protection (P1 Closure — Bypassing JS wrappers)
+    await runTest('Rule-7: Direct-SDK forged /orders writes (1 EGP, bad total, forged discount/points, unpublished, over-stock, >4 items) denied by Rules', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        await db.collection('products').doc('prod_pub_2').set({
+          name: 'كريم كولاجين',
+          price: 100,
+          stock: 10,
+          trackInventory: true,
+          isPublished: true
+        });
+      });
+
+      const directOrder = (id, overrides = {}) => ({
+        id,
+        uid: 'cust_verified_1',
+        orderNumber: `SZ-DIRECT-${id}`,
+        idempotencyKey: `idem_direct_${id}_0001`,
+        customer: { name: 'عميل مباشر', phone: '01011112222', address: 'القاهرة' },
+        items: [{ lineId: 'l1', productId: 'prod_pub_1', price: 250, quantity: 1 }],
+        subtotal: 250,
+        discount: 0,
+        pointsDiscount: 0,
+        shipping: 0,
+        total: 250,
+        earnedPoints: 12,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        version: 1,
+        ...overrides
+      });
+
+      // Forged 1 EGP price & total (with earnedPoints: 0)
+      await assertFails(custDb.collection('orders').doc('ord_atk_1egp').set(directOrder('ord_atk_1egp', {
+        items: [{ lineId: 'l1', productId: 'prod_pub_1', price: 1, quantity: 1 }],
+        subtotal: 1,
+        total: 1,
+        earnedPoints: 0
+      })));
+
+      // Wrong item price (10 != 250)
+      await assertFails(custDb.collection('orders').doc('ord_atk_wrong_price').set(directOrder('ord_atk_wrong_price', {
+        items: [{ lineId: 'l1', productId: 'prod_pub_1', price: 10, quantity: 1 }],
+        subtotal: 10,
+        total: 10,
+        earnedPoints: 0
+      })));
+
+      // Total != sum(items)
+      await assertFails(custDb.collection('orders').doc('ord_atk_bad_total').set(directOrder('ord_atk_bad_total', {
+        subtotal: 250,
+        total: 50
+      })));
+
+      // Forged discount without coupon / exceeding coupon cap
+      await assertFails(custDb.collection('orders').doc('ord_atk_forged_disc').set(directOrder('ord_atk_forged_disc', {
+        discount: 249,
+        total: 1,
+        earnedPoints: 0
+      })));
+      await assertFails(custDb.collection('orders').doc('ord_atk_over_coupon').set(directOrder('ord_atk_over_coupon', {
+        couponId: 'cp_sale10',
+        couponCode: 'SALE10',
+        discount: 200,
+        total: 50,
+        earnedPoints: 0
+      })));
+
+      // Forged loyalty points discount exceeding customer balance
+      await assertFails(custDb.collection('orders').doc('ord_atk_forged_pts').set(directOrder('ord_atk_forged_pts', {
+        usedPoints: 99999,
+        pointsDiscount: 200,
+        total: 50,
+        earnedPoints: 0
+      })));
+
+      // Unpublished product
+      await assertFails(custDb.collection('orders').doc('ord_atk_unpub').set(directOrder('ord_atk_unpub', {
+        items: [{ lineId: 'l1', productId: 'prod_unpub_1', price: 300, quantity: 1 }],
+        subtotal: 300,
+        total: 300
+      })));
+
+      // Invalid quantity (0 and exceeding stock 999 > 10)
+      await assertFails(custDb.collection('orders').doc('ord_atk_qty0').set(directOrder('ord_atk_qty0', {
+        items: [{ lineId: 'l1', productId: 'prod_pub_1', price: 250, quantity: 0 }],
+        subtotal: 0,
+        total: 0,
+        earnedPoints: 0
+      })));
+      await assertFails(custDb.collection('orders').doc('ord_atk_overstock').set(directOrder('ord_atk_overstock', {
+        items: [{ lineId: 'l1', productId: 'prod_pub_1', price: 250, quantity: 999 }],
+        subtotal: 249750,
+        total: 249750
+      })));
+
+      // Unauthenticated create & > 5 distinct items owner create
+      await assertFails(anonDb.collection('orders').doc('ord_atk_unauth').set(directOrder('ord_atk_unauth')));
+      await assertFails(custDb.collection('orders').doc('ord_atk_6items').set(directOrder('ord_atk_6items', {
+        items: [
+          { lineId: 'l1', productId: 'prod_pub_1', price: 250, quantity: 1 },
+          { lineId: 'l2', productId: 'prod_pub_2', price: 100, quantity: 1 },
+          { lineId: 'l3', productId: 'prod_pub_1', price: 250, quantity: 1 },
+          { lineId: 'l4', productId: 'prod_pub_2', price: 100, quantity: 1 },
+          { lineId: 'l5', productId: 'prod_pub_1', price: 250, quantity: 1 },
+          { lineId: 'l6', productId: 'prod_pub_2', price: 100, quantity: 1 }
+        ],
+        subtotal: 1050,
+        total: 1050
+      })));
+
+      // Forged inventory/return/loyalty state flags
+      await assertFails(custDb.collection('orders').doc('ord_atk_flags').set(directOrder('ord_atk_flags', {
+        inventoryDeducted: true,
+        loyaltyAwarded: true,
+        returnVerified: true
+      })));
+    });
+
+    await runTest('Rule-8: Valid direct-SDK single-item, multi-item (up to 4), and valid coupon orders succeed under hardened Rules', async () => {
+      await assertSucceeds(custDb.collection('orders').doc('ord_direct_ok_1').set({
+        id: 'ord_direct_ok_1',
+        uid: 'cust_verified_1',
+        orderNumber: 'SZ-DIRECT-OK-1',
+        idempotencyKey: 'idem_direct_ok_1_0001',
+        customer: { name: 'عميل مباشر', phone: '01011112222', address: 'القاهرة' },
+        items: [{ lineId: 'l1', productId: 'prod_pub_1', price: 250, quantity: 1 }],
+        subtotal: 250,
+        discount: 0,
+        pointsDiscount: 0,
+        shipping: 0,
+        total: 250,
+        earnedPoints: 12,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        version: 1
+      }));
+
+      await assertSucceeds(custDb.collection('orders').doc('ord_direct_ok_multi').set({
+        id: 'ord_direct_ok_multi',
+        uid: 'cust_verified_1',
+        orderNumber: 'SZ-DIRECT-OK-MULTI',
+        idempotencyKey: 'idem_direct_ok_multi_0001',
+        customer: { name: 'عميل مباشر', phone: '01011112222', address: 'القاهرة' },
+        items: [
+          { lineId: 'l1', productId: 'prod_pub_1', price: 250, quantity: 1 },
+          { lineId: 'l2', productId: 'prod_pub_2', price: 100, quantity: 2 }
+        ],
+        subtotal: 450,
+        couponId: 'cp_sale10',
+        couponCode: 'SALE10',
+        discount: 45,
+        pointsDiscount: 0,
+        shipping: 25,
+        total: 430,
+        earnedPoints: 21,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        version: 1
+      }));
+    });
+
     console.log('\n====================================================');
     console.log(`🎉 ${passedTests}/${totalTests} FIRESTORE RULES EMULATOR TESTS PASSED!`);
     console.log('====================================================\n');
