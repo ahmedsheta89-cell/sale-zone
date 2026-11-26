@@ -255,6 +255,12 @@ async function getLoyaltyLedger(uid) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+async function listOrderIntents() {
+  const { adminDb } = getAdminInstances();
+  const snap = await adminDb.collection('order_intents').get();
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 async function getLedgerByReference(referenceId) {
   const { adminDb } = getAdminInstances();
   const snap = await adminDb.collection('inventory_ledger').where('referenceId', '==', referenceId).get();
@@ -268,6 +274,7 @@ module.exports = {
   clearEmulatorState,
   seedBaselineScenario,
   listOrders,
+  listOrderIntents,
   getOrder,
   getReturnsByOrder,
   getProduct,

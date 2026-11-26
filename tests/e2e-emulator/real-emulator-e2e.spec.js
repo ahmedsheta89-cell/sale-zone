@@ -440,4 +440,69 @@ test.describe('Real Emulator Dual-Track E2E Validation (Real UI + Real Firestore
       await ctxUnauthorized.close();
     }
   });
+
+  test('EMU-CHECKOUT-MULTI: Real UI checkout succeeds for 4, 5, and 6 distinct items via /order_intents without silent loss', async ({ page }) => {
+    test.setTimeout(90000);
+    const { adminDb } = emu.getAdminInstances();
+    const extraProducts = ['prod_x4', 'prod_x5', 'prod_x6'];
+    for (let idx = 0; idx < extraProducts.length; idx++) {
+      await adminDb.collection('products').doc(extraProducts[idx]).set({
+        id: extraProducts[idx],
+        name: `منتج إضافي ${idx + 4}`,
+        price: 50,
+        stock: 10,
+        trackInventory: true,
+        isPublished: true,
+        category: 'skincare'
+      });
+    }
+
+    await page.goto(STORE_EMU_URL, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.product-card[data-product-id="prod_x6"]', { timeout: 15000 });
+    await signInCustomerViaUi(page, 'customer@emulator.local', creds.custCred);
+
+    // 4 distinct items -> /order_intents (pending_review)
+    for (const pid of ['prod_shampoo_argan', 'prod_collagen_cream', 'prod_x4', 'prod_x5']) {
+      await page.locator(`.product-card[data-product-id="${pid}"] .add-to-cart-btn`).click();
+    }
+    await expect(page.locator('#cartCount')).toHaveText('4');
+    await page.locator('button.nav-btn.cart-btn[data-action="open-cart"]').click();
+    await expect(page.locator('#cartSidebar')).toHaveClass(/active/, { timeout: 5000 });
+    await page.locator('#cartSidebar .checkout-btn').scrollIntoViewIfNeeded();
+    await page.locator('#cartSidebar .checkout-btn').click();
+    await expect(page.locator('#checkoutModal')).toHaveClass(/active/, { timeout: 5000 });
+    await page.locator('#checkoutName').fill('عميل 4 أصناف');
+    await page.locator('#checkoutPhone').fill('01012345678');
+    await page.locator('#checkoutAddress').fill('القاهرة');
+    await page.locator('#checkoutForm button[type="submit"]').click();
+    await expect(page.locator('#checkoutModal')).not.toHaveClass(/active/, { timeout: 15000 });
+    await expect(page.locator('#cartSidebar')).not.toHaveClass(/active/, { timeout: 5000 });
+
+    // 6 distinct items -> /order_intents (pending_review)
+    for (const pid of ['prod_shampoo_argan', 'prod_collagen_cream', 'prod_unavailable_lotion', 'prod_x4', 'prod_x5', 'prod_x6']) {
+      const btn = page.locator(`.product-card[data-product-id="${pid}"] .add-to-cart-btn`);
+      if (await btn.isEnabled().catch(() => false)) {
+        await btn.click();
+      }
+    }
+    await expect(page.locator('#cartCount')).toHaveText('5');
+    await page.waitForTimeout(300);
+    if (!(await page.locator('#cartSidebar').evaluate((el) => el.classList.contains('active')))) {
+      await page.locator('button.nav-btn.cart-btn[data-action="open-cart"]').click();
+    }
+    await expect(page.locator('#cartSidebar')).toHaveClass(/active/, { timeout: 5000 });
+    await page.locator('#cartSidebar .checkout-btn').scrollIntoViewIfNeeded();
+    await page.locator('#cartSidebar .checkout-btn').click();
+    await expect(page.locator('#checkoutModal')).toHaveClass(/active/, { timeout: 5000 });
+    await page.locator('#checkoutName').fill('عميل 5 أصناف');
+    await page.locator('#checkoutPhone').fill('01012345678');
+    await page.locator('#checkoutAddress').fill('القاهرة');
+    await page.locator('#checkoutForm button[type="submit"]').click();
+    await expect(page.locator('#checkoutModal')).not.toHaveClass(/active/, { timeout: 15000 });
+
+    const intents = await emu.listOrderIntents();
+    expect(intents.length).toBe(2);
+    expect(intents.every((i) => i.status === 'pending_review' && i.commercialVerified === false)).toBe(true);
+    expect(intents.map((i) => i.items.length).sort()).toEqual([4, 5]);
+  });
 });

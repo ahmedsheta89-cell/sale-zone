@@ -613,6 +613,7 @@ function createMockFirestore() {
         await mockDb.collection('products').doc('p_cat_01').set({
             name: 'سيروم الذهب 24k',
             price: 350,
+            stock: 50,
             isPublished: true
         });
 
@@ -655,6 +656,7 @@ function createMockFirestore() {
         await mockDb.collection('products').doc('p_auth_order').set({
             name: 'ماسك الشعر بالكيراتين',
             price: 250,
+            stock: 50,
             isPublished: true
         });
 
@@ -716,6 +718,7 @@ function createMockFirestore() {
         await mockDb.collection('products').doc('p_real_01').set({
             name: 'كريم عناية',
             price: 200,
+            stock: 50,
             isPublished: true
         });
 

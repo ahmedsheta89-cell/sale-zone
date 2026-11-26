@@ -692,16 +692,23 @@ function createMockFirestore() {
             version: 1
         });
 
-        await firebaseApi.updateOrderStatus('ord_c3', 'confirmed', {
-            db: mockDb,
-            skipAdminAuthCheck: true
-        });
+        let c3Rejected = false;
+        try {
+            await firebaseApi.updateOrderStatus('ord_c3', 'confirmed', {
+                db: mockDb,
+                skipAdminAuthCheck: true
+            });
+        } catch (err) {
+            c3Rejected = /usage limit|inactive|expired/i.test(err && err.message ? err.message : '');
+        }
+        assert.strictEqual(c3Rejected, true, 'Order 3 must fail closed and reject confirmation when coupon usageLimit is exhausted');
 
         const couponDoc3 = (await mockDb.collection('coupons').doc('coupon_promo2').get()).data();
         assert.strictEqual(couponDoc3.usedCount, 2, 'Coupon usedCount must NOT exceed usageLimit (must stay 2)');
 
         const orderDoc3 = (await mockDb.collection('orders').doc('ord_c3').get()).data();
         assert.strictEqual(orderDoc3.couponLimitExceeded, true, 'Order 3 must be flagged with couponLimitExceeded: true');
+        assert.strictEqual(orderDoc3.status, 'pending', 'Order 3 must remain pending when coupon confirmation fails closed');
 
         // Cancel Order 1 -> should restore coupon usedCount back to 1
         await firebaseApi.updateOrderStatus('ord_c1', 'cancelled', {
@@ -839,7 +846,7 @@ function createMockFirestore() {
         const rulesContent = fs.readFileSync(path.join(__dirname, '../firestore.rules'), 'utf8');
         const hasForbiddenField = (field) => (
             rulesContent.includes(`!("${field}" in request.resource.data)`)
-            || new RegExp(`!d\\.keys\\(\\)\\.hasAny\\(\\[[\\s\\S]*?"${field}"`).test(rulesContent)
+            || new RegExp(`!(?:d|request\\.resource\\.data)\\.keys\\(\\)\\.hasAny\\(\\[[\\s\\S]*?"${field}"`).test(rulesContent)
         );
         assert.ok(hasForbiddenField('inventoryDeducted'),
             'Rules must strictly forbid client order creation from setting inventoryDeducted');
@@ -849,7 +856,8 @@ function createMockFirestore() {
             'Rules must strictly forbid client order creation from setting pointsRefunded');
         assert.ok(
             rulesContent.includes('earnedPoints <= request.resource.data.total')
-            || /d\.get\("earnedPoints",\s*0\)\s*<=\s*d\.total/.test(rulesContent),
+            || /d\.get\("earnedPoints",\s*0\)\s*<=\s*d\.total/.test(rulesContent)
+            || rulesContent.includes('d.earnedPoints <= d.total'),
             'Rules must cap customer earned points to order total to prevent point fabrication'
         );
     });
@@ -907,8 +915,9 @@ function createMockFirestore() {
         assert.strictEqual(p2AfterRetry.stock, 5, 'Item 2 stock must now be correctly deducted (10 - 5 = 5)');
 
         // Verify ledger entries for Item 1: exactly ONE movement
-        const ledger1 = (await mockDb.collection('inventory_ledger').doc(`inv_p_item_1_order_${orderId}_item_p_item_1_deduct`).get());
-        assert.ok(ledger1.exists, 'Ledger entry for item 1 must exist');
+        const ledgerSnap = await mockDb.collection('inventory_ledger').where('referenceId', '==', orderId).get();
+        const p1Ledgers = ledgerSnap.docs.filter((d) => d.data().productId === 'p_item_1');
+        assert.strictEqual(p1Ledgers.length, 1, 'Exactly ONE ledger entry for item 1 must exist');
     });
 
     // 7.4 Post-fulfillment cancellation avoiding restock (restocking only for pre-fulfillment or with return receipt) [Unit / Lifecycle Logic]

@@ -1,8 +1,12 @@
 {
-    "version": "2026.11.25.0002",
-    "lastUpdate": "PHASE-3-DIRECT-ORDER-RULES-CLOSURE-001",
-    "lastUpdated": "2026-11-25T06:35:00+02:00",
+    "version": "2026.11.26.0001",
+    "lastUpdate": "PHASE-3B-DIRECT-ORDER-PARITY-CLOSURE-001",
+    "lastUpdated": "2026-11-26T21:56:00+02:00",
     "changes": [
+        "fix(rules): enforce unique non-empty lineId, aggregated product stock (fail-closed on missing stock when trackInventory:true), and 14-point coupon parity (minOrderAmount/minOrder, expiresAt/expiresAtMs, active/isActive/status, usageLimit/maxUses, couponCode, maxDiscount, 90% cap)",
+        "fix(commerce): fail closed on concurrent coupon exhaustion & insufficient loyalty points in updateOrderStatus (removed silent Math.min bypass and couponLimitExceeded pass-through), and enforce per-line inventory deduction completion",
+        "feat(checkout): route >3-item carts safely to /order_intents (pending_review, commercialVerified:false) under Spark without blocking multi-item checkout or trusting client prices; add approveOrderIntent() & customer My Orders merge",
+        "test(emulator): expand firestore-rules-emulator.test.js to 13/13 (Rule-9..Rule-13) and real-emulator-e2e.spec.js to 5/5 (EMU-CHECKOUT-MULTI)",
         "fix(rules): align firestore.rules order return state transitions, version optimistic locking, nullable coupon/shipping fields, and /returns + /inventory_ledger actor immutability",
         "fix(pricing): enforce strict Fail-Closed catalog pricing, stock availability, shipping, coupons, and customer loyalty in verifyAndEnforceCatalogPricing",
         "fix(returns): unify return receipt creation and stock/ledger updates into a single atomic Firestore transaction with cumulative quantity enforcement",

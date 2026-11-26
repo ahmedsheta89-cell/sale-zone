@@ -360,6 +360,7 @@ async function addCoupon(coupon) {
             minOrderAmount,
             minOrder: minOrderAmount,
             expiresAt: payload.expiresAt || null,
+            expiresAtMs: payload.expiresAt && Number.isFinite(Date.parse(payload.expiresAt)) ? Date.parse(payload.expiresAt) : null,
             usageLimit,
             maxUses: usageLimit,
             usedCount: Math.max(0, Number(payload.usedCount) || 0),
@@ -2404,7 +2405,10 @@ async function verifyAndEnforceCatalogPricing(orderPayload = {}, options = {}) {
     let authoritativeSubtotal = 0;
     const enforcedItems = [];
     const seenLineIds = new Set();
+    const requestedQtyByProduct = new Map();
+    const productCache = new Map();
 
+    // Pre-aggregate requested quantities per productId so split lines cannot bypass stock limits
     for (let i = 0; i < rawItems.length; i++) {
         const item = rawItems[i];
         if (!item || typeof item !== 'object') {
@@ -2419,6 +2423,14 @@ async function verifyAndEnforceCatalogPricing(orderPayload = {}, options = {}) {
         if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
             throw new Error(`Invalid item quantity for product "${pid}" at line ${i}: ${rawQty}`);
         }
+        requestedQtyByProduct.set(pid, (requestedQtyByProduct.get(pid) || 0) + qty);
+    }
+
+    for (let i = 0; i < rawItems.length; i++) {
+        const item = rawItems[i];
+        const pid = String(item.productId || item.id || '').trim();
+        const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+        const qty = Number(rawQty);
 
         let lineId = String(item.lineId || `line_${i}_${pid}`).trim();
         if (seenLineIds.has(lineId)) {
@@ -2429,21 +2441,25 @@ async function verifyAndEnforceCatalogPricing(orderPayload = {}, options = {}) {
         }
         seenLineIds.add(lineId);
 
-        let pDoc;
-        try {
-            pDoc = await dbRef.collection('products').doc(pid).get();
-        } catch (err) {
-            const errMsg = err && err.message ? err.message : String(err || '');
-            const wrapped = new Error(`Catalog verification failed for product "${pid}": ${errMsg}`);
-            if (err && err.code) wrapped.code = err.code;
-            throw wrapped;
+        let pData = productCache.get(pid);
+        if (!pData) {
+            let pDoc;
+            try {
+                pDoc = await dbRef.collection('products').doc(pid).get();
+            } catch (err) {
+                const errMsg = err && err.message ? err.message : String(err || '');
+                const wrapped = new Error(`Catalog verification failed for product "${pid}": ${errMsg}`);
+                if (err && err.code) wrapped.code = err.code;
+                throw wrapped;
+            }
+
+            if (!pDoc || !pDoc.exists) {
+                throw new Error(`Product "${pid}" does not exist in catalog.`);
+            }
+            pData = pDoc.data() || {};
+            productCache.set(pid, pData);
         }
 
-        if (!pDoc || !pDoc.exists) {
-            throw new Error(`Product "${pid}" does not exist in catalog.`);
-        }
-
-        const pData = pDoc.data() || {};
         if (pData.isPublished === false && options.allowUnpublished !== true) {
             throw new Error(`Product "${pid}" is not available for purchase.`);
         }
@@ -2453,16 +2469,14 @@ async function verifyAndEnforceCatalogPricing(orderPayload = {}, options = {}) {
             throw new Error(`Product "${pid}" has invalid catalog price.`);
         }
 
-        if (
-            options.skipStockCheck !== true &&
-            pData.trackInventory !== false &&
-            pData.stock !== undefined &&
-            pData.stock !== null &&
-            pData.stock !== ''
-        ) {
+        if (options.skipStockCheck !== true && pData.trackInventory !== false) {
+            if (pData.stock === undefined || pData.stock === null || pData.stock === '' || !Number.isFinite(Number(pData.stock))) {
+                throw new Error(`Product "${pid}" has missing or non-numeric stock while inventory tracking is enabled.`);
+            }
             const availableStock = Number(pData.stock);
-            if (!Number.isFinite(availableStock) || availableStock < qty) {
-                throw new Error(`Insufficient inventory for product "${pid}". Available: ${Number.isFinite(availableStock) ? availableStock : 0}, requested: ${qty}.`);
+            const totalRequestedForPid = requestedQtyByProduct.get(pid) || qty;
+            if (availableStock < totalRequestedForPid) {
+                throw new Error(`Insufficient inventory for product "${pid}". Available: ${availableStock}, requested total: ${totalRequestedForPid}.`);
             }
         }
 
@@ -2524,7 +2538,7 @@ async function verifyAndEnforceCatalogPricing(orderPayload = {}, options = {}) {
         if (rawCouponCode && String(cData.code || '').trim().toUpperCase() !== rawCouponCode) {
             throw new Error(`Coupon code mismatch for "${rawCouponCode}".`);
         }
-        const isActive = cData.active !== false && cData.isActive !== false;
+        const isActive = cData.active !== false && cData.isActive !== false && cData.status !== 'inactive';
         if (!isActive) {
             throw new Error(`Coupon "${cData.code || rawCouponCode}" is inactive.`);
         }
@@ -2541,9 +2555,13 @@ async function verifyAndEnforceCatalogPricing(orderPayload = {}, options = {}) {
         if (minOrder > 0 && authoritativeSubtotal < minOrder) {
             throw new Error(`Order subtotal (${authoritativeSubtotal}) does not meet coupon minimum (${minOrder}).`);
         }
-        if (cData.type === 'percentage') {
+        if (cData.type === 'percentage' || cData.type === 'percent') {
             const pct = Math.max(0, Math.min(90, Number(cData.value !== undefined ? cData.value : cData.discount) || 0));
             discount = Math.round(authoritativeSubtotal * (pct / 100) * 100) / 100;
+            const maxDisc = Number(cData.maxDiscount);
+            if (Number.isFinite(maxDisc) && maxDisc > 0) {
+                discount = Math.min(discount, Math.round(maxDisc * 100) / 100);
+            }
         } else {
             const fixedVal = Math.max(0, Number(cData.value !== undefined ? cData.value : cData.discount) || 0);
             discount = Math.min(authoritativeSubtotal, Math.round(fixedVal * 100) / 100);
@@ -2647,11 +2665,13 @@ async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
 
     const nowIso = new Date().toISOString();
     const idempotencyKey = String(payload.idempotencyKey || '').trim();
+    const useOrderIntent = Array.isArray(payload.items) && payload.items.length > 3 && !(meta && meta.forceOrdersCollection === true);
+    const targetCollection = useOrderIntent ? 'order_intents' : 'orders';
 
     if (idempotencyKey) {
         const existingSnapshot = await fireDB
-            .collection('orders')
-            // Scope duplicate checks to the signed-in customer so the query satisfies order read rules.
+            .collection(targetCollection)
+            // Scope duplicate checks to the signed-in customer so the query satisfies read rules.
             .where('uid', '==', String(payload.uid || '').trim())
             .where('idempotencyKey', '==', idempotencyKey)
             .limit(1)
@@ -2661,7 +2681,8 @@ async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
             const existingData = existingDoc.data() || {};
             return {
                 id: String(existingDoc.id || ''),
-                status: String(existingData.status || 'saved'),
+                status: String(existingData.status || (useOrderIntent ? 'pending_review' : 'saved')),
+                isOrderIntent: useOrderIntent,
                 duplicate: true,
                 queued: false
             };
@@ -2673,6 +2694,24 @@ async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
     payload.syncState = String(meta && meta.syncState || payload.syncState || 'synced');
     payload.updatedAt = nowIso;
     payload.createdAt = String(payload.createdAt || nowIso);
+
+    if (useOrderIntent) {
+        const intentPayload = {
+            ...payload,
+            status: 'pending_review',
+            commercialVerified: false,
+            requiresAdminReview: true,
+            intentType: 'multi_item_checkout'
+        };
+        await fireDB.collection('order_intents').doc(orderId).set(intentPayload, { merge: true });
+        return {
+            id: orderId,
+            status: 'pending_review',
+            isOrderIntent: true,
+            duplicate: false,
+            queued: false
+        };
+    }
 
     await fireDB.collection('orders').doc(orderId).set(payload, { merge: true });
     await appendOrderEvent(fireDB, 'ORDER_CREATED', payload, {
@@ -2900,22 +2939,68 @@ async function getOrdersByCustomerUid(uid = '', limitCount = 50) {
         const normalizedUid = String(uid || '').trim();
         if (!normalizedUid) return [];
         const safeLimit = Math.max(1, Math.min(200, Number(limitCount) || 50));
-        const snapshot = await dbRef
-            .collection('orders')
-            .where('uid', '==', normalizedUid)
-            .limit(safeLimit)
-            .get();
-        const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const [ordersSnap, intentsSnap] = await Promise.all([
+            dbRef.collection('orders').where('uid', '==', normalizedUid).limit(safeLimit).get(),
+            dbRef.collection('order_intents').where('uid', '==', normalizedUid).limit(safeLimit).get().catch(() => ({ docs: [] }))
+        ]);
+        const orderRows = (ordersSnap && ordersSnap.docs ? ordersSnap.docs : []).map((doc) => ({ id: doc.id, ...doc.data() }));
+        const intentRows = (intentsSnap && intentsSnap.docs ? intentsSnap.docs : [])
+            .map((doc) => ({ id: doc.id, isOrderIntent: true, ...doc.data() }))
+            .filter((row) => String(row.status || '').trim().toLowerCase() !== 'promoted');
+        const rows = [...orderRows, ...intentRows];
         rows.sort((a, b) => {
             const aTime = Date.parse(String(a && a.createdAt || '')) || 0;
             const bTime = Date.parse(String(b && b.createdAt || '')) || 0;
             return bTime - aTime;
         });
-        return rows;
+        return rows.slice(0, safeLimit);
     } catch (error) {
         console.error('getOrdersByCustomerUid error:', error);
         return [];
     }
+}
+
+async function approveOrderIntent(intentId, options = {}) {
+    const normalizedId = String(intentId || '').trim();
+    if (!normalizedId) throw new Error('intentId is required');
+    if (!options || (options.skipAdminAuthCheck !== true && options.bypassAdminCheck !== true)) {
+        await ensureAdminSessionForOrderWrite();
+    }
+    const dbRef = (options && options.db) ? options.db : getFirebaseDB();
+    const intentRef = dbRef.collection('order_intents').doc(normalizedId);
+    const intentSnap = await intentRef.get();
+    if (!intentSnap || !intentSnap.exists) {
+        throw new Error(`Order intent "${normalizedId}" not found.`);
+    }
+    const intentData = intentSnap.data() || {};
+    if (String(intentData.status || '').toLowerCase() === 'promoted' && intentData.promotedOrderId) {
+        return { id: String(intentData.promotedOrderId), duplicate: true };
+    }
+    const verifiedOrder = await verifyAndEnforceCatalogPricing({
+        ...intentData,
+        status: 'pending',
+        version: 1
+    }, { db: dbRef });
+    delete verifiedOrder.commercialVerified;
+    delete verifiedOrder.requiresAdminReview;
+    delete verifiedOrder.intentType;
+
+    const nowIso = new Date().toISOString();
+    const orderPayload = {
+        ...verifiedOrder,
+        id: normalizedId,
+        status: 'pending',
+        updatedAt: nowIso,
+        createdAt: String(intentData.createdAt || nowIso),
+        version: 1
+    };
+    await dbRef.collection('orders').doc(normalizedId).set(orderPayload, { merge: true });
+    await intentRef.set({
+        status: 'promoted',
+        promotedOrderId: normalizedId,
+        promotedAt: nowIso
+    }, { merge: true });
+    return { id: normalizedId, status: 'pending', duplicate: false };
 }
 
 async function addOrder(order, options = {}) {
@@ -3210,12 +3295,15 @@ async function updateOrderStatus(id, status, options = {}) {
         if (deductionStatuses.includes(nextStatus) && current.inventoryDeducted !== true) {
             let allDeducted = true;
             let deductionError = null;
+            const seenLoopLineKeys = new Set();
+            let completedLineCount = 0;
 
             for (let i = 0; i < rawItems.length; i++) {
                 const item = rawItems[i];
                 const pid = String(item.productId || item.id || '').trim();
-                const itemKey = String(item.lineId || item.id || item.productId || ('item_' + i)).trim();
-                const lineId = String(item.lineId || `line_${i}_${pid}`).trim();
+                const rawLineId = String(item.lineId || `line_${i}_${pid}`).trim();
+                const deductKey = seenLoopLineKeys.has(rawLineId) ? `${rawLineId}__idx_${i}` : rawLineId;
+                seenLoopLineKeys.add(deductKey);
                 const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
                 const qty = Number(rawQty);
 
@@ -3224,8 +3312,9 @@ async function updateOrderStatus(id, status, options = {}) {
                 }
 
                 // Check per-line tracking: avoid double-deduction on retry
-                const alreadyDeducted = deductedLineIds.includes(itemKey) || deductedLineIds.includes(lineId);
+                const alreadyDeducted = deductedLineIds.includes(deductKey);
                 if (alreadyDeducted) {
+                    completedLineCount++;
                     continue;
                 }
 
@@ -3237,21 +3326,19 @@ async function updateOrderStatus(id, status, options = {}) {
                         movementType: 'OUT_ORDER_CONFIRMED',
                         referenceType: 'order',
                         referenceId: orderId,
-                        idempotencyKey: `order_${orderId}_item_${itemKey}_deduct`,
+                        idempotencyKey: `order_${orderId}_item_${deductKey}_deduct`,
                         performedBy: operatorUid,
-                        notes: `خصم مخزون للبند ${itemKey} (منتج: ${pid}) للطلب ${orderId}`
+                        notes: `خصم مخزون للبند ${deductKey} (منتج: ${pid}) للطلب ${orderId}`
                     }, options);
 
-                    if (!deductedLineIds.includes(itemKey)) {
-                        deductedLineIds.push(itemKey);
+                    if (!deductedLineIds.includes(deductKey)) {
+                        deductedLineIds.push(deductKey);
                     }
-                    if (lineId && !deductedLineIds.includes(lineId)) {
-                        deductedLineIds.push(lineId);
-                    }
+                    completedLineCount++;
                 } catch (invErr) {
                     allDeducted = false;
                     deductionError = invErr;
-                    console.error(`Inventory deduction failure for line ${lineId} (product ${pid}) in order ${orderId}:`, invErr);
+                    console.error(`Inventory deduction failure for line ${deductKey} (product ${pid}) in order ${orderId}:`, invErr);
                     break;
                 }
             }
@@ -3259,7 +3346,7 @@ async function updateOrderStatus(id, status, options = {}) {
             updatePayload.deductedLineIds = deductedLineIds;
             updatePayload.deductedItemIds = deductedLineIds;
 
-            if (!allDeducted || deductionError) {
+            if (!allDeducted || deductionError || completedLineCount !== rawItems.length) {
                 const failurePayload = {
                     ...updatePayload,
                     status: previousStatus || 'pending',
@@ -3268,7 +3355,7 @@ async function updateOrderStatus(id, status, options = {}) {
                     inventoryDeductionError: String(deductionError && deductionError.message || deductionError || 'Inventory deduction failed')
                 };
                 await docRef.set(failurePayload, { merge: true });
-                throw deductionError || new Error(`Failed to deduct inventory for order ${orderId}`);
+                throw deductionError || new Error(`Failed to deduct inventory for all lines in order ${orderId}`);
             }
 
             // ALL items deducted successfully
@@ -3412,11 +3499,12 @@ async function updateOrderStatus(id, status, options = {}) {
                         }
 
                         const cData = cDocSnap.data() || {};
-                        const isActive = cData.active !== false && cData.isActive !== false;
-                        if (!isActive) {
+                        const isActive = cData.active !== false && cData.isActive !== false && cData.status !== 'inactive';
+                        const isExpired = cData.expiresAt && new Date(cData.expiresAt) < new Date();
+                        if (!isActive || isExpired) {
                             t.set(docRef, {
                                 couponLimitExceeded: true,
-                                couponLimitExceededReason: 'inactive',
+                                couponLimitExceededReason: isExpired ? 'expired' : 'inactive',
                                 couponLimitExceededAt: nowIso,
                                 version: txNextVer
                             }, { merge: true });
@@ -3467,9 +3555,7 @@ async function updateOrderStatus(id, status, options = {}) {
                     }
 
                     if (limitExceeded) {
-                        updatePayload.couponLimitExceeded = true;
-                        updatePayload.couponLimitExceededAt = nowIso;
-                        console.warn(`[COUPON] Order ${orderId} coupon limit reached or inactive. Aborted increment.`);
+                        throw new Error(`Coupon "${current.couponCode || current.couponId}" for order ${orderId} is inactive, expired, or reached its usage limit.`);
                     } else if (incremented) {
                         updatePayload.couponIncremented = true;
                         updatePayload.couponUsageIncremented = true;
@@ -3477,13 +3563,16 @@ async function updateOrderStatus(id, status, options = {}) {
                         updatePayload.couponUsageIncrementedAt = nowIso;
                     }
                 } else {
-                    console.warn(`[COUPON] Coupon not found for order ${orderId} with code: ${current.couponCode}`);
-                    updatePayload.couponLimitExceeded = true;
-                    updatePayload.couponLimitExceededReason = 'coupon_not_found';
-                    updatePayload.couponLimitExceededAt = nowIso;
+                    await docRef.set({
+                        couponLimitExceeded: true,
+                        couponLimitExceededReason: 'coupon_not_found',
+                        couponLimitExceededAt: nowIso
+                    }, { merge: true }).catch(() => null);
+                    throw new Error(`Coupon "${current.couponCode || current.couponId}" not found for order ${orderId}; cannot confirm discounted order.`);
                 }
             } catch (cErr) {
-                console.warn('Coupon usage increment warning:', cErr);
+                console.error('Coupon usage increment failed:', cErr);
+                throw cErr;
             }
         } else if (nextStatus === 'cancelled' && (current.couponIncremented === true || current.couponUsageIncremented === true) && current.couponRestored !== true) {
             // Restore coupon usage count when order is cancelled
@@ -3552,28 +3641,32 @@ async function updateOrderStatus(id, status, options = {}) {
                             // Already deducted in ledger! Prevent duplicate deduction
                             return;
                         }
-                        if (cSnap && cSnap.exists) {
-                            const cData = cSnap.data() || {};
-                            const prevPts = Number(cData.loyaltyPoints) || 0;
-                            const actualDeduction = Math.min(prevPts, pointsToDeduct);
-                            const nextPts = Math.max(0, prevPts - actualDeduction);
-                            t.update(custRef, { loyaltyPoints: nextPts, updatedAt: nowIso });
-                            t.set(lRef, {
-                                ledgerId: redeemLedgerId,
-                                orderId,
-                                delta: -actualDeduction,
-                                reason: 'ORDER_REDEMPTION_DEDUCT',
-                                beforePoints: prevPts,
-                                afterPoints: nextPts,
-                                timestamp: nowIso
-                            });
+                        if (!cSnap || !cSnap.exists) {
+                            throw new Error(`Customer "${orderUid}" not found for loyalty points deduction on order ${orderId}.`);
                         }
+                        const cData = cSnap.data() || {};
+                        const prevPts = Number(cData.loyaltyPoints) || 0;
+                        if (prevPts < pointsToDeduct) {
+                            throw new Error(`Insufficient loyalty points (${prevPts} < ${pointsToDeduct}) for order ${orderId}.`);
+                        }
+                        const nextPts = Math.max(0, prevPts - pointsToDeduct);
+                        t.update(custRef, { loyaltyPoints: nextPts, updatedAt: nowIso });
+                        t.set(lRef, {
+                            ledgerId: redeemLedgerId,
+                            orderId,
+                            delta: -pointsToDeduct,
+                            reason: 'ORDER_REDEMPTION_DEDUCT',
+                            beforePoints: prevPts,
+                            afterPoints: nextPts,
+                            timestamp: nowIso
+                        });
                     });
                 }
                 updatePayload.pointsDeducted = true;
                 updatePayload.pointsDeductedAt = nowIso;
             } catch (deductErr) {
-                console.warn('[Admin Authoritative Execution] Loyalty points deduction warning:', deductErr);
+                console.error('[Admin Authoritative Execution] Loyalty points deduction failed:', deductErr);
+                throw deductErr;
             }
         }
 
@@ -4704,6 +4797,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports.verifyOrderCommercialPricing = verifyOrderCommercialPricing;
     module.exports.verifyAndEnforceCatalogPricing = verifyAndEnforceCatalogPricing;
     module.exports.persistOrderOnline = persistOrderOnline;
+    module.exports.approveOrderIntent = approveOrderIntent;
 }
 
 // ==========================================

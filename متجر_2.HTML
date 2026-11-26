@@ -7497,6 +7497,10 @@
             closeFAQBot({ skipHistory: true });
             if (!options.skipHistory && window.NavHistory && typeof window.NavHistory.open === 'function') {
                 window.NavHistory.open('cart');
+                const sidebar = document.getElementById('cartSidebar');
+                if (sidebar && !sidebar.classList.contains('active')) {
+                    return setCartPanelState(true);
+                }
                 return true;
             }
             return setCartPanelState(true);
@@ -7673,7 +7677,7 @@
                 const parsedLimit = Number(rawLimit);
                 const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
                 const isExhausted = limit !== null && Number(appliedCoupon.usedCount || 0) >= limit;
-                const isInactive = appliedCoupon.active === false || appliedCoupon.isActive === false;
+                const isInactive = appliedCoupon.active === false || appliedCoupon.isActive === false || appliedCoupon.status === 'inactive';
                 const isBelowMin = minOrder > 0 && subtotal < minOrder;
 
                 if (isInactive || isExpired || isExhausted || isBelowMin) {
@@ -11362,7 +11366,7 @@
                 const parsedLimit = Number(rawLimit);
                 const usageLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
                 const isExhausted = usageLimit !== null && Number(appliedCoupon.usedCount || 0) >= usageLimit;
-                const isInactive = appliedCoupon.active === false || appliedCoupon.isActive === false;
+                const isInactive = appliedCoupon.active === false || appliedCoupon.isActive === false || appliedCoupon.status === 'inactive';
                 const isBelowMin = minOrder > 0 && subtotal < minOrder;
 
                 if (isInactive || isExpired || isExhausted || isBelowMin) {
@@ -11382,9 +11386,13 @@
             let discount = 0;
             if (appliedCoupon) {
                 const rawVal = Number(appliedCoupon.value !== undefined ? appliedCoupon.value : appliedCoupon.discount) || 0;
-                discount = appliedCoupon.type === 'percentage'
-                    ? Math.round(subtotal * (rawVal / 100) * 100) / 100
+                discount = (appliedCoupon.type === 'percentage' || appliedCoupon.type === 'percent')
+                    ? Math.round(subtotal * (Math.max(0, Math.min(90, rawVal)) / 100) * 100) / 100
                     : Math.min(subtotal, rawVal);
+                const maxDisc = Number(appliedCoupon.maxDiscount);
+                if ((appliedCoupon.type === 'percentage' || appliedCoupon.type === 'percent') && Number.isFinite(maxDisc) && maxDisc > 0) {
+                    discount = Math.min(discount, Math.round(maxDisc * 100) / 100);
+                }
             }
 
             const totalAfterCoupon = Math.max(0, subtotal - discount);
@@ -11512,7 +11520,8 @@
             }
 
             const isQueuedOrder = addOrderResult && addOrderResult.queued === true;
-            if (!isQueuedOrder) {
+            const isIntentOrder = addOrderResult && addOrderResult.isOrderIntent === true;
+            if (!isQueuedOrder && !isIntentOrder) {
                 // Send WhatsApp notification only after confirmed Firebase write.
                 sendWhatsAppNotification(order);
             }
@@ -11523,11 +11532,13 @@
             saveCart();
             updateCartUI();
             closeModal('checkoutModal');
-            toggleCart();
+            closeCart({ skipHistory: true });
             updateStats();
             
             if (isQueuedOrder) {
                 showNotification('warning', '📦 تم حفظ الطلب محليًا', 'سيتم إرسال الطلب تلقائيًا عند عودة الإنترنت.');
+            } else if (isIntentOrder) {
+                showNotification('info', '📋 تم استلام طلبك متعدد الأصناف', `رقم: ${order.orderNumber} — قيد المراجعة والاعتماد التجاري من الإدارة.`);
             } else {
                 showNotification('success', '🎉 تم الطلب!', `رقم: ${order.orderNumber}`);
             }

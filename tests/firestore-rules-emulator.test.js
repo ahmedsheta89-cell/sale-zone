@@ -501,19 +501,17 @@ async function runTest(name, fn) {
         total: 249750
       })));
 
-      // Unauthenticated create & > 5 distinct items owner create
+      // Unauthenticated create & > 3 distinct items owner create
       await assertFails(anonDb.collection('orders').doc('ord_atk_unauth').set(directOrder('ord_atk_unauth')));
       await assertFails(custDb.collection('orders').doc('ord_atk_6items').set(directOrder('ord_atk_6items', {
         items: [
           { lineId: 'l1', productId: 'prod_pub_1', price: 250, quantity: 1 },
           { lineId: 'l2', productId: 'prod_pub_2', price: 100, quantity: 1 },
           { lineId: 'l3', productId: 'prod_pub_1', price: 250, quantity: 1 },
-          { lineId: 'l4', productId: 'prod_pub_2', price: 100, quantity: 1 },
-          { lineId: 'l5', productId: 'prod_pub_1', price: 250, quantity: 1 },
-          { lineId: 'l6', productId: 'prod_pub_2', price: 100, quantity: 1 }
+          { lineId: 'l4', productId: 'prod_pub_2', price: 100, quantity: 1 }
         ],
-        subtotal: 1050,
-        total: 1050
+        subtotal: 700,
+        total: 700
       })));
 
       // Forged inventory/return/loyalty state flags
@@ -565,6 +563,296 @@ async function runTest(name, fn) {
         createdAt: new Date().toISOString(),
         version: 1
       }));
+    });
+
+    // 6. Phase 3B — Order Line Identity (lineId) & Uniqueness
+    await runTest('Rule-9: LineId required & unique across items; duplicate/missing lineId rejected by Rules and updateOrderStatus never skips lines', async () => {
+      const mkOrder = (id, items, subtotal) => ({
+        id,
+        uid: 'cust_verified_1',
+        orderNumber: `SZ-${id}`,
+        idempotencyKey: `idem_3b_${id}_0001`,
+        customer: { name: 'عميل', phone: '01011112222', address: 'القاهرة' },
+        items,
+        subtotal,
+        discount: 0,
+        pointsDiscount: 0,
+        shipping: 0,
+        total: subtotal,
+        earnedPoints: 5,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        version: 1
+      });
+
+      // 1. Two different products with same lineId -> denied
+      await assertFails(custDb.collection('orders').doc('ord_line_dup_diff').set(mkOrder('ord_line_dup_diff', [
+        { lineId: 'same_l', productId: 'prod_pub_1', price: 250, quantity: 1 },
+        { lineId: 'same_l', productId: 'prod_pub_2', price: 100, quantity: 1 }
+      ], 350)));
+
+      // 2. Two items same product with same lineId -> denied
+      await assertFails(custDb.collection('orders').doc('ord_line_dup_same').set(mkOrder('ord_line_dup_same', [
+        { lineId: 'same_l', productId: 'prod_pub_1', price: 250, quantity: 1 },
+        { lineId: 'same_l', productId: 'prod_pub_1', price: 250, quantity: 1 }
+      ], 500)));
+
+      // 3. Two items same product without lineId -> denied
+      await assertFails(custDb.collection('orders').doc('ord_line_missing').set(mkOrder('ord_line_missing', [
+        { productId: 'prod_pub_1', price: 250, quantity: 1 },
+        { productId: 'prod_pub_1', price: 250, quantity: 1 }
+      ], 500)));
+
+      // 4. Repeated id without unique lineId -> denied
+      await assertFails(custDb.collection('orders').doc('ord_line_id_dup').set(mkOrder('ord_line_id_dup', [
+        { id: 'shared', productId: 'prod_pub_1', price: 250, quantity: 1 },
+        { id: 'shared', productId: 'prod_pub_2', price: 100, quantity: 1 }
+      ], 350)));
+
+      // 5. Valid unique lineIds -> succeeds
+      await assertSucceeds(custDb.collection('orders').doc('ord_line_valid').set(mkOrder('ord_line_valid', [
+        { lineId: 'l_uniq_1', productId: 'prod_pub_1', price: 250, quantity: 1 },
+        { lineId: 'l_uniq_2', productId: 'prod_pub_2', price: 100, quantity: 1 }
+      ], 350)));
+    });
+
+    // 7. Phase 3B — Inventory Aggregation & trackInventory Missing Stock Policy
+    await runTest('Rule-10: Aggregated product quantities > stock denied by Rules; missing stock on trackInventory:true denied; valid sums allowed', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        await db.collection('products').doc('prod_agg_10').set({
+          name: 'منتج تجميع',
+          price: 100,
+          stock: 10,
+          trackInventory: true,
+          isPublished: true
+        });
+        await db.collection('products').doc('prod_agg_other').set({
+          name: 'منتج مستقل',
+          price: 100,
+          stock: 10,
+          trackInventory: true,
+          isPublished: true
+        });
+        await db.collection('products').doc('prod_missing_stock').set({
+          name: 'منتج بدون مخزون',
+          price: 100,
+          trackInventory: true,
+          isPublished: true
+        });
+      });
+
+      const mkAgg = (id, items, total) => ({
+        id,
+        uid: 'cust_verified_1',
+        orderNumber: `SZ-${id}`,
+        idempotencyKey: `idem_agg_${id}_0001`,
+        customer: { name: 'عميل', phone: '010', address: 'القاهرة' },
+        items,
+        subtotal: total,
+        discount: 0,
+        pointsDiscount: 0,
+        shipping: 0,
+        total,
+        earnedPoints: 0,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        version: 1
+      });
+
+      // Single line qty 11 > 10 -> denied
+      await assertFails(custDb.collection('orders').doc('ord_agg_11').set(mkAgg('ord_agg_11', [
+        { lineId: 'a1', productId: 'prod_agg_10', price: 100, quantity: 11 }
+      ], 1100)));
+
+      // Two lines same product 6 + 6 = 12 > 10 -> denied
+      await assertFails(custDb.collection('orders').doc('ord_agg_6_6').set(mkAgg('ord_agg_6_6', [
+        { lineId: 'a1', productId: 'prod_agg_10', price: 100, quantity: 6 },
+        { lineId: 'a2', productId: 'prod_agg_10', price: 100, quantity: 6 }
+      ], 1200)));
+
+      // Three lines same product 4 + 4 + 4 = 12 > 10 -> denied
+      await assertFails(custDb.collection('orders').doc('ord_agg_4_4_4').set(mkAgg('ord_agg_4_4_4', [
+        { lineId: 'a1', productId: 'prod_agg_10', price: 100, quantity: 4 },
+        { lineId: 'a2', productId: 'prod_agg_10', price: 100, quantity: 4 },
+        { lineId: 'a3', productId: 'prod_agg_10', price: 100, quantity: 4 }
+      ], 1200)));
+
+      // Missing stock when trackInventory:true -> denied
+      await assertFails(custDb.collection('orders').doc('ord_agg_missing').set(mkAgg('ord_agg_missing', [
+        { lineId: 'a1', productId: 'prod_missing_stock', price: 100, quantity: 1 }
+      ], 100)));
+
+      // Multiple lines same product 4 + 5 = 9 <= 10 -> succeeds
+      await assertSucceeds(custDb.collection('orders').doc('ord_agg_ok_9').set(mkAgg('ord_agg_ok_9', [
+        { lineId: 'a1', productId: 'prod_agg_10', price: 100, quantity: 4 },
+        { lineId: 'a2', productId: 'prod_agg_10', price: 100, quantity: 5 }
+      ], 900)));
+
+      // Different products with independent stocks (6 and 6) -> succeeds
+      await assertSucceeds(custDb.collection('orders').doc('ord_agg_indep').set(mkAgg('ord_agg_indep', [
+        { lineId: 'a1', productId: 'prod_agg_10', price: 100, quantity: 6 },
+        { lineId: 'a2', productId: 'prod_agg_other', price: 100, quantity: 6 }
+      ], 1200)));
+    });
+
+    // 8. Phase 3B — Coupon Contract Parity
+    await runTest('Rule-11: Full coupon parity (minOrderAmount, expiresAt, active/isActive/status, maxUses/usageLimit, couponCode, maxDiscount)', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        await db.collection('coupons').doc('cp_min500').set({ code: 'MIN500', type: 'fixed', value: 50, minOrderAmount: 500, active: true });
+        await db.collection('coupons').doc('cp_exp_iso').set({ code: 'EXPISO', type: 'fixed', value: 50, expiresAt: '2020-01-01T00:00:00.000Z', active: true });
+        await db.collection('coupons').doc('cp_isact_false').set({ code: 'ISACT', type: 'fixed', value: 50, isActive: false });
+        await db.collection('coupons').doc('cp_status_off').set({ code: 'STOFF', type: 'fixed', value: 50, status: 'inactive' });
+        await db.collection('coupons').doc('cp_maxuses').set({ code: 'MAXU', type: 'fixed', value: 50, maxUses: 1, usedCount: 1, active: true });
+        await db.collection('coupons').doc('cp_maxdisc').set({ code: 'CAP30', type: 'percentage', value: 50, maxDiscount: 30, minOrderAmount: 100, active: true, expiresAt: '2099-12-31T23:59:59.000Z' });
+      });
+
+      const mkCp = (id, couponId, couponCode, discount, total, subtotal = 250) => ({
+        id,
+        uid: 'cust_verified_1',
+        orderNumber: `SZ-${id}`,
+        idempotencyKey: `idem_cp_${id}_0001`,
+        customer: { name: 'عميل', phone: '010', address: 'القاهرة' },
+        items: [{ lineId: 'c1', productId: 'prod_pub_1', price: 250, quantity: subtotal / 250 }],
+        subtotal,
+        couponId,
+        couponCode,
+        discount,
+        pointsDiscount: 0,
+        shipping: 0,
+        total,
+        earnedPoints: 0,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        version: 1
+      });
+
+      await assertFails(custDb.collection('orders').doc('ord_cp_min').set(mkCp('ord_cp_min', 'cp_min500', 'MIN500', 50, 200)));
+      await assertFails(custDb.collection('orders').doc('ord_cp_exp').set(mkCp('ord_cp_exp', 'cp_exp_iso', 'EXPISO', 50, 200)));
+      await assertFails(custDb.collection('orders').doc('ord_cp_isact').set(mkCp('ord_cp_isact', 'cp_isact_false', 'ISACT', 50, 200)));
+      await assertFails(custDb.collection('orders').doc('ord_cp_stoff').set(mkCp('ord_cp_stoff', 'cp_status_off', 'STOFF', 50, 200)));
+      await assertFails(custDb.collection('orders').doc('ord_cp_maxu').set(mkCp('ord_cp_maxu', 'cp_maxuses', 'MAXU', 50, 200)));
+      await assertFails(custDb.collection('orders').doc('ord_cp_mismatch').set(mkCp('ord_cp_mismatch', 'cp_maxdisc', 'WRONG', 30, 220)));
+      await assertFails(custDb.collection('orders').doc('ord_cp_overcap').set(mkCp('ord_cp_overcap', 'cp_maxdisc', 'CAP30', 125, 125)));
+
+      // Valid capped coupon (50% of 250 = 125 capped by maxDiscount 30 -> discount 30, total 220)
+      await assertSucceeds(custDb.collection('orders').doc('ord_cp_valid_cap').set(mkCp('ord_cp_valid_cap', 'cp_maxdisc', 'CAP30', 30, 220)));
+    });
+
+    // 9. Phase 3B — Concurrent Coupon & Loyalty Integrity
+    await runTest('Rule-12: Concurrent admin confirmations fail closed on exhausted coupon usageLimit & insufficient loyalty points', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        await db.collection('products').doc('prod_race').set({ name: 'RaceProd', price: 250, stock: 20, trackInventory: true, isPublished: true });
+        await db.collection('coupons').doc('cp_once').set({ code: 'ONCE1', type: 'fixed', value: 25, usageLimit: 1, usedCount: 0, active: true });
+        await db.collection('customers').doc('cust_pts50').set({
+          uid: 'cust_pts50',
+          email: 'pts50@example.com',
+          phone: '01011112222',
+          address: 'القاهرة',
+          displayName: 'عميل 50 نقطة',
+          role: 'customer',
+          loyaltyPoints: 50,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z'
+        });
+        await db.collection('orders').doc('ord_race_cp_1').set({
+          id: 'ord_race_cp_1', uid: 'cust_verified_1', orderNumber: 'SZ-RC1', idempotencyKey: 'idem_rc_1_0001',
+          customer: { name: 'A' }, items: [{ lineId: 'r1', productId: 'prod_race', price: 250, quantity: 1 }],
+          subtotal: 250, couponId: 'cp_once', couponCode: 'ONCE1', discount: 25, total: 225, status: 'pending', version: 1, createdAt: new Date().toISOString()
+        });
+        await db.collection('orders').doc('ord_race_cp_2').set({
+          id: 'ord_race_cp_2', uid: 'cust_other_2', orderNumber: 'SZ-RC2', idempotencyKey: 'idem_rc_2_0001',
+          customer: { name: 'B' }, items: [{ lineId: 'r1', productId: 'prod_race', price: 250, quantity: 1 }],
+          subtotal: 250, couponId: 'cp_once', couponCode: 'ONCE1', discount: 25, total: 225, status: 'pending', version: 1, createdAt: new Date().toISOString()
+        });
+        await db.collection('orders').doc('ord_race_pts_1').set({
+          id: 'ord_race_pts_1', uid: 'cust_pts50', orderNumber: 'SZ-RP1', idempotencyKey: 'idem_rp_1_0001',
+          customer: { name: 'P1' }, items: [{ lineId: 'p1', productId: 'prod_race', price: 250, quantity: 1 }],
+          subtotal: 250, usedPoints: 50, pointsDiscount: 5, total: 245, status: 'pending', version: 1, createdAt: new Date().toISOString()
+        });
+        await db.collection('orders').doc('ord_race_pts_2').set({
+          id: 'ord_race_pts_2', uid: 'cust_pts50', orderNumber: 'SZ-RP2', idempotencyKey: 'idem_rp_2_0001',
+          customer: { name: 'P2' }, items: [{ lineId: 'p1', productId: 'prod_race', price: 250, quantity: 1 }],
+          subtotal: 250, usedPoints: 50, pointsDiscount: 5, total: 245, status: 'pending', version: 1, createdAt: new Date().toISOString()
+        });
+      });
+
+      const admin2Db = testEnv.authenticatedContext('admin_uid_2', { email: 'admin2@example.com', email_verified: true, admin: true, role: 'admin' }).firestore();
+
+      // Concurrent coupon race
+      const cpResults = await Promise.allSettled([
+        firebaseApi.updateOrderStatus('ord_race_cp_1', 'confirmed', { db: adminDb, operatorUid: 'admin_uid_1', skipAdminAuthCheck: true }),
+        firebaseApi.updateOrderStatus('ord_race_cp_2', 'confirmed', { db: admin2Db, operatorUid: 'admin_uid_2', skipAdminAuthCheck: true })
+      ]);
+      assert.strictEqual(cpResults.filter(r => r.status === 'fulfilled').length, 1, 'Only 1 order may consume usageLimit:1 coupon');
+      assert.strictEqual(cpResults.filter(r => r.status === 'rejected').length, 1, 'Second concurrent coupon order must fail closed');
+      assert.strictEqual((await adminDb.collection('coupons').doc('cp_once').get()).data().usedCount, 1);
+
+      // Concurrent loyalty points race (50 points customer, 2 orders x 50 points)
+      const ptsResults = await Promise.allSettled([
+        firebaseApi.updateOrderStatus('ord_race_pts_1', 'confirmed', { db: adminDb, operatorUid: 'admin_uid_1', skipAdminAuthCheck: true }),
+        firebaseApi.updateOrderStatus('ord_race_pts_2', 'confirmed', { db: admin2Db, operatorUid: 'admin_uid_2', skipAdminAuthCheck: true })
+      ]);
+      assert.strictEqual(ptsResults.filter(r => r.status === 'fulfilled').length, 1, 'Only 1 order may redeem the 50 loyalty points');
+      assert.strictEqual(ptsResults.filter(r => r.status === 'rejected').length, 1, 'Second concurrent loyalty order must fail closed');
+      assert.strictEqual((await adminDb.collection('customers').doc('cust_pts50').get()).data().loyaltyPoints, 0);
+    });
+
+    // 10. Phase 3B — Spark-Safe >4 Items Order Intents + Admin Promotion
+    await runTest('Rule-13: >4 distinct items route safely to /order_intents (pending_review) and promote via approveOrderIntent()', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        for (const pid of ['prod_m1', 'prod_m2', 'prod_m3', 'prod_m4', 'prod_m5', 'prod_m6']) {
+          await db.collection('products').doc(pid).set({ name: pid, price: 50, stock: 10, trackInventory: true, isPublished: true });
+        }
+      });
+
+      // Forging approved status or commercialVerified:true in /order_intents denied by Rules
+      await assertFails(custDb.collection('order_intents').doc('intent_forge').set({
+        id: 'intent_forge',
+        uid: 'cust_verified_1',
+        orderNumber: 'SZ-FORGE',
+        idempotencyKey: 'idem_intent_forge_001',
+        customer: { name: 'A' },
+        items: [
+          { lineId: 'm1', productId: 'prod_m1', price: 1, quantity: 1 },
+          { lineId: 'm2', productId: 'prod_m2', price: 1, quantity: 1 },
+          { lineId: 'm3', productId: 'prod_m3', price: 1, quantity: 1 },
+          { lineId: 'm4', productId: 'prod_m4', price: 1, quantity: 1 },
+          { lineId: 'm5', productId: 'prod_m5', price: 1, quantity: 1 }
+        ],
+        status: 'pending',
+        commercialVerified: true,
+        requiresAdminReview: true,
+        createdAt: new Date().toISOString()
+      }));
+
+      // persistOrderOnline with 6 distinct items routes cleanly to /order_intents
+      const intentRes = await firebaseApi.persistOrderOnline(custDb, {
+        uid: 'cust_verified_1',
+        orderNumber: 'SZ-MULTI-6',
+        idempotencyKey: 'idem_multi_6_0001',
+        customer: { name: 'عميل متعدد', phone: '010', address: 'القاهرة' },
+        items: [
+          { lineId: 'm1', productId: 'prod_m1', price: 1, quantity: 1 },
+          { lineId: 'm2', productId: 'prod_m2', price: 1, quantity: 1 },
+          { lineId: 'm3', productId: 'prod_m3', price: 1, quantity: 1 },
+          { lineId: 'm4', productId: 'prod_m4', price: 1, quantity: 1 },
+          { lineId: 'm5', productId: 'prod_m5', price: 1, quantity: 1 },
+          { lineId: 'm6', productId: 'prod_m6', price: 1, quantity: 1 }
+        ]
+      });
+      assert.strictEqual(intentRes.isOrderIntent, true);
+      assert.strictEqual(intentRes.status, 'pending_review');
+
+      // Admin promotes intent -> authoritative /orders doc created with 300 EGP total
+      const promo = await firebaseApi.approveOrderIntent(intentRes.id, { db: adminDb, skipAdminAuthCheck: true });
+      assert.strictEqual(promo.status, 'pending');
+      const promotedOrder = (await adminDb.collection('orders').doc(intentRes.id).get()).data();
+      assert.strictEqual(promotedOrder.total, 300);
+      assert.strictEqual(promotedOrder.items.length, 6);
     });
 
     console.log('\n====================================================');

@@ -107,49 +107,97 @@ service cloud.firestore {
       return isValidOrderCreateData(request.resource.data);
     }
 
-    function isValidOrderItemObj(item) {
+    function aggQtyFrom(items, idx, pid) {
+      return items[idx].quantity
+        + (idx < 1 && items.size() > 1 && items[1].get("productId", "") == pid ? items[1].get("quantity", 0) : 0)
+        + (idx < 2 && items.size() > 2 && items[2].get("productId", "") == pid ? items[2].get("quantity", 0) : 0);
+    }
+
+    function isValidOrderItemObj(items, idx) {
+      let item = items[idx];
       let p = /databases/$(database)/documents/products/$(item.productId);
       let prod = get(p).data;
       return item is map
-        && item.get("productId", "") is string
-        && item.productId.size() > 0
-        && item.productId.split("/").size() == 1
-        && item.get("quantity", 0) is int
-        && item.quantity > 0
-        && item.get("price", -1) is number
+        && item.lineId is string && item.lineId.size() > 0 && item.lineId.size() <= 128
+        && item.productId is string && item.productId.split("/").size() == 1
+        && item.quantity is int && item.quantity > 0
         && exists(p)
         && prod.get("isPublished", true) != false
         && item.price == prod.price
         && (
           prod.get("trackInventory", true) == false
-          || !(prod.get("stock", null) is number)
-          || item.quantity <= prod.stock
+          || (items.size() == idx + 1 ? item.quantity : aggQtyFrom(items, idx, item.productId)) <= prod.get("stock", -1)
         );
     }
 
     function isValidOrderItemAt(items, idx) {
-      return idx >= items.size() || isValidOrderItemObj(items[idx]);
+      return idx >= items.size() || isValidOrderItemObj(items, idx);
     }
 
     function computeOrderSubtotal(items) {
-      return (items.size() > 0 ? items[0].price * items[0].quantity : 0)
+      return (items[0].price * items[0].quantity)
         + (items.size() > 1 ? items[1].price * items[1].quantity : 0)
-        + (items.size() > 2 ? items[2].price * items[2].quantity : 0)
-        + (items.size() > 3 ? items[3].price * items[3].quantity : 0);
+        + (items.size() > 2 ? items[2].price * items[2].quantity : 0);
     }
 
-    function isValidCouponCheck(couponId, discount, subtotal) {
+    function parseIsoDay(dateStr) {
+      let p = dateStr.split("-");
+      return p.size() >= 3 ? (int(p[0]) * 10000 + int(p[1]) * 100 + int(p[2])) : 0;
+    }
+
+    function parseIsoSec(timeStr) {
+      let t = timeStr.split(":");
+      return t.size() >= 3 ? (int(t[0]) * 3600 + int(t[1]) * 60 + int(t[2][0:2])) : 86400;
+    }
+
+    function isCouponIsoDateNotExpired(exp) {
+      let dt = exp.split("T");
+      let expDay = parseIsoDay(dt[0]);
+      let nowDay = request.time.year() * 10000 + request.time.month() * 100 + request.time.day();
+      return expDay > nowDay
+        || (
+          expDay == nowDay
+          && (
+            dt.size() < 2
+            || exp.size() < 19
+            || parseIsoSec(dt[1]) >= (request.time.hours() * 3600 + request.time.minutes() * 60 + request.time.seconds())
+          )
+        );
+    }
+
+    function isCouponNotExpired(c) {
+      return (!("expiresAtMs" in c) || !(c.expiresAtMs is number) || request.time.toMillis() <= c.expiresAtMs)
+        && (
+          !("expiresAt" in c)
+          || c.expiresAt == null
+          || (c.expiresAt is timestamp && request.time <= c.expiresAt)
+          || (c.expiresAt is string && c.expiresAt.size() >= 10 && isCouponIsoDateNotExpired(c.expiresAt))
+        );
+    }
+
+    function isValidCouponAmt(c, cVal, discount, subtotal) {
+      return cVal > 0
+        && discount <= subtotal + 0.02
+        && (!("maxDiscount" in c) || !(c.maxDiscount is number) || c.maxDiscount <= 0 || discount <= c.maxDiscount + 0.02)
+        && (
+          c.get("type", "fixed") in ["percent", "percentage"]
+            ? (discount <= (subtotal * 0.9) + 0.02 && discount <= (subtotal * cVal / 100.0) + 0.02)
+            : discount <= cVal + 0.02
+        );
+    }
+
+    function isValidCouponCheck(couponId, reqCode, discount, subtotal) {
       let cp = /databases/$(database)/documents/coupons/$(couponId);
       let c = get(cp).data;
       return exists(cp)
         && c.get("active", true) != false
+        && c.get("isActive", true) != false
         && c.get("status", "active") != "inactive"
-        && subtotal >= c.get("minOrder", 0)
-        && (c.get("usageLimit", 0) <= 0 || c.get("usedCount", 0) < c.usageLimit)
-        && c.value is number
-        && c.value > 0
-        && (c.get("maxDiscount", 0) <= 0 || discount <= c.maxDiscount + 0.02)
-        && discount <= ((c.get("type", "fixed") in ["percent", "percentage"] ? (subtotal * c.value / 100.0) : c.value) + 0.02);
+        && isCouponNotExpired(c)
+        && (!("minOrderAmount" in c) ? (!("minOrder" in c) || !(c.minOrder is number) || subtotal >= c.minOrder) : (!(c.minOrderAmount is number) || subtotal >= c.minOrderAmount))
+        && (!("usageLimit" in c) ? (!("maxUses" in c) || c.maxUses <= 0 || c.get("usedCount", 0) < c.maxUses) : (c.usageLimit <= 0 || c.get("usedCount", 0) < c.usageLimit))
+        && (reqCode == null || reqCode == "" || c.get("code", "") == reqCode)
+        && (("value" in c) ? isValidCouponAmt(c, c.value, discount, subtotal) : isValidCouponAmt(c, c.get("discount", 0), discount, subtotal));
     }
 
     function isValidLoyaltyCheck(uid, usedPoints, pointsDiscount) {
@@ -176,17 +224,6 @@ service cloud.firestore {
     function isValidOrderOwnerCreate() {
       let d = request.resource.data;
       return isVerifiedUser()
-        && d.keys().hasAll([
-          "uid",
-          "orderNumber",
-          "customer",
-          "items",
-          "subtotal",
-          "total",
-          "status",
-          "createdAt",
-          "idempotencyKey"
-        ])
         && d.keys().hasOnly([
           "id",
           "uid",
@@ -241,49 +278,48 @@ service cloud.firestore {
         && d.customer is map
         && d.items is list
         && d.items.size() >= 1
-        && d.items.size() <= 4
+        && d.items.size() <= 3
         && d.subtotal is number
         && d.total is number
         && d.total >= 0
         && (d.createdAt is string || d.createdAt is timestamp)
-        && d.get("discount", 0) is number && d.get("discount", 0) >= 0
-        && d.get("pointsDiscount", 0) is number && d.get("pointsDiscount", 0) >= 0
-        && d.get("usedPoints", 0) is number && d.get("usedPoints", 0) >= 0
-        && (!("shipping" in d) || (d.shipping is number && d.shipping >= 0))
+        && (!("pointsDiscount" in d) || (d.pointsDiscount is number && d.pointsDiscount >= 0))
+        && (!("usedPoints" in d) || (d.usedPoints is number && d.usedPoints >= 0))
+        && (!("shipping" in d) || (d.shipping is number && d.shipping >= 0 && (!("shippingFee" in d) || d.shipping == d.shippingFee)))
         && (!("shippingFee" in d) || (d.shippingFee is number && d.shippingFee >= 0))
-        && (!("shipping" in d) || !("shippingFee" in d) || d.shipping == d.shippingFee)
-        && d.get("earnedPoints", 0) is number && d.get("earnedPoints", 0) >= 0 && d.get("earnedPoints", 0) <= d.total
+        && (!("earnedPoints" in d) || (d.earnedPoints is number && d.earnedPoints >= 0 && d.earnedPoints <= d.total))
         && isValidOrderItemAt(d.items, 0)
         && isValidOrderItemAt(d.items, 1)
         && isValidOrderItemAt(d.items, 2)
-        && isValidOrderItemAt(d.items, 3)
+        && (d.items.size() < 2 || d.items[0].lineId != d.items[1].lineId)
+        && (d.items.size() < 3 || (d.items[0].lineId != d.items[2].lineId && d.items[1].lineId != d.items[2].lineId))
         && math.abs(d.subtotal - computeOrderSubtotal(d.items)) <= 0.02
         && (
-          d.get("discount", 0) == 0
+          !("discount" in d)
+          || d.discount == 0
           || (
-            d.get("discount", 0) > 0
+            d.discount is number
+            && d.discount > 0
             && ("couponId" in d)
             && d.couponId is string
             && d.couponId.size() > 0
             && d.couponId.split("/").size() == 1
-            && isValidCouponCheck(d.couponId, d.discount, d.subtotal)
+            && isValidCouponCheck(d.couponId, d.get("couponCode", null), d.discount, d.subtotal)
           )
         )
         && (
-          (d.get("pointsDiscount", 0) == 0 && d.get("usedPoints", 0) == 0)
+          ((!("pointsDiscount" in d) || d.pointsDiscount == 0) && (!("usedPoints" in d) || d.usedPoints == 0))
           || (
-            d.get("usedPoints", 0) > 0
+            ("usedPoints" in d)
+            && d.usedPoints > 0
             && isValidLoyaltyCheck(request.auth.uid, d.usedPoints, d.get("pointsDiscount", 0))
           )
         )
-        && math.abs(
-          d.total - maxZero(
-            d.subtotal
-            - d.get("discount", 0)
-            - d.get("pointsDiscount", 0)
-            + d.get("shipping", d.get("shippingFee", 0))
-          )
-        ) <= 0.02;
+        && (
+          d.total == 0
+            ? (d.subtotal - d.get("discount", 0) - d.get("pointsDiscount", 0) + ("shipping" in d ? d.shipping : d.get("shippingFee", 0))) <= 0.02
+            : math.abs(d.total - (d.subtotal - d.get("discount", 0) - d.get("pointsDiscount", 0) + ("shipping" in d ? d.shipping : d.get("shippingFee", 0)))) <= 0.02
+        );
     }
 
     function isValidOrderStatusTransition(fromStatus, toStatus) {
@@ -1047,6 +1083,24 @@ service cloud.firestore {
       allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
       allow create: if isAdmin() || isValidOrderOwnerCreate();
       allow update: if isValidOrderAdminUpdate();
+      allow delete: if false;
+    }
+
+    match /order_intents/{intentId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isVerifiedUser()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == "pending_review"
+        && request.resource.data.commercialVerified == false
+        && request.resource.data.requiresAdminReview == true
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 3
+        && request.resource.data.items.size() <= 100
+        && request.resource.data.idempotencyKey is string
+        && request.resource.data.idempotencyKey.size() >= 12
+        && request.resource.data.customer is map
+        && (request.resource.data.createdAt is string || request.resource.data.createdAt is timestamp);
+      allow update: if isAdmin();
       allow delete: if false;
     }
 

@@ -10092,6 +10092,7 @@ function adminLogout(){
                 minOrderAmount,
                 minOrder: minOrderAmount,
                 expiresAt,
+                expiresAtMs: expiresAt && Number.isFinite(Date.parse(expiresAt)) ? Date.parse(expiresAt) : null,
                 usageLimit,
                 maxUses: usageLimit,
                 active,
