@@ -140,7 +140,12 @@ function createCliMockFirestore() {
     const commercialMap = new Map();
 
     const isDeleteSentinel = (val) => Boolean(
-        val && (val._methodName === 'FieldValue.delete' || val.isDelete === true)
+        val && (
+            val._methodName === 'FieldValue.delete'
+            || val.methodName === 'FieldValue.delete'
+            || val.isDelete === true
+            || (val.constructor && val.constructor.name === 'DeleteTransform')
+        )
     );
 
     const mockDb = {

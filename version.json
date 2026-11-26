@@ -1,16 +1,19 @@
 {
-    "version": "2026.11.20.0003",
-    "lastUpdate": "PHASE-2-COMMERCE-INTEGRITY-001",
-    "lastUpdated": "2026-11-20T16:15:00+02:00",
+    "version": "2026.11.26.0001",
+    "lastUpdate": "PHASE-3B-DIRECT-ORDER-PARITY-CLOSURE-001",
+    "lastUpdated": "2026-11-26T21:56:00+02:00",
     "changes": [
-        "feat(commerce): Phase 2 deep root-cause remediation, inventory integrity, and return receipt workflow",
-        "feat(commerce): commercial discriminated status union (found, not_found, read_failed, invalid_data)",
-        "feat(commerce): strict cost price isolation without retail price fallback",
-        "feat(commerce): stale stock overwrite prevention in updateProduct",
-        "feat(commerce): strict order line item validation and multi-line deduplication with unique lineIds",
-        "feat(commerce): return receipt lifecycle with quarantine ledger for damaged goods and verified restock",
-        "feat(security): firestore rules for /returns collection and client order creation forbidden flags"
+        "fix(rules): enforce unique non-empty lineId, aggregated product stock (fail-closed on missing stock when trackInventory:true), and 14-point coupon parity (minOrderAmount/minOrder, expiresAt/expiresAtMs, active/isActive/status, usageLimit/maxUses, couponCode, maxDiscount, 90% cap)",
+        "fix(commerce): fail closed on concurrent coupon exhaustion & insufficient loyalty points in updateOrderStatus (removed silent Math.min bypass and couponLimitExceeded pass-through), and enforce per-line inventory deduction completion",
+        "feat(checkout): route >3-item carts safely to /order_intents (pending_review, commercialVerified:false) under Spark without blocking multi-item checkout or trusting client prices; add approveOrderIntent() & customer My Orders merge",
+        "test(emulator): expand firestore-rules-emulator.test.js to 13/13 (Rule-9..Rule-13) and real-emulator-e2e.spec.js to 5/5 (EMU-CHECKOUT-MULTI)",
+        "fix(rules): align firestore.rules order return state transitions, version optimistic locking, nullable coupon/shipping fields, and /returns + /inventory_ledger actor immutability",
+        "fix(pricing): enforce strict Fail-Closed catalog pricing, stock availability, shipping, coupons, and customer loyalty in verifyAndEnforceCatalogPricing",
+        "fix(returns): unify return receipt creation and stock/ledger updates into a single atomic Firestore transaction with cumulative quantity enforcement",
+        "fix(admin): preserve stable returnId across transient retry failures in ادمن_2.HTML and bind window in ERROR_DETECTION_SYSTEM.js fetch wrappers",
+        "test(emulator): add real Cloud Firestore Emulator Rules suite (@firebase/rules-unit-testing) and real Chromium + Auth/Firestore Emulator E2E suite (playwright.emulator.config.js)",
+        "ci(gate): enforce real Firebase Emulator rules and browser E2E verification inside run-required-checks.js and release-gate.yml"
     ],
-    "layer": "Phase 2",
-    "phase": "Deep Root-Cause Remediation, Commerce Integrity & End-to-End System Integration"
+    "layer": "Phase 3",
+    "phase": "Post-PR #292 Commerce Integrity, Firestore Emulator Validation & Production Readiness"
 }

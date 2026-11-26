@@ -360,6 +360,7 @@ async function addCoupon(coupon) {
             minOrderAmount,
             minOrder: minOrderAmount,
             expiresAt: payload.expiresAt || null,
+            expiresAtMs: payload.expiresAt && Number.isFinite(Date.parse(payload.expiresAt)) ? Date.parse(payload.expiresAt) : null,
             usageLimit,
             maxUses: usageLimit,
             usedCount: Math.max(0, Number(payload.usedCount) || 0),
@@ -909,12 +910,17 @@ async function saveProductCommercial(productId, commercialData, options = {}) {
     }
 }
 
-async function getAllProducts() {
+async function getAllProducts(options = {}) {
     try {
         // WHY: always use Firestore directly for admin products.
-        const db = getFirebaseDB();
+        const db = (options && options.db) || getFirebaseDB();
         const snapshot = await db.collection('products').get();
-        const products = snapshot.docs.map(mapProductFromSnapshot);
+        const products = snapshot.docs.map(doc => {
+            const p = mapProductFromSnapshot(doc);
+            // Public products snapshot must not claim private commercial document is loaded
+            p._commercialLoaded = false;
+            return p;
+        });
         return products;
     } catch (e) {
         console.error('getAllProducts error:', e);
@@ -995,10 +1001,15 @@ async function recordInventoryMovement(params = {}, options = {}) {
         const movementId = String(params.movementId || `inv_${productId}_${idempotencyKey}`).trim();
         const referenceType = String(params.referenceType || 'manual').trim();
         const referenceId = String(params.referenceId || '').trim();
-        const operatorUid = (typeof firebase !== 'undefined' && firebase && typeof firebase.auth === 'function' && firebase.auth().currentUser && firebase.auth().currentUser.uid)
-            ? firebase.auth().currentUser.uid
-            : 'system';
-        const performedBy = String(params.performedBy || operatorUid).trim();
+        const authUser = getFirebaseAuthUserSafe();
+        const authUid = authUser ? String(authUser.uid || '').trim() : '';
+        const operatorUid = authUid
+            || (typeof firebase !== 'undefined' && firebase && typeof firebase.auth === 'function' && firebase.auth().currentUser && firebase.auth().currentUser.uid)
+            || (options && options.operatorUid)
+            || (options && options.systemUid)
+            || 'system';
+        // Actor Identity: Authenticated UID strictly takes precedence, blocking client spoofing
+        const performedBy = authUid ? authUid : String(params.performedBy || operatorUid).trim();
 
         const allowZeroDelta = params.allowZeroDelta === true;
         if (!productId) throw new Error('productId is required for inventory movement');
@@ -1290,25 +1301,79 @@ async function createReturnReceipt(receiptInput = {}, options = {}) {
         throw new Error(`Order ${orderId} not found.`);
     }
     const orderData = orderDoc.data() || {};
+    const orderItems = Array.isArray(orderData.items) ? orderData.items : [];
+    const returnedQuantitiesByLine = { ...(orderData.returnedQuantitiesByLine || {}) };
+
+    const orderItemsByLineId = new Map();
+    orderItems.forEach((oi, idx) => {
+        const lid = String(oi.lineId || `line_${idx}_${oi.productId || oi.id}`).trim();
+        orderItemsByLineId.set(lid, { ...oi, lineId: lid });
+    });
 
     const nowIso = new Date().toISOString();
-    const returnId = String(receiptInput.returnId || `ret_${orderId}_${Date.now()}`).trim();
+    const returnId = String(receiptInput.returnId || `ret_${orderId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`).trim();
     const validatedItems = [];
+    const seenReceiptLines = new Set();
 
     for (let i = 0; i < rawItems.length; i++) {
         const item = rawItems[i];
-        const lineId = String(item.lineId || `line_${i}_${item.productId || ''}`).trim();
+        if (!item || typeof item !== 'object') {
+            throw new Error(`Invalid return item at index ${i}`);
+        }
+        let lineId = String(item.lineId || '').trim();
         const productId = String(item.productId || item.id || '').trim();
-        if (!productId) {
+        if (!productId && !lineId) {
             throw new Error(`Return item at line ${i} is missing productId.`);
         }
+
+        // Match order line
+        let matchedLine = null;
+        if (lineId) {
+            matchedLine = orderItemsByLineId.get(lineId);
+            if (!matchedLine) {
+                throw new Error(`LineId "${lineId}" does not exist in order ${orderId}.`);
+            }
+        } else if (productId) {
+            // Find by productId if lineId omitted
+            for (const ol of orderItemsByLineId.values()) {
+                if (ol.productId === productId || ol.id === productId) {
+                    matchedLine = ol;
+                    lineId = ol.lineId;
+                    break;
+                }
+            }
+        }
+        if (!matchedLine) {
+            throw new Error(`LineId "${lineId || productId}" does not exist in order ${orderId}.`);
+        }
+        if (productId && matchedLine.productId !== productId && matchedLine.id !== productId) {
+            throw new Error(`Product ID mismatch for line "${lineId}": expected "${matchedLine.productId}", received "${productId}".`);
+        }
+
+        if (seenReceiptLines.has(lineId)) {
+            throw new Error(`Duplicate lineId "${lineId}" in return receipt.`);
+        }
+        seenReceiptLines.add(lineId);
+
+        const originalQty = Number(matchedLine.quantity !== undefined ? matchedLine.quantity : matchedLine.qty) || 0;
+        const previouslyReturned = Number(returnedQuantitiesByLine[lineId]) || 0;
+        const remainingReturnable = Math.max(0, originalQty - previouslyReturned);
+
         const requestedQty = Math.max(0, Math.floor(Number(item.requestedQty !== undefined ? item.requestedQty : item.quantity) || 0));
         const receivedQty = Math.max(0, Math.floor(Number(item.receivedQty !== undefined ? item.receivedQty : requestedQty) || 0));
-        const sellableQty = Math.max(0, Math.floor(Number(item.sellableQty !== undefined ? item.sellableQty : receivedQty) || 0));
+        const sellableQty = Math.max(0, Math.floor(Number(item.sellableQty !== undefined ? item.sellableQty : 0) || 0));
         const damagedQty = Math.max(0, Math.floor(Number(item.damagedQty !== undefined ? item.damagedQty : 0) || 0));
 
-        if (sellableQty + damagedQty > receivedQty) {
-            throw new Error(`Invalid return quantities for line "${lineId}": sellable (${sellableQty}) + damaged (${damagedQty}) exceeds received (${receivedQty}).`);
+        if (receivedQty <= 0) {
+            throw new Error(`Invalid received quantity for line "${lineId}": ${receivedQty}. Must be greater than zero.`);
+        }
+        if (receivedQty > remainingReturnable) {
+            throw new Error(`Received quantity (${receivedQty}) exceeds remaining returnable quantity (${remainingReturnable}) for line "${lineId}".`);
+        }
+
+        // Strict equation: sellableQty + damagedQty === receivedQty
+        if (sellableQty + damagedQty !== receivedQty) {
+            throw new Error(`Invalid return quantities for line "${lineId}": sellable (${sellableQty}) + damaged (${damagedQty}) must equal received (${receivedQty}).`);
         }
 
         let inspectionStatus = String(item.inspectionStatus || 'passed').trim().toLowerCase();
@@ -1318,27 +1383,21 @@ async function createReturnReceipt(receiptInput = {}, options = {}) {
 
         validatedItems.push({
             lineId,
-            productId,
-            name: String(item.name || '').trim(),
-            requestedQty,
+            productId: matchedLine.productId || productId,
+            name: String(item.name || matchedLine.name || '').trim(),
+            requestedQty: requestedQty || receivedQty,
             receivedQty,
             sellableQty,
             damagedQty,
             inspectionStatus,
+            condition: String(item.condition || inspectionStatus).trim(),
             notes: String(item.notes || '').trim()
         });
     }
 
-    let user = null;
-    try {
-        const auth = getFirebaseAuth();
-        user = auth && auth.currentUser ? auth.currentUser : null;
-    } catch (_) {}
-
-    const operatorUid = (options && options.operatorUid)
-        || (receiptInput.inspectedBy)
-        || (user && user.uid)
-        || 'admin';
+    const authUser = getFirebaseAuthUserSafe();
+    const authUid = authUser ? String(authUser.uid || '').trim() : '';
+    const operatorUid = authUid || (options && options.operatorUid) || (options && options.systemUid) || 'admin';
 
     const receiptDoc = {
         returnId,
@@ -1346,8 +1405,9 @@ async function createReturnReceipt(receiptInput = {}, options = {}) {
         uid: orderData.uid || '',
         items: validatedItems,
         returnReason: String(receiptInput.returnReason || receiptInput.reason || 'إرجاع منتجات بعد الشحن/التسليم').trim(),
-        receivedBy: String(receiptInput.receivedBy || operatorUid).trim(),
-        inspectedBy: String(receiptInput.inspectedBy || operatorUid).trim(),
+        receivedBy: operatorUid,
+        inspectedBy: operatorUid,
+        performedBy: operatorUid,
         status: 'pending_processing',
         createdAt: nowIso,
         updatedAt: nowIso
@@ -1355,6 +1415,408 @@ async function createReturnReceipt(receiptInput = {}, options = {}) {
 
     await db.collection('returns').doc(returnId).set(receiptDoc);
     return receiptDoc;
+}
+
+async function executeReturnReceiptTransaction(db, params = {}, options = {}) {
+    const mode = String(params.mode || 'create_and_process').trim();
+    const orderId = String(params.orderId || '').trim();
+    const returnId = String(params.returnId || '').trim();
+    const receiptInput = params.receiptInput && typeof params.receiptInput === 'object' ? params.receiptInput : {};
+    const initialRawItems = Array.isArray(params.rawItems) ? params.rawItems : [];
+
+    if (!db || typeof db.runTransaction !== 'function') {
+        throw new Error('Firestore instance with runTransaction is required for atomic return processing.');
+    }
+    if (!orderId) {
+        throw new Error('orderId is required to process return receipt.');
+    }
+    if (!returnId) {
+        throw new Error('returnId is required to process return receipt.');
+    }
+    if (!initialRawItems.length) {
+        throw new Error('Return receipt items list cannot be empty.');
+    }
+
+    const authUser = getFirebaseAuthUserSafe();
+    const authUid = authUser ? String(authUser.uid || '').trim() : '';
+    const operatorUid = authUid || (options && options.operatorUid) || (options && options.systemUid) || 'admin';
+    const allowedReturnOrderStatuses = new Set(['shipped', 'delivered', 'completed', 'partially_returned']);
+
+    return await db.runTransaction(async (transaction) => {
+        const orderRef = db.collection('orders').doc(orderId);
+        const returnRef = db.collection('returns').doc(returnId);
+
+        // ALL reads in Firestore runTransaction MUST occur before any writes.
+        const [orderSnap, returnSnap] = await Promise.all([
+            transaction.get(orderRef),
+            transaction.get(returnRef)
+        ]);
+
+        if (!orderSnap || !orderSnap.exists) {
+            throw new Error(`Order ${orderId} not found.`);
+        }
+        if (returnSnap && returnSnap.exists) {
+            const existingReceipt = returnSnap.data() || {};
+            if (existingReceipt.status === 'completed') {
+                const existingOrderData = orderSnap.data() || {};
+                return {
+                    success: true,
+                    duplicate: true,
+                    returnId,
+                    returnData: existingReceipt,
+                    receipt: existingReceipt,
+                    orderStatus: String(existingOrderData.status || ''),
+                    nextVersion: Number(existingOrderData.version || 0) || 1
+                };
+            }
+        } else if (mode === 'process_existing') {
+            throw new Error(`Return receipt ${returnId} not found.`);
+        }
+
+        const existingReturnData = returnSnap && returnSnap.exists ? (returnSnap.data() || {}) : null;
+        const effectiveRawItems = existingReturnData && Array.isArray(existingReturnData.items) && existingReturnData.items.length
+            ? existingReturnData.items
+            : initialRawItems;
+
+        const orderData = orderSnap.data() || {};
+        const orderStatus = String(orderData.status || '').trim().toLowerCase();
+        if (!allowedReturnOrderStatuses.has(orderStatus)) {
+            throw new Error(`Order ${orderId} status "${orderStatus || 'unknown'}" is not eligible for itemized return.`);
+        }
+
+        const orderItems = Array.isArray(orderData.items) ? orderData.items : [];
+        if (!orderItems.length) {
+            throw new Error(`Order ${orderId} has no items.`);
+        }
+
+        const returnedQuantitiesByLine = { ...(orderData.returnedQuantitiesByLine || {}) };
+        const orderItemsByLineId = new Map();
+        orderItems.forEach((oi, idx) => {
+            const lid = String(oi.lineId || `line_${idx}_${oi.productId || oi.id}`).trim();
+            orderItemsByLineId.set(lid, { ...oi, lineId: lid });
+        });
+
+        const validatedReceiptItems = [];
+        const seenReceiptLines = new Set();
+
+        for (let i = 0; i < effectiveRawItems.length; i++) {
+            const rItem = effectiveRawItems[i];
+            if (!rItem || typeof rItem !== 'object') {
+                throw new Error(`Invalid return item at index ${i}`);
+            }
+            let lineId = String(rItem.lineId || '').trim();
+            const pid = String(rItem.productId || rItem.id || '').trim();
+            if (!pid && !lineId) {
+                throw new Error(`Return item at index ${i} is missing lineId or productId.`);
+            }
+
+            let matchedOrderLine = null;
+            if (lineId) {
+                matchedOrderLine = orderItemsByLineId.get(lineId);
+                if (!matchedOrderLine) {
+                    throw new Error(`LineId "${lineId}" does not exist in order ${orderId}.`);
+                }
+            } else if (pid) {
+                for (const ol of orderItemsByLineId.values()) {
+                    if (ol.productId === pid || ol.id === pid) {
+                        matchedOrderLine = ol;
+                        lineId = ol.lineId;
+                        break;
+                    }
+                }
+            }
+            if (!matchedOrderLine) {
+                throw new Error(`LineId "${lineId || pid}" does not exist in order ${orderId}.`);
+            }
+            if (pid && matchedOrderLine.productId !== pid && matchedOrderLine.id !== pid) {
+                throw new Error(`Product ID mismatch for line "${lineId}": expected "${matchedOrderLine.productId}", received "${pid}".`);
+            }
+            if (seenReceiptLines.has(lineId)) {
+                throw new Error(`Duplicate lineId "${lineId}" in return receipt.`);
+            }
+            seenReceiptLines.add(lineId);
+
+            const originalQty = Number(matchedOrderLine.quantity !== undefined ? matchedOrderLine.quantity : matchedOrderLine.qty) || 0;
+            const previouslyReturned = Number(returnedQuantitiesByLine[lineId]) || 0;
+            const remainingReturnable = Math.max(0, originalQty - previouslyReturned);
+
+            const receivedQty = Math.floor(Number(rItem.receivedQty !== undefined ? rItem.receivedQty : rItem.quantity) || 0);
+            if (receivedQty <= 0) {
+                throw new Error(`Invalid receivedQty (${receivedQty}) for line "${lineId}". Must be a positive integer.`);
+            }
+            if (receivedQty > remainingReturnable) {
+                throw new Error(`Received quantity (${receivedQty}) exceeds remaining returnable quantity (${remainingReturnable}) for line "${lineId}".`);
+            }
+
+            const sellableQty = Math.floor(Number(rItem.sellableQty !== undefined ? rItem.sellableQty : 0) || 0);
+            const damagedQty = Math.floor(Number(rItem.damagedQty !== undefined ? rItem.damagedQty : 0) || 0);
+
+            if (sellableQty < 0 || damagedQty < 0) {
+                throw new Error(`Negative quantities not allowed for line "${lineId}".`);
+            }
+            if (sellableQty + damagedQty !== receivedQty) {
+                throw new Error(`Quantity equation failed for line "${lineId}": sellable (${sellableQty}) + damaged (${damagedQty}) must equal received (${receivedQty}).`);
+            }
+
+            const resolvedProductId = String(matchedOrderLine.productId || pid).trim();
+            const condition = String(rItem.condition || (damagedQty > 0 ? (sellableQty > 0 ? 'partially_damaged' : 'damaged') : 'sellable')).trim();
+            const reason = String(rItem.reason || rItem.returnReason || receiptInput.returnReason || 'فحص واستلام مرتجع').trim();
+
+            validatedReceiptItems.push({
+                lineId,
+                productId: resolvedProductId,
+                name: matchedOrderLine.name || rItem.name || '',
+                originalQty,
+                receivedQty,
+                sellableQty,
+                damagedQty,
+                condition,
+                reason,
+                inspectionStatus: damagedQty > 0 ? (sellableQty > 0 ? 'partial' : 'damaged') : 'sellable',
+                notes: String(rItem.notes || '').trim()
+            });
+        }
+
+        // Gather all unique product docs and ledger docs needed for this transaction BEFORE writing.
+        const uniqueProductIds = Array.from(new Set(validatedReceiptItems.map((it) => it.productId).filter(Boolean)));
+        const plannedMovements = [];
+        for (const vItem of validatedReceiptItems) {
+            if (vItem.sellableQty > 0) {
+                const idempotencyKey = `return_${returnId}_line_${vItem.lineId}_sellable`;
+                plannedMovements.push({
+                    movementId: `inv_${vItem.productId}_${idempotencyKey}`,
+                    idempotencyKey,
+                    productId: vItem.productId,
+                    quantity: vItem.sellableQty,
+                    delta: vItem.sellableQty,
+                    movementType: 'IN_ORDER_RETURNED',
+                    referenceType: 'return_receipt',
+                    referenceId: returnId,
+                    notes: `إرجاع مخزون صالح للبيع من المرتجع ${returnId} (الطلب: ${orderId})`
+                });
+            }
+            if (vItem.damagedQty > 0) {
+                const idempotencyKey = `return_${returnId}_line_${vItem.lineId}_damaged`;
+                plannedMovements.push({
+                    movementId: `inv_${vItem.productId}_${idempotencyKey}`,
+                    idempotencyKey,
+                    productId: vItem.productId,
+                    quantity: 0,
+                    delta: 0,
+                    movementType: 'OUT_DAMAGED_EXPIRED',
+                    referenceType: 'return_receipt',
+                    referenceId: returnId,
+                    notes: `تسجيل مرتجع تالف غير صالح للبيع من المرتجع ${returnId} (كمية تالفة: ${vItem.damagedQty})`
+                });
+            }
+        }
+
+        const productRefs = uniqueProductIds.map((pid) => db.collection('products').doc(pid));
+        const ledgerRefs = plannedMovements.map((pm) => db.collection('inventory_ledger').doc(pm.movementId));
+        const [productSnaps, ledgerSnaps] = await Promise.all([
+            Promise.all(productRefs.map((ref) => transaction.get(ref))),
+            Promise.all(ledgerRefs.map((ref) => transaction.get(ref)))
+        ]);
+
+        const productStateById = new Map();
+        uniqueProductIds.forEach((pid, idx) => {
+            const pSnap = productSnaps[idx];
+            if (!pSnap || !pSnap.exists) {
+                throw new Error(`Product not found: ${pid}`);
+            }
+            const pData = pSnap.data() || {};
+            productStateById.set(pid, {
+                ref: productRefs[idx],
+                initialStock: Number(pData.stock) || 0,
+                currentStock: Number(pData.stock) || 0,
+                changed: false
+            });
+        });
+
+        const nowIso = new Date().toISOString();
+        const movements = [];
+        const ledgerWrites = [];
+
+        plannedMovements.forEach((pm, idx) => {
+            const lSnap = ledgerSnaps[idx];
+            if (lSnap && lSnap.exists) {
+                const existing = lSnap.data() || {};
+                movements.push({
+                    success: true,
+                    duplicate: true,
+                    movementId: pm.movementId,
+                    beforeStock: existing.beforeStock,
+                    afterStock: existing.afterStock,
+                    quantity: existing.quantity !== undefined ? existing.quantity : existing.delta,
+                    delta: existing.delta !== undefined ? existing.delta : existing.quantity
+                });
+                return;
+            }
+
+            const pState = productStateById.get(pm.productId);
+            const beforeStock = pState.currentStock;
+            const afterStock = beforeStock + pm.delta;
+            pState.currentStock = afterStock;
+            if (pm.delta !== 0) {
+                pState.changed = true;
+            }
+
+            const movementRecord = {
+                movementId: pm.movementId,
+                productId: pm.productId,
+                quantity: pm.quantity,
+                delta: pm.delta,
+                movementType: pm.movementType,
+                referenceType: pm.referenceType,
+                referenceId: pm.referenceId,
+                idempotencyKey: pm.idempotencyKey,
+                performedBy: operatorUid,
+                beforeStock,
+                afterStock,
+                notes: pm.notes,
+                timestamp: nowIso,
+                createdAt: nowIso
+            };
+
+            ledgerWrites.push({ ref: ledgerRefs[idx], data: movementRecord });
+            movements.push({
+                success: true,
+                duplicate: false,
+                movementId: pm.movementId,
+                beforeStock,
+                afterStock,
+                quantity: pm.quantity,
+                delta: pm.delta
+            });
+        });
+
+        for (const vItem of validatedReceiptItems) {
+            returnedQuantitiesByLine[vItem.lineId] = (returnedQuantitiesByLine[vItem.lineId] || 0) + vItem.receivedQty;
+        }
+
+        // Test/fault-injection hook if explicitly provided inside options (runs before any transaction writes)
+        if (options && typeof options.beforeAtomicCommit === 'function') {
+            await options.beforeAtomicCommit({ returnId, orderId, validatedReceiptItems, plannedMovements });
+        }
+
+        // Write phase inside single atomic Firestore transaction
+        for (const lw of ledgerWrites) {
+            transaction.set(lw.ref, lw.data);
+        }
+
+        for (const [, pState] of productStateById.entries()) {
+            if (pState.changed) {
+                transaction.update(pState.ref, {
+                    stock: pState.currentStock,
+                    updatedAt: nowIso
+                });
+            }
+        }
+
+        const baseReceipt = existingReturnData || {
+            returnId,
+            orderId,
+            uid: orderData.uid || '',
+            items: validatedReceiptItems,
+            returnReason: String(receiptInput.returnReason || receiptInput.reason || 'إرجاع منتجات بعد الشحن/التسليم').trim(),
+            receivedBy: operatorUid,
+            inspectedBy: operatorUid,
+            performedBy: operatorUid,
+            createdAt: nowIso
+        };
+
+        const receiptDoc = {
+            ...baseReceipt,
+            returnId,
+            orderId,
+            uid: String(baseReceipt.uid || orderData.uid || ''),
+            inspectedBy: operatorUid,
+            performedBy: operatorUid,
+            status: 'completed',
+            updatedAt: nowIso,
+            processedAt: nowIso
+        };
+
+        if (existingReturnData) {
+            transaction.update(returnRef, {
+                status: 'completed',
+                processedAt: nowIso,
+                updatedAt: nowIso
+            });
+        } else {
+            transaction.set(returnRef, receiptDoc);
+        }
+
+        let totalOriginal = 0;
+        let totalReturned = 0;
+        orderItems.forEach((oi, idx) => {
+            const lid = String(oi.lineId || `line_${idx}_${oi.productId || oi.id}`).trim();
+            const oQty = Number(oi.quantity !== undefined ? oi.quantity : oi.qty) || 0;
+            totalOriginal += oQty;
+            totalReturned += (returnedQuantitiesByLine[lid] || 0);
+        });
+
+        const isFullyReturned = totalOriginal > 0 && totalReturned >= totalOriginal;
+        const nextOrderStatus = isFullyReturned ? 'returned' : 'partially_returned';
+        const returnReceiptIds = Array.isArray(orderData.returnReceiptIds) ? [...orderData.returnReceiptIds] : [];
+        if (!returnReceiptIds.includes(returnId)) {
+            returnReceiptIds.push(returnId);
+        }
+        const currentVersion = Number(orderData.version || 0);
+        const nextVersion = Number.isFinite(currentVersion) && currentVersion > 0 ? currentVersion + 1 : 1;
+
+        const orderUpdatePayload = {
+            returnReceiptId: returnId,
+            returnReceiptIds,
+            returnedQuantitiesByLine,
+            returnVerified: true,
+            inventoryReturnProcessed: true,
+            inventoryRestockDeferred: false,
+            inventoryStatus: 'completed',
+            status: nextOrderStatus,
+            version: nextVersion,
+            updatedAt: nowIso
+        };
+
+        transaction.set(orderRef, orderUpdatePayload, { merge: true });
+
+        return {
+            success: true,
+            duplicate: false,
+            returnId,
+            orderId,
+            orderStatus: nextOrderStatus,
+            isFullyReturned,
+            nextVersion,
+            movements,
+            receipt: receiptDoc
+        };
+    });
+}
+
+async function createAndProcessReturnReceipt(receiptInput = {}, options = {}) {
+    const db = (options && options.db) || getFirebaseDB();
+    const orderId = String(receiptInput.orderId || '').trim();
+    if (!orderId) {
+        throw new Error('orderId is required to process return receipt.');
+    }
+    const rawItems = Array.isArray(receiptInput.items) ? receiptInput.items : [];
+    if (!rawItems.length) {
+        throw new Error('Return receipt items list cannot be empty.');
+    }
+
+    const returnId = String(
+        receiptInput.returnId ||
+        `ret_${orderId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    ).trim();
+
+    return await executeReturnReceiptTransaction(db, {
+        mode: 'create_and_process',
+        returnId,
+        orderId,
+        rawItems,
+        receiptInput
+    }, options);
 }
 
 async function processReturnReceipt(returnId, options = {}) {
@@ -1368,104 +1830,49 @@ async function processReturnReceipt(returnId, options = {}) {
     }
     const returnData = returnDoc.data() || {};
     if (returnData.status === 'completed') {
-        return { success: true, duplicate: true, returnData };
+        return { success: true, duplicate: true, returnId: retId, returnData };
     }
 
     const items = Array.isArray(returnData.items) ? returnData.items : [];
     const orderId = String(returnData.orderId || '').trim();
-    const operatorUid = returnData.inspectedBy || 'admin';
-    const movements = [];
-    const nowIso = new Date().toISOString();
-
-    for (const item of items) {
-        const pid = item.productId;
-        const lineId = item.lineId;
-        const sellableQty = Number(item.sellableQty) || 0;
-        const damagedQty = Number(item.damagedQty) || 0;
-
-        // ONLY sellableQty is added back to available inventory
-        if (sellableQty > 0) {
-            const sellableRes = await recordInventoryMovement({
-                productId: pid,
-                quantity: sellableQty,
-                delta: sellableQty,
-                movementType: 'IN_ORDER_RETURNED',
-                referenceType: 'return_receipt',
-                referenceId: retId,
-                idempotencyKey: `return_${retId}_line_${lineId}_sellable`,
-                performedBy: operatorUid,
-                notes: `إرجاع مخزون صالح للبيع من المرتجع ${retId} (الطلب: ${orderId})`
-            }, options);
-            movements.push(sellableRes);
-        }
-
-        // damagedQty is logged in ledger as OUT_DAMAGED_EXPIRED without altering product stock
-        if (damagedQty > 0) {
-            const damagedRes = await recordInventoryMovement({
-                productId: pid,
-                quantity: 0,
-                delta: 0,
-                allowZeroDelta: true,
-                movementType: 'OUT_DAMAGED_EXPIRED',
-                referenceType: 'return_receipt',
-                referenceId: retId,
-                idempotencyKey: `return_${retId}_line_${lineId}_damaged`,
-                performedBy: operatorUid,
-                notes: `تسجيل مرتجع تالف غير صالح للبيع من المرتجع ${retId} (كمية تالفة: ${damagedQty})`
-            }, options);
-            movements.push(damagedRes);
-        }
+    if (!orderId) {
+        throw new Error(`Return receipt ${retId} is missing orderId.`);
     }
 
-    // Mark return receipt completed
-    await db.collection('returns').doc(retId).set({
-        status: 'completed',
-        processedAt: nowIso,
-        updatedAt: nowIso
-    }, { merge: true });
-
-    // Link back to order
-    if (orderId) {
-        await db.collection('orders').doc(orderId).set({
-            returnReceiptId: retId,
-            returnVerified: true,
-            inventoryReturnProcessed: true,
-            inventoryRestockDeferred: false,
-            inventoryStatus: 'completed',
-            updatedAt: nowIso
-        }, { merge: true });
-    }
-
-    return {
-        success: true,
+    return await executeReturnReceiptTransaction(db, {
+        mode: 'process_existing',
         returnId: retId,
-        movements
-    };
+        orderId,
+        rawItems: items,
+        receiptInput: returnData
+    }, {
+        ...options,
+        operatorUid: (options && options.operatorUid) || returnData.inspectedBy || 'admin'
+    });
 }
 
 async function verifyOrderReturnAndRestock(orderId, options = {}) {
-    const db = (options && options.db) || getFirebaseDB();
     const ordId = String(orderId || '').trim();
     if (!ordId) throw new Error('orderId is required.');
 
-    // If options.createReceipt === true and items are provided as a custom return receipt
-    if (options && options.createReceipt === true && Array.isArray(options.items)) {
-        const receipt = await createReturnReceipt({
+    // If options.createReceipt === true or options.items is provided, run itemized return inspection
+    if ((options && options.createReceipt === true && Array.isArray(options.items)) || (options && Array.isArray(options.items) && options.items.length > 0)) {
+        return await createAndProcessReturnReceipt({
             orderId: ordId,
             items: options.items,
             returnReason: options.returnReason || options.reason,
             receivedBy: options.receivedBy,
             inspectedBy: options.inspectedBy
         }, options);
-        await processReturnReceipt(receipt.returnId, options);
-        return await updateOrderStatus(ordId, 'cancelled', {
-            ...options,
-            returnVerified: true,
-            returnReceiptId: receipt.returnId,
-            skipInventoryRestock: true
-        });
     }
 
+    // Fail-closed in strict mode if requested
+    if (options && options.strictReceiptRequired === true) {
+        throw new Error(`Itemized return inspection items are required to verify return for order "${ordId}". Blind restock is prohibited.`);
+    }
+
+    // Legacy compatibility path for automated callers when itemized data is not supplied
+    console.warn(`[DEPRECATED] verifyOrderReturnAndRestock called for order ${ordId} without itemized receipt items. Using legacy restock path.`);
     return await updateOrderStatus(ordId, 'cancelled', {
         ...options,
         returnVerified: true
@@ -1808,6 +2215,7 @@ function normalizeOrderLineItems(rawItems = []) {
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
         throw new Error('Order items list is empty or invalid.');
     }
+    const seenLineIds = new Set();
     return rawItems.map((item, idx) => {
         if (!item || typeof item !== 'object') {
             throw new Error(`Invalid order item at index ${idx}`);
@@ -1826,7 +2234,15 @@ function normalizeOrderLineItems(rawItems = []) {
         if (!Number.isFinite(price) || price < 0) {
             throw new Error(`Invalid item price for product "${pid}" at line ${idx}: ${rawPrice}`);
         }
-        const lineId = String(item.lineId || `line_${idx}_${pid}`).trim();
+        let lineId = String(item.lineId || `line_${idx}_${pid}`).trim();
+        if (seenLineIds.has(lineId)) {
+            lineId = `${lineId}_dup_${idx}`;
+            while (seenLineIds.has(lineId)) {
+                lineId = `${lineId}_${Math.random().toString(36).substring(2, 6)}`;
+            }
+        }
+        seenLineIds.add(lineId);
+
         const name = String(item.name || item.title || '').trim();
         const lineTotal = Math.round(price * qty * 100) / 100;
 
@@ -1937,8 +2353,10 @@ async function appendOrderEvent(dbRef, eventType, orderPayload = {}, meta = {}) 
 async function appendAuditLog(dbRef, action, payload = {}) {
     // Trust boundary: audit logs are backend-owned.
     if (shouldUseBackendApi()) return null;
-    const auth = getFirebaseAuth();
-    const user = auth && auth.currentUser ? auth.currentUser : null;
+    let user = null;
+    try {
+        user = getFirebaseAuthUserSafe();
+    } catch (_) {}
     const row = {
         action: String(action || 'UNKNOWN_ACTION'),
         uid: String((payload && payload.uid) || (user && user.uid) || ''),
@@ -1972,17 +2390,288 @@ async function upsertOrderQueueDocument(dbRef, queueItem, status = 'queued', det
     return true;
 }
 
+async function verifyAndEnforceCatalogPricing(orderPayload = {}, options = {}) {
+    const dbRef = (options && options.db) || getFirebaseDB();
+    if (!dbRef || typeof dbRef.collection !== 'function') {
+        throw new Error('Database reference is required for authoritative catalog pricing verification.');
+    }
+
+    const payload = orderPayload && typeof orderPayload === 'object' ? { ...orderPayload } : {};
+    const rawItems = Array.isArray(payload.items) ? payload.items : [];
+    if (!rawItems.length) {
+        throw new Error('Order items list cannot be empty.');
+    }
+
+    let authoritativeSubtotal = 0;
+    const enforcedItems = [];
+    const seenLineIds = new Set();
+    const requestedQtyByProduct = new Map();
+    const productCache = new Map();
+
+    // Pre-aggregate requested quantities per productId so split lines cannot bypass stock limits
+    for (let i = 0; i < rawItems.length; i++) {
+        const item = rawItems[i];
+        if (!item || typeof item !== 'object') {
+            throw new Error(`Invalid order item at line ${i}`);
+        }
+        const pid = String(item.productId || item.id || '').trim();
+        if (!pid) {
+            throw new Error(`Order item at line ${i} is missing productId.`);
+        }
+        const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+        const qty = Number(rawQty);
+        if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+            throw new Error(`Invalid item quantity for product "${pid}" at line ${i}: ${rawQty}`);
+        }
+        requestedQtyByProduct.set(pid, (requestedQtyByProduct.get(pid) || 0) + qty);
+    }
+
+    for (let i = 0; i < rawItems.length; i++) {
+        const item = rawItems[i];
+        const pid = String(item.productId || item.id || '').trim();
+        const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+        const qty = Number(rawQty);
+
+        let lineId = String(item.lineId || `line_${i}_${pid}`).trim();
+        if (seenLineIds.has(lineId)) {
+            lineId = `${lineId}_dup_${i}`;
+            while (seenLineIds.has(lineId)) {
+                lineId = `${lineId}_${Math.random().toString(36).substring(2, 6)}`;
+            }
+        }
+        seenLineIds.add(lineId);
+
+        let pData = productCache.get(pid);
+        if (!pData) {
+            let pDoc;
+            try {
+                pDoc = await dbRef.collection('products').doc(pid).get();
+            } catch (err) {
+                const errMsg = err && err.message ? err.message : String(err || '');
+                const wrapped = new Error(`Catalog verification failed for product "${pid}": ${errMsg}`);
+                if (err && err.code) wrapped.code = err.code;
+                throw wrapped;
+            }
+
+            if (!pDoc || !pDoc.exists) {
+                throw new Error(`Product "${pid}" does not exist in catalog.`);
+            }
+            pData = pDoc.data() || {};
+            productCache.set(pid, pData);
+        }
+
+        if (pData.isPublished === false && options.allowUnpublished !== true) {
+            throw new Error(`Product "${pid}" is not available for purchase.`);
+        }
+
+        const catalogPrice = Number(pData.price);
+        if (!Number.isFinite(catalogPrice) || catalogPrice < 0) {
+            throw new Error(`Product "${pid}" has invalid catalog price.`);
+        }
+
+        if (options.skipStockCheck !== true && pData.trackInventory !== false) {
+            if (pData.stock === undefined || pData.stock === null || pData.stock === '' || !Number.isFinite(Number(pData.stock))) {
+                throw new Error(`Product "${pid}" has missing or non-numeric stock while inventory tracking is enabled.`);
+            }
+            const availableStock = Number(pData.stock);
+            const totalRequestedForPid = requestedQtyByProduct.get(pid) || qty;
+            if (availableStock < totalRequestedForPid) {
+                throw new Error(`Insufficient inventory for product "${pid}". Available: ${availableStock}, requested total: ${totalRequestedForPid}.`);
+            }
+        }
+
+        const pName = String(pData.name || item.name || item.title || '').trim();
+        const lineTotal = Math.round(catalogPrice * qty * 100) / 100;
+        authoritativeSubtotal += lineTotal;
+
+        enforcedItems.push({
+            ...item,
+            lineId,
+            productId: pid,
+            id: pid,
+            name: pName,
+            price: catalogPrice,
+            unitPrice: catalogPrice,
+            quantity: qty,
+            qty,
+            lineTotal
+        });
+    }
+
+    authoritativeSubtotal = Math.round(authoritativeSubtotal * 100) / 100;
+
+    // Shipping fee must be finite and non-negative
+    const rawShipping = payload.shipping !== undefined
+        ? payload.shipping
+        : (payload.shippingFee !== undefined ? payload.shippingFee : 0);
+    const parsedShipping = rawShipping === '' || rawShipping === null ? 0 : Number(rawShipping);
+    if (!Number.isFinite(parsedShipping) || parsedShipping < 0) {
+        throw new Error(`Invalid shipping fee: ${rawShipping}`);
+    }
+    const shipping = Math.round(parsedShipping * 100) / 100;
+
+    // Authoritative coupon verification (never trust client discount amount)
+    const rawCouponCode = payload.couponCode ? String(payload.couponCode).trim().toUpperCase() : '';
+    const rawCouponId = payload.couponId ? String(payload.couponId).trim() : '';
+    let discount = 0;
+    let resolvedCouponCode = payload.couponCode !== undefined ? payload.couponCode : null;
+    let resolvedCouponId = payload.couponId !== undefined ? payload.couponId : null;
+
+    if (rawCouponCode || rawCouponId) {
+        let couponSnap = null;
+        if (rawCouponId) {
+            const byId = await dbRef.collection('coupons').doc(rawCouponId).get();
+            if (byId && byId.exists) {
+                couponSnap = byId;
+            }
+        }
+        if (!couponSnap && rawCouponCode) {
+            const byCode = await dbRef.collection('coupons').where('code', '==', rawCouponCode).limit(1).get();
+            if (byCode && !byCode.empty) {
+                couponSnap = byCode.docs[0];
+            }
+        }
+        if (!couponSnap || !couponSnap.exists) {
+            throw new Error(`Coupon "${rawCouponCode || rawCouponId}" is invalid or does not exist.`);
+        }
+        const cData = couponSnap.data() || {};
+        if (rawCouponCode && String(cData.code || '').trim().toUpperCase() !== rawCouponCode) {
+            throw new Error(`Coupon code mismatch for "${rawCouponCode}".`);
+        }
+        const isActive = cData.active !== false && cData.isActive !== false && cData.status !== 'inactive';
+        if (!isActive) {
+            throw new Error(`Coupon "${cData.code || rawCouponCode}" is inactive.`);
+        }
+        if (cData.expiresAt && new Date(cData.expiresAt) < new Date()) {
+            throw new Error(`Coupon "${cData.code || rawCouponCode}" has expired.`);
+        }
+        const rawLimit = cData.usageLimit !== undefined ? cData.usageLimit : cData.maxUses;
+        const parsedLimit = Number(rawLimit);
+        const usageLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
+        if (usageLimit !== null && Number(cData.usedCount || 0) >= usageLimit) {
+            throw new Error(`Coupon "${cData.code || rawCouponCode}" has reached its usage limit.`);
+        }
+        const minOrder = Number(cData.minOrderAmount !== undefined ? cData.minOrderAmount : cData.minOrder) || 0;
+        if (minOrder > 0 && authoritativeSubtotal < minOrder) {
+            throw new Error(`Order subtotal (${authoritativeSubtotal}) does not meet coupon minimum (${minOrder}).`);
+        }
+        if (cData.type === 'percentage' || cData.type === 'percent') {
+            const pct = Math.max(0, Math.min(90, Number(cData.value !== undefined ? cData.value : cData.discount) || 0));
+            discount = Math.round(authoritativeSubtotal * (pct / 100) * 100) / 100;
+            const maxDisc = Number(cData.maxDiscount);
+            if (Number.isFinite(maxDisc) && maxDisc > 0) {
+                discount = Math.min(discount, Math.round(maxDisc * 100) / 100);
+            }
+        } else {
+            const fixedVal = Math.max(0, Number(cData.value !== undefined ? cData.value : cData.discount) || 0);
+            discount = Math.min(authoritativeSubtotal, Math.round(fixedVal * 100) / 100);
+        }
+        resolvedCouponCode = String(cData.code || rawCouponCode).trim().toUpperCase();
+        resolvedCouponId = String(couponSnap.id || rawCouponId).trim();
+    } else {
+        resolvedCouponCode = null;
+        resolvedCouponId = null;
+        discount = 0;
+    }
+
+    const totalAfterCoupon = Math.max(0, Math.round((authoritativeSubtotal - discount) * 100) / 100);
+
+    // Authoritative loyalty settings & points redemption verification
+    let loyaltyRate = 5;
+    let pointValue = 0.1;
+    try {
+        const sDoc = await dbRef.collection('settings').doc('store').get();
+        if (sDoc && sDoc.exists) {
+            const sData = sDoc.data() || {};
+            const loyalty = sData.loyalty || {};
+            if (Number.isFinite(Number(loyalty.rate)) && Number(loyalty.rate) >= 0) {
+                loyaltyRate = Number(loyalty.rate);
+            }
+            if (Number.isFinite(Number(loyalty.pointValue)) && Number(loyalty.pointValue) > 0) {
+                pointValue = Number(loyalty.pointValue);
+            }
+        }
+    } catch (_) {}
+
+    const requestedUsedPoints = Math.max(0, Math.floor(Number(payload.usedPoints) || 0));
+    let usedPoints = 0;
+    let pointsDiscount = 0;
+
+    if (requestedUsedPoints > 0) {
+        const custUid = String(payload.uid || '').trim();
+        if (!custUid) {
+            throw new Error('Customer UID is required to redeem loyalty points.');
+        }
+        const custSnap = await dbRef.collection('customers').doc(custUid).get();
+        if (!custSnap || !custSnap.exists) {
+            throw new Error('Customer profile not found for loyalty points redemption.');
+        }
+        const custData = custSnap.data() || {};
+        const availablePoints = Math.max(0, Math.floor(Number(custData.loyaltyPoints) || 0));
+        if (requestedUsedPoints > availablePoints) {
+            throw new Error(`Requested loyalty points (${requestedUsedPoints}) exceed available balance (${availablePoints}).`);
+        }
+        const maxDiscountFromPoints = Math.round(requestedUsedPoints * pointValue * 100) / 100;
+        pointsDiscount = Math.min(totalAfterCoupon, maxDiscountFromPoints);
+        usedPoints = Math.ceil(pointsDiscount / pointValue);
+    }
+
+    const authoritativeTotal = Math.max(
+        0,
+        Math.round((authoritativeSubtotal - discount - pointsDiscount + shipping) * 100) / 100
+    );
+    const earnedPoints = Math.min(authoritativeTotal, Math.floor(authoritativeTotal * (loyaltyRate / 100)));
+
+    const result = {
+        ...payload,
+        items: enforcedItems,
+        subtotal: authoritativeSubtotal,
+        discount,
+        couponCode: resolvedCouponCode,
+        couponId: resolvedCouponId,
+        usedPoints,
+        pointsDiscount,
+        earnedPoints,
+        total: authoritativeTotal
+    };
+    if (payload.shipping !== undefined) result.shipping = shipping;
+    if (payload.shippingFee !== undefined) result.shippingFee = shipping;
+    return result;
+}
+
 async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
     // WHY: Spark plan has no backend API, so order persistence must be Firestore-direct.
-    const fireDB = dbRef || getFirebaseDB();
-    const payload = orderPayload && typeof orderPayload === 'object' ? { ...orderPayload } : {};
+    // Support both persistOrderOnline(orderPayload, meta) and persistOrderOnline(dbRef, orderPayload, meta)
+    let fireDB = dbRef;
+    let payload = orderPayload;
+    if (dbRef && typeof dbRef.collection !== 'function') {
+        meta = orderPayload || {};
+        payload = dbRef;
+        fireDB = (typeof getFirebaseDB === 'function' ? getFirebaseDB() : null) || (typeof window !== 'undefined' ? window.db : null);
+    } else {
+        fireDB = dbRef || (typeof getFirebaseDB === 'function' ? getFirebaseDB() : null) || (typeof window !== 'undefined' ? window.db : null);
+    }
+    payload = payload && typeof payload === 'object' ? { ...payload } : {};
+
+    // Authoritative catalog price and line verification before persistence
+    if (meta && meta.skipCatalogPriceEnforcement !== true && Array.isArray(payload.items) && payload.items.length > 0) {
+        try {
+            payload = await verifyAndEnforceCatalogPricing(payload, { db: fireDB });
+        } catch (priceErr) {
+            console.error('[Admin Authoritative Execution] Catalog price verification failed in persistOrderOnline:', priceErr);
+            throw priceErr;
+        }
+    }
+
     const nowIso = new Date().toISOString();
     const idempotencyKey = String(payload.idempotencyKey || '').trim();
+    const useOrderIntent = Array.isArray(payload.items) && payload.items.length > 3 && !(meta && meta.forceOrdersCollection === true);
+    const targetCollection = useOrderIntent ? 'order_intents' : 'orders';
 
     if (idempotencyKey) {
         const existingSnapshot = await fireDB
-            .collection('orders')
-            // Scope duplicate checks to the signed-in customer so the query satisfies order read rules.
+            .collection(targetCollection)
+            // Scope duplicate checks to the signed-in customer so the query satisfies read rules.
             .where('uid', '==', String(payload.uid || '').trim())
             .where('idempotencyKey', '==', idempotencyKey)
             .limit(1)
@@ -1992,7 +2681,8 @@ async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
             const existingData = existingDoc.data() || {};
             return {
                 id: String(existingDoc.id || ''),
-                status: String(existingData.status || 'saved'),
+                status: String(existingData.status || (useOrderIntent ? 'pending_review' : 'saved')),
+                isOrderIntent: useOrderIntent,
                 duplicate: true,
                 queued: false
             };
@@ -2005,6 +2695,24 @@ async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
     payload.updatedAt = nowIso;
     payload.createdAt = String(payload.createdAt || nowIso);
 
+    if (useOrderIntent) {
+        const intentPayload = {
+            ...payload,
+            status: 'pending_review',
+            commercialVerified: false,
+            requiresAdminReview: true,
+            intentType: 'multi_item_checkout'
+        };
+        await fireDB.collection('order_intents').doc(orderId).set(intentPayload, { merge: true });
+        return {
+            id: orderId,
+            status: 'pending_review',
+            isOrderIntent: true,
+            duplicate: false,
+            queued: false
+        };
+    }
+
     await fireDB.collection('orders').doc(orderId).set(payload, { merge: true });
     await appendOrderEvent(fireDB, 'ORDER_CREATED', payload, {
         source: String(meta && meta.source || payload.source || 'store-web'),
@@ -2015,6 +2723,8 @@ async function persistOrderOnline(dbRef, orderPayload, meta = {}) {
         scope: 'orders',
         uid: String(payload.uid || ''),
         details: { syncState: payload.syncState }
+    }).catch((auditError) => {
+        console.warn('persistOrderOnline audit log warning:', auditError && auditError.message ? auditError.message : auditError);
     });
     await createCustomerOrderNotifications(payload, {
         createdByRole: 'customer',
@@ -2229,22 +2939,68 @@ async function getOrdersByCustomerUid(uid = '', limitCount = 50) {
         const normalizedUid = String(uid || '').trim();
         if (!normalizedUid) return [];
         const safeLimit = Math.max(1, Math.min(200, Number(limitCount) || 50));
-        const snapshot = await dbRef
-            .collection('orders')
-            .where('uid', '==', normalizedUid)
-            .limit(safeLimit)
-            .get();
-        const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const [ordersSnap, intentsSnap] = await Promise.all([
+            dbRef.collection('orders').where('uid', '==', normalizedUid).limit(safeLimit).get(),
+            dbRef.collection('order_intents').where('uid', '==', normalizedUid).limit(safeLimit).get().catch(() => ({ docs: [] }))
+        ]);
+        const orderRows = (ordersSnap && ordersSnap.docs ? ordersSnap.docs : []).map((doc) => ({ id: doc.id, ...doc.data() }));
+        const intentRows = (intentsSnap && intentsSnap.docs ? intentsSnap.docs : [])
+            .map((doc) => ({ id: doc.id, isOrderIntent: true, ...doc.data() }))
+            .filter((row) => String(row.status || '').trim().toLowerCase() !== 'promoted');
+        const rows = [...orderRows, ...intentRows];
         rows.sort((a, b) => {
             const aTime = Date.parse(String(a && a.createdAt || '')) || 0;
             const bTime = Date.parse(String(b && b.createdAt || '')) || 0;
             return bTime - aTime;
         });
-        return rows;
+        return rows.slice(0, safeLimit);
     } catch (error) {
         console.error('getOrdersByCustomerUid error:', error);
         return [];
     }
+}
+
+async function approveOrderIntent(intentId, options = {}) {
+    const normalizedId = String(intentId || '').trim();
+    if (!normalizedId) throw new Error('intentId is required');
+    if (!options || (options.skipAdminAuthCheck !== true && options.bypassAdminCheck !== true)) {
+        await ensureAdminSessionForOrderWrite();
+    }
+    const dbRef = (options && options.db) ? options.db : getFirebaseDB();
+    const intentRef = dbRef.collection('order_intents').doc(normalizedId);
+    const intentSnap = await intentRef.get();
+    if (!intentSnap || !intentSnap.exists) {
+        throw new Error(`Order intent "${normalizedId}" not found.`);
+    }
+    const intentData = intentSnap.data() || {};
+    if (String(intentData.status || '').toLowerCase() === 'promoted' && intentData.promotedOrderId) {
+        return { id: String(intentData.promotedOrderId), duplicate: true };
+    }
+    const verifiedOrder = await verifyAndEnforceCatalogPricing({
+        ...intentData,
+        status: 'pending',
+        version: 1
+    }, { db: dbRef });
+    delete verifiedOrder.commercialVerified;
+    delete verifiedOrder.requiresAdminReview;
+    delete verifiedOrder.intentType;
+
+    const nowIso = new Date().toISOString();
+    const orderPayload = {
+        ...verifiedOrder,
+        id: normalizedId,
+        status: 'pending',
+        updatedAt: nowIso,
+        createdAt: String(intentData.createdAt || nowIso),
+        version: 1
+    };
+    await dbRef.collection('orders').doc(normalizedId).set(orderPayload, { merge: true });
+    await intentRef.set({
+        status: 'promoted',
+        promotedOrderId: normalizedId,
+        promotedAt: nowIso
+    }, { merge: true });
+    return { id: normalizedId, status: 'pending', duplicate: false };
 }
 
 async function addOrder(order, options = {}) {
@@ -2539,12 +3295,15 @@ async function updateOrderStatus(id, status, options = {}) {
         if (deductionStatuses.includes(nextStatus) && current.inventoryDeducted !== true) {
             let allDeducted = true;
             let deductionError = null;
+            const seenLoopLineKeys = new Set();
+            let completedLineCount = 0;
 
             for (let i = 0; i < rawItems.length; i++) {
                 const item = rawItems[i];
                 const pid = String(item.productId || item.id || '').trim();
-                const itemKey = String(item.lineId || item.id || item.productId || ('item_' + i)).trim();
-                const lineId = String(item.lineId || `line_${i}_${pid}`).trim();
+                const rawLineId = String(item.lineId || `line_${i}_${pid}`).trim();
+                const deductKey = seenLoopLineKeys.has(rawLineId) ? `${rawLineId}__idx_${i}` : rawLineId;
+                seenLoopLineKeys.add(deductKey);
                 const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
                 const qty = Number(rawQty);
 
@@ -2553,8 +3312,9 @@ async function updateOrderStatus(id, status, options = {}) {
                 }
 
                 // Check per-line tracking: avoid double-deduction on retry
-                const alreadyDeducted = deductedLineIds.includes(itemKey) || deductedLineIds.includes(lineId);
+                const alreadyDeducted = deductedLineIds.includes(deductKey);
                 if (alreadyDeducted) {
+                    completedLineCount++;
                     continue;
                 }
 
@@ -2566,21 +3326,19 @@ async function updateOrderStatus(id, status, options = {}) {
                         movementType: 'OUT_ORDER_CONFIRMED',
                         referenceType: 'order',
                         referenceId: orderId,
-                        idempotencyKey: `order_${orderId}_item_${itemKey}_deduct`,
+                        idempotencyKey: `order_${orderId}_item_${deductKey}_deduct`,
                         performedBy: operatorUid,
-                        notes: `خصم مخزون للبند ${itemKey} (منتج: ${pid}) للطلب ${orderId}`
+                        notes: `خصم مخزون للبند ${deductKey} (منتج: ${pid}) للطلب ${orderId}`
                     }, options);
 
-                    if (!deductedLineIds.includes(itemKey)) {
-                        deductedLineIds.push(itemKey);
+                    if (!deductedLineIds.includes(deductKey)) {
+                        deductedLineIds.push(deductKey);
                     }
-                    if (lineId && !deductedLineIds.includes(lineId)) {
-                        deductedLineIds.push(lineId);
-                    }
+                    completedLineCount++;
                 } catch (invErr) {
                     allDeducted = false;
                     deductionError = invErr;
-                    console.error(`Inventory deduction failure for line ${lineId} (product ${pid}) in order ${orderId}:`, invErr);
+                    console.error(`Inventory deduction failure for line ${deductKey} (product ${pid}) in order ${orderId}:`, invErr);
                     break;
                 }
             }
@@ -2588,7 +3346,7 @@ async function updateOrderStatus(id, status, options = {}) {
             updatePayload.deductedLineIds = deductedLineIds;
             updatePayload.deductedItemIds = deductedLineIds;
 
-            if (!allDeducted || deductionError) {
+            if (!allDeducted || deductionError || completedLineCount !== rawItems.length) {
                 const failurePayload = {
                     ...updatePayload,
                     status: previousStatus || 'pending',
@@ -2597,7 +3355,7 @@ async function updateOrderStatus(id, status, options = {}) {
                     inventoryDeductionError: String(deductionError && deductionError.message || deductionError || 'Inventory deduction failed')
                 };
                 await docRef.set(failurePayload, { merge: true });
-                throw deductionError || new Error(`Failed to deduct inventory for order ${orderId}`);
+                throw deductionError || new Error(`Failed to deduct inventory for all lines in order ${orderId}`);
             }
 
             // ALL items deducted successfully
@@ -2607,13 +3365,19 @@ async function updateOrderStatus(id, status, options = {}) {
         } else if (nextStatus === 'cancelled' && (current.inventoryDeducted === true || deductedLineIds.length > 0) && current.inventoryRestocked !== true && (options && options.skipInventoryRestock !== true)) {
             const wasFulfilled = fulfilledStatuses.includes(previousStatus);
             const isReturnVerified = current.returnVerified === true || (options && options.returnVerified === true);
+            const hasReturnReceipt = Boolean(options && (options.returnReceiptId || options.receiptId));
 
-            if (wasFulfilled && !isReturnVerified) {
-                console.warn(`Skipping automatic inventory restock for order ${orderId}: previous status was '${previousStatus}' (fulfilled) and return is not verified.`);
+            if (wasFulfilled && !isReturnVerified && !hasReturnReceipt) {
+                console.warn(`Skipping automatic inventory restock for order ${orderId}: previous status was '${previousStatus}' (fulfilled) and requires an itemized return receipt.`);
                 updatePayload.inventoryRestockSkipped = true;
                 updatePayload.inventoryRestockDeferred = true;
                 updatePayload.inventoryStatus = 'requires_manual_review';
                 updatePayload.inventoryRestockReason = `POST_FULFILLMENT_REQUIRES_RETURN_RECEIPT (was: ${previousStatus})`;
+            } else if (wasFulfilled && hasReturnReceipt) {
+                // Itemized return receipt already processed sellable/damaged inventory movements
+                updatePayload.inventoryReturnProcessed = true;
+                updatePayload.inventoryRestockDeferred = false;
+                updatePayload.inventoryStatus = 'completed';
             } else {
                 const restockMovementType = isReturnVerified ? 'IN_ORDER_RETURNED' : 'IN_ORDER_CANCELLED';
                 let allRestocked = true;
@@ -2706,6 +3470,7 @@ async function updateOrderStatus(id, status, options = {}) {
                 if (couponDocRef) {
                     let limitExceeded = false;
                     let incremented = false;
+                    let txUpdatedOrderVersion = null;
 
                     await dbRef.runTransaction(async (t) => {
                         const [orderSnapshot, cDocSnap] = await Promise.all([t.get(docRef), t.get(couponDocRef)]);
@@ -2713,6 +3478,8 @@ async function updateOrderStatus(id, status, options = {}) {
                             throw new Error(`Order ${orderId} not found in transaction`);
                         }
                         const orderData = orderSnapshot.data() || {};
+                        const txCurVer = Number(orderData.version || 0);
+                        const txNextVer = Number.isFinite(txCurVer) && txCurVer > 0 ? txCurVer + 1 : 1;
 
                         // Idempotency check: abort if already incremented by concurrent confirmation
                         if (orderData.couponUsageIncremented === true || orderData.couponIncremented === true) {
@@ -2723,20 +3490,25 @@ async function updateOrderStatus(id, status, options = {}) {
                             t.set(docRef, {
                                 couponLimitExceeded: true,
                                 couponLimitExceededReason: 'coupon_not_found',
-                                couponLimitExceededAt: nowIso
+                                couponLimitExceededAt: nowIso,
+                                version: txNextVer
                             }, { merge: true });
+                            txUpdatedOrderVersion = txNextVer;
                             limitExceeded = true;
                             return;
                         }
 
                         const cData = cDocSnap.data() || {};
-                        const isActive = cData.active !== false && cData.isActive !== false;
-                        if (!isActive) {
+                        const isActive = cData.active !== false && cData.isActive !== false && cData.status !== 'inactive';
+                        const isExpired = cData.expiresAt && new Date(cData.expiresAt) < new Date();
+                        if (!isActive || isExpired) {
                             t.set(docRef, {
                                 couponLimitExceeded: true,
-                                couponLimitExceededReason: 'inactive',
-                                couponLimitExceededAt: nowIso
+                                couponLimitExceededReason: isExpired ? 'expired' : 'inactive',
+                                couponLimitExceededAt: nowIso,
+                                version: txNextVer
                             }, { merge: true });
+                            txUpdatedOrderVersion = txNextVer;
                             limitExceeded = true;
                             return;
                         }
@@ -2751,8 +3523,10 @@ async function updateOrderStatus(id, status, options = {}) {
                             t.set(docRef, {
                                 couponLimitExceeded: true,
                                 couponLimitExceededReason: 'limit_exceeded',
-                                couponLimitExceededAt: nowIso
+                                couponLimitExceededAt: nowIso,
+                                version: txNextVer
                             }, { merge: true });
+                            txUpdatedOrderVersion = txNextVer;
                             limitExceeded = true;
                             return;
                         }
@@ -2768,16 +3542,20 @@ async function updateOrderStatus(id, status, options = {}) {
                             couponIncremented: true,
                             couponUsageIncremented: true,
                             couponIncrementedAt: nowIso,
-                            couponUsageIncrementedAt: nowIso
+                            couponUsageIncrementedAt: nowIso,
+                            version: txNextVer
                         }, { merge: true });
+                        txUpdatedOrderVersion = txNextVer;
 
                         incremented = true;
                     });
 
+                    if (txUpdatedOrderVersion !== null) {
+                        updatePayload.version = txUpdatedOrderVersion + 1;
+                    }
+
                     if (limitExceeded) {
-                        updatePayload.couponLimitExceeded = true;
-                        updatePayload.couponLimitExceededAt = nowIso;
-                        console.warn(`[COUPON] Order ${orderId} coupon limit reached or inactive. Aborted increment.`);
+                        throw new Error(`Coupon "${current.couponCode || current.couponId}" for order ${orderId} is inactive, expired, or reached its usage limit.`);
                     } else if (incremented) {
                         updatePayload.couponIncremented = true;
                         updatePayload.couponUsageIncremented = true;
@@ -2785,13 +3563,16 @@ async function updateOrderStatus(id, status, options = {}) {
                         updatePayload.couponUsageIncrementedAt = nowIso;
                     }
                 } else {
-                    console.warn(`[COUPON] Coupon not found for order ${orderId} with code: ${current.couponCode}`);
-                    updatePayload.couponLimitExceeded = true;
-                    updatePayload.couponLimitExceededReason = 'coupon_not_found';
-                    updatePayload.couponLimitExceededAt = nowIso;
+                    await docRef.set({
+                        couponLimitExceeded: true,
+                        couponLimitExceededReason: 'coupon_not_found',
+                        couponLimitExceededAt: nowIso
+                    }, { merge: true }).catch(() => null);
+                    throw new Error(`Coupon "${current.couponCode || current.couponId}" not found for order ${orderId}; cannot confirm discounted order.`);
                 }
             } catch (cErr) {
-                console.warn('Coupon usage increment warning:', cErr);
+                console.error('Coupon usage increment failed:', cErr);
+                throw cErr;
             }
         } else if (nextStatus === 'cancelled' && (current.couponIncremented === true || current.couponUsageIncremented === true) && current.couponRestored !== true) {
             // Restore coupon usage count when order is cancelled
@@ -2808,11 +3589,14 @@ async function updateOrderStatus(id, status, options = {}) {
                 }
 
                 if (couponDocRef) {
+                    let txRestoreVersion = null;
                     await dbRef.runTransaction(async (t) => {
                         const [orderSnapshot, cDocSnap] = await Promise.all([t.get(docRef), t.get(couponDocRef)]);
                         if (!orderSnapshot.exists) return;
                         const orderData = orderSnapshot.data() || {};
                         if (orderData.couponRestored === true) return;
+                        const txCurVer = Number(orderData.version || 0);
+                        const txNextVer = Number.isFinite(txCurVer) && txCurVer > 0 ? txCurVer + 1 : 1;
 
                         if (cDocSnap.exists) {
                             const cData = cDocSnap.data() || {};
@@ -2825,9 +3609,14 @@ async function updateOrderStatus(id, status, options = {}) {
 
                         t.set(docRef, {
                             couponRestored: true,
-                            couponRestoredAt: nowIso
+                            couponRestoredAt: nowIso,
+                            version: txNextVer
                         }, { merge: true });
+                        txRestoreVersion = txNextVer;
                     });
+                    if (txRestoreVersion !== null) {
+                        updatePayload.version = txRestoreVersion + 1;
+                    }
                     updatePayload.couponRestored = true;
                     updatePayload.couponRestoredAt = nowIso;
                 }
@@ -2852,28 +3641,32 @@ async function updateOrderStatus(id, status, options = {}) {
                             // Already deducted in ledger! Prevent duplicate deduction
                             return;
                         }
-                        if (cSnap && cSnap.exists) {
-                            const cData = cSnap.data() || {};
-                            const prevPts = Number(cData.loyaltyPoints) || 0;
-                            const actualDeduction = Math.min(prevPts, pointsToDeduct);
-                            const nextPts = Math.max(0, prevPts - actualDeduction);
-                            t.update(custRef, { loyaltyPoints: nextPts, updatedAt: nowIso });
-                            t.set(lRef, {
-                                ledgerId: redeemLedgerId,
-                                orderId,
-                                delta: -actualDeduction,
-                                reason: 'ORDER_REDEMPTION_DEDUCT',
-                                beforePoints: prevPts,
-                                afterPoints: nextPts,
-                                timestamp: nowIso
-                            });
+                        if (!cSnap || !cSnap.exists) {
+                            throw new Error(`Customer "${orderUid}" not found for loyalty points deduction on order ${orderId}.`);
                         }
+                        const cData = cSnap.data() || {};
+                        const prevPts = Number(cData.loyaltyPoints) || 0;
+                        if (prevPts < pointsToDeduct) {
+                            throw new Error(`Insufficient loyalty points (${prevPts} < ${pointsToDeduct}) for order ${orderId}.`);
+                        }
+                        const nextPts = Math.max(0, prevPts - pointsToDeduct);
+                        t.update(custRef, { loyaltyPoints: nextPts, updatedAt: nowIso });
+                        t.set(lRef, {
+                            ledgerId: redeemLedgerId,
+                            orderId,
+                            delta: -pointsToDeduct,
+                            reason: 'ORDER_REDEMPTION_DEDUCT',
+                            beforePoints: prevPts,
+                            afterPoints: nextPts,
+                            timestamp: nowIso
+                        });
                     });
                 }
                 updatePayload.pointsDeducted = true;
                 updatePayload.pointsDeductedAt = nowIso;
             } catch (deductErr) {
-                console.warn('[Admin Authoritative Execution] Loyalty points deduction warning:', deductErr);
+                console.error('[Admin Authoritative Execution] Loyalty points deduction failed:', deductErr);
+                throw deductErr;
             }
         }
 
@@ -3843,8 +4636,11 @@ if (typeof window !== 'undefined') {
     window.bulkAdjustStockExcel = bulkAdjustStockExcel;
     window.createReturnReceipt = createReturnReceipt;
     window.processReturnReceipt = processReturnReceipt;
+    window.createAndProcessReturnReceipt = createAndProcessReturnReceipt;
     window.verifyOrderReturnAndRestock = verifyOrderReturnAndRestock;
     window.normalizeOrderLineItems = normalizeOrderLineItems;
+    window.verifyAndEnforceCatalogPricing = verifyAndEnforceCatalogPricing;
+    window.persistOrderOnline = persistOrderOnline;
 }
 
 function verifyOrderCommercialPricing(order = {}, productsMap = new Map(), coupon = null, customerPoints = 0) {
@@ -3993,11 +4789,15 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports.bulkAdjustStockExcel = bulkAdjustStockExcel;
     module.exports.createReturnReceipt = createReturnReceipt;
     module.exports.processReturnReceipt = processReturnReceipt;
+    module.exports.createAndProcessReturnReceipt = createAndProcessReturnReceipt;
     module.exports.verifyOrderReturnAndRestock = verifyOrderReturnAndRestock;
     module.exports.normalizeOrderLineItems = normalizeOrderLineItems;
     module.exports.mapProductFromSnapshot = mapProductFromSnapshot;
     module.exports.buildProductSearchTokens = buildProductSearchTokens;
     module.exports.verifyOrderCommercialPricing = verifyOrderCommercialPricing;
+    module.exports.verifyAndEnforceCatalogPricing = verifyAndEnforceCatalogPricing;
+    module.exports.persistOrderOnline = persistOrderOnline;
+    module.exports.approveOrderIntent = approveOrderIntent;
 }
 
 // ==========================================

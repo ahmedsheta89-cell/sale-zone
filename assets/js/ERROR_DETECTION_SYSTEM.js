@@ -256,19 +256,20 @@ class ErrorDetectionSystem {
         }
         
         // اعتراض استدعاءات Firebase فقط في بيئة التطوير
-        const originalFetch = window.fetch;
+        const originalFetch = window.fetch.bind(window);
         window.fetch = async (...args) => {
             const startTime = performance.now();
+            const reqUrl = typeof args[0] === 'string' ? args[0] : String((args[0] && args[0].url) || '');
             
             try {
-                const response = await originalFetch.apply(this, args);
+                const response = await originalFetch(...args);
                 
                 // مراقبة استدعاءات Firebase فقط
-                if (args[0]?.includes('firebaseio') || args[0]?.includes('googleapis')) {
+                if (reqUrl.includes('firebaseio') || reqUrl.includes('googleapis')) {
                     const endTime = performance.now();
                     this.logFirebaseCall({
-                        url: args[0],
-                        method: args[1]?.method || 'GET',
+                        url: reqUrl,
+                        method: (args[1] && args[1].method) || (args[0] && args[0].method) || 'GET',
                         duration: endTime - startTime,
                         status: response.status,
                         timestamp: new Date().toISOString()
@@ -278,11 +279,11 @@ class ErrorDetectionSystem {
                 return response;
             } catch (error) {
                 // تسجيل أخطاء Firebase فقط
-                if (args[0]?.includes('firebaseio') || args[0]?.includes('googleapis')) {
+                if (reqUrl.includes('firebaseio') || reqUrl.includes('googleapis')) {
                     this.logError({
                         type: 'FIREBASE_ERROR',
                         message: error.message,
-                        url: args[0],
+                        url: reqUrl,
                         timestamp: new Date().toISOString()
                     });
                 }
@@ -323,10 +324,10 @@ class ErrorDetectionSystem {
             if (navigator.userAgent.includes('Safari')) {
                 
                 // مراقبة مشاكل fetch في Safari
-                const originalFetch = window.fetch;
+                const originalFetch = window.fetch.bind(window);
                 window.fetch = async (...args) => {
                     try {
-                        const response = await originalFetch.apply(this, args);
+                        const response = await originalFetch(...args);
                         return response;
                     } catch (error) {
                         if (error.message.includes('Network request failed')) {
@@ -334,7 +335,7 @@ class ErrorDetectionSystem {
                                 type: 'SAFARI_NETWORK_ERROR',
                                 message: 'Safari network error: ' + error.message,
                                 device: 'iOS/Safari',
-                                url: args[0],
+                                url: typeof args[0] === 'string' ? args[0] : String((args[0] && args[0].url) || ''),
                                 timestamp: new Date().toISOString()
                             });
                         }
